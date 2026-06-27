@@ -1,5 +1,6 @@
 import { signIn, signOut, getSession, onAuthStateChange } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
+import { initCalendar, refreshCalendar } from "./calendar.js";
 
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
@@ -45,11 +46,14 @@ function showLogin() {
   appScreen.hidden   = true;
 }
 
-function showApp(session) {
+async function showApp(session) {
   loginScreen.hidden = true;
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;
-  loadEvents();
+  await Promise.all([
+    initCalendar(document.getElementById("calendar-container")),
+    loadEvents(),
+  ]);
 }
 
 loginBtn.addEventListener("click", async () => {
@@ -153,7 +157,7 @@ eventForm.addEventListener("submit", async (e) => {
       await createEvent(fields);
     }
     clearForm();
-    await loadEvents();
+    await Promise.all([loadEvents(), refreshCalendar()]);
   } catch (err) {
     formError.textContent = err.message || "Erro ao salvar.";
   } finally {
@@ -230,7 +234,7 @@ async function handleDelete(id, card) {
   card.style.opacity = ".4";
   try {
     await deleteEvent(id);
-    await loadEvents();
+    await Promise.all([loadEvents(), refreshCalendar()]);
   } catch (err) {
     card.style.opacity = "1";
     alert(err.message || "Erro ao excluir.");

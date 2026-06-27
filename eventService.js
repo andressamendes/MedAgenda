@@ -52,3 +52,16 @@ export async function deleteEvent(id) {
     .eq("user_id", user_id);
   if (error) throw error;
 }
+
+export async function getEventsByRange(start, end) {
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("user_id", user_id)
+    .gte("event_date", start)
+    .lte("event_date", end)
+    .order("start_time", { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data;
+}
