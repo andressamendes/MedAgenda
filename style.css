@@ -462,6 +462,120 @@ textarea { resize: vertical; }
 
 .modal-footer .btn { flex: 1; }
 
+.modal-lg { max-width: 480px; }
+
+/* ── Categorias modal ── */
+.cat-modal-body {
+  padding: 0;
+  gap: 0;
+}
+
+#cat-list {
+  padding: 1rem 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .5rem .6rem;
+  border-radius: 6px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+}
+
+.cat-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,.1);
+}
+
+.cat-name-display {
+  flex: 1;
+  font-size: .9rem;
+  font-weight: 500;
+}
+
+.cat-row-actions {
+  display: flex;
+  gap: .35rem;
+  flex-shrink: 0;
+}
+
+.cat-edit-name {
+  flex: 1;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .35rem .6rem;
+  font-size: .88rem;
+  outline: none;
+}
+
+.cat-edit-name:focus { border-color: var(--blue); }
+
+.cat-edit-color {
+  width: 2.2rem;
+  height: 2rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .15rem .2rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cat-add-section {
+  padding: 1rem;
+  border-top: 1px solid var(--gray-200);
+  margin-top: .75rem;
+}
+
+.cat-add-title {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: .6rem;
+}
+
+.cat-form-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.cat-form-row input[type="color"] {
+  width: 2.4rem;
+  height: 2.2rem;
+  padding: .15rem .25rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cat-form-row input[type="text"] {
+  flex: 1;
+  padding: .5rem .7rem;
+  font-size: .9rem;
+}
+
+.cat-form-row .btn { flex-shrink: 0; }
+
+.cat-empty {
+  text-align: center;
+  color: var(--gray-400);
+  font-size: .88rem;
+  padding: 1rem 0;
+}
+
 .badge {
   display: inline-block;
   padding: .15rem .6rem;

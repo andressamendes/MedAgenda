@@ -29,6 +29,7 @@
       <span class="app-title">MedAgenda</span>
       <div class="header-right">
         <span id="header-email" class="header-email"></span>
+        <button id="btn-categories" class="btn btn-sm btn-ghost">Categorias</button>
         <button id="btn-logout" class="btn btn-sm btn-ghost">Sair</button>
       </div>
     </header>
@@ -70,14 +71,6 @@
               <label for="f-category">Categoria</label>
               <select id="f-category">
                 <option value="">— Selecione —</option>
-                <option value="aula">Aula</option>
-                <option value="plantao">Plantão</option>
-                <option value="ambulatorio">Ambulatório</option>
-                <option value="laboratorio">Laboratório</option>
-                <option value="estudo">Estudo</option>
-                <option value="prova">Prova</option>
-                <option value="congresso">Congresso</option>
-                <option value="pessoal">Pessoal</option>
               </select>
             </div>
             <div class="field">
@@ -129,6 +122,28 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- ── Modal: Gerenciar Categorias ── -->
+  <div id="cat-overlay" class="modal-overlay" hidden>
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <span class="modal-date">Gerenciar Categorias</span>
+        <button class="modal-close" id="cat-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body cat-modal-body">
+        <div id="cat-list"></div>
+        <div class="cat-add-section">
+          <h4 class="cat-add-title">Nova categoria</h4>
+          <div class="cat-form-row">
+            <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" />
+            <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" />
+            <button class="btn btn-primary btn-sm" id="cat-add">Adicionar</button>
+          </div>
+          <p class="error" id="cat-error"></p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="script.js"></script>
