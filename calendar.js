@@ -3,12 +3,13 @@ import { getEventsByRange } from "./eventService.js";
 const MONTHS   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
-let container, calYear, calMonth;
+let container, calYear, calMonth, callbacks;
 
 // ── API pública ────────────────────────────────────────────────────────────
 
-export async function initCalendar(el) {
+export async function initCalendar(el, cbs = {}) {
   container = el;
+  callbacks = cbs;
   const now = new Date();
   calYear  = now.getFullYear();
   calMonth = now.getMonth(); // 0-indexed
@@ -101,6 +102,12 @@ function renderGrid(byDate) {
       isToday    ? "cal-today" : "",
     ].filter(Boolean).join(" ");
 
+    // Clique na célula → criar novo compromisso naquele dia
+    if (!otherMonth && callbacks?.onDayClick) {
+      cell.classList.add("cal-clickable");
+      cell.addEventListener("click", () => callbacks.onDayClick(date));
+    }
+
     const numEl = document.createElement("span");
     numEl.className = "cal-day-num";
     numEl.textContent = day;
@@ -114,6 +121,16 @@ function renderGrid(byDate) {
       chip.style.background = ev.color || "#3b82f6";
       chip.title = ev.title;
       chip.textContent = ev.title;
+
+      // Clique no chip → abrir formulário completo para edição
+      if (callbacks?.onEventClick) {
+        chip.classList.add("cal-chip-clickable");
+        chip.addEventListener("click", (e) => {
+          e.stopPropagation(); // impede disparo do clique na célula
+          callbacks.onEventClick(ev);
+        });
+      }
+
       chipsEl.appendChild(chip);
     });
     cell.appendChild(chipsEl);

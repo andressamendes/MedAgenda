@@ -205,6 +205,25 @@ body {
   text-overflow: ellipsis;
 }
 
+.cal-clickable {
+  cursor: pointer;
+}
+
+.cal-clickable:hover {
+  background: #eff6ff;
+  outline: 1px solid #bfdbfe;
+}
+
+.cal-chip-clickable {
+  cursor: pointer;
+  opacity: .92;
+}
+
+.cal-chip-clickable:hover {
+  opacity: 1;
+  filter: brightness(1.1);
+}
+
 .cal-loading {
   grid-column: 1 / -1;
   text-align: center;
@@ -370,6 +389,78 @@ textarea { resize: vertical; }
   flex-wrap: wrap;
   gap: .4rem .9rem;
 }
+
+/* ── Modal Quick Add ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal-overlay[hidden] { display: none; }
+
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  width: 100%;
+  max-width: 360px;
+  animation: modal-in .14s ease;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1rem .75rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.modal-date {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  font-size: 1rem;
+  padding: .25rem .4rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.modal-close:hover { color: var(--gray-800); background: var(--gray-100); }
+
+.modal-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.modal-body .error { margin: 0; }
+
+.modal-footer {
+  display: flex;
+  gap: .75rem;
+  padding: .5rem 1rem 1rem;
+}
+
+.modal-footer .btn { flex: 1; }
 
 .badge {
   display: inline-block;

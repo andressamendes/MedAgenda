@@ -1,6 +1,7 @@
 import { signIn, signOut, getSession, onAuthStateChange } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar } from "./calendar.js";
+import { openQuickAdd } from "./quickAdd.js";
 
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
@@ -51,7 +52,14 @@ async function showApp(session) {
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;
   await Promise.all([
-    initCalendar(document.getElementById("calendar-container")),
+    initCalendar(document.getElementById("calendar-container"), {
+      onDayClick: (date) =>
+        openQuickAdd(date, () => Promise.all([loadEvents(), refreshCalendar()])),
+      onEventClick: (ev) => {
+        populateForm(ev);
+        document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
+      },
+    }),
     loadEvents(),
   ]);
 }
