@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedAgenda</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="card">
+    <h1>MedAgenda</h1>
+    <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
+
+    <!-- Seção: usuário não autenticado -->
+    <section id="guest-section">
+      <div class="form-group">
+        <input type="email" id="email" placeholder="E-mail" autocomplete="email" />
+        <input type="password" id="password" placeholder="Senha" autocomplete="current-password" />
+      </div>
+      <p id="error-msg" class="error"></p>
+      <button id="btn-login" class="btn btn-primary">Entrar</button>
+    </section>
+
+    <!-- Seção: usuário autenticado -->
+    <section id="user-info" hidden>
+      <div class="user-data">
+        <div>
+          <label>Nome</label>
+          <span id="user-name"></span>
+        </div>
+        <div>
+          <label>E-mail</label>
+          <span id="user-email"></span>
+        </div>
+        <div>
+          <label>ID do usuário</label>
+          <span id="user-id"></span>
+        </div>
+        <div>
+          <label>Status</label>
+          <span id="user-status" class="status"></span>
+        </div>
+      </div>
+      <button id="btn-logout" class="btn btn-secondary">Sair</button>
+    </section>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
