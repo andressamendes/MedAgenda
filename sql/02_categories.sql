@@ -1,4 +1,13 @@
--- Execute no SQL Editor do Supabase (após o script de events)
+-- Execute no SQL Editor do Supabase
+
+-- Cria a função de timestamp caso ainda não exista (idempotente)
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TABLE categories (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
