@@ -49,7 +49,7 @@ function init() {
   });
 }
 
-export function openQuickAdd(date, onSave) {
+export function openQuickAdd(date, onSave, time = "") {
   if (!overlay) init();
 
   selectedDate   = date;
@@ -61,7 +61,7 @@ export function openQuickAdd(date, onSave) {
     `${WEEKDAYS_LONG[dow]}, ${d} de ${MONTHS_LONG[m - 1]}`;
 
   titleInput.value    = "";
-  timeInput.value     = "";
+  timeInput.value     = time;
   errorEl.textContent = "";
   saveBtn.disabled    = false;
   saveBtn.textContent = "Salvar";

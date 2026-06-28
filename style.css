@@ -100,6 +100,7 @@ body {
 }
 
 /* ── Seções ── */
+.week-section,
 .calendar-section,
 .form-section,
 .list-section {
@@ -109,6 +110,7 @@ body {
   padding: 1.5rem;
 }
 
+.week-section,
 .calendar-section {
   grid-column: 1 / -1;
 }
@@ -585,4 +587,206 @@ textarea { resize: vertical; }
   background: var(--gray-100);
   color: var(--gray-600);
   text-transform: capitalize;
+}
+
+/* ── Visualização semanal ── */
+.wk-nav {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .75rem;
+}
+
+.wk-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  font-size: .95rem;
+  color: var(--gray-800);
+}
+
+.wk-wrap {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* scroll container — always show scrollbar to keep head/body aligned */
+.wk-scroll {
+  max-height: min(620px, 72vh);
+  overflow-y: scroll;
+  overflow-x: auto;
+  position: relative;
+}
+
+/* sticky header row inside the scroll */
+.wk-head-row {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  border-bottom: 2px solid var(--gray-200);
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  min-width: 480px;
+}
+
+.wk-gutter-head {
+  border-right: 1px solid var(--gray-200);
+}
+
+.wk-day-head {
+  text-align: center;
+  padding: .45rem .25rem .4rem;
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-right: 1px solid var(--gray-200);
+  line-height: 1.3;
+}
+
+.wk-day-head:last-child { border-right: none; }
+
+.wk-day-name { display: block; }
+
+.wk-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  font-size: .85rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: .1rem;
+  color: var(--gray-800);
+}
+
+.wk-day-head.wk-today .wk-day-num {
+  background: var(--blue);
+  color: #fff;
+}
+
+/* body grid */
+.wk-body {
+  display: flex;
+  min-width: 480px;
+}
+
+.wk-time-col {
+  flex: 0 0 52px;
+  position: relative;
+  height: 2304px; /* 48 slots × 48px */
+  border-right: 1px solid var(--gray-200);
+  background: #fff;
+}
+
+.wk-hour-label {
+  position: absolute;
+  right: 6px;
+  font-size: .62rem;
+  color: var(--gray-400);
+  transform: translateY(-50%);
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* 7-column area + now-line anchor */
+.wk-cols {
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
+.wk-day-col {
+  flex: 1;
+  position: relative;
+  border-right: 1px solid var(--gray-200);
+  cursor: pointer;
+}
+
+.wk-day-col:last-child { border-right: none; }
+
+.wk-col-today { background: #eff6ff; }
+
+/* 30-min slots — provide height and click targets */
+.wk-slot {
+  height: 48px;
+  border-bottom: 1px solid var(--gray-100);
+  box-sizing: border-box;
+}
+
+.wk-slot:nth-child(even) {
+  border-bottom-color: var(--gray-200);
+}
+
+.wk-slot:hover {
+  background: rgba(59, 130, 246, .05);
+}
+
+/* event blocks */
+.wk-event {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: .15rem .35rem;
+  color: #fff;
+  font-size: .7rem;
+  overflow: hidden;
+  cursor: pointer;
+  z-index: 2;
+  line-height: 1.35;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+.wk-event:hover { filter: brightness(1.1); }
+
+.wk-ev-title {
+  display: block;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wk-ev-cat,
+.wk-ev-time {
+  display: block;
+  font-size: .62rem;
+  opacity: .88;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* current-time line */
+.wk-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--red);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.wk-now-line::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+@media (max-width: 680px) {
+  .week-section { padding: 1rem .75rem; }
 }

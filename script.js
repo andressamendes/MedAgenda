@@ -1,6 +1,7 @@
 import { signIn, signOut, getSession, onAuthStateChange } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar } from "./calendar.js";
+import { initWeekView, refreshWeekView } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import {
   getCategories, createCategory, updateCategory,
@@ -43,8 +44,12 @@ const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
 
 // ── Estado ─────────────────────────────────────────────────────────────────
-let editingId      = null;
+let editingId       = null;
 let categoriesCache = [];
+
+function refreshAll() {
+  return Promise.all([loadEvents(), refreshWeekView(), refreshCalendar()]);
+}
 
 // ── Autenticação ───────────────────────────────────────────────────────────
 function showLogin() {
@@ -60,9 +65,17 @@ async function showApp(session) {
   // Categorias devem estar prontas antes do calendário e da lista
   await initCategories();
   await Promise.all([
+    initWeekView(document.getElementById("week-container"), {
+      onSlotClick: (date, time) =>
+        openQuickAdd(date, refreshAll, time),
+      onEventClick: (ev) => {
+        populateForm(ev);
+        document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
+      },
+    }),
     initCalendar(document.getElementById("calendar-container"), {
       onDayClick: (date) =>
-        openQuickAdd(date, () => Promise.all([loadEvents(), refreshCalendar()])),
+        openQuickAdd(date, refreshAll),
       onEventClick: (ev) => {
         populateForm(ev);
         document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
@@ -318,7 +331,7 @@ eventForm.addEventListener("submit", async (e) => {
       await createEvent(fields);
     }
     clearForm();
-    await Promise.all([loadEvents(), refreshCalendar()]);
+    await refreshAll();
   } catch (err) {
     formError.textContent = err.message || "Erro ao salvar.";
   } finally {
@@ -392,7 +405,7 @@ async function handleDelete(id, card) {
   card.style.opacity = ".4";
   try {
     await deleteEvent(id);
-    await Promise.all([loadEvents(), refreshCalendar()]);
+    await refreshAll();
   } catch (err) {
     card.style.opacity = "1";
     alert(err.message || "Erro ao excluir.");
