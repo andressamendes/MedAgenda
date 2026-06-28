@@ -938,15 +938,26 @@ registerBtn?.addEventListener('click', async () => {
   registerBtn.textContent = 'Criando conta…';
   try {
     const { user } = await signUp(email, pwd, fullName);
-    // If identities is empty the email is already confirmed (e-mail auth disabled)
-    if (!user?.identities?.length) {
+
+    // user === null  → Supabase email-enumeration protection: e-mail já existe
+    // identities: [] → Supabase comportamento antigo: e-mail já existe
+    // Não tratar identities === undefined como "já cadastrado": o campo é opcional
+    //   no tipo UserIdentity do SDK e sua ausência não indica duplicidade.
+    const alreadyExists =
+      user === null ||
+      (Array.isArray(user.identities) && user.identities.length === 0);
+
+    if (alreadyExists) {
       registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
       return;
     }
+
+    track(EVENTS.SIGNUP, { email });
     document.getElementById('email-sent-addr').textContent = email;
     showAuthView('email-sent');
   } catch (err) {
     const msg = err.message || '';
+    console.error('[cadastro] exceção capturada:', err);
     if (msg.includes('already registered') || msg.includes('already exists')) {
       registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
     } else {
