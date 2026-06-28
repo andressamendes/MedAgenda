@@ -1,5 +1,6 @@
 import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
+import { pad, isoDate, isoToday } from "./utils.js";
 
 const MONTHS   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
@@ -154,18 +155,18 @@ function buildCells() {
 
   for (let i = 0; i < firstDow; i++) {
     const d = daysInPrev - firstDow + 1 + i;
-    cells.push({ date: iso(prevYear, prevMonthNum, d), day: d, otherMonth: true });
+    cells.push({ date: isoYMD(prevYear, prevMonthNum, d), day: d, otherMonth: true });
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ date: iso(calYear, calMonth + 1, d), day: d, otherMonth: false });
+    cells.push({ date: isoYMD(calYear, calMonth + 1, d), day: d, otherMonth: false });
   }
 
   const nextMonthNum = calMonth === 11 ? 1 : calMonth + 2;         // 1-indexed
   const nextYear     = calMonth === 11 ? calYear + 1 : calYear;
   const trailing     = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
   for (let d = 1; d <= trailing; d++) {
-    cells.push({ date: iso(nextYear, nextMonthNum, d), day: d, otherMonth: true });
+    cells.push({ date: isoYMD(nextYear, nextMonthNum, d), day: d, otherMonth: true });
   }
 
   return cells;
@@ -178,8 +179,6 @@ function groupByDate(events) {
   }, {});
 }
 
-function monthStart(y, m) { return iso(y, m + 1, 1); }
-function monthEnd(y, m)   { return iso(y, m + 1, new Date(y, m + 1, 0).getDate()); }
-function iso(y, m, d)     { return `${y}-${pad(m)}-${pad(d)}`; }
-function isoToday()       { const d = new Date(); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
-function pad(n)           { return String(n).padStart(2, "0"); }
+function monthStart(y, m) { return isoYMD(y, m + 1, 1); }
+function monthEnd(y, m)   { return isoYMD(y, m + 1, new Date(y, m + 1, 0).getDate()); }
+function isoYMD(y, m, d)  { return `${y}-${pad(m)}-${pad(d)}`; }

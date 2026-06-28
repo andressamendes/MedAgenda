@@ -17,6 +17,7 @@ import {
   subscribeToPush, unsubscribeFromPush, syncPushSubscription,
 } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
+import { escapeHtml } from "./utils.js";
 
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
@@ -681,10 +682,3 @@ async function handleDelete(id, card) {
   }
 }
 
-function escapeHtml(str) {
-  return String(str ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}

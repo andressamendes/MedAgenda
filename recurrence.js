@@ -1,8 +1,8 @@
 /**
  * Expands recurring event templates into virtual occurrences for a date range.
- * Pure functions — no imports from project modules, no side effects.
  * All date strings are ISO "YYYY-MM-DD".
  */
+import { pad, isoDate as iso, localDate, mondayOf } from "./utils.js";
 
 /**
  * Expands every event in the array, returning a flat list of occurrences.
@@ -133,27 +133,10 @@ function occurrence(event, date) {
   };
 }
 
-function mondayOf(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const dow = d.getDay();
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-  return d;
-}
-
 function addDays(date, n) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
 }
 
-function localDate(str) {
-  const [y, m, d] = str.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 function minDate(a, b) { return a < b ? a : b; }
-
-function iso(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}

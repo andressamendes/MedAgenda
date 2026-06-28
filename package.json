@@ -1,0 +1,17 @@
+{
+  "name": "medagenda",
+  "version": "1.0.0-rc1",
+  "description": "Agenda de compromissos para estudantes de Medicina",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules tests/utils.test.js && node --experimental-vm-modules tests/recurrence.test.js",
+    "test:utils": "node --experimental-vm-modules tests/utils.test.js",
+    "test:recurrence": "node --experimental-vm-modules tests/recurrence.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["medical", "calendar", "pwa", "agenda"],
+  "author": "andressamendes",
+  "license": "MIT"
+}

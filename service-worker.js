@@ -1,33 +1,37 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `medagenda-shell-${CACHE_VERSION}`;
+
+// Base URL of the service worker's own location (handles GitHub Pages subdirectories)
+const BASE = new URL('./', self.location.href).href;
 
 // App Shell: all static assets that make the application functional offline
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/script.js',
-  '/auth.js',
-  '/supabase.js',
-  '/eventService.js',
-  '/categoryService.js',
-  '/calendar.js',
-  '/weekView.js',
-  '/notificationService.js',
-  '/pushService.js',
-  '/recurrence.js',
-  '/quickAdd.js',
-  '/pwa.js',
-  '/manifest.webmanifest',
-  '/icons/icon-72.png',
-  '/icons/icon-96.png',
-  '/icons/icon-128.png',
-  '/icons/icon-144.png',
-  '/icons/icon-152.png',
-  '/icons/icon-192.png',
-  '/icons/icon-384.png',
-  '/icons/icon-512.png',
-];
+  './',
+  './index.html',
+  './style.css',
+  './script.js',
+  './auth.js',
+  './supabase.js',
+  './utils.js',
+  './eventService.js',
+  './categoryService.js',
+  './calendar.js',
+  './weekView.js',
+  './notificationService.js',
+  './pushService.js',
+  './recurrence.js',
+  './quickAdd.js',
+  './pwa.js',
+  './manifest.webmanifest',
+  './icons/icon-72.png',
+  './icons/icon-96.png',
+  './icons/icon-128.png',
+  './icons/icon-144.png',
+  './icons/icon-152.png',
+  './icons/icon-192.png',
+  './icons/icon-384.png',
+  './icons/icon-512.png',
+].map(path => new URL(path, BASE).href);
 
 // ── Installation: pre-cache the App Shell ──────────────────────────────────
 self.addEventListener('install', (event) => {
@@ -85,7 +89,7 @@ self.addEventListener('fetch', (event) => {
           .catch(() => {
             // Network unavailable and asset not cached — return fallback for HTML
             if (request.destination === 'document') {
-              return caches.match('/index.html');
+              return caches.match(new URL('./index.html', BASE).href);
             }
           });
       })
@@ -107,8 +111,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(payload.title || 'MedAgenda', {
         body:             payload.body  || '',
-        icon:             '/icons/icon-192.png',
-        badge:            '/icons/icon-96.png',
+        icon:             new URL('./icons/icon-192.png', BASE).href,
+        badge:            new URL('./icons/icon-96.png',  BASE).href,
         tag:              payload.tag   || 'medagenda',
         data:             payload.data  || {},
         requireInteraction: false,
@@ -128,8 +132,8 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const data      = event.notification.data || {};
-  const eventId   = data.eventId || null;
+  const data    = event.notification.data || {};
+  const eventId = data.eventId || null;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
@@ -142,7 +146,7 @@ self.addEventListener('notificationclick', (event) => {
           if (eventId) existing.postMessage({ type: 'OPEN_EVENT', eventId });
           return;
         }
-        return clients.openWindow('/');
+        return clients.openWindow(BASE);
       })
   );
 });

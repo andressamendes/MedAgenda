@@ -1,4 +1,5 @@
 import { expandEvent } from "./recurrence.js";
+import { isoDate } from "./utils.js";
 
 const WINDOW_DAYS  = 7;
 const PREF_PREFIX  = "medagenda_notif_";
@@ -107,8 +108,3 @@ function clearAll() {
   _scheduled.clear();
 }
 
-function isoDate(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function pad(n) { return String(n).padStart(2, "0"); }

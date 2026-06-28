@@ -7,9 +7,7 @@ export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
 
   try {
-    const registration = await navigator.serviceWorker.register('/service-worker.js', {
-      scope: '/',
-    });
+    const registration = await navigator.serviceWorker.register('./service-worker.js');
 
     // Detect when a new service worker is waiting to activate
     registration.addEventListener('updatefound', () => {
