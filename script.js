@@ -18,10 +18,37 @@ import {
 } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { escapeHtml } from "./utils.js";
+import { toast } from "./toastService.js";
+import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
+import { initErrorService, setErrorDevMode } from "./errorService.js";
+import { runDiagnostics, APP_VERSION, updateLastSync } from "./diagnosticService.js";
+
+// Inicializa serviços de observabilidade imediatamente
+initErrorService(_isDevMode());
+initTelemetry(_isDevMode());
+
+// ── Modo Desenvolvedor ─────────────────────────────────────────────────────
+const DEV_MODE_KEY = 'medagenda_devmode';
+
+function _isDevMode() {
+  try { return localStorage.getItem(DEV_MODE_KEY) === '1'; } catch { return false; }
+}
+
+function _setDevMode(enabled) {
+  try {
+    if (enabled) localStorage.setItem(DEV_MODE_KEY, '1');
+    else         localStorage.removeItem(DEV_MODE_KEY);
+  } catch { /* storage unavailable */ }
+  setErrorDevMode(enabled);
+  setTelemetryDevMode(enabled);
+}
 
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
 const appScreen   = document.getElementById("app-screen");
+
+// ── Indicador de sincronização ─────────────────────────────────────────────
+const syncIndicator = document.getElementById("sync-indicator");
 
 // ── Login ──────────────────────────────────────────────────────────────────
 const emailInput    = document.getElementById("email");
@@ -64,8 +91,14 @@ const listEmpty = document.getElementById("list-empty");
 let editingId       = null;
 let categoriesCache = [];
 
-function refreshAll() {
-  return Promise.all([loadEvents(), refreshWeekView(), refreshCalendar()]);
+async function refreshAll() {
+  if (syncIndicator) syncIndicator.hidden = false;
+  try {
+    await Promise.all([loadEvents(), refreshWeekView(), refreshCalendar()]);
+    updateLastSync();
+  } finally {
+    if (syncIndicator) syncIndicator.hidden = true;
+  }
 }
 
 // ── Clique em evento (mensal e semanal) ────────────────────────────────────
@@ -176,8 +209,16 @@ loginBtn.addEventListener("click", async () => {
   try {
     await signIn(email, password);
     passwordInput.value = "";
+    track(EVENTS.LOGIN, { email });
   } catch (err) {
-    errorMsg.textContent = err.message || "Erro ao fazer login.";
+    const msg = err.message || "";
+    if (msg.includes("Invalid login") || msg.includes("invalid_credentials")) {
+      errorMsg.textContent = "E-mail ou senha incorretos. Verifique suas credenciais.";
+    } else if (msg.includes("Email not confirmed")) {
+      errorMsg.textContent = "Confirme seu e-mail antes de fazer login.";
+    } else {
+      errorMsg.textContent = "Não foi possível fazer login. Tente novamente.";
+    }
   } finally {
     loginBtn.disabled    = false;
     loginBtn.textContent = "Entrar";
@@ -186,7 +227,12 @@ loginBtn.addEventListener("click", async () => {
 
 logoutBtn.addEventListener("click", async () => {
   logoutBtn.disabled = true;
-  try { await signOut(); } finally { logoutBtn.disabled = false; }
+  try {
+    await signOut();
+    track(EVENTS.LOGOUT);
+  } finally {
+    logoutBtn.disabled = false;
+  }
 });
 
 onAuthStateChange((session) => {
@@ -366,6 +412,7 @@ document.addEventListener("keydown", (e) => {
 function openSettings() {
   renderSettingsState();
   renderPushState();
+  renderDevmodeState();
   settingsOverlay.hidden = false;
 }
 
@@ -594,13 +641,17 @@ eventForm.addEventListener("submit", async (e) => {
   try {
     if (editingId) {
       await updateEvent(editingId, fields);
+      track(EVENTS.APPOINTMENT_EDITED, { title: fields.title });
+      toast.success("Compromisso atualizado com sucesso.");
     } else {
       await createEvent(fields);
+      track(EVENTS.APPOINTMENT_CREATED, { title: fields.title });
+      toast.success("Compromisso salvo com sucesso.");
     }
     clearForm();
     await refreshAll();
   } catch (err) {
-    formError.textContent = err.message || "Erro ao salvar.";
+    formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
   } finally {
     saveBtn.disabled    = false;
     saveBtn.textContent = editingId ? "Atualizar compromisso" : "Salvar compromisso";
@@ -671,14 +722,143 @@ function renderList(events) {
 }
 
 async function handleDelete(id, card) {
-  if (!confirm("Excluir este compromisso?")) return;
+  if (!confirm("Tem certeza que deseja excluir este compromisso?")) return;
   card.style.opacity = ".4";
   try {
     await deleteEvent(id);
+    track(EVENTS.APPOINTMENT_DELETED);
+    toast.success("Compromisso excluído.");
     await refreshAll();
   } catch (err) {
     card.style.opacity = "1";
-    alert(err.message || "Erro ao excluir.");
+    toast.error(err.message || "Não foi possível excluir. Tente novamente.");
   }
 }
+
+// ── Diagnóstico ────────────────────────────────────────────────────────────
+const diagnosticOverlay = document.getElementById("diagnostic-overlay");
+const diagnosticBody    = document.getElementById("diagnostic-body");
+const diagnosticClose   = document.getElementById("diagnostic-close");
+const btnDiagnostic     = document.getElementById("btn-diagnostic");
+
+if (btnDiagnostic) {
+  btnDiagnostic.addEventListener("click", openDiagnostic);
+}
+if (diagnosticClose) {
+  diagnosticClose.addEventListener("click", closeDiagnostic);
+}
+if (diagnosticOverlay) {
+  diagnosticOverlay.addEventListener("click", (e) => {
+    if (e.target === diagnosticOverlay) closeDiagnostic();
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && diagnosticOverlay && !diagnosticOverlay.hidden) closeDiagnostic();
+});
+
+async function openDiagnostic() {
+  closeSettings();
+  diagnosticBody.innerHTML = '<p class="diag-loading">Verificando serviços…</p>';
+  diagnosticOverlay.hidden = false;
+
+  try {
+    const r = await runDiagnostics();
+    diagnosticBody.innerHTML = renderDiagnosticHTML(r);
+  } catch {
+    diagnosticBody.innerHTML = '<p class="diag-loading">Erro ao obter diagnóstico.</p>';
+  }
+}
+
+function closeDiagnostic() {
+  diagnosticOverlay.hidden = true;
+}
+
+function renderDiagnosticHTML(r) {
+  const items = [
+    {
+      ok:     r.supabase.ok,
+      label:  'Banco de Dados',
+      detail: r.supabase.ok
+        ? 'Conectado e respondendo'
+        : (r.supabase.error || 'Falha na conexão'),
+      extra:  r.supabase.latency !== undefined ? `${r.supabase.latency} ms` : '',
+    },
+    {
+      ok:     r.auth.ok,
+      label:  'Autenticação',
+      detail: r.auth.ok
+        ? `${escapeHtml(r.auth.email || '')} — expira ${r.auth.expiresAt}`
+        : r.auth.status,
+    },
+    {
+      ok:     r.serviceWorker.ok,
+      label:  'Service Worker',
+      detail: r.serviceWorker.status,
+    },
+    {
+      ok:     r.push.ok,
+      label:  'Notificações Push',
+      detail: r.push.status,
+    },
+    {
+      ok:     true,
+      label:  'Última sincronização',
+      detail: escapeHtml(r.lastSync),
+      neutral: true,
+    },
+  ];
+
+  const rows = items.map(item => `
+    <div class="diag-item">
+      <span class="diag-dot ${item.neutral ? 'diag-neutral' : item.ok ? 'diag-ok' : 'diag-error'}"></span>
+      <div class="diag-info">
+        <div class="diag-label">${item.label}</div>
+        <div class="diag-detail">${item.detail}</div>
+      </div>
+      ${item.extra ? `<span class="diag-latency">${item.extra}</span>` : ''}
+    </div>
+  `).join('');
+
+  const ts = new Date(r.timestamp).toLocaleString('pt-BR');
+
+  return `${rows}
+    <p class="diag-footer">Versão ${escapeHtml(r.version)} · ${escapeHtml(r.environment)} · ${ts}</p>`;
+}
+
+// ── Modo Desenvolvedor ─────────────────────────────────────────────────────
+const btnDevmodeToggle = document.getElementById("btn-devmode-toggle");
+const devmodePanel     = document.getElementById("devmode-panel");
+const devVersion       = document.getElementById("dev-version");
+const devEnv           = document.getElementById("dev-env");
+
+if (btnDevmodeToggle) {
+  btnDevmodeToggle.addEventListener("click", () => {
+    const current = _isDevMode();
+    _setDevMode(!current);
+    renderDevmodeState();
+    toast.info(!current ? "Modo desenvolvedor ativado." : "Modo desenvolvedor desativado.");
+  });
+}
+
+function renderDevmodeState() {
+  const enabled = _isDevMode();
+  if (!btnDevmodeToggle) return;
+
+  btnDevmodeToggle.textContent = enabled ? "Desativar" : "Ativar";
+  btnDevmodeToggle.className   = `btn btn-sm ${enabled ? 'btn-ghost' : 'btn-ghost'}`;
+
+  if (devmodePanel) {
+    devmodePanel.hidden = !enabled;
+    if (enabled) {
+      if (devVersion) devVersion.textContent = APP_VERSION;
+      if (devEnv) {
+        const h = window.location.hostname;
+        devEnv.textContent = h === 'localhost' || h === '127.0.0.1'
+          ? 'Desenvolvimento (local)'
+          : h.endsWith('github.io') ? 'Produção (GitHub Pages)' : h;
+      }
+    }
+  }
+}
+
 

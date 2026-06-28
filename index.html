@@ -50,6 +50,9 @@
 
     <header class="app-header">
       <span class="app-title">MedAgenda</span>
+      <span id="sync-indicator" class="sync-indicator" hidden aria-live="polite" aria-label="Sincronizando dados">
+        <span class="sync-spinner"></span>
+      </span>
       <div class="header-right">
         <span id="header-email" class="header-email"></span>
         <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
@@ -255,9 +258,54 @@
         </div>
         <p id="push-error-hint" class="settings-hint" hidden role="alert"></p>
 
+        <hr class="settings-divider" />
+
+        <!-- Ferramentas -->
+        <div class="settings-section-title">Ferramentas</div>
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">Diagnóstico</div>
+            <div class="settings-desc">Verifique o status dos serviços da aplicação.</div>
+          </div>
+          <button id="btn-diagnostic" class="btn btn-sm btn-ghost">Ver diagnóstico</button>
+        </div>
+
+        <hr class="settings-divider" />
+
+        <!-- Modo Desenvolvedor -->
+        <div class="settings-section-title">Desenvolvedor</div>
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">Modo Desenvolvedor</div>
+            <div class="settings-desc">Exibe logs detalhados no console e informações técnicas.</div>
+          </div>
+          <button id="btn-devmode-toggle" class="btn btn-sm btn-ghost">Ativar</button>
+        </div>
+        <div id="devmode-panel" hidden class="devmode-panel">
+          <div class="devmode-panel-row"><span>Versão</span><strong id="dev-version">—</strong></div>
+          <div class="devmode-panel-row"><span>Ambiente</span><strong id="dev-env">—</strong></div>
+        </div>
+
       </div>
     </div>
   </div>
+
+  <!-- ── Modal: Diagnóstico do Sistema ── -->
+  <div id="diagnostic-overlay" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="diagnostic-title">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <span class="modal-date" id="diagnostic-title">Diagnóstico do Sistema</span>
+        <button class="modal-close" id="diagnostic-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body diagnostic-body" id="diagnostic-body">
+        <p class="diag-loading">Verificando serviços…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
 
   <script type="module" src="script.js"></script>
   <script type="module">
