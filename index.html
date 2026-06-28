@@ -4,9 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MedAgenda</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="MedAgenda" />
+  <link rel="apple-touch-icon" href="icons/icon-152.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <!-- ── PWA: offline bar ── -->
+  <div id="pwa-offline-bar" class="pwa-offline-bar" hidden>
+    Modo Offline — exibindo dados em cache
+  </div>
+
+  <!-- ── PWA: update banner ── -->
+  <div id="pwa-update-banner" class="pwa-update-banner" hidden>
+    <span>Nova versão disponível</span>
+    <button id="btn-pwa-update" class="btn btn-sm btn-primary">Atualizar agora</button>
+  </div>
 
   <!-- ── Tela de login ── -->
   <div id="login-screen" class="login-wrap">
@@ -29,6 +52,7 @@
       <span class="app-title">MedAgenda</span>
       <div class="header-right">
         <span id="header-email" class="header-email"></span>
+        <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
         <button id="btn-settings"   class="btn btn-sm btn-ghost">Configurações</button>
         <button id="btn-categories" class="btn btn-sm btn-ghost">Categorias</button>
         <button id="btn-logout" class="btn btn-sm btn-ghost">Sair</button>
@@ -217,5 +241,11 @@
   </div>
 
   <script type="module" src="script.js"></script>
+  <script type="module">
+    import { registerServiceWorker, initInstallButton, initOfflineDetection } from './pwa.js';
+    registerServiceWorker();
+    initInstallButton();
+    initOfflineDetection();
+  </script>
 </body>
 </html>

@@ -903,3 +903,49 @@ textarea { resize: vertical; }
   padding: .6rem .85rem;
   margin: 0;
 }
+
+/* ── PWA: offline bar ── */
+.pwa-offline-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: var(--gray-800);
+  color: #fff;
+  font-size: .85rem;
+  text-align: center;
+  padding: .55rem 1rem;
+  letter-spacing: .01em;
+}
+
+/* ── PWA: update banner ── */
+.pwa-update-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: var(--blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: .6rem 1.25rem;
+  font-size: .875rem;
+}
+
+/* Push update banner above offline bar when both are visible */
+.pwa-offline-bar:not([hidden]) ~ * .pwa-update-banner:not([hidden]),
+.pwa-update-banner:not([hidden]) {
+  bottom: 0;
+}
+
+@media (max-width: 480px) {
+  .pwa-update-banner {
+    flex-direction: column;
+    gap: .5rem;
+    padding: .75rem 1rem;
+  }
+}
