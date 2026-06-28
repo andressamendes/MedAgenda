@@ -12,6 +12,11 @@ import {
   isSupported, isEnabled, setEnabled,
   permissionStatus, requestPermission,
 } from "./notificationService.js";
+import {
+  initPushService, isPushSupported, isPushEnabled,
+  subscribeToPush, unsubscribeFromPush, syncPushSubscription,
+} from "./pushService.js";
+import { VAPID_PUBLIC_KEY } from "./config.js";
 
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
@@ -122,6 +127,10 @@ async function showApp(session) {
   headerEmail.textContent = session.user.email;
 
   initNotifications(session.user.id);
+  initPushService(session.user.id, VAPID_PUBLIC_KEY);
+
+  // Re-sync push subscription in case it changed since last login
+  syncPushSubscription().catch(() => {});
 
   // Categorias devem estar prontas antes do calendário e da lista
   await initCategories();
@@ -138,6 +147,21 @@ async function showApp(session) {
     }),
     loadEvents(),
   ]);
+}
+
+// ── SW → App message: open event from push notification click ──────────────
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", async (event) => {
+    if (event.data?.type !== "OPEN_EVENT" || !event.data.eventId) return;
+    try {
+      const events = await getEvents();
+      const target = events.find((e) => e.id === event.data.eventId);
+      if (target) {
+        populateForm(target);
+        document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
+      }
+    } catch { /* ignore — session may not be ready */ }
+  });
 }
 
 loginBtn.addEventListener("click", async () => {
@@ -325,6 +349,9 @@ const settingsOverlay  = document.getElementById("settings-overlay");
 const notifStatusText  = document.getElementById("notif-status-text");
 const btnNotifToggle   = document.getElementById("btn-notif-toggle");
 const notifPermHint    = document.getElementById("notif-perm-hint");
+const pushStatusText   = document.getElementById("push-status-text");
+const btnPushToggle    = document.getElementById("btn-push-toggle");
+const pushErrorHint    = document.getElementById("push-error-hint");
 
 document.getElementById("btn-settings").addEventListener("click", openSettings);
 document.getElementById("settings-close").addEventListener("click", closeSettings);
@@ -337,6 +364,7 @@ document.addEventListener("keydown", (e) => {
 
 function openSettings() {
   renderSettingsState();
+  renderPushState();
   settingsOverlay.hidden = false;
 }
 
@@ -367,14 +395,14 @@ function renderSettingsState() {
   btnNotifToggle.hidden = false;
 
   if (enabled) {
-    notifStatusText.textContent = "Notificações ativadas — você receberá lembretes no horário configurado.";
-    btnNotifToggle.textContent  = "Desativar notificações";
+    notifStatusText.textContent = "Ativadas — lembretes exibidos enquanto o app está aberto.";
+    btnNotifToggle.textContent  = "Desativar";
     btnNotifToggle.className    = "btn btn-sm btn-ghost";
   } else {
     notifStatusText.textContent = perm === "default"
-      ? "Notificações desativadas — clique em Ativar para autorizar o navegador."
-      : "Notificações desativadas.";
-    btnNotifToggle.textContent  = "Ativar notificações";
+      ? "Desativadas — clique em Ativar para autorizar o navegador."
+      : "Desativadas.";
+    btnNotifToggle.textContent  = "Ativar";
     btnNotifToggle.className    = "btn btn-sm btn-primary";
   }
 }
@@ -398,6 +426,67 @@ btnNotifToggle.addEventListener("click", async () => {
   }
 
   renderSettingsState();
+});
+
+// ── Push Notifications — configurações ────────────────────────────────────
+
+function renderPushState() {
+  pushErrorHint.hidden = true;
+
+  if (!isPushSupported()) {
+    pushStatusText.textContent = "Push não é suportado neste navegador.";
+    btnPushToggle.hidden       = true;
+    return;
+  }
+
+  if (!VAPID_PUBLIC_KEY) {
+    pushStatusText.textContent = "VAPID_PUBLIC_KEY não configurada — consulte a documentação.";
+    btnPushToggle.hidden       = true;
+    return;
+  }
+
+  const perm    = Notification.permission;
+  const enabled = isPushEnabled() && perm === "granted";
+
+  btnPushToggle.hidden = false;
+
+  if (perm === "denied") {
+    pushStatusText.textContent = "Permissão de notificação negada pelo navegador.";
+    btnPushToggle.hidden       = true;
+    pushErrorHint.hidden       = false;
+    pushErrorHint.textContent  = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
+    return;
+  }
+
+  if (enabled) {
+    pushStatusText.textContent = "Ativadas — você receberá lembretes mesmo com o app fechado.";
+    btnPushToggle.textContent  = "Desativar Push";
+    btnPushToggle.className    = "btn btn-sm btn-ghost";
+  } else {
+    pushStatusText.textContent = "Desativadas — ative para receber lembretes com o app fechado.";
+    btnPushToggle.textContent  = "Ativar Push";
+    btnPushToggle.className    = "btn btn-sm btn-primary";
+  }
+}
+
+btnPushToggle.addEventListener("click", async () => {
+  btnPushToggle.disabled = true;
+  pushErrorHint.hidden   = true;
+
+  try {
+    if (isPushEnabled() && Notification.permission === "granted") {
+      await unsubscribeFromPush();
+    } else {
+      await subscribeToPush();
+    }
+  } catch (err) {
+    pushErrorHint.hidden      = false;
+    pushErrorHint.textContent = err.message || "Erro ao configurar notificações push.";
+  } finally {
+    btnPushToggle.disabled = false;
+  }
+
+  renderPushState();
 });
 
 // ── Formulário ─────────────────────────────────────────────────────────────

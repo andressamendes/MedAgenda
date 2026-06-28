@@ -228,14 +228,31 @@
         <button class="modal-close" id="settings-close" aria-label="Fechar">✕</button>
       </div>
       <div class="modal-body settings-body">
+
+        <!-- Notificações locais (app aberto) -->
+        <div class="settings-section-title">Notificações locais</div>
         <div class="settings-row">
           <div class="settings-info">
-            <div class="settings-label">Notificações de lembrete</div>
-            <div id="notif-status-text" class="settings-desc"></div>
+            <div class="settings-label">Lembretes no navegador</div>
+            <div id="notif-status-text" class="settings-desc">Lembretes exibidos enquanto o app está aberto.</div>
           </div>
           <button id="btn-notif-toggle" class="btn btn-sm btn-primary">Ativar</button>
         </div>
         <p id="notif-perm-hint" class="settings-hint" hidden></p>
+
+        <hr class="settings-divider" />
+
+        <!-- Push Notifications (app fechado) -->
+        <div class="settings-section-title">Notificações Push</div>
+        <div class="settings-row" id="push-row">
+          <div class="settings-info">
+            <div class="settings-label">Notificações Push</div>
+            <div id="push-status-text" class="settings-desc">Receba lembretes mesmo com o app fechado.</div>
+          </div>
+          <button id="btn-push-toggle" class="btn btn-sm btn-primary">Ativar</button>
+        </div>
+        <p id="push-error-hint" class="settings-hint" hidden></p>
+
       </div>
     </div>
   </div>
