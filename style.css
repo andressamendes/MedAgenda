@@ -28,6 +28,35 @@ body {
   min-height: 100vh;
 }
 
+/* ── Tela de carregamento inicial ── */
+.app-loading-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  background: var(--gray-50);
+  z-index: 9999;
+}
+
+.app-loading-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--blue);
+  letter-spacing: -.5px;
+}
+
+.app-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
 /* ── Login ── */
 .login-wrap {
   min-height: 100vh;
@@ -309,6 +338,28 @@ body {
   background: var(--gray-50);
 }
 
+/* ── Sidebar collapsed (desktop) ── */
+.app-sidebar {
+  transition: width .2s ease;
+}
+
+.app-sidebar.sidebar-collapsed {
+  width: 52px;
+  padding: .75rem .25rem;
+}
+
+.app-sidebar.sidebar-collapsed .nav-label,
+.app-sidebar.sidebar-collapsed .sidebar-filter-wrap,
+.app-sidebar.sidebar-collapsed .sidebar-divider,
+.app-sidebar.sidebar-collapsed .sidebar-nav-group--secondary {
+  display: none;
+}
+
+.app-sidebar.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: .6rem;
+}
+
 /* ── Pages ── */
 .app-page {
   max-width: 960px;
@@ -499,6 +550,23 @@ body {
     height: auto;
     width: min(var(--sidebar-w), 85vw);
     box-shadow: 2px 0 12px rgba(0,0,0,.12);
+  }
+
+  /* Reset desktop collapse styles — mobile uses transform-based drawer */
+  .app-sidebar.sidebar-collapsed {
+    width: min(var(--sidebar-w), 85vw);
+  }
+
+  .app-sidebar.sidebar-collapsed .nav-label,
+  .app-sidebar.sidebar-collapsed .sidebar-filter-wrap,
+  .app-sidebar.sidebar-collapsed .sidebar-divider,
+  .app-sidebar.sidebar-collapsed .sidebar-nav-group--secondary {
+    display: revert;
+  }
+
+  .app-sidebar.sidebar-collapsed .nav-item {
+    justify-content: flex-start;
+    padding: .55rem .85rem;
   }
 
   .app-sidebar.sidebar-open {
@@ -2380,4 +2448,14 @@ textarea { resize: vertical; }
 
 @media (max-width: 480px) {
   .ai-panel { width: 100vw; }
+}
+
+/* ── AI panel slide-in animation ── */
+.ai-panel:not([hidden]) {
+  animation: slide-in-right .2s ease;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }

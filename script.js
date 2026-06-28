@@ -55,6 +55,11 @@ function _setDevMode(enabled) {
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
 const appScreen   = document.getElementById("app-screen");
+const appLoading  = document.getElementById("app-loading");
+
+// Tracks the user ID of the currently initialized session to prevent
+// double-initialization when onAuthStateChange and getSession() both fire.
+let _initializedUserId = null;
 
 // ── Indicador de sincronização ─────────────────────────────────────────────
 const syncIndicator = document.getElementById("sync-indicator");
@@ -198,6 +203,10 @@ function setSelectedDays(str) {
 const AUTH_VIEWS = ['login','register','email-sent','forgot','reset-sent','new-password'];
 
 function showAuthView(name) {
+  if (appLoading) appLoading.hidden = true;
+  _closeAllModals();
+  _initializedUserId = null;
+  assistantHidden    = false;
   loginScreen.hidden = false;
   appScreen.hidden   = true;
   AUTH_VIEWS.forEach(v => {
@@ -210,7 +219,31 @@ function showLogin() {
   showAuthView('login');
 }
 
+function _closeAllModals() {
+  const ids = [
+    'event-modal', 'cat-overlay', 'settings-overlay',
+    'account-overlay', 'diagnostic-overlay', 'academic-overlay',
+    'ai-panel', 'ai-panel-overlay',
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  });
+}
+
 async function showApp(session) {
+  if (appLoading) appLoading.hidden = true;
+
+  // Both onAuthStateChange (INITIAL_SESSION) and the getSession() IIFE fire on
+  // load for the same session. Skip re-initialization for the same user so we
+  // don't double-register event listeners or double-fetch data.
+  if (_initializedUserId === session.user.id) {
+    loginScreen.hidden = true;
+    appScreen.hidden   = false;
+    return;
+  }
+  _initializedUserId = session.user.id;
+
   loginScreen.hidden = true;
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;
@@ -261,6 +294,9 @@ async function showApp(session) {
     }),
     loadEvents(),
   ]);
+
+  // Restore the page the user was on before the last refresh/logout
+  restoreLastPage();
 }
 
 // ── SW → App message: open event from push notification click ──────────────
@@ -1352,8 +1388,11 @@ function buildUpcomingCard(upcoming) {
 
 // ── Navegação entre páginas ────────────────────────────────────────────────
 const APP_PAGES = ['agenda', 'calendar', 'appointments'];
+const LAST_PAGE_KEY = 'medagenda_last_page';
 
 function showPage(name) {
+  if (!APP_PAGES.includes(name)) name = 'agenda';
+
   APP_PAGES.forEach(p => {
     const el = document.getElementById(`page-${p}`);
     if (el) el.hidden = (p !== name);
@@ -1365,6 +1404,17 @@ function showPage(name) {
     btn.classList.toggle('bottom-nav-item--active', btn.dataset.page === name);
   });
   closeSidebar();
+
+  try { localStorage.setItem(LAST_PAGE_KEY, name); } catch { /* storage unavailable */ }
+}
+
+function restoreLastPage() {
+  try {
+    const saved = localStorage.getItem(LAST_PAGE_KEY);
+    showPage(saved || 'agenda');
+  } catch {
+    showPage('agenda');
+  }
 }
 
 document.querySelectorAll('[data-page]').forEach(btn => {
@@ -1389,6 +1439,8 @@ document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
   if (window.innerWidth < 768) {
     const isOpen = appSidebar?.classList.contains('sidebar-open');
     if (isOpen) closeSidebar(); else openSidebar();
+  } else {
+    appSidebar?.classList.toggle('sidebar-collapsed');
   }
 });
 
