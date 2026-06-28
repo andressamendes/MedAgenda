@@ -6,8 +6,8 @@
   "background_color": "#f9fafb",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/medagenda/",
+  "scope": "/medagenda/",
   "lang": "pt-BR",
   "icons": [
     {

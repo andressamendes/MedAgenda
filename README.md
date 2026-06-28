@@ -4,6 +4,8 @@
 
 MedAgenda é uma aplicação web progressiva (PWA) para organizar a rotina intensa da vida médica: aulas, plantões, ambulatórios, laboratórios, estudos, provas, congressos e compromissos pessoais.
 
+**URL de produção:** https://andressamendes.github.io/medagenda/
+
 ---
 
 ## Funcionalidades
@@ -56,35 +58,46 @@ MedAgenda/
 ├── service-worker.js       # Cache offline + Push handler
 ├── manifest.webmanifest    # PWA manifest
 ├── config.example.js       # Template de configuração (copiar → config.js)
+├── config.js               # Credenciais locais (NÃO versionado — ver .gitignore)
 ├── package.json            # Scripts de teste
 ├── CHANGELOG.md            # Histórico de versões
+├── .nojekyll               # Desativa Jekyll no GitHub Pages
 ├── icons/                  # Ícones PWA (72px a 512px)
 ├── sql/                    # Migrations do banco de dados
 ├── supabase/functions/     # Edge Function de push notifications
 ├── tests/                  # Testes automatizados
 │   ├── utils.test.js       # 30 testes para utilitários
 │   └── recurrence.test.js  # 16 testes para lógica de recorrência
+├── .github/workflows/
+│   ├── deploy.yml          # Deploy automático para GitHub Pages (push na main)
+│   └── ci.yml              # Testes automáticos em PRs
 └── docs/                   # Documentação detalhada
     ├── ARQUITETURA.md
     ├── BANCO_DE_DADOS.md
+    ├── DEPLOY.md           # Guia completo de deploy
     ├── ROADMAP.md
     └── VISAO_DO_PRODUTO.md
 ```
 
 ---
 
-## Configuração e Deploy
+## Executar localmente
 
-### 1. Clonar e configurar
+Como o projeto usa ES Modules (`type="module"`), é necessário um servidor HTTP:
 
 ```bash
 git clone https://github.com/andressamendes/medagenda.git
 cd medagenda
 cp config.example.js config.js
 # Editar config.js com suas credenciais do Supabase
+python3 -m http.server 8080
 ```
 
-### 2. Configurar o Supabase
+Acesse `http://localhost:8080`.
+
+---
+
+## Configurar o Supabase
 
 1. Criar um projeto em [supabase.com](https://supabase.com)
 2. Executar os scripts SQL na ordem:
@@ -92,14 +105,36 @@ cp config.example.js config.js
    - `sql/03_recurrence.sql`
    - `sql/04_push_notifications.sql`
 3. Copiar a **URL do projeto** e a **chave anon** para `config.js`
+4. Em **Authentication → URL Configuration**, configurar:
+   - Site URL: `https://andressamendes.github.io/medagenda/`
+   - Redirect URLs: `https://andressamendes.github.io/medagenda/**`
 
-### 3. Push Notifications (opcional)
+---
 
-Consulte `docs/ARQUITETURA.md` para instruções de configuração do VAPID e deploy da Edge Function.
+## Publicar no GitHub Pages
 
-### 4. Deploy no GitHub Pages
+### Configuração única (primeira vez)
 
-O deploy é automático ao fazer push para `main`. O app é servido diretamente como site estático — nenhum build necessário.
+1. Configurar os Secrets no repositório:
+   - **Settings → Secrets and variables → Actions**
+   - Adicionar: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`
+
+2. Habilitar GitHub Pages:
+   - **Settings → Pages → Source → GitHub Actions**
+
+### Deploy contínuo
+
+Após a configuração, todo push na branch `main` dispara o deploy automaticamente.
+
+Consulte [`docs/DEPLOY.md`](docs/DEPLOY.md) para o guia completo.
+
+---
+
+## Instalar a PWA
+
+1. Acesse a URL de produção pelo celular ou desktop
+2. Clique em **"Instalar MedAgenda"** (aparece automaticamente quando disponível)
+3. No iOS Safari: toque em **Compartilhar → Adicionar à Tela de Início**
 
 ---
 
@@ -120,6 +155,7 @@ npm run test:recurrence   # Apenas testes de recurrence.js
 
 ## Documentação
 
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) — guia completo de deploy e configuração
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — arquitetura técnica
 - [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) — schema do banco de dados
 - [`docs/VISAO_DO_PRODUTO.md`](docs/VISAO_DO_PRODUTO.md) — visão e princípios do produto
@@ -130,7 +166,7 @@ npm run test:recurrence   # Apenas testes de recurrence.js
 
 ## Versão
 
-**v1.0.0-rc1** — Release Candidate 1
+**v1.0.0** — Disponível em produção
 
 ---
 
