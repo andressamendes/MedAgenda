@@ -34,6 +34,7 @@ jobs:
           {
             echo "export const SUPABASE_URL      = \"${SUPABASE_URL}\";"
             echo "export const SUPABASE_ANON_KEY = \"${SUPABASE_ANON_KEY}\";"
+            echo "export const APP_URL           = \"https://andressamendes.github.io/MedAgenda/\";"
             echo "export const VAPID_PUBLIC_KEY  = \"${VAPID_PUBLIC_KEY}\";"
           } > config.js
 

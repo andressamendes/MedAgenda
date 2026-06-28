@@ -43,7 +43,20 @@ Este documento descreve toda a arquitetura de autenticação, cadastro, recupera
 ### Configuração obrigatória no Supabase Dashboard
 
 - **Authentication → URL Configuration → Site URL:** `https://andressamendes.github.io/MedAgenda/`
-- **Redirect URLs:** adicione `https://andressamendes.github.io/MedAgenda/` e `http://localhost:*`
+- **Redirect URLs:** adicione `https://andressamendes.github.io/MedAgenda/**` e `http://localhost:*`
+
+> **Por que isso importa:** o Supabase usa o "Site URL" como fallback quando a URL fornecida em `emailRedirectTo` não está na lista de Redirect URLs. Se o Site URL estiver apontando para `localhost`, todos os links de e-mail (confirmação, recuperação de senha) vão redirecionar para `localhost` em produção.
+
+### Configuração de APP_URL (obrigatória no config.js local)
+
+A URL de redirecionamento é controlada pelo campo `APP_URL` em `config.js`:
+
+| Ambiente | Valor de `APP_URL` |
+|---|---|
+| Desenvolvimento local | `http://localhost:8080` (ou a porta que você usar) |
+| Produção (GitHub Pages) | `https://andressamendes.github.io/MedAgenda/` (definido automaticamente pelo `deploy.yml`) |
+
+Nunca use `http://localhost:3000` (ou qualquer URL local) como `APP_URL` quando for testar o fluxo de e-mail com usuários reais — os links enviados por e-mail ficarão inacessíveis para eles.
 
 ---
 
@@ -213,3 +226,5 @@ supabase functions deploy delete-account
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_ANON_KEY` | Chave anônima pública |
 | `VAPID_PUBLIC_KEY` | Chave pública VAPID para Push |
+
+> `APP_URL` **não é um Secret** — seu valor de produção (`https://andressamendes.github.io/MedAgenda/`) é fixo e injetado diretamente pelo `deploy.yml`.
