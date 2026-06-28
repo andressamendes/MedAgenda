@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedAgenda</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Tela de login ── -->
+  <div id="login-screen" class="login-wrap">
+    <div class="card">
+      <h1>MedAgenda</h1>
+      <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
+      <div class="form-group">
+        <input type="email" id="email" placeholder="E-mail" autocomplete="email" />
+        <input type="password" id="password" placeholder="Senha" autocomplete="current-password" />
+      </div>
+      <p id="error-msg" class="error"></p>
+      <button id="btn-login" class="btn btn-primary">Entrar</button>
+    </div>
+  </div>
+
+  <!-- ── Aplicação principal ── -->
+  <div id="app-screen" hidden>
+
+    <header class="app-header">
+      <span class="app-title">MedAgenda</span>
+      <div class="header-right">
+        <span id="header-email" class="header-email"></span>
+        <button id="btn-categories" class="btn btn-sm btn-ghost">Categorias</button>
+        <button id="btn-logout" class="btn btn-sm btn-ghost">Sair</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- Calendário semanal (vista principal) -->
+      <section class="week-section" id="week-container"></section>
+
+      <!-- Calendário mensal -->
+      <section class="calendar-section" id="calendar-container"></section>
+
+      <!-- Formulário de compromisso -->
+      <section class="form-section">
+        <h2 id="form-title">Novo compromisso</h2>
+
+        <form id="event-form" novalidate>
+          <input type="hidden" id="event-id" />
+
+          <div class="field">
+            <label for="f-title">Título <span class="required">*</span></label>
+            <input type="text" id="f-title" placeholder="Ex: Plantão UPA" required />
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="f-date">Data <span class="required">*</span></label>
+              <input type="date" id="f-date" required />
+            </div>
+            <div class="field">
+              <label for="f-start">Hora início <span class="required">*</span></label>
+              <input type="time" id="f-start" required />
+            </div>
+            <div class="field">
+              <label for="f-duration">Duração (min)</label>
+              <input type="number" id="f-duration" placeholder="Ex: 120" min="1" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="f-category">Categoria</label>
+              <select id="f-category">
+                <option value="">— Selecione —</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="f-color">Cor</label>
+              <input type="color" id="f-color" value="#3b82f6" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="f-location">Local</label>
+            <input type="text" id="f-location" placeholder="Ex: Hospital das Clínicas" />
+          </div>
+
+          <div class="field">
+            <label for="f-description">Observação</label>
+            <textarea id="f-description" rows="2" placeholder="Detalhes adicionais…"></textarea>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="f-reminder">Lembrete (min antes)</label>
+              <input type="number" id="f-reminder" placeholder="Ex: 30" min="0" />
+            </div>
+            <div class="field">
+              <label for="f-recurrence">Recorrência</label>
+              <select id="f-recurrence">
+                <option value="none">Sem recorrência</option>
+                <option value="daily">Diária</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensal</option>
+              </select>
+            </div>
+          </div>
+
+          <p id="form-error" class="error"></p>
+
+          <div class="form-actions">
+            <button type="submit" id="btn-save" class="btn btn-primary">Salvar compromisso</button>
+            <button type="button" id="btn-cancel" class="btn btn-ghost" hidden>Cancelar</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Lista de compromissos -->
+      <section class="list-section">
+        <h2>Meus compromissos</h2>
+        <p id="list-empty" class="list-empty" hidden>Nenhum compromisso cadastrado.</p>
+        <div id="event-list"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ── Modal: Gerenciar Categorias ── -->
+  <div id="cat-overlay" class="modal-overlay" hidden>
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <span class="modal-date">Gerenciar Categorias</span>
+        <button class="modal-close" id="cat-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body cat-modal-body">
+        <div id="cat-list"></div>
+        <div class="cat-add-section">
+          <h4 class="cat-add-title">Nova categoria</h4>
+          <div class="cat-form-row">
+            <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" />
+            <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" />
+            <button class="btn btn-primary btn-sm" id="cat-add">Adicionar</button>
+          </div>
+          <p class="error" id="cat-error"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
