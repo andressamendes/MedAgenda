@@ -48,7 +48,7 @@ CREATE POLICY "push_subscriptions_delete" ON push_subscriptions
 CREATE TABLE IF NOT EXISTS notification_logs (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  event_id    UUID        NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  event_id    UUID        NOT NULL,
   event_date  DATE        NOT NULL,
   status      TEXT        NOT NULL DEFAULT 'sent',  -- sent | failed
   error       TEXT,
