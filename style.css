@@ -965,6 +965,144 @@ textarea { resize: vertical; }
   }
 }
 
+/* ── Auth multi-view ── */
+.auth-view[hidden] { display: none; }
+
+.auth-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .35rem .75rem;
+  margin-top: 1rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-size: .85rem;
+  cursor: pointer;
+  padding: .2rem .35rem;
+  border-radius: 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-btn:hover { color: var(--blue-d); }
+
+.terms-label {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  font-size: .85rem;
+  color: var(--gray-600);
+  margin-bottom: .5rem;
+  cursor: pointer;
+}
+
+.terms-label input[type="checkbox"] {
+  width: auto;
+  margin-top: .15rem;
+  flex-shrink: 0;
+}
+
+.link-text { color: var(--blue); text-decoration: underline; }
+
+.auth-success-icon {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: .75rem;
+  color: var(--blue);
+}
+
+.auth-email-display {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  text-align: center;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .5rem;
+  margin: .5rem 0 .75rem;
+}
+
+/* ── Minha Conta modal ── */
+.modal-account {
+  max-width: 520px;
+}
+
+.account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.account-loading {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 2rem 0;
+  font-size: .9rem;
+}
+
+.account-section {
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.account-section:last-child { border-bottom: none; }
+
+.account-section-title {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--gray-600);
+  margin-bottom: .85rem;
+}
+
+.account-hint {
+  font-size: .78rem;
+  color: var(--gray-400);
+  margin-top: .4rem;
+}
+
+/* Avatar */
+.avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.avatar-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--gray-200);
+  flex-shrink: 0;
+  background: var(--gray-100);
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+/* Danger zone */
+.account-danger-zone {
+  background: #fff5f5;
+}
+
+.account-danger-zone .account-section-title {
+  color: #b91c1c;
+}
+
 /* ── Sync indicator ── */
 .sync-indicator {
   display: inline-flex;

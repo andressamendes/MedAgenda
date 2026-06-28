@@ -1,4 +1,4 @@
-import { signIn, signOut, getSession, onAuthStateChange } from "./auth.js";
+import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar } from "./calendar.js";
 import { initWeekView, refreshWeekView } from "./weekView.js";
@@ -22,6 +22,7 @@ import { toast } from "./toastService.js";
 import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
 import { initErrorService, setErrorDevMode } from "./errorService.js";
 import { runDiagnostics, APP_VERSION, updateLastSync } from "./diagnosticService.js";
+import { initAccountView } from "./accountView.js";
 
 // Inicializa serviços de observabilidade imediatamente
 initErrorService(_isDevMode());
@@ -149,10 +150,20 @@ function setSelectedDays(str) {
   });
 }
 
-// ── Autenticação ───────────────────────────────────────────────────────────
-function showLogin() {
+// ── Auth views ─────────────────────────────────────────────────────────────
+const AUTH_VIEWS = ['login','register','email-sent','forgot','reset-sent','new-password'];
+
+function showAuthView(name) {
   loginScreen.hidden = false;
   appScreen.hidden   = true;
+  AUTH_VIEWS.forEach(v => {
+    const el = document.getElementById(`view-${v}`);
+    if (el) el.hidden = (v !== name);
+  });
+}
+
+function showLogin() {
+  showAuthView('login');
 }
 
 async function showApp(session) {
@@ -160,6 +171,7 @@ async function showApp(session) {
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;
 
+  initAccountView(session.user.id);
   initNotifications(session.user.id);
   initPushService(session.user.id, VAPID_PUBLIC_KEY);
 
@@ -235,7 +247,11 @@ logoutBtn.addEventListener("click", async () => {
   }
 });
 
-onAuthStateChange((session) => {
+onAuthStateChange((session, event) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    showAuthView('new-password');
+    return;
+  }
   if (session) showApp(session);
   else showLogin();
 });
@@ -860,5 +876,109 @@ function renderDevmodeState() {
     }
   }
 }
+
+// ── Auth: navegação entre views ─────────────────────────────────────────────
+document.getElementById('btn-to-register')?.addEventListener('click', () => showAuthView('register'));
+document.getElementById('btn-to-login-from-register')?.addEventListener('click', showLogin);
+document.getElementById('btn-to-forgot')?.addEventListener('click', () => showAuthView('forgot'));
+document.getElementById('btn-to-login-from-forgot')?.addEventListener('click', showLogin);
+document.getElementById('btn-back-to-login-from-sent')?.addEventListener('click', showLogin);
+document.getElementById('btn-back-to-login-from-reset')?.addEventListener('click', showLogin);
+
+// ── Auth: cadastro ──────────────────────────────────────────────────────────
+const registerBtn   = document.getElementById('btn-register');
+const registerError = document.getElementById('register-error');
+
+registerBtn?.addEventListener('click', async () => {
+  if (!registerError) return;
+  registerError.textContent = '';
+
+  const fullName = document.getElementById('reg-name').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const pwd      = document.getElementById('reg-password').value;
+  const confirm  = document.getElementById('reg-confirm').value;
+  const terms    = document.getElementById('reg-terms').checked;
+
+  if (!fullName)            { registerError.textContent = 'Nome é obrigatório.'; return; }
+  if (!email)               { registerError.textContent = 'E-mail é obrigatório.'; return; }
+  if (pwd.length < 8)       { registerError.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
+  if (pwd !== confirm)      { registerError.textContent = 'As senhas não coincidem.'; return; }
+  if (!terms)               { registerError.textContent = 'Aceite os Termos de Uso para continuar.'; return; }
+
+  registerBtn.disabled    = true;
+  registerBtn.textContent = 'Criando conta…';
+  try {
+    const { user } = await signUp(email, pwd, fullName);
+    // If identities is empty the email is already confirmed (e-mail auth disabled)
+    if (!user?.identities?.length) {
+      registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
+      return;
+    }
+    document.getElementById('email-sent-addr').textContent = email;
+    showAuthView('email-sent');
+  } catch (err) {
+    const msg = err.message || '';
+    if (msg.includes('already registered') || msg.includes('already exists')) {
+      registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
+    } else {
+      registerError.textContent = msg || 'Não foi possível criar a conta. Tente novamente.';
+    }
+  } finally {
+    registerBtn.disabled    = false;
+    registerBtn.textContent = 'Criar Conta';
+  }
+});
+
+// ── Auth: recuperação de senha ──────────────────────────────────────────────
+const sendResetBtn  = document.getElementById('btn-send-reset');
+const forgotError   = document.getElementById('forgot-error');
+
+sendResetBtn?.addEventListener('click', async () => {
+  if (!forgotError) return;
+  forgotError.textContent = '';
+
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) { forgotError.textContent = 'Informe seu e-mail.'; return; }
+
+  sendResetBtn.disabled    = true;
+  sendResetBtn.textContent = 'Enviando…';
+  try {
+    await sendPasswordReset(email);
+    showAuthView('reset-sent');
+  } catch (err) {
+    forgotError.textContent = err.message || 'Não foi possível enviar o link. Tente novamente.';
+  } finally {
+    sendResetBtn.disabled    = false;
+    sendResetBtn.textContent = 'Enviar link';
+  }
+});
+
+// ── Auth: definir nova senha (após clicar no link de reset) ─────────────────
+const setPasswordBtn = document.getElementById('btn-set-password');
+const newPwdError    = document.getElementById('new-pwd-error');
+
+setPasswordBtn?.addEventListener('click', async () => {
+  if (!newPwdError) return;
+  newPwdError.textContent = '';
+
+  const pwd     = document.getElementById('new-password').value;
+  const confirm = document.getElementById('new-password-confirm').value;
+
+  if (pwd.length < 8)    { newPwdError.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
+  if (pwd !== confirm)   { newPwdError.textContent = 'As senhas não coincidem.'; return; }
+
+  setPasswordBtn.disabled    = true;
+  setPasswordBtn.textContent = 'Salvando…';
+  try {
+    await updatePassword(pwd);
+    toast.success('Senha definida com sucesso. Você já pode fazer login.');
+    showLogin();
+  } catch (err) {
+    newPwdError.textContent = err.message || 'Não foi possível definir a senha.';
+  } finally {
+    setPasswordBtn.disabled    = false;
+    setPasswordBtn.textContent = 'Definir senha';
+  }
+});
 
 
