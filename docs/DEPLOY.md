@@ -130,6 +130,7 @@ git clone https://github.com/andressamendes/medagenda.git
 cd medagenda
 cp config.example.js config.js
 # Editar config.js com suas credenciais do Supabase
+# Ajustar APP_URL para a porta local que você usar (padrão: http://localhost:8080)
 ```
 
 ### 5.2 Servir localmente
@@ -229,12 +230,20 @@ Após cada deploy, validar:
 |----------|----------|-----------------|
 | `SUPABASE_URL` | Produção (GitHub) | GitHub Secret |
 | `SUPABASE_ANON_KEY` | Produção (GitHub) | GitHub Secret |
+| `APP_URL` | Produção (GitHub) | Fixo no `deploy.yml` (`https://andressamendes.github.io/MedAgenda/`) |
 | `VAPID_PUBLIC_KEY` | Produção (GitHub) | GitHub Secret |
 | `SUPABASE_URL` | Local | `config.js` (não versionado) |
 | `SUPABASE_ANON_KEY` | Local | `config.js` (não versionado) |
+| `APP_URL` | Local | `config.js` — use `http://localhost:PORTA` |
 | `VAPID_PUBLIC_KEY` | Local | `config.js` (não versionado) |
 
 **Regra:** nunca versionar `config.js`. Ele está no `.gitignore`.
+
+### Por que APP_URL existe
+
+`APP_URL` é a URL base enviada nos links de e-mail (confirmação de conta, recuperação de senha, alteração de e-mail). Ela é definida explicitamente no `config.js` para garantir que os links sempre apontem para o destino correto, independentemente de onde o navegador está executando o código no momento do envio.
+
+Sem `APP_URL`, a URL seria calculada via `window.location` — o que fazia com que e-mails enviados durante testes locais tivessem links apontando para `localhost`, inacessíveis para usuários reais.
 
 ---
 

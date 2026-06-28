@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { APP_URL } from "./config.js";
 
 export async function signIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -63,6 +64,9 @@ export function onAuthStateChange(callback) {
   });
 }
 
+// APP_URL vem de config.js e garante que os links de e-mail sempre apontem
+// para o ambiente correto (produção ou local), independentemente de onde o
+// navegador está rodando no momento do envio.
 function _appUrl() {
-  return window.location.origin + window.location.pathname;
+  return APP_URL || (window.location.origin + window.location.pathname);
 }

@@ -12,6 +12,18 @@
 export const SUPABASE_URL      = "https://your-project-id.supabase.co";
 export const SUPABASE_ANON_KEY = "your-anon-key-here";
 
+// URL base do app — usada nos links de e-mail de confirmação, redefinição de
+// senha e alteração de e-mail. Deve apontar para onde o usuário final acessa
+// o app, NÃO para o servidor de desenvolvimento local.
+//
+// Desenvolvimento local: ajuste para a porta que você usa (ex: 8080, 3000).
+// Produção (GitHub Pages): o deploy.yml define automaticamente como
+//   https://andressamendes.github.io/MedAgenda/
+//
+// IMPORTANTE: esta URL também precisa estar na lista "Redirect URLs" do
+// Supabase Dashboard em Authentication → URL Configuration.
+export const APP_URL           = "http://localhost:8080";
+
 // VAPID public key — necessária para Notificações Push.
 // Gere as chaves com: npx web-push generate-vapid-keys
 // - Cole a chave PÚBLICA aqui.
