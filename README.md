@@ -4,7 +4,7 @@
 
 MedAgenda é uma aplicação web progressiva (PWA) para organizar a rotina intensa da vida médica: aulas, plantões, ambulatórios, laboratórios, estudos, provas, congressos e compromissos pessoais.
 
-**URL de produção:** https://andressamendes.github.io/medagenda/
+**URL de produção:** https://andressamendes.github.io/MedAgenda/
 
 ---
 
@@ -106,8 +106,8 @@ Acesse `http://localhost:8080`.
    - `sql/04_push_notifications.sql`
 3. Copiar a **URL do projeto** e a **chave anon** para `config.js`
 4. Em **Authentication → URL Configuration**, configurar:
-   - Site URL: `https://andressamendes.github.io/medagenda/`
-   - Redirect URLs: `https://andressamendes.github.io/medagenda/**`
+   - Site URL: `https://andressamendes.github.io/MedAgenda/`
+   - Redirect URLs: `https://andressamendes.github.io/MedAgenda/**`
 
 ---
 
