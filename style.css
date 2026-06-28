@@ -40,6 +40,7 @@ body {
   background: var(--gray-50);
   z-index: 9999;
 }
+.app-loading-screen[hidden] { display: none; }
 
 .app-loading-logo {
   font-size: 1.5rem;
