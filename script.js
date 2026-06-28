@@ -7,6 +7,11 @@ import {
   getCategories, createCategory, updateCategory,
   deleteCategory, ensureDefaultCategories,
 } from "./categoryService.js";
+import {
+  initNotifications, scheduleReminders,
+  isSupported, isEnabled, setEnabled,
+  permissionStatus, requestPermission,
+} from "./notificationService.js";
 
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
@@ -37,6 +42,8 @@ const fColor             = document.getElementById("f-color");
 const fLocation          = document.getElementById("f-location");
 const fDesc              = document.getElementById("f-description");
 const fReminder          = document.getElementById("f-reminder");
+const fReminderCustom    = document.getElementById("f-reminder-custom");
+const reminderCustomWrap = document.getElementById("reminder-custom-wrap");
 const fRecurrence        = document.getElementById("f-recurrence");
 const fRecurrenceUntil   = document.getElementById("f-recurrence-until");
 const fRecurrenceInterval = document.getElementById("f-recurrence-interval");
@@ -73,6 +80,11 @@ function handleEventClick(ev) {
   document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
 }
 
+// ── Lembrete — mostrar/esconder campo personalizado ───────────────────────
+fReminder.addEventListener("change", () => {
+  reminderCustomWrap.hidden = fReminder.value !== "custom";
+});
+
 // ── Recorrência — visibilidade dos campos extras ───────────────────────────
 fRecurrence.addEventListener("change", () => {
   const v = fRecurrence.value;
@@ -108,6 +120,8 @@ async function showApp(session) {
   loginScreen.hidden = true;
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;
+
+  initNotifications(session.user.id);
 
   // Categorias devem estar prontas antes do calendário e da lista
   await initCategories();
@@ -306,12 +320,95 @@ catAddBtn.addEventListener("click", async () => {
   }
 });
 
+// ── Configurações — modal ──────────────────────────────────────────────────
+const settingsOverlay  = document.getElementById("settings-overlay");
+const notifStatusText  = document.getElementById("notif-status-text");
+const btnNotifToggle   = document.getElementById("btn-notif-toggle");
+const notifPermHint    = document.getElementById("notif-perm-hint");
+
+document.getElementById("btn-settings").addEventListener("click", openSettings);
+document.getElementById("settings-close").addEventListener("click", closeSettings);
+settingsOverlay.addEventListener("click", (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !settingsOverlay.hidden) closeSettings();
+});
+
+function openSettings() {
+  renderSettingsState();
+  settingsOverlay.hidden = false;
+}
+
+function closeSettings() {
+  settingsOverlay.hidden = true;
+}
+
+function renderSettingsState() {
+  if (!isSupported()) {
+    notifStatusText.textContent = "Seu navegador não suporta notificações.";
+    btnNotifToggle.hidden       = true;
+    notifPermHint.hidden        = true;
+    return;
+  }
+
+  const perm    = permissionStatus();
+  const enabled = isEnabled() && perm === "granted";
+
+  if (perm === "denied") {
+    notifStatusText.textContent = "Permissão de notificação negada pelo navegador.";
+    btnNotifToggle.hidden       = true;
+    notifPermHint.hidden        = false;
+    notifPermHint.textContent   = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
+    return;
+  }
+
+  notifPermHint.hidden  = true;
+  btnNotifToggle.hidden = false;
+
+  if (enabled) {
+    notifStatusText.textContent = "Notificações ativadas — você receberá lembretes no horário configurado.";
+    btnNotifToggle.textContent  = "Desativar notificações";
+    btnNotifToggle.className    = "btn btn-sm btn-ghost";
+  } else {
+    notifStatusText.textContent = perm === "default"
+      ? "Notificações desativadas — clique em Ativar para autorizar o navegador."
+      : "Notificações desativadas.";
+    btnNotifToggle.textContent  = "Ativar notificações";
+    btnNotifToggle.className    = "btn btn-sm btn-primary";
+  }
+}
+
+btnNotifToggle.addEventListener("click", async () => {
+  const perm    = permissionStatus();
+  const enabled = isEnabled() && perm === "granted";
+
+  if (enabled) {
+    setEnabled(false);
+    scheduleReminders([]); // cancela todos os timeouts
+  } else {
+    const result = await requestPermission();
+    if (result === "granted") {
+      setEnabled(true);
+      try {
+        const events = await getEvents();
+        scheduleReminders(events);
+      } catch { /* ignore */ }
+    }
+  }
+
+  renderSettingsState();
+});
+
 // ── Formulário ─────────────────────────────────────────────────────────────
 function clearForm() {
   editingId = null;
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
+  fReminder.value           = "";
+  reminderCustomWrap.hidden = true;
+  fReminderCustom.value     = "";
   fRecurrence.value         = "none";
   fRecurrenceInterval.value = 1;
   fRecurrenceUntil.value    = "";
@@ -335,7 +432,7 @@ function populateForm(ev) {
   fColor.value          = ev.color            || "#3b82f6";
   fLocation.value       = ev.location         || "";
   fDesc.value           = ev.description      || "";
-  fReminder.value           = ev.reminder_minutes          || "";
+  _populateReminder(ev.reminder_minutes);
   fRecurrence.value         = ev.recurrence_type           || "none";
   fRecurrenceInterval.value = ev.recurrence_interval       || 1;
   fRecurrenceUntil.value    = ev.recurrence_until          || "";
@@ -346,6 +443,32 @@ function populateForm(ev) {
   cancelBtn.hidden      = false;
   formError.textContent = "";
   fTitle.focus();
+}
+
+// ── Helpers de lembrete ────────────────────────────────────────────────────
+const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
+
+function _populateReminder(minutes) {
+  if (minutes === null || minutes === undefined || minutes === "") {
+    fReminder.value           = "";
+    reminderCustomWrap.hidden = true;
+    fReminderCustom.value     = "";
+  } else if (REMINDER_PRESETS.has(String(minutes))) {
+    fReminder.value           = String(minutes);
+    reminderCustomWrap.hidden = true;
+    fReminderCustom.value     = "";
+  } else {
+    fReminder.value           = "custom";
+    fReminderCustom.value     = String(minutes);
+    reminderCustomWrap.hidden = false;
+  }
+}
+
+function _reminderMinutes() {
+  const v = fReminder.value;
+  if (v === "")       return null;
+  if (v === "custom") return parseInt(fReminderCustom.value) || null;
+  return parseInt(v);
 }
 
 cancelBtn.addEventListener("click", clearForm);
@@ -368,7 +491,7 @@ eventForm.addEventListener("submit", async (e) => {
     color:                   fColor.value     || null,
     location:                fLocation.value.trim()  || null,
     description:             fDesc.value.trim()      || null,
-    reminder_minutes:        fReminder.value  ? parseInt(fReminder.value)  : null,
+    reminder_minutes:        _reminderMinutes(),
     recurrence_type:         recType,
     recurrence_interval:     recType === "custom" ? (parseInt(fRecurrenceInterval.value) || 1) : null,
     recurrence_until:        recType !== "none"   ? (fRecurrenceUntil.value || null)            : null,
@@ -399,6 +522,7 @@ async function loadEvents() {
   try {
     const events = await getEvents();
     renderList(events);
+    scheduleReminders(events);
   } catch {
     // sessão pode ter expirado; onAuthStateChange cuida do redirecionamento
   }

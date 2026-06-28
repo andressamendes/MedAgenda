@@ -29,6 +29,7 @@
       <span class="app-title">MedAgenda</span>
       <div class="header-right">
         <span id="header-email" class="header-email"></span>
+        <button id="btn-settings"   class="btn btn-sm btn-ghost">Configurações</button>
         <button id="btn-categories" class="btn btn-sm btn-ghost">Categorias</button>
         <button id="btn-logout" class="btn btn-sm btn-ghost">Sair</button>
       </div>
@@ -94,8 +95,20 @@
 
           <div class="field-row">
             <div class="field">
-              <label for="f-reminder">Lembrete (min antes)</label>
-              <input type="number" id="f-reminder" placeholder="Ex: 30" min="0" />
+              <label for="f-reminder">Lembrete</label>
+              <select id="f-reminder">
+                <option value="">Sem lembrete</option>
+                <option value="0">Na hora</option>
+                <option value="10">10 minutos antes</option>
+                <option value="30">30 minutos antes</option>
+                <option value="60">1 hora antes</option>
+                <option value="120">2 horas antes</option>
+                <option value="1440">1 dia antes</option>
+                <option value="custom">Personalizado…</option>
+              </select>
+              <div id="reminder-custom-wrap" hidden>
+                <input type="number" id="f-reminder-custom" placeholder="Minutos antes" min="1" class="reminder-custom-input" />
+              </div>
             </div>
             <div class="field">
               <label for="f-recurrence">Repetição</label>
@@ -179,6 +192,26 @@
           </div>
           <p class="error" id="cat-error"></p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Configurações ── -->
+  <div id="settings-overlay" class="modal-overlay" hidden>
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <span class="modal-date">Configurações</span>
+        <button class="modal-close" id="settings-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body settings-body">
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">Notificações de lembrete</div>
+            <div id="notif-status-text" class="settings-desc"></div>
+          </div>
+          <button id="btn-notif-toggle" class="btn btn-sm btn-primary">Ativar</button>
+        </div>
+        <p id="notif-perm-hint" class="settings-hint" hidden></p>
       </div>
     </div>
   </div>
