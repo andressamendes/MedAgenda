@@ -1,4 +1,5 @@
 import { getEventsByRange } from "./eventService.js";
+import { expandEvents } from "./recurrence.js";
 
 const ROW_H      = 48; // px per 30-min slot — total height 2304px
 const DAYS       = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
@@ -125,7 +126,10 @@ async function fetchAndRender() {
   clearEvents();
 
   try {
-    const events = await getEventsByRange(colIsoDate(0), colIsoDate(6));
+    const start     = colIsoDate(0);
+    const end       = colIsoDate(6);
+    const rawEvents = await getEventsByRange(start, end);
+    const events    = expandEvents(rawEvents, start, end);
     renderEvents(events);
   } catch { /* session expired — onAuthStateChange handles redirect */ }
 

@@ -790,3 +790,67 @@ textarea { resize: vertical; }
 @media (max-width: 680px) {
   .week-section { padding: 1rem .75rem; }
 }
+
+/* ── Recorrência — campos extras no formulário ── */
+#recurrence-extra {
+  margin-top: -.2rem;
+  margin-bottom: .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+#recurrence-extra[hidden] { display: none; }
+#recurrence-custom[hidden] { display: none; }
+
+#recurrence-custom {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.recurrence-interval-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .9rem;
+  color: var(--gray-800);
+}
+
+.recurrence-interval-row input[type="number"] {
+  width: 4rem;
+  text-align: center;
+}
+
+.recurrence-days-wrap {
+  display: flex;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+
+.day-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  line-height: 1;
+}
+
+.day-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+.day-btn-active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.badge-recur {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
