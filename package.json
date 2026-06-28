@@ -4,9 +4,11 @@
   "description": "Agenda de compromissos para estudantes de Medicina",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-vm-modules tests/utils.test.js && node --experimental-vm-modules tests/recurrence.test.js",
+    "test": "node --experimental-vm-modules tests/utils.test.js && node --experimental-vm-modules tests/recurrence.test.js && node --experimental-vm-modules tests/smartAssistant.test.js && node --experimental-vm-modules tests/analytics.test.js",
     "test:utils": "node --experimental-vm-modules tests/utils.test.js",
-    "test:recurrence": "node --experimental-vm-modules tests/recurrence.test.js"
+    "test:recurrence": "node --experimental-vm-modules tests/recurrence.test.js",
+    "test:assistant": "node --experimental-vm-modules tests/smartAssistant.test.js",
+    "test:analytics": "node --experimental-vm-modules tests/analytics.test.js"
   },
   "engines": {
     "node": ">=18"

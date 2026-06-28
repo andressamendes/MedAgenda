@@ -135,6 +135,7 @@
         <button id="btn-install-pwa"  class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
         <button id="btn-my-account"       class="btn btn-sm btn-ghost">Minha Conta</button>
         <button id="btn-settings"         class="btn btn-sm btn-ghost">Configurações</button>
+        <button id="btn-assistant"         class="btn btn-sm btn-ghost">Assistente</button>
         <button id="btn-academic-cals"    class="btn btn-sm btn-ghost">Calendários</button>
         <button id="btn-categories"       class="btn btn-sm btn-ghost">Categorias</button>
         <button id="btn-logout"           class="btn btn-sm btn-ghost">Sair</button>
@@ -142,6 +143,17 @@
     </header>
 
     <main class="app-main">
+
+      <!-- Assistente Inteligente -->
+      <section class="assistant-section" id="assistant-section" hidden aria-label="Assistente Inteligente">
+        <div class="assistant-header">
+          <span class="assistant-title">Assistente Inteligente</span>
+          <button class="assistant-close" id="assistant-close" aria-label="Fechar assistente">✕</button>
+        </div>
+        <div class="assistant-body" id="assistant-body">
+          <p class="assistant-loading">Analisando sua agenda…</p>
+        </div>
+      </section>
 
       <!-- Filtros de calendário -->
       <section class="filter-section">
