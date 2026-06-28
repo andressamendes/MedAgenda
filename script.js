@@ -294,6 +294,9 @@ async function showApp(session) {
     }),
     loadEvents(),
   ]);
+
+  // Restore the page the user was on before the last refresh/logout
+  restoreLastPage();
 }
 
 // ── SW → App message: open event from push notification click ──────────────
@@ -1385,8 +1388,11 @@ function buildUpcomingCard(upcoming) {
 
 // ── Navegação entre páginas ────────────────────────────────────────────────
 const APP_PAGES = ['agenda', 'calendar', 'appointments'];
+const LAST_PAGE_KEY = 'medagenda_last_page';
 
 function showPage(name) {
+  if (!APP_PAGES.includes(name)) name = 'agenda';
+
   APP_PAGES.forEach(p => {
     const el = document.getElementById(`page-${p}`);
     if (el) el.hidden = (p !== name);
@@ -1398,6 +1404,17 @@ function showPage(name) {
     btn.classList.toggle('bottom-nav-item--active', btn.dataset.page === name);
   });
   closeSidebar();
+
+  try { localStorage.setItem(LAST_PAGE_KEY, name); } catch { /* storage unavailable */ }
+}
+
+function restoreLastPage() {
+  try {
+    const saved = localStorage.getItem(LAST_PAGE_KEY);
+    showPage(saved || 'agenda');
+  } catch {
+    showPage('agenda');
+  }
 }
 
 document.querySelectorAll('[data-page]').forEach(btn => {
