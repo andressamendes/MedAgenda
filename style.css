@@ -338,6 +338,28 @@ body {
   background: var(--gray-50);
 }
 
+/* ── Sidebar collapsed (desktop) ── */
+.app-sidebar {
+  transition: width .2s ease;
+}
+
+.app-sidebar.sidebar-collapsed {
+  width: 52px;
+  padding: .75rem .25rem;
+}
+
+.app-sidebar.sidebar-collapsed .nav-label,
+.app-sidebar.sidebar-collapsed .sidebar-filter-wrap,
+.app-sidebar.sidebar-collapsed .sidebar-divider,
+.app-sidebar.sidebar-collapsed .sidebar-nav-group--secondary {
+  display: none;
+}
+
+.app-sidebar.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: .6rem;
+}
+
 /* ── Pages ── */
 .app-page {
   max-width: 960px;

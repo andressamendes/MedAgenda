@@ -1439,6 +1439,8 @@ document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
   if (window.innerWidth < 768) {
     const isOpen = appSidebar?.classList.contains('sidebar-open');
     if (isOpen) closeSidebar(); else openSidebar();
+  } else {
+    appSidebar?.classList.toggle('sidebar-collapsed');
   }
 });
 
