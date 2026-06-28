@@ -20,6 +20,7 @@ MedAgenda é uma aplicação web progressiva (PWA) para organizar a rotina inten
 - **Lembretes locais** — notificações do navegador enquanto o app está aberto
 - **Push Notifications** — lembretes mesmo com o app fechado (via Web Push)
 - **PWA** — instalável como app, funciona offline com dados em cache
+- **Calendários Acadêmicos** — múltiplos calendários com eventos institucionais, importação/exportação ICS
 
 ---
 
@@ -40,43 +41,47 @@ MedAgenda é uma aplicação web progressiva (PWA) para organizar a rotina inten
 
 ```
 MedAgenda/
-├── index.html              # SPA — ponto de entrada
-├── style.css               # Estilos globais
-├── script.js               # Controlador principal da UI
-├── utils.js                # Utilitários compartilhados (pad, isoDate, escapeHtml…)
-├── auth.js                 # Login / logout / sessão
-├── supabase.js             # Cliente Supabase + currentUserId
-├── eventService.js         # CRUD de eventos
-├── categoryService.js      # CRUD de categorias
-├── recurrence.js           # Expansão de eventos recorrentes (funções puras)
-├── calendar.js             # Vista mensal
-├── weekView.js             # Vista semanal
-├── quickAdd.js             # Modal de criação rápida
-├── notificationService.js  # Notificações locais (browser)
-├── pushService.js          # Web Push (app fechado)
-├── pwa.js                  # Registro do Service Worker e botão de instalação
-├── service-worker.js       # Cache offline + Push handler
-├── manifest.webmanifest    # PWA manifest
-├── config.example.js       # Template de configuração (copiar → config.js)
-├── config.js               # Credenciais locais (NÃO versionado — ver .gitignore)
-├── package.json            # Scripts de teste
-├── CHANGELOG.md            # Histórico de versões
-├── .nojekyll               # Desativa Jekyll no GitHub Pages
-├── icons/                  # Ícones PWA (72px a 512px)
-├── sql/                    # Migrations do banco de dados
-├── supabase/functions/     # Edge Function de push notifications
-├── tests/                  # Testes automatizados
-│   ├── utils.test.js       # 30 testes para utilitários
-│   └── recurrence.test.js  # 16 testes para lógica de recorrência
-├── .github/workflows/
-│   ├── deploy.yml          # Deploy automático para GitHub Pages (push na main)
-│   └── ci.yml              # Testes automáticos em PRs
-└── docs/                   # Documentação detalhada
+├── index.html                    # SPA — ponto de entrada
+├── style.css                     # Estilos globais
+├── script.js                     # Controlador principal da UI
+├── utils.js                      # Utilitários compartilhados
+├── auth.js                       # Login / logout / sessão
+├── supabase.js                   # Cliente Supabase + currentUserId
+├── eventService.js               # CRUD de eventos pessoais
+├── categoryService.js            # CRUD de categorias
+├── recurrence.js                 # Expansão de eventos recorrentes
+├── academicCalendarService.js    # CRUD de calendários e eventos acadêmicos
+├── academicCalendarView.js       # UI dos calendários acadêmicos
+├── icsImporter.js                # Parser de arquivos ICS
+├── icsExporter.js                # Gerador de arquivos ICS
+├── calendar.js                   # Vista mensal
+├── weekView.js                   # Vista semanal
+├── quickAdd.js                   # Modal de criação rápida
+├── notificationService.js        # Notificações locais (browser)
+├── pushService.js                # Web Push (app fechado)
+├── pwa.js                        # Registro do Service Worker
+├── service-worker.js             # Cache offline + Push handler
+├── manifest.webmanifest          # PWA manifest
+├── config.example.js             # Template de configuração
+├── package.json                  # Scripts de teste
+├── CHANGELOG.md                  # Histórico de versões
+├── icons/                        # Ícones PWA (72px a 512px)
+├── sql/                          # Migrations do banco de dados
+│   ├── 02_categories.sql
+│   ├── 03_recurrence.sql
+│   ├── 04_push_notifications.sql
+│   ├── 05_profiles.sql
+│   ├── 06_storage.sql
+│   └── 07_academic_calendar.sql  # Calendários acadêmicos (Etapa 17)
+├── supabase/functions/           # Edge Functions
+├── tests/                        # Testes automatizados
+└── docs/                         # Documentação detalhada
     ├── ARQUITETURA.md
     ├── BANCO_DE_DADOS.md
-    ├── DEPLOY.md           # Guia completo de deploy
+    ├── DEPLOY.md
     ├── ROADMAP.md
-    └── VISAO_DO_PRODUTO.md
+    ├── VISAO_DO_PRODUTO.md
+    └── ACADEMIC_CALENDAR.md      # Documentação da Etapa 17
 ```
 
 ---
@@ -104,6 +109,9 @@ Acesse `http://localhost:8080`.
    - `sql/02_categories.sql`
    - `sql/03_recurrence.sql`
    - `sql/04_push_notifications.sql`
+   - `sql/05_profiles.sql`
+   - `sql/06_storage.sql`
+   - `sql/07_academic_calendar.sql`
 3. Copiar a **URL do projeto** e a **chave anon** para `config.js`
 4. Em **Authentication → URL Configuration**, configurar:
    - Site URL: `https://andressamendes.github.io/MedAgenda/`
@@ -160,13 +168,14 @@ npm run test:recurrence   # Apenas testes de recurrence.js
 - [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) — schema do banco de dados
 - [`docs/VISAO_DO_PRODUTO.md`](docs/VISAO_DO_PRODUTO.md) — visão e princípios do produto
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — próximas versões planejadas
+- [`docs/ACADEMIC_CALENDAR.md`](docs/ACADEMIC_CALENDAR.md) — Calendário Acadêmico (Etapa 17)
 - [`CHANGELOG.md`](CHANGELOG.md) — histórico de versões
 
 ---
 
 ## Versão
 
-**v1.0.0** — Disponível em produção
+**v1.1.0** — Calendário Acadêmico (Etapa 17)
 
 ---
 

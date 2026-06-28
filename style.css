@@ -1295,3 +1295,282 @@ textarea { resize: vertical; }
   color: var(--gray-800);
   font-weight: 600;
 }
+
+/* ── Filter bar ── */
+.filter-section {
+  grid-column: 1 / -1;
+  margin-bottom: -.5rem;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .9rem;
+  padding: .55rem .9rem;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: .82rem;
+}
+
+.filter-label {
+  font-weight: 700;
+  color: var(--gray-600);
+  flex-shrink: 0;
+}
+
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  cursor: pointer;
+  color: var(--gray-800);
+  user-select: none;
+}
+
+.filter-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--blue);
+  flex-shrink: 0;
+}
+
+.filter-cal-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Academic calendar chips (monthly view) ── */
+.cal-chip-academic {
+  border-left: 3px solid rgba(0,0,0,.18);
+  opacity: .92;
+}
+
+.cal-chip-academic::before {
+  content: "📚 ";
+  font-size: .55rem;
+  vertical-align: middle;
+  margin-right: 1px;
+}
+
+/* ── Week view: all-day row ── */
+.wk-allday-row {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  min-height: 28px;
+  min-width: 480px;
+  position: sticky;
+  top: 49px; /* below the head-row (approx height) */
+  z-index: 4;
+}
+
+.wk-gutter-allday {
+  font-size: .58rem;
+  color: var(--gray-400);
+  text-align: right;
+  padding: .3rem .4rem 0 0;
+  border-right: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+
+.wk-allday-col {
+  border-right: 1px solid var(--gray-200);
+  padding: 2px 2px;
+  min-height: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wk-allday-col:last-child { border-right: none; }
+
+.wk-allday-chip {
+  font-size: .62rem;
+  line-height: 1.3;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.wk-allday-chip:hover { filter: brightness(1.1); }
+
+/* ── Academic event blocks in time grid ── */
+.wk-event-academic {
+  border-left: 3px solid rgba(0,0,0,.2);
+  opacity: .9;
+}
+
+/* ── Academic calendar modal ── */
+.modal-academic .modal-body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.academic-modal-body {
+  padding: 1rem;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.acal-list-wrap,
+.acal-ev-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.acal-list,
+.acal-ev-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.acal-empty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 1rem 0;
+  font-size: .9rem;
+}
+
+.acal-row {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .65rem .85rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+}
+
+.acal-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.acal-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .25rem .5rem;
+}
+
+.acal-row-name {
+  font-weight: 700;
+  font-size: .88rem;
+  color: var(--gray-800);
+}
+
+.acal-row-sub {
+  font-size: .78rem;
+  color: var(--gray-600);
+}
+
+.acal-row-actions {
+  display: flex;
+  gap: .35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.acal-add-section {
+  border-top: 1px solid var(--gray-200);
+  padding-top: 1rem;
+}
+
+.acal-add-title {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: .65rem;
+}
+
+.acal-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .65rem;
+  margin-bottom: .75rem;
+}
+
+@media (max-width: 520px) {
+  .acal-form-grid { grid-template-columns: 1fr; }
+  .acal-row-actions { gap: .25rem; }
+}
+
+.acal-form-full {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.acal-form-actions {
+  display: flex;
+  gap: .5rem;
+}
+
+/* Academic event list rows */
+.acal-ev-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  padding: .55rem .75rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+}
+
+.acal-ev-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: .25rem;
+}
+
+.acal-ev-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .2rem .5rem;
+}
+
+.acal-ev-title {
+  font-weight: 700;
+  font-size: .88rem;
+  color: var(--gray-800);
+  width: 100%;
+}
+
+.acal-ev-dates {
+  font-size: .78rem;
+  color: var(--gray-600);
+}
+
+.acal-ev-loc {
+  font-size: .78rem;
+  color: var(--gray-400);
+}
+
+.acal-ev-actions {
+  display: flex;
+  gap: .35rem;
+  flex-shrink: 0;
+}

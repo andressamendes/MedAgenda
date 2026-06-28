@@ -2,6 +2,19 @@ import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
 
+let _academicProvider  = null;
+let _showPersonal      = () => true;
+
+/** Registers a provider function (start, end) => Promise<AcademicEvent[]> */
+export function setWeekViewAcademicProvider(fn) {
+  _academicProvider = fn;
+}
+
+/** Registers a predicate returning whether personal events are visible */
+export function setWeekViewPersonalVisibility(fn) {
+  _showPersonal = fn;
+}
+
 const ROW_H      = 48; // px per 30-min slot — total height 2304px
 const DAYS       = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
 const MONTHS     = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -47,6 +60,11 @@ function buildShell() {
               <span class="wk-day-name">${d}</span>
               <span class="wk-day-num" id="wk-dn-${i}"></span>
             </div>`).join("")}
+        </div>
+        <div class="wk-allday-row" id="wk-allday-row">
+          <div class="wk-gutter-allday">Dia todo</div>
+          ${Array.from({length: 7}, (_, i) =>
+            `<div class="wk-allday-col" id="wk-allday-${i}"></div>`).join("")}
         </div>
         <div class="wk-body">
           <div class="wk-time-col" id="wk-time-col"></div>
@@ -127,11 +145,15 @@ async function fetchAndRender() {
   clearEvents();
 
   try {
-    const start     = colIsoDate(0);
-    const end       = colIsoDate(6);
-    const rawEvents = await getEventsByRange(start, end);
-    const events    = expandEvents(rawEvents, start, end);
-    renderEvents(events);
+    const start = colIsoDate(0);
+    const end   = colIsoDate(6);
+    const [rawEvents, academicEvents] = await Promise.all([
+      _showPersonal() ? getEventsByRange(start, end) : Promise.resolve([]),
+      _academicProvider ? _academicProvider(start, end) : Promise.resolve([]),
+    ]);
+    const personal = expandEvents(rawEvents, start, end);
+    renderEvents(personal);
+    renderAcademicEvents(academicEvents);
   } catch { /* session expired — onAuthStateChange handles redirect */ }
 
   updateNowLine();
@@ -174,6 +196,10 @@ function updateDayHeaders() {
 
 function clearEvents() {
   _el.querySelectorAll(".wk-event").forEach(el => el.remove());
+  for (let i = 0; i < 7; i++) {
+    const col = _el.querySelector(`#wk-allday-${i}`);
+    if (col) col.innerHTML = "";
+  }
 }
 
 function renderEvents(events) {
@@ -208,6 +234,52 @@ function renderEvents(events) {
     }
 
     _el.querySelector(`#wk-col-${colIdx}`).appendChild(block);
+  });
+}
+
+function renderAcademicEvents(events) {
+  events.forEach(ev => {
+    const colIdx = dateToCol(ev.event_date);
+    if (colIdx < 0) return;
+
+    if (ev.all_day !== false) {
+      // All-day → show in the all-day row as a chip
+      const col = _el.querySelector(`#wk-allday-${colIdx}`);
+      if (!col) return;
+      const chip = document.createElement("div");
+      chip.className = "wk-allday-chip";
+      chip.style.background = ev.color || ev._calendarColor || "#7c3aed";
+      chip.title = `[${ev._calendarName}] ${ev.title}`;
+      chip.textContent = ev.title;
+      if (_cbs.onAcademicEventClick) {
+        chip.addEventListener("click", e => { e.stopPropagation(); _cbs.onAcademicEventClick(ev); });
+      }
+      col.appendChild(chip);
+    } else if (ev.start_time) {
+      // Timed academic event → time grid, with distinct style
+      const [h, m] = ev.start_time.split(":").map(Number);
+      const totalMin = h * 60 + m;
+      const top    = (totalMin / 30) * ROW_H;
+      const dur    = ev.duration_minutes || 60;
+      const height = Math.max((dur / 30) * ROW_H - 2, 22);
+
+      const block = document.createElement("div");
+      block.className = "wk-event wk-event-academic";
+      block.style.top        = `${top}px`;
+      block.style.height     = `${height}px`;
+      block.style.background = ev.color || ev._calendarColor || "#7c3aed";
+      block.innerHTML = `
+        <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
+        <span class="wk-ev-cat">${escapeHtml(ev._calendarName || "Acadêmico")}</span>
+        <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
+      `;
+
+      if (_cbs.onAcademicEventClick) {
+        block.addEventListener("click", e => { e.stopPropagation(); _cbs.onAcademicEventClick(ev); });
+      }
+
+      _el.querySelector(`#wk-col-${colIdx}`)?.appendChild(block);
+    }
   });
 }
 
