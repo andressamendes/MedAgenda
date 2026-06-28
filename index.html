@@ -40,7 +40,7 @@
         <input type="email" id="email" placeholder="E-mail" autocomplete="email" />
         <input type="password" id="password" placeholder="Senha" autocomplete="current-password" />
       </div>
-      <p id="error-msg" class="error"></p>
+      <p id="error-msg" class="error" role="alert" aria-live="assertive"></p>
       <button id="btn-login" class="btn btn-primary">Entrar</button>
     </div>
   </div>
@@ -179,7 +179,7 @@
             </div>
           </div>
 
-          <p id="form-error" class="error"></p>
+          <p id="form-error" class="error" role="alert" aria-live="assertive"></p>
 
           <div class="form-actions">
             <button type="submit" id="btn-save" class="btn btn-primary">Salvar compromisso</button>
@@ -199,32 +199,34 @@
   </div>
 
   <!-- ── Modal: Gerenciar Categorias ── -->
-  <div id="cat-overlay" class="modal-overlay" hidden>
+  <div id="cat-overlay" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="cat-modal-title">
     <div class="modal-card modal-lg">
       <div class="modal-header">
-        <span class="modal-date">Gerenciar Categorias</span>
+        <span class="modal-date" id="cat-modal-title">Gerenciar Categorias</span>
         <button class="modal-close" id="cat-close" aria-label="Fechar">✕</button>
       </div>
       <div class="modal-body cat-modal-body">
-        <div id="cat-list"></div>
+        <div id="cat-list" aria-live="polite"></div>
         <div class="cat-add-section">
           <h4 class="cat-add-title">Nova categoria</h4>
           <div class="cat-form-row">
-            <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" />
-            <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" />
+            <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" aria-label="Cor da categoria" />
+            <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" aria-label="Nome da categoria" />
             <button class="btn btn-primary btn-sm" id="cat-add">Adicionar</button>
           </div>
-          <p class="error" id="cat-error"></p>
+          <p class="error" id="cat-error" role="alert" aria-live="assertive"></p>
         </div>
       </div>
     </div>
   </div>
 
   <!-- ── Modal: Configurações ── -->
-  <div id="settings-overlay" class="modal-overlay" hidden>
+  <div id="settings-overlay" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
     <div class="modal-card modal-lg">
       <div class="modal-header">
-        <span class="modal-date">Configurações</span>
+        <span class="modal-date" id="settings-modal-title">Configurações</span>
         <button class="modal-close" id="settings-close" aria-label="Fechar">✕</button>
       </div>
       <div class="modal-body settings-body">
@@ -238,7 +240,7 @@
           </div>
           <button id="btn-notif-toggle" class="btn btn-sm btn-primary">Ativar</button>
         </div>
-        <p id="notif-perm-hint" class="settings-hint" hidden></p>
+        <p id="notif-perm-hint" class="settings-hint" hidden role="alert"></p>
 
         <hr class="settings-divider" />
 
@@ -247,11 +249,11 @@
         <div class="settings-row" id="push-row">
           <div class="settings-info">
             <div class="settings-label">Notificações Push</div>
-            <div id="push-status-text" class="settings-desc">Receba lembretes mesmo com o app fechado.</div>
+            <div id="push-status-text" class="settings-desc" aria-live="polite">Receba lembretes mesmo com o app fechado.</div>
           </div>
           <button id="btn-push-toggle" class="btn btn-sm btn-primary">Ativar</button>
         </div>
-        <p id="push-error-hint" class="settings-hint" hidden></p>
+        <p id="push-error-hint" class="settings-hint" hidden role="alert"></p>
 
       </div>
     </div>

@@ -1,11 +1,4 @@
-import { supabase } from "./supabase.js";
-
-async function currentUserId() {
-  const { data } = await supabase.auth.getSession();
-  const id = data.session?.user?.id;
-  if (!id) throw new Error("Usuário não autenticado.");
-  return id;
-}
+import { supabase, currentUserId } from "./supabase.js";
 
 export async function createEvent(fields) {
   const user_id = await currentUserId();

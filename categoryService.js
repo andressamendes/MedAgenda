@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, currentUserId } from "./supabase.js";
 
 const DEFAULT_CATEGORIES = [
   { name: "Aula",        color: "#3b82f6" },
@@ -10,13 +10,6 @@ const DEFAULT_CATEGORIES = [
   { name: "Congresso",   color: "#06b6d4" },
   { name: "Pessoal",     color: "#6b7280" },
 ];
-
-async function currentUserId() {
-  const { data } = await supabase.auth.getSession();
-  const id = data.session?.user?.id;
-  if (!id) throw new Error("Usuário não autenticado.");
-  return id;
-}
 
 export async function getCategories() {
   const user_id = await currentUserId();

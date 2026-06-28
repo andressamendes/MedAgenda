@@ -1,5 +1,6 @@
 import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
+import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
 
 const ROW_H      = 48; // px per 30-min slot — total height 2304px
 const DAYS       = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
@@ -194,8 +195,8 @@ function renderEvents(events) {
     block.style.height   = `${height}px`;
     block.style.background = ev.color || "#3b82f6";
     block.innerHTML = `
-      <span class="wk-ev-title">${esc(ev.title)}</span>
-      ${ev.category ? `<span class="wk-ev-cat">${esc(ev.category)}</span>` : ""}
+      <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
+      ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
       <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
     `;
 
@@ -243,14 +244,6 @@ function scrollToTime() {
 
 // ── Date helpers ───────────────────────────────────────────────────────────
 
-function mondayOf(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0=Sun
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  return d;
-}
-
 function colIsoDate(colIdx) {
   const d = new Date(_mon);
   d.setDate(d.getDate() + colIdx);
@@ -266,18 +259,4 @@ function dateToCol(isoStr) {
 
 function sameWeek(date, mon) {
   return isoDate(mondayOf(date)) === isoDate(mon);
-}
-
-function isoDate(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function isoToday() { return isoDate(new Date()); }
-
-function pad(n) { return String(n).padStart(2, "0"); }
-
-function esc(str) {
-  return String(str ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
