@@ -7,6 +7,7 @@ export async function signIn(email, password) {
 }
 
 export async function signUp(email, password, fullName) {
+  console.log('[signUp] iniciando cadastro para:', email);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -15,7 +16,16 @@ export async function signUp(email, password, fullName) {
       emailRedirectTo: _appUrl(),
     },
   });
-  if (error) throw error;
+  if (error) {
+    console.error('[signUp] erro retornado pela API:', error);
+    throw error;
+  }
+  console.log('[signUp] resposta da API:', {
+    user_id:          data.user?.id ?? null,
+    has_session:      !!data.session,
+    identities_count: data.user?.identities?.length ?? 'campo ausente',
+    email_confirmed:  data.user?.email_confirmed_at ?? null,
+  });
   return data;
 }
 

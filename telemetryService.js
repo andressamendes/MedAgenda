@@ -1,4 +1,5 @@
 export const EVENTS = {
+  SIGNUP:                'signup',
   LOGIN:                 'login',
   LOGOUT:                'logout',
   APPOINTMENT_CREATED:   'appointment_created',
