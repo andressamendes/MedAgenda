@@ -351,7 +351,15 @@ logoutBtn.addEventListener("click", async () => {
   }
 });
 
+// If neither onAuthStateChange nor getSession() resolves within 10s (e.g.
+// Supabase unreachable, token refresh hanging), force the login screen so the
+// user is never stuck on the splash forever.
+const _authSafetyTimer = setTimeout(() => {
+  if (appLoading && !appLoading.hidden) showLogin();
+}, 10000);
+
 onAuthStateChange((session, event) => {
+  clearTimeout(_authSafetyTimer);
   if (event === 'PASSWORD_RECOVERY') {
     showAuthView('new-password');
     return;
@@ -364,7 +372,13 @@ onAuthStateChange((session, event) => {
   const session = await getSession();
   if (session) showApp(session);
   else showLogin();
-})();
+})().catch(() => {
+  // getSession() threw (network error, Supabase error, etc.).
+  // onAuthStateChange should handle this too, but fall back to login
+  // in case it also hangs or never fires.
+  clearTimeout(_authSafetyTimer);
+  showLogin();
+});
 
 // ── Categorias — dados ─────────────────────────────────────────────────────
 async function initCategories() {
