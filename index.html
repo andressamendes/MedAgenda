@@ -31,17 +31,94 @@
     <button id="btn-pwa-update" class="btn btn-sm btn-primary">Atualizar agora</button>
   </div>
 
-  <!-- ── Tela de login ── -->
+  <!-- ── Tela de autenticação (multi-view) ── -->
   <div id="login-screen" class="login-wrap">
     <div class="card">
-      <h1>MedAgenda</h1>
-      <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
-      <div class="form-group">
-        <input type="email" id="email" placeholder="E-mail" autocomplete="email" />
-        <input type="password" id="password" placeholder="Senha" autocomplete="current-password" />
+
+      <!-- ── View: Login ── -->
+      <div id="view-login" class="auth-view">
+        <h1>MedAgenda</h1>
+        <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
+        <div class="form-group">
+          <input type="email"     id="email"    placeholder="E-mail"  autocomplete="email" />
+          <input type="password"  id="password" placeholder="Senha"   autocomplete="current-password" />
+        </div>
+        <p id="error-msg" class="error" role="alert" aria-live="assertive"></p>
+        <button id="btn-login" class="btn btn-primary">Entrar</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-to-forgot">Esqueci minha senha</button>
+          <button type="button" class="link-btn" id="btn-to-register">Criar conta</button>
+        </div>
       </div>
-      <p id="error-msg" class="error" role="alert" aria-live="assertive"></p>
-      <button id="btn-login" class="btn btn-primary">Entrar</button>
+
+      <!-- ── View: Cadastro ── -->
+      <div id="view-register" class="auth-view" hidden>
+        <h1>Criar Conta</h1>
+        <p class="slogan">Crie sua conta gratuita e organize sua rotina médica.</p>
+        <div class="form-group">
+          <input type="text"     id="reg-name"     placeholder="Nome completo"    autocomplete="name" />
+          <input type="email"    id="reg-email"    placeholder="E-mail"           autocomplete="email" />
+          <input type="password" id="reg-password" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" />
+          <input type="password" id="reg-confirm"  placeholder="Confirmar senha"  autocomplete="new-password" />
+        </div>
+        <label class="terms-label">
+          <input type="checkbox" id="reg-terms" />
+          Li e aceito os <span class="link-text">Termos de Uso</span>
+        </label>
+        <p id="register-error" class="error" role="alert" aria-live="assertive"></p>
+        <button id="btn-register" class="btn btn-primary">Criar Conta</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-to-login-from-register">Já tenho uma conta</button>
+        </div>
+      </div>
+
+      <!-- ── View: Confirmar e-mail ── -->
+      <div id="view-email-sent" class="auth-view" hidden>
+        <div class="auth-success-icon">✉</div>
+        <h1>Verifique seu e-mail</h1>
+        <p class="slogan">Enviamos um link de confirmação para o endereço informado. Clique no link para ativar sua conta.</p>
+        <p id="email-sent-addr" class="auth-email-display"></p>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-back-to-login-from-sent">Voltar ao login</button>
+        </div>
+      </div>
+
+      <!-- ── View: Esqueci a senha ── -->
+      <div id="view-forgot" class="auth-view" hidden>
+        <h1>Recuperar senha</h1>
+        <p class="slogan">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
+        <div class="form-group">
+          <input type="email" id="forgot-email" placeholder="Seu e-mail" autocomplete="email" />
+        </div>
+        <p id="forgot-error" class="error" role="alert" aria-live="assertive"></p>
+        <button id="btn-send-reset" class="btn btn-primary">Enviar link</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-to-login-from-forgot">Voltar ao login</button>
+        </div>
+      </div>
+
+      <!-- ── View: Link enviado ── -->
+      <div id="view-reset-sent" class="auth-view" hidden>
+        <div class="auth-success-icon">✓</div>
+        <h1>Link enviado!</h1>
+        <p class="slogan">Verifique sua caixa de entrada e clique no link para redefinir sua senha.</p>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-back-to-login-from-reset">Voltar ao login</button>
+        </div>
+      </div>
+
+      <!-- ── View: Definir nova senha ── -->
+      <div id="view-new-password" class="auth-view" hidden>
+        <h1>Nova senha</h1>
+        <p class="slogan">Escolha uma nova senha segura para sua conta.</p>
+        <div class="form-group">
+          <input type="password" id="new-password"     placeholder="Nova senha (mín. 8 caracteres)" autocomplete="new-password" />
+          <input type="password" id="new-password-confirm" placeholder="Confirmar nova senha"       autocomplete="new-password" />
+        </div>
+        <p id="new-pwd-error" class="error" role="alert" aria-live="assertive"></p>
+        <button id="btn-set-password" class="btn btn-primary">Definir senha</button>
+      </div>
+
     </div>
   </div>
 
@@ -55,10 +132,11 @@
       </span>
       <div class="header-right">
         <span id="header-email" class="header-email"></span>
-        <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
-        <button id="btn-settings"   class="btn btn-sm btn-ghost">Configurações</button>
-        <button id="btn-categories" class="btn btn-sm btn-ghost">Categorias</button>
-        <button id="btn-logout" class="btn btn-sm btn-ghost">Sair</button>
+        <button id="btn-install-pwa"  class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
+        <button id="btn-my-account"  class="btn btn-sm btn-ghost">Minha Conta</button>
+        <button id="btn-settings"    class="btn btn-sm btn-ghost">Configurações</button>
+        <button id="btn-categories"  class="btn btn-sm btn-ghost">Categorias</button>
+        <button id="btn-logout"      class="btn btn-sm btn-ghost">Sair</button>
       </div>
     </header>
 
@@ -286,6 +364,20 @@
           <div class="devmode-panel-row"><span>Ambiente</span><strong id="dev-env">—</strong></div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Minha Conta ── -->
+  <div id="account-overlay" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="account-title">
+    <div class="modal-card modal-account">
+      <div class="modal-header">
+        <span class="modal-date" id="account-title">Minha Conta</span>
+        <button class="modal-close" id="account-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body account-body" id="account-body">
+        <p class="account-loading">Carregando perfil…</p>
       </div>
     </div>
   </div>
