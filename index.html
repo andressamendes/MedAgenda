@@ -98,13 +98,47 @@
               <input type="number" id="f-reminder" placeholder="Ex: 30" min="0" />
             </div>
             <div class="field">
-              <label for="f-recurrence">Recorrência</label>
+              <label for="f-recurrence">Repetição</label>
               <select id="f-recurrence">
-                <option value="none">Sem recorrência</option>
-                <option value="daily">Diária</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensal</option>
+                <option value="none">Nunca</option>
+                <option value="daily">Diariamente</option>
+                <option value="weekdays">Dias úteis (Seg–Sex)</option>
+                <option value="weekly">Semanalmente</option>
+                <option value="biweekly">Quinzenalmente</option>
+                <option value="monthly">Mensalmente</option>
+                <option value="yearly">Anualmente</option>
+                <option value="custom">Personalizada</option>
               </select>
+            </div>
+          </div>
+
+          <!-- Opções de recorrência — exibidas quando repetição ≠ Nunca -->
+          <div id="recurrence-extra" hidden>
+            <div id="recurrence-custom" hidden>
+              <div class="field">
+                <label>Intervalo</label>
+                <div class="recurrence-interval-row">
+                  A cada
+                  <input type="number" id="f-recurrence-interval" value="1" min="1" max="52" />
+                  semana(s)
+                </div>
+              </div>
+              <div class="field">
+                <label>Dias da semana</label>
+                <div class="recurrence-days-wrap" id="f-recurrence-days">
+                  <button type="button" class="day-btn" data-day="1">Seg</button>
+                  <button type="button" class="day-btn" data-day="2">Ter</button>
+                  <button type="button" class="day-btn" data-day="3">Qua</button>
+                  <button type="button" class="day-btn" data-day="4">Qui</button>
+                  <button type="button" class="day-btn" data-day="5">Sex</button>
+                  <button type="button" class="day-btn" data-day="6">Sáb</button>
+                  <button type="button" class="day-btn" data-day="0">Dom</button>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f-recurrence-until">Repetir até (opcional)</label>
+              <input type="date" id="f-recurrence-until" />
             </div>
           </div>
 

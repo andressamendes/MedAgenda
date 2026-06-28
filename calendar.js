@@ -1,4 +1,5 @@
 import { getEventsByRange } from "./eventService.js";
+import { expandEvents } from "./recurrence.js";
 
 const MONTHS   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
@@ -65,9 +66,10 @@ async function fetchAndRender() {
   updateTitle();
   showLoading();
   try {
-    const start = monthStart(calYear, calMonth);
-    const end   = monthEnd(calYear, calMonth);
-    const events = await getEventsByRange(start, end);
+    const start    = monthStart(calYear, calMonth);
+    const end      = monthEnd(calYear, calMonth);
+    const rawEvents = await getEventsByRange(start, end);
+    const events    = expandEvents(rawEvents, start, end);
     renderGrid(groupByDate(events));
   } catch {
     renderGrid({});

@@ -28,16 +28,20 @@ const eventIdField = document.getElementById("event-id");
 const saveBtn      = document.getElementById("btn-save");
 const cancelBtn    = document.getElementById("btn-cancel");
 
-const fTitle      = document.getElementById("f-title");
-const fDate       = document.getElementById("f-date");
-const fStart      = document.getElementById("f-start");
-const fDuration   = document.getElementById("f-duration");
-const fCategory   = document.getElementById("f-category");
-const fColor      = document.getElementById("f-color");
-const fLocation   = document.getElementById("f-location");
-const fDesc       = document.getElementById("f-description");
-const fReminder   = document.getElementById("f-reminder");
-const fRecurrence = document.getElementById("f-recurrence");
+const fTitle             = document.getElementById("f-title");
+const fDate              = document.getElementById("f-date");
+const fStart             = document.getElementById("f-start");
+const fDuration          = document.getElementById("f-duration");
+const fCategory          = document.getElementById("f-category");
+const fColor             = document.getElementById("f-color");
+const fLocation          = document.getElementById("f-location");
+const fDesc              = document.getElementById("f-description");
+const fReminder          = document.getElementById("f-reminder");
+const fRecurrence        = document.getElementById("f-recurrence");
+const fRecurrenceUntil   = document.getElementById("f-recurrence-until");
+const fRecurrenceInterval = document.getElementById("f-recurrence-interval");
+const recurrenceExtra    = document.getElementById("recurrence-extra");
+const recurrenceCustom   = document.getElementById("recurrence-custom");
 
 // ── Lista ──────────────────────────────────────────────────────────────────
 const eventList = document.getElementById("event-list");
@@ -49,6 +53,49 @@ let categoriesCache = [];
 
 function refreshAll() {
   return Promise.all([loadEvents(), refreshWeekView(), refreshCalendar()]);
+}
+
+// ── Clique em evento (mensal e semanal) ────────────────────────────────────
+function handleEventClick(ev) {
+  const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
+
+  if (isRecurring) {
+    if (!confirm(`"${ev.title}" é um evento recorrente.\n\nIsso editará toda a série. Deseja continuar?`)) return;
+  }
+
+  // Virtual occurrences carry _baseEventId and _baseEventDate; restore them
+  // so the form edits the base record, not the ephemeral occurrence object.
+  const formEv = ev._isOccurrence
+    ? { ...ev, id: ev._baseEventId, event_date: ev._baseEventDate }
+    : ev;
+
+  populateForm(formEv);
+  document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
+}
+
+// ── Recorrência — visibilidade dos campos extras ───────────────────────────
+fRecurrence.addEventListener("change", () => {
+  const v = fRecurrence.value;
+  recurrenceExtra.hidden  = v === "none";
+  recurrenceCustom.hidden = v !== "custom";
+});
+
+// Day-of-week toggle buttons
+document.querySelectorAll(".day-btn").forEach(btn => {
+  btn.addEventListener("click", () => btn.classList.toggle("day-btn-active"));
+});
+
+function getSelectedDays() {
+  return Array.from(document.querySelectorAll(".day-btn.day-btn-active"))
+    .map(b => b.dataset.day)
+    .join(",");
+}
+
+function setSelectedDays(str) {
+  const days = str ? str.split(",") : [];
+  document.querySelectorAll(".day-btn").forEach(btn => {
+    btn.classList.toggle("day-btn-active", days.includes(btn.dataset.day));
+  });
 }
 
 // ── Autenticação ───────────────────────────────────────────────────────────
@@ -68,18 +115,12 @@ async function showApp(session) {
     initWeekView(document.getElementById("week-container"), {
       onSlotClick: (date, time) =>
         openQuickAdd(date, refreshAll, time),
-      onEventClick: (ev) => {
-        populateForm(ev);
-        document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
-      },
+      onEventClick: handleEventClick,
     }),
     initCalendar(document.getElementById("calendar-container"), {
       onDayClick: (date) =>
         openQuickAdd(date, refreshAll),
-      onEventClick: (ev) => {
-        populateForm(ev);
-        document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
-      },
+      onEventClick: handleEventClick,
     }),
     loadEvents(),
   ]);
@@ -270,8 +311,13 @@ function clearForm() {
   editingId = null;
   eventIdField.value = "";
   eventForm.reset();
-  fColor.value = "#3b82f6";
-  fRecurrence.value = "none";
+  fColor.value              = "#3b82f6";
+  fRecurrence.value         = "none";
+  fRecurrenceInterval.value = 1;
+  fRecurrenceUntil.value    = "";
+  recurrenceExtra.hidden    = true;
+  recurrenceCustom.hidden   = true;
+  setSelectedDays("");
   formTitle.textContent = "Novo compromisso";
   saveBtn.textContent   = "Salvar compromisso";
   cancelBtn.hidden      = true;
@@ -289,8 +335,12 @@ function populateForm(ev) {
   fColor.value          = ev.color            || "#3b82f6";
   fLocation.value       = ev.location         || "";
   fDesc.value           = ev.description      || "";
-  fReminder.value       = ev.reminder_minutes || "";
-  fRecurrence.value     = ev.recurrence_type  || "none";
+  fReminder.value           = ev.reminder_minutes          || "";
+  fRecurrence.value         = ev.recurrence_type           || "none";
+  fRecurrenceInterval.value = ev.recurrence_interval       || 1;
+  fRecurrenceUntil.value    = ev.recurrence_until          || "";
+  setSelectedDays(ev.recurrence_days_of_week || "");
+  fRecurrence.dispatchEvent(new Event("change")); // show/hide extra fields
   formTitle.textContent = "Editar compromisso";
   saveBtn.textContent   = "Atualizar compromisso";
   cancelBtn.hidden      = false;
@@ -308,17 +358,21 @@ eventForm.addEventListener("submit", async (e) => {
   if (!fDate.value)         { formError.textContent = "Data é obrigatória."; return; }
   if (!fStart.value)        { formError.textContent = "Hora de início é obrigatória."; return; }
 
+  const recType = fRecurrence.value || "none";
   const fields = {
-    title:            fTitle.value.trim(),
-    event_date:       fDate.value,
-    start_time:       fStart.value || null,
-    duration_minutes: fDuration.value  ? parseInt(fDuration.value)  : null,
-    category:         fCategory.value  || null,
-    color:            fColor.value     || null,
-    location:         fLocation.value.trim()  || null,
-    description:      fDesc.value.trim()      || null,
-    reminder_minutes: fReminder.value  ? parseInt(fReminder.value)  : null,
-    recurrence_type:  fRecurrence.value || "none",
+    title:                   fTitle.value.trim(),
+    event_date:              fDate.value,
+    start_time:              fStart.value || null,
+    duration_minutes:        fDuration.value  ? parseInt(fDuration.value)  : null,
+    category:                fCategory.value  || null,
+    color:                   fColor.value     || null,
+    location:                fLocation.value.trim()  || null,
+    description:             fDesc.value.trim()      || null,
+    reminder_minutes:        fReminder.value  ? parseInt(fReminder.value)  : null,
+    recurrence_type:         recType,
+    recurrence_interval:     recType === "custom" ? (parseInt(fRecurrenceInterval.value) || 1) : null,
+    recurrence_until:        recType !== "none"   ? (fRecurrenceUntil.value || null)            : null,
+    recurrence_days_of_week: recType === "custom" ? (getSelectedDays() || null)                 : null,
   };
 
   saveBtn.disabled    = true;
@@ -376,7 +430,8 @@ function renderList(events) {
       ev.location || "",
     ].filter(Boolean).join(" · ");
 
-    const catColor = categoryColor(ev.category);
+    const catColor    = categoryColor(ev.category);
+    const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
 
     card.innerHTML = `
       <div class="event-card-header">
@@ -391,10 +446,11 @@ function renderList(events) {
         ${ev.category
           ? `<span class="badge" style="background:${escapeHtml(catColor)};color:#fff">${escapeHtml(ev.category)}</span>`
           : ""}
+        ${isRecurring ? `<span class="badge badge-recur">↻ Recorrente</span>` : ""}
       </div>
     `;
 
-    card.querySelector(".btn-edit").addEventListener("click", () => populateForm(ev));
+    card.querySelector(".btn-edit").addEventListener("click", () => handleEventClick(ev));
     card.querySelector(".btn-delete").addEventListener("click", () => handleDelete(ev.id, card));
     eventList.appendChild(card);
   });
