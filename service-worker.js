@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `medagenda-shell-${CACHE_VERSION}`;
 
 // App Shell: all static assets that make the application functional offline
@@ -14,6 +14,7 @@ const APP_SHELL = [
   '/calendar.js',
   '/weekView.js',
   '/notificationService.js',
+  '/pushService.js',
   '/recurrence.js',
   '/quickAdd.js',
   '/pwa.js',
@@ -98,17 +99,23 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// ── Push Notifications (infrastructure only — no subscriptions yet) ─────────
+// ── Push Notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
     const payload = event.data.json();
     event.waitUntil(
       self.registration.showNotification(payload.title || 'MedAgenda', {
-        body: payload.body || '',
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-96.png',
-        data: payload.data || {},
+        body:             payload.body  || '',
+        icon:             '/icons/icon-192.png',
+        badge:            '/icons/icon-96.png',
+        tag:              payload.tag   || 'medagenda',
+        data:             payload.data  || {},
+        requireInteraction: false,
+        actions: [
+          { action: 'open',    title: 'Abrir'     },
+          { action: 'dismiss', title: 'Dispensar' },
+        ],
       })
     );
   } catch {
@@ -118,12 +125,28 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if (event.action === 'dismiss') return;
+
+  const data      = event.notification.data || {};
+  const eventId   = data.eventId || null;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
-        const existing = windowClients.find((c) => c.url.startsWith(self.location.origin));
-        if (existing) return existing.focus();
+        const existing = windowClients.find(
+          (c) => c.url.startsWith(self.location.origin) && 'focus' in c
+        );
+        if (existing) {
+          existing.focus();
+          if (eventId) existing.postMessage({ type: 'OPEN_EVENT', eventId });
+          return;
+        }
         return clients.openWindow('/');
       })
   );
+});
+
+self.addEventListener('notificationclose', () => {
+  // Reserved for future analytics
 });

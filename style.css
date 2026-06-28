@@ -904,6 +904,21 @@ textarea { resize: vertical; }
   margin: 0;
 }
 
+.settings-section-title {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--gray-500);
+  padding: 0 .25rem;
+}
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--gray-200);
+  margin: .25rem 0;
+}
+
 /* ── PWA: offline bar ── */
 .pwa-offline-bar {
   position: fixed;
