@@ -854,3 +854,52 @@ textarea { resize: vertical; }
   background: #dbeafe;
   color: #1d4ed8;
 }
+
+/* ── Lembrete — input personalizado ── */
+.reminder-custom-input {
+  margin-top: .4rem;
+  width: 100%;
+}
+
+/* ── Modal de Configurações ── */
+.settings-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+}
+
+.settings-info { flex: 1; }
+
+.settings-label {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: .2rem;
+}
+
+.settings-desc {
+  font-size: .8rem;
+  color: var(--gray-600);
+}
+
+.settings-hint {
+  font-size: .8rem;
+  color: var(--gray-600);
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius);
+  padding: .6rem .85rem;
+  margin: 0;
+}
