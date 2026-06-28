@@ -28,6 +28,35 @@ body {
   min-height: 100vh;
 }
 
+/* ── Tela de carregamento inicial ── */
+.app-loading-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  background: var(--gray-50);
+  z-index: 9999;
+}
+
+.app-loading-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--blue);
+  letter-spacing: -.5px;
+}
+
+.app-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
 /* ── Login ── */
 .login-wrap {
   min-height: 100vh;

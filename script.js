@@ -55,6 +55,11 @@ function _setDevMode(enabled) {
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
 const appScreen   = document.getElementById("app-screen");
+const appLoading  = document.getElementById("app-loading");
+
+// Tracks the user ID of the currently initialized session to prevent
+// double-initialization when onAuthStateChange and getSession() both fire.
+let _initializedUserId = null;
 
 // ── Indicador de sincronização ─────────────────────────────────────────────
 const syncIndicator = document.getElementById("sync-indicator");
@@ -198,6 +203,10 @@ function setSelectedDays(str) {
 const AUTH_VIEWS = ['login','register','email-sent','forgot','reset-sent','new-password'];
 
 function showAuthView(name) {
+  if (appLoading) appLoading.hidden = true;
+  _closeAllModals();
+  _initializedUserId = null;
+  assistantHidden    = false;
   loginScreen.hidden = false;
   appScreen.hidden   = true;
   AUTH_VIEWS.forEach(v => {
@@ -210,7 +219,31 @@ function showLogin() {
   showAuthView('login');
 }
 
+function _closeAllModals() {
+  const ids = [
+    'event-modal', 'cat-overlay', 'settings-overlay',
+    'account-overlay', 'diagnostic-overlay', 'academic-overlay',
+    'ai-panel', 'ai-panel-overlay',
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  });
+}
+
 async function showApp(session) {
+  if (appLoading) appLoading.hidden = true;
+
+  // Both onAuthStateChange (INITIAL_SESSION) and the getSession() IIFE fire on
+  // load for the same session. Skip re-initialization for the same user so we
+  // don't double-register event listeners or double-fetch data.
+  if (_initializedUserId === session.user.id) {
+    loginScreen.hidden = true;
+    appScreen.hidden   = false;
+    return;
+  }
+  _initializedUserId = session.user.id;
+
   loginScreen.hidden = true;
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;

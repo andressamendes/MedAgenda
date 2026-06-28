@@ -31,8 +31,14 @@
     <button id="btn-pwa-update" class="btn btn-sm btn-primary">Atualizar agora</button>
   </div>
 
+  <!-- ── Tela de carregamento inicial ── -->
+  <div id="app-loading" class="app-loading-screen" role="status" aria-label="Carregando aplicação">
+    <div class="app-loading-logo">MedAgenda</div>
+    <div class="app-loading-spinner" aria-hidden="true"></div>
+  </div>
+
   <!-- ── Tela de autenticação (multi-view) ── -->
-  <div id="login-screen" class="login-wrap">
+  <div id="login-screen" class="login-wrap" hidden>
     <div class="card">
 
       <!-- ── View: Login ── -->
