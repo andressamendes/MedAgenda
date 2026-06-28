@@ -136,6 +136,7 @@
         <button id="btn-my-account"       class="btn btn-sm btn-ghost">Minha Conta</button>
         <button id="btn-settings"         class="btn btn-sm btn-ghost">Configurações</button>
         <button id="btn-assistant"         class="btn btn-sm btn-ghost">Assistente</button>
+        <button id="btn-ai-assistant"     class="btn btn-sm btn-ai" aria-label="Abrir Assistente IA">&#10024; Assistente IA</button>
         <button id="btn-academic-cals"    class="btn btn-sm btn-ghost">Calendários</button>
         <button id="btn-categories"       class="btn btn-sm btn-ghost">Categorias</button>
         <button id="btn-logout"           class="btn btn-sm btn-ghost">Sair</button>
@@ -434,6 +435,59 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Painel: Assistente IA ── -->
+  <div id="ai-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
+  <aside id="ai-panel" class="ai-panel" hidden
+         role="dialog" aria-modal="true" aria-labelledby="ai-panel-title">
+    <div class="ai-panel-header">
+      <div class="ai-panel-title-wrap">
+        <span class="ai-panel-icon">&#10024;</span>
+        <span class="ai-panel-title" id="ai-panel-title">Assistente IA</span>
+      </div>
+      <button class="ai-panel-close" id="ai-panel-close" aria-label="Fechar painel de IA">&#10005;</button>
+    </div>
+
+    <div class="ai-panel-actions">
+      <p class="ai-panel-desc">Escolha uma análise para o Gemini executar com seus dados:</p>
+      <button id="btn-ai-weekly"   class="btn ai-action-btn" aria-label="Resumir minha semana">
+        <span class="ai-action-icon">&#128197;</span>
+        <div class="ai-action-text">
+          <strong>Resumir minha semana</strong>
+          <span>Análise narrativa dos compromissos desta semana</span>
+        </div>
+      </button>
+      <button id="btn-ai-study"    class="btn ai-action-btn" aria-label="Encontrar horários para estudar">
+        <span class="ai-action-icon">&#128218;</span>
+        <div class="ai-action-text">
+          <strong>Encontrar horários para estudar</strong>
+          <span>Sugestões de blocos livres nos próximos 14 dias</span>
+        </div>
+      </button>
+      <button id="btn-ai-analysis" class="btn ai-action-btn" aria-label="Analisar conflitos da agenda">
+        <span class="ai-action-icon">&#128269;</span>
+        <div class="ai-action-text">
+          <strong>Analisar conflitos da agenda</strong>
+          <span>Conflitos e sobrecarga nos próximos 30 dias</span>
+        </div>
+      </button>
+    </div>
+
+    <div id="ai-panel-result" class="ai-panel-result" hidden aria-live="polite">
+      <div class="ai-result-header">
+        <span id="ai-result-title" class="ai-result-title"></span>
+        <button id="btn-ai-back" class="btn btn-sm btn-ghost">&#8592; Voltar</button>
+      </div>
+      <div id="ai-result-body" class="ai-result-body"></div>
+    </div>
+
+    <div id="ai-panel-loading" class="ai-panel-loading" hidden aria-live="polite" aria-label="Aguardando resposta da IA">
+      <div class="ai-loading-spinner"></div>
+      <p>Consultando o Gemini&#8230;</p>
+    </div>
+
+    <p class="ai-panel-footer">Powered by Google Gemini &middot; Dados protegidos &middot; Sem armazenamento de conversas</p>
+  </aside>
 
   <!-- Toast notifications -->
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
