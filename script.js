@@ -67,7 +67,8 @@ const logoutBtn     = document.getElementById("btn-logout");
 const errorMsg      = document.getElementById("error-msg");
 const headerEmail   = document.getElementById("header-email");
 
-// ── Formulário ─────────────────────────────────────────────────────────────
+// ── Formulário (agora em modal) ─────────────────────────────────────────────
+const eventModal   = document.getElementById("event-modal");
 const eventForm    = document.getElementById("event-form");
 const formTitle    = document.getElementById("form-title");
 const formError    = document.getElementById("form-error");
@@ -97,8 +98,10 @@ const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
 
 // ── Estado ─────────────────────────────────────────────────────────────────
-let editingId       = null;
-let categoriesCache = [];
+let editingId        = null;
+let categoriesCache  = [];
+let allEvents        = [];
+let assistantHidden  = false;
 
 async function refreshAll() {
   if (syncIndicator) syncIndicator.hidden = false;
@@ -125,8 +128,41 @@ function handleEventClick(ev) {
     : ev;
 
   populateForm(formEv);
-  document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
+  openEventModal();
 }
+
+// ── Modal: Novo / Editar compromisso ───────────────────────────────────────
+function openEventModal() {
+  if (eventModal) {
+    eventModal.hidden = false;
+    document.getElementById("f-title")?.focus();
+  }
+}
+
+function closeEventModal() {
+  if (eventModal) eventModal.hidden = true;
+}
+
+document.getElementById("event-modal-close")?.addEventListener("click", () => {
+  closeEventModal();
+  clearForm();
+});
+
+eventModal?.addEventListener("click", (e) => {
+  if (e.target === eventModal) { closeEventModal(); clearForm(); }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && eventModal && !eventModal.hidden) { closeEventModal(); clearForm(); }
+});
+
+// ── Botões "Novo compromisso" ───────────────────────────────────────────────
+["btn-new-event", "btn-new-event-cal", "btn-new-event-apt"].forEach(id => {
+  document.getElementById(id)?.addEventListener("click", () => {
+    clearForm();
+    openEventModal();
+  });
+});
 
 // ── Lembrete — mostrar/esconder campo personalizado ───────────────────────
 fReminder.addEventListener("change", () => {
@@ -178,6 +214,10 @@ async function showApp(session) {
   loginScreen.hidden = true;
   appScreen.hidden   = false;
   headerEmail.textContent = session.user.email;
+
+  // Avatar initial from email
+  const avatarCircle = document.getElementById("header-avatar-circle");
+  if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
 
   initAccountView(session.user.id);
   initNotifications(session.user.id);
@@ -232,7 +272,7 @@ if ("serviceWorker" in navigator) {
       const target = events.find((e) => e.id === event.data.eventId);
       if (target) {
         populateForm(target);
-        document.querySelector(".form-section").scrollIntoView({ behavior: "smooth" });
+        openEventModal();
       }
     } catch { /* ignore — session may not be ready */ }
   });
@@ -598,7 +638,7 @@ function clearForm() {
   setSelectedDays("");
   formTitle.textContent = "Novo compromisso";
   saveBtn.textContent   = "Salvar compromisso";
-  cancelBtn.hidden      = true;
+  cancelBtn.hidden      = false;
   formError.textContent = "";
 }
 
@@ -652,7 +692,7 @@ function _reminderMinutes() {
   return parseInt(v);
 }
 
-cancelBtn.addEventListener("click", clearForm);
+cancelBtn.addEventListener("click", () => { clearForm(); closeEventModal(); });
 
 eventForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -693,6 +733,7 @@ eventForm.addEventListener("submit", async (e) => {
       toast.success("Compromisso salvo com sucesso.");
     }
     clearForm();
+    closeEventModal();
     await refreshAll();
   } catch (err) {
     formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
@@ -706,13 +747,66 @@ eventForm.addEventListener("submit", async (e) => {
 async function loadEvents() {
   try {
     const events = isPersonalVisible() ? await getEvents() : [];
-    renderList(events);
+    allEvents = events;
+    renderFilteredList();
     scheduleReminders(events);
     renderAssistant(events);
   } catch {
     // sessão pode ter expirado; onAuthStateChange cuida do redirecionamento
   }
 }
+
+function getFilteredEvents() {
+  const search   = (document.getElementById("search-appointments")?.value || "").toLowerCase();
+  const catFilter = document.getElementById("filter-category-apt")?.value || "";
+  const sort     = document.getElementById("sort-appointments")?.value || "date-asc";
+
+  let filtered = [...allEvents];
+
+  if (search) {
+    filtered = filtered.filter(ev =>
+      (ev.title || "").toLowerCase().includes(search) ||
+      (ev.description || "").toLowerCase().includes(search) ||
+      (ev.location || "").toLowerCase().includes(search) ||
+      (ev.category || "").toLowerCase().includes(search)
+    );
+  }
+
+  if (catFilter) {
+    filtered = filtered.filter(ev => ev.category === catFilter);
+  }
+
+  filtered.sort((a, b) => {
+    if (sort === "date-asc") return a.event_date <= b.event_date ? -1 : 1;
+    if (sort === "date-desc") return a.event_date >= b.event_date ? -1 : 1;
+    return (a.title || "").localeCompare(b.title || "");
+  });
+
+  return filtered;
+}
+
+function renderFilteredList() {
+  renderList(getFilteredEvents());
+  _syncCategoryFilter();
+}
+
+function _syncCategoryFilter() {
+  const sel = document.getElementById("filter-category-apt");
+  if (!sel) return;
+  const current = sel.value;
+  const cats = [...new Set(allEvents.map(e => e.category).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas as categorias</option>';
+  cats.forEach(c => {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+  sel.value = current;
+}
+
+document.getElementById("search-appointments")?.addEventListener("input", renderFilteredList);
+document.getElementById("filter-category-apt")?.addEventListener("change", renderFilteredList);
+document.getElementById("sort-appointments")?.addEventListener("change", renderFilteredList);
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -997,27 +1091,18 @@ sendResetBtn?.addEventListener('click', async () => {
 const assistantSection = document.getElementById('assistant-section');
 const assistantBody    = document.getElementById('assistant-body');
 const assistantClose   = document.getElementById('assistant-close');
-const btnAssistant     = document.getElementById('btn-assistant');
 
-btnAssistant?.addEventListener('click', async () => {
-  if (!assistantSection) return;
-  assistantSection.hidden = !assistantSection.hidden;
-  if (!assistantSection.hidden) {
-    assistantSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    try {
-      const events = isPersonalVisible() ? await getEvents() : [];
-      renderAssistant(events);
-    } catch { /* ignore */ }
+assistantClose?.addEventListener('click', () => {
+  if (assistantSection) {
+    assistantSection.hidden = true;
+    assistantHidden = true;
   }
 });
 
-assistantClose?.addEventListener('click', () => {
-  if (assistantSection) assistantSection.hidden = true;
-});
-
 function renderAssistant(events) {
-  if (!assistantSection || assistantSection.hidden) return;
-  if (!assistantBody) return;
+  if (!assistantSection || !assistantBody) return;
+  if (assistantHidden) return;
+  assistantSection.hidden = false;
 
   const { alerts, suggestions } = analyzeEvents(events);
   const stats = computeStats(events);
@@ -1180,7 +1265,7 @@ function buildUpcomingCard(upcoming) {
   const overlay    = document.getElementById('ai-panel-overlay');
   const panel      = document.getElementById('ai-panel');
   const closeBtn   = document.getElementById('ai-panel-close');
-  const openBtn    = document.getElementById('btn-ai-assistant');
+  const openBtn    = document.getElementById('nav-ai-assistant');
   const actionsDiv = document.querySelector('.ai-panel-actions');
   const resultDiv  = document.getElementById('ai-panel-result');
   const loadingDiv = document.getElementById('ai-panel-loading');
@@ -1264,6 +1349,77 @@ function buildUpcomingCard(upcoming) {
     runAIAction('Análise da agenda', getScheduleAnalysis)
   );
 })();
+
+// ── Navegação entre páginas ────────────────────────────────────────────────
+const APP_PAGES = ['agenda', 'calendar', 'appointments'];
+
+function showPage(name) {
+  APP_PAGES.forEach(p => {
+    const el = document.getElementById(`page-${p}`);
+    if (el) el.hidden = (p !== name);
+  });
+  document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+    btn.classList.toggle('nav-item--active', btn.dataset.page === name);
+  });
+  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(btn => {
+    btn.classList.toggle('bottom-nav-item--active', btn.dataset.page === name);
+  });
+  closeSidebar();
+}
+
+document.querySelectorAll('[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => showPage(btn.dataset.page));
+});
+
+// ── Sidebar toggle ─────────────────────────────────────────────────────────
+const appSidebar     = document.getElementById('app-sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+function openSidebar() {
+  appSidebar?.classList.add('sidebar-open');
+  if (sidebarOverlay) sidebarOverlay.hidden = false;
+}
+
+function closeSidebar() {
+  appSidebar?.classList.remove('sidebar-open');
+  if (sidebarOverlay) sidebarOverlay.hidden = true;
+}
+
+document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
+  if (window.innerWidth < 768) {
+    const isOpen = appSidebar?.classList.contains('sidebar-open');
+    if (isOpen) closeSidebar(); else openSidebar();
+  }
+});
+
+sidebarOverlay?.addEventListener('click', closeSidebar);
+
+// ── User menu dropdown ─────────────────────────────────────────────────────
+const userMenuBtn      = document.getElementById('btn-user-menu');
+const userMenuDropdown = document.getElementById('user-menu-dropdown');
+
+userMenuBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = !userMenuDropdown.hidden;
+  userMenuDropdown.hidden = open;
+  userMenuBtn.setAttribute('aria-expanded', String(!open));
+});
+
+document.addEventListener('click', () => {
+  if (userMenuDropdown && !userMenuDropdown.hidden) {
+    userMenuDropdown.hidden = true;
+    userMenuBtn?.setAttribute('aria-expanded', 'false');
+  }
+});
+
+// ── Bottom nav extras ──────────────────────────────────────────────────────
+document.getElementById('bottom-nav-ai')?.addEventListener('click', () => {
+  document.getElementById('nav-ai-assistant')?.click();
+});
+
+document.getElementById('bottom-nav-more')?.addEventListener('click', () => {
+  openSidebar();
+});
 
 // ── Auth: definir nova senha (após clicar no link de reset) ─────────────────
 const setPasswordBtn = document.getElementById('btn-set-password');

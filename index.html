@@ -125,59 +125,192 @@
   <!-- ── Aplicação principal ── -->
   <div id="app-screen" hidden>
 
+    <!-- ── Header ── -->
     <header class="app-header">
-      <span class="app-title">MedAgenda</span>
-      <span id="sync-indicator" class="sync-indicator" hidden aria-live="polite" aria-label="Sincronizando dados">
-        <span class="sync-spinner"></span>
-      </span>
+      <div class="header-left">
+        <button class="btn-icon sidebar-toggle" id="btn-sidebar-toggle" aria-label="Alternar menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <span class="app-title">MedAgenda</span>
+        <span id="sync-indicator" class="sync-indicator" hidden aria-live="polite" aria-label="Sincronizando dados">
+          <span class="sync-spinner"></span>
+        </span>
+      </div>
       <div class="header-right">
-        <span id="header-email" class="header-email"></span>
-        <button id="btn-install-pwa"  class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
-        <button id="btn-my-account"       class="btn btn-sm btn-ghost">Minha Conta</button>
-        <button id="btn-settings"         class="btn btn-sm btn-ghost">Configurações</button>
-        <button id="btn-assistant"         class="btn btn-sm btn-ghost">Assistente</button>
-        <button id="btn-ai-assistant"     class="btn btn-sm btn-ai" aria-label="Abrir Assistente IA">&#10024; Assistente IA</button>
-        <button id="btn-academic-cals"    class="btn btn-sm btn-ghost">Calendários</button>
-        <button id="btn-categories"       class="btn btn-sm btn-ghost">Categorias</button>
-        <button id="btn-logout"           class="btn btn-sm btn-ghost">Sair</button>
+        <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar</button>
+        <div class="user-menu-wrap" id="user-menu-wrap">
+          <button id="btn-user-menu" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
+            <span class="user-avatar-circle" id="header-avatar-circle">?</span>
+            <span id="header-email" class="header-user-name"></span>
+            <svg class="user-menu-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <div id="user-menu-dropdown" class="user-menu-dropdown" hidden role="menu">
+            <button id="btn-my-account" class="user-menu-item" role="menuitem">Minha Conta</button>
+            <button id="btn-settings" class="user-menu-item" role="menuitem">Configurações</button>
+            <div class="user-menu-divider"></div>
+            <button id="btn-logout" class="user-menu-item user-menu-item--danger" role="menuitem">Sair</button>
+          </div>
+        </div>
       </div>
     </header>
 
-    <main class="app-main">
+    <!-- ── App layout: sidebar + content ── -->
+    <div class="app-layout">
 
-      <!-- Assistente Inteligente -->
-      <section class="assistant-section" id="assistant-section" hidden aria-label="Assistente Inteligente">
-        <div class="assistant-header">
-          <span class="assistant-title">Assistente Inteligente</span>
-          <button class="assistant-close" id="assistant-close" aria-label="Fechar assistente">✕</button>
+      <!-- Sidebar overlay (mobile) -->
+      <div class="sidebar-overlay" id="sidebar-overlay" hidden></div>
+
+      <!-- Sidebar navigation -->
+      <nav class="app-sidebar" id="app-sidebar" aria-label="Navegação principal">
+
+        <!-- Filter bar -->
+        <div class="sidebar-filter-wrap">
+          <div class="filter-bar" id="filter-bar">
+            <span class="filter-label">Exibir:</span>
+            <label class="filter-toggle">
+              <input type="checkbox" id="chk-personal" checked>
+              <span>Pessoais</span>
+            </label>
+          </div>
         </div>
-        <div class="assistant-body" id="assistant-body">
-          <p class="assistant-loading">Analisando sua agenda…</p>
+
+        <!-- Primary nav -->
+        <div class="sidebar-nav-group">
+          <button class="nav-item nav-item--active" data-page="agenda">
+            <span class="nav-icon">&#128197;</span>
+            <span class="nav-label">Agenda</span>
+          </button>
+          <button class="nav-item" data-page="calendar">
+            <span class="nav-icon">&#128467;</span>
+            <span class="nav-label">Calendário</span>
+          </button>
+          <button class="nav-item" data-page="appointments">
+            <span class="nav-icon">&#128203;</span>
+            <span class="nav-label">Compromissos</span>
+          </button>
+          <button class="nav-item" id="nav-ai-assistant">
+            <span class="nav-icon">&#10024;</span>
+            <span class="nav-label">Assistente IA</span>
+          </button>
         </div>
-      </section>
 
-      <!-- Filtros de calendário -->
-      <section class="filter-section">
-        <div class="filter-bar" id="filter-bar">
-          <!-- populated by academicCalendarView.renderFilterBar() -->
-          <span class="filter-label">Exibir:</span>
-          <label class="filter-toggle">
-            <input type="checkbox" id="chk-personal" checked>
-            <span>Compromissos pessoais</span>
-          </label>
+        <div class="sidebar-divider"></div>
+
+        <!-- Secondary nav -->
+        <div class="sidebar-nav-group sidebar-nav-group--secondary">
+          <button class="nav-item" id="btn-academic-cals">
+            <span class="nav-icon">&#128218;</span>
+            <span class="nav-label">Calendários</span>
+          </button>
+          <button class="nav-item" id="btn-categories">
+            <span class="nav-icon">&#127991;</span>
+            <span class="nav-label">Categorias</span>
+          </button>
         </div>
-      </section>
 
-      <!-- Calendário semanal (vista principal) -->
-      <section class="week-section" id="week-container"></section>
+      </nav>
 
-      <!-- Calendário mensal -->
-      <section class="calendar-section" id="calendar-container"></section>
+      <!-- Content area -->
+      <main class="app-content" id="app-content">
 
-      <!-- Formulário de compromisso -->
-      <section class="form-section">
-        <h2 id="form-title">Novo compromisso</h2>
+        <!-- Page: Agenda (weekly view) -->
+        <div id="page-agenda" class="app-page">
+          <div class="page-header">
+            <h1 class="page-title">Agenda</h1>
+            <button id="btn-new-event" class="btn btn-primary btn-sm">+ Novo compromisso</button>
+          </div>
 
+          <!-- Smart assistant alerts -->
+          <section class="assistant-section" id="assistant-section" aria-label="Assistente Inteligente">
+            <div class="assistant-header">
+              <span class="assistant-title">Assistente Inteligente</span>
+              <button class="assistant-close" id="assistant-close" aria-label="Fechar assistente">&#x2715;</button>
+            </div>
+            <div class="assistant-body" id="assistant-body">
+              <p class="assistant-loading">Analisando sua agenda&#8230;</p>
+            </div>
+          </section>
+
+          <!-- Weekly view -->
+          <section class="week-section" id="week-container"></section>
+        </div>
+
+        <!-- Page: Calendário (monthly) -->
+        <div id="page-calendar" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Calendário</h1>
+            <button id="btn-new-event-cal" class="btn btn-primary btn-sm">+ Novo compromisso</button>
+          </div>
+          <section class="calendar-section" id="calendar-container"></section>
+        </div>
+
+        <!-- Page: Compromissos -->
+        <div id="page-appointments" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Meus Compromissos</h1>
+            <button id="btn-new-event-apt" class="btn btn-primary btn-sm">+ Novo compromisso</button>
+          </div>
+          <div class="appointments-toolbar">
+            <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" />
+            <div class="toolbar-filters">
+              <select id="filter-category-apt" class="toolbar-select">
+                <option value="">Todas as categorias</option>
+              </select>
+              <select id="sort-appointments" class="toolbar-select">
+                <option value="date-asc">Data (próximos)</option>
+                <option value="date-desc">Data (anteriores)</option>
+                <option value="title">Título A–Z</option>
+              </select>
+            </div>
+          </div>
+          <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
+          <div id="event-list"></div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- ── Bottom navigation (mobile only) ── -->
+    <nav class="bottom-nav" aria-label="Navegação">
+      <button class="bottom-nav-item bottom-nav-item--active" data-page="agenda">
+        <span class="bottom-nav-icon">&#128197;</span>
+        <span class="bottom-nav-label">Agenda</span>
+      </button>
+      <button class="bottom-nav-item" data-page="calendar">
+        <span class="bottom-nav-icon">&#128467;</span>
+        <span class="bottom-nav-label">Calendário</span>
+      </button>
+      <button class="bottom-nav-item" data-page="appointments">
+        <span class="bottom-nav-icon">&#128203;</span>
+        <span class="bottom-nav-label">Compromissos</span>
+      </button>
+      <button class="bottom-nav-item" id="bottom-nav-ai">
+        <span class="bottom-nav-icon">&#10024;</span>
+        <span class="bottom-nav-label">IA</span>
+      </button>
+      <button class="bottom-nav-item" id="bottom-nav-more">
+        <span class="bottom-nav-icon">&#8943;</span>
+        <span class="bottom-nav-label">Mais</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ── Modal: Novo / Editar compromisso ── -->
+  <div id="event-modal" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="form-title">
+    <div class="modal-card modal-event">
+      <div class="modal-header">
+        <span class="modal-date" id="form-title">Novo compromisso</span>
+        <button class="modal-close" id="event-modal-close" aria-label="Fechar">&#x2715;</button>
+      </div>
+      <div class="modal-body modal-event-body">
         <form id="event-form" novalidate>
           <input type="hidden" id="event-id" />
 
@@ -221,7 +354,7 @@
 
           <div class="field">
             <label for="f-description">Observação</label>
-            <textarea id="f-description" rows="2" placeholder="Detalhes adicionais…"></textarea>
+            <textarea id="f-description" rows="2" placeholder="Detalhes adicionais&#8230;"></textarea>
           </div>
 
           <div class="field-row">
@@ -235,7 +368,7 @@
                 <option value="60">1 hora antes</option>
                 <option value="120">2 horas antes</option>
                 <option value="1440">1 dia antes</option>
-                <option value="custom">Personalizado…</option>
+                <option value="custom">Personalizado&#8230;</option>
               </select>
               <div id="reminder-custom-wrap" hidden>
                 <input type="number" id="f-reminder-custom" placeholder="Minutos antes" min="1" class="reminder-custom-input" />
@@ -256,7 +389,7 @@
             </div>
           </div>
 
-          <!-- Opções de recorrência — exibidas quando repetição ≠ Nunca -->
+          <!-- Opções de recorrência -->
           <div id="recurrence-extra" hidden>
             <div id="recurrence-custom" hidden>
               <div class="field">
@@ -290,19 +423,11 @@
 
           <div class="form-actions">
             <button type="submit" id="btn-save" class="btn btn-primary">Salvar compromisso</button>
-            <button type="button" id="btn-cancel" class="btn btn-ghost" hidden>Cancelar</button>
+            <button type="button" id="btn-cancel" class="btn btn-ghost">Cancelar</button>
           </div>
         </form>
-      </section>
-
-      <!-- Lista de compromissos -->
-      <section class="list-section">
-        <h2>Meus compromissos</h2>
-        <p id="list-empty" class="list-empty" hidden>Nenhum compromisso cadastrado.</p>
-        <div id="event-list"></div>
-      </section>
-
-    </main>
+      </div>
+    </div>
   </div>
 
   <!-- ── Modal: Gerenciar Categorias ── -->
@@ -311,7 +436,7 @@
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <span class="modal-date" id="cat-modal-title">Gerenciar Categorias</span>
-        <button class="modal-close" id="cat-close" aria-label="Fechar">✕</button>
+        <button class="modal-close" id="cat-close" aria-label="Fechar">&#x2715;</button>
       </div>
       <div class="modal-body cat-modal-body">
         <div id="cat-list" aria-live="polite"></div>
@@ -334,11 +459,10 @@
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <span class="modal-date" id="settings-modal-title">Configurações</span>
-        <button class="modal-close" id="settings-close" aria-label="Fechar">✕</button>
+        <button class="modal-close" id="settings-close" aria-label="Fechar">&#x2715;</button>
       </div>
       <div class="modal-body settings-body">
 
-        <!-- Notificações locais (app aberto) -->
         <div class="settings-section-title">Notificações locais</div>
         <div class="settings-row">
           <div class="settings-info">
@@ -351,7 +475,6 @@
 
         <hr class="settings-divider" />
 
-        <!-- Push Notifications (app fechado) -->
         <div class="settings-section-title">Notificações Push</div>
         <div class="settings-row" id="push-row">
           <div class="settings-info">
@@ -364,7 +487,6 @@
 
         <hr class="settings-divider" />
 
-        <!-- Ferramentas -->
         <div class="settings-section-title">Ferramentas</div>
         <div class="settings-row">
           <div class="settings-info">
@@ -376,7 +498,6 @@
 
         <hr class="settings-divider" />
 
-        <!-- Modo Desenvolvedor -->
         <div class="settings-section-title">Desenvolvedor</div>
         <div class="settings-row">
           <div class="settings-info">
@@ -400,10 +521,10 @@
     <div class="modal-card modal-account">
       <div class="modal-header">
         <span class="modal-date" id="account-title">Minha Conta</span>
-        <button class="modal-close" id="account-close" aria-label="Fechar">✕</button>
+        <button class="modal-close" id="account-close" aria-label="Fechar">&#x2715;</button>
       </div>
       <div class="modal-body account-body" id="account-body">
-        <p class="account-loading">Carregando perfil…</p>
+        <p class="account-loading">Carregando perfil&#8230;</p>
       </div>
     </div>
   </div>
@@ -414,10 +535,10 @@
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <span class="modal-date" id="diagnostic-title">Diagnóstico do Sistema</span>
-        <button class="modal-close" id="diagnostic-close" aria-label="Fechar">✕</button>
+        <button class="modal-close" id="diagnostic-close" aria-label="Fechar">&#x2715;</button>
       </div>
       <div class="modal-body diagnostic-body" id="diagnostic-body">
-        <p class="diag-loading">Verificando serviços…</p>
+        <p class="diag-loading">Verificando serviços&#8230;</p>
       </div>
     </div>
   </div>
@@ -428,10 +549,10 @@
     <div class="modal-card modal-lg modal-academic">
       <div class="modal-header">
         <span class="modal-date" id="academic-modal-title">Calendários Acadêmicos</span>
-        <button class="modal-close" id="academic-close" aria-label="Fechar">✕</button>
+        <button class="modal-close" id="academic-close" aria-label="Fechar">&#x2715;</button>
       </div>
       <div class="modal-body academic-modal-body" id="academic-modal-body">
-        <p style="text-align:center;color:#9ca3af;padding:1.5rem 0">Carregando…</p>
+        <p style="text-align:center;color:#9ca3af;padding:1.5rem 0">Carregando&#8230;</p>
       </div>
     </div>
   </div>

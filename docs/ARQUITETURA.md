@@ -95,22 +95,93 @@ CREATE POLICY "Users can delete own events"
 
 ---
 
-## Estrutura de Arquivos Prevista
+## Arquitetura da Interface (Etapa 21)
+
+### Dois Layouts Independentes
+
+**Layout Público** — exibido quando não há sessão ativa:
+- `#login-screen` contém todos os fluxos de autenticação
+- Views: login, cadastro, confirmação de e-mail, recuperar senha, nova senha
+- Nenhum elemento da agenda é renderizado
+
+**Layout Autenticado** — exibido após login válido:
+- `#app-screen` com header + sidebar + content area
+- Nunca exibe formulário de login ou cadastro
+
+### Estrutura do Layout Autenticado
+
+```
+#app-screen
+├── header.app-header
+│   ├── .header-left    (toggle sidebar + logo + sync)
+│   └── .header-right   (instalar PWA + user-menu dropdown)
+│
+├── .app-layout
+│   ├── nav.app-sidebar           (240 px, sempre visível no desktop)
+│   │   ├── .sidebar-filter-wrap  (filtros de calendários)
+│   │   ├── Agenda      → #page-agenda
+│   │   ├── Calendário  → #page-calendar
+│   │   ├── Compromissos→ #page-appointments
+│   │   ├── Assistente IA → painel drawer
+│   │   ├── Calendários → modal #academic-overlay
+│   │   └── Categorias  → modal #cat-overlay
+│   │
+│   └── main.app-content
+│       ├── #page-agenda       (agenda semanal + assistente inteligente)
+│       ├── #page-calendar     (calendário mensal)
+│       └── #page-appointments (lista com busca, filtro e ordenação)
+│
+└── nav.bottom-nav   (apenas mobile, 56 px)
+```
+
+### Modais
+
+| ID | Conteúdo |
+|----|----------|
+| `#event-modal` | Formulário de novo/editar compromisso |
+| `#cat-overlay` | Gerenciar categorias |
+| `#settings-overlay` | Configurações e notificações |
+| `#account-overlay` | Minha Conta (perfil + avatar + senha) |
+| `#diagnostic-overlay` | Diagnóstico do sistema |
+| `#academic-overlay` | Calendários acadêmicos |
+| `#ai-panel` | Painel drawer do Assistente IA (Gemini) |
+
+### Responsividade
+
+| Tamanho | Comportamento |
+|---------|---------------|
+| Desktop (≥768 px) | Sidebar fixo à esquerda, bottom-nav oculto |
+| Tablet/Mobile (<768 px) | Sidebar como drawer (desliza da esquerda), bottom-nav visível |
+| Mobile estreito (<480 px) | E-mail do usuário oculto no header |
+
+---
+
+## Estrutura de Arquivos
 
 ```
 medagenda/
-├── index.html          # Ponto de entrada da aplicação
-├── config.js           # Variáveis de ambiente (não versionado)
-├── config.example.js   # Exemplo de configuração (versionado)
-├── css/
-│   └── style.css
-├── js/
-│   ├── app.js          # Inicialização e roteamento
-│   ├── auth.js         # Login, cadastro e sessão
-│   └── events.js       # CRUD de eventos
-└── docs/
-    ├── VISAO_DO_PRODUTO.md
-    ├── ROADMAP.md
-    ├── ARQUITETURA.md
-    └── BANCO_DE_DADOS.md
+├── index.html              # SPA — estrutura completa da UI
+├── script.js               # Controlador principal
+├── style.css               # Estilos globais (sem frameworks CSS)
+├── config.js               # Variáveis de ambiente (não versionado)
+├── config.example.js       # Exemplo de configuração (versionado)
+├── auth.js                 # signIn, signUp, signOut, onAuthStateChange
+├── supabase.js             # Cliente Supabase singleton
+├── eventService.js         # CRUD de eventos pessoais
+├── categoryService.js      # CRUD de categorias
+├── calendar.js             # Renderização do calendário mensal
+├── weekView.js             # Renderização da agenda semanal
+├── quickAdd.js             # Modal de criação rápida (clique no slot)
+├── accountView.js          # Modal "Minha Conta"
+├── academicCalendarView.js # Modal e filtros de calendários acadêmicos
+├── recurrence.js           # Expansão de eventos recorrentes
+├── notificationService.js  # Lembretes locais (app aberto)
+├── pushService.js          # Notificações push (app fechado)
+├── smartAssistant.js       # Análise de conflitos e sugestões
+├── analytics.js            # Estatísticas mensais
+├── services/ai/            # Integração com Google Gemini
+├── pwa.js                  # Service Worker, instalação, offline
+├── toastService.js         # Notificações toast
+├── utils.js                # Funções puras utilitárias
+└── docs/                   # Documentação técnica
 ```
