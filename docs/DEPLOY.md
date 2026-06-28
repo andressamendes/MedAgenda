@@ -7,7 +7,7 @@ Guia completo de publicação da MedAgenda no GitHub Pages.
 ## URL de produção
 
 ```
-https://andressamendes.github.io/medagenda/
+https://andressamendes.github.io/MedAgenda/
 ```
 
 ---
@@ -63,8 +63,8 @@ No SQL Editor do Supabase, execute nesta ordem:
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL:** `https://andressamendes.github.io/medagenda/`
-- **Redirect URLs:** `https://andressamendes.github.io/medagenda/**`
+- **Site URL:** `https://andressamendes.github.io/MedAgenda/`
+- **Redirect URLs:** `https://andressamendes.github.io/MedAgenda/**`
 
 Em **Authentication → Providers → Email**:
 - Confirmar que o provider Email está habilitado
@@ -207,7 +207,7 @@ SELECT cron.schedule(
 
 Após cada deploy, validar:
 
-- [ ] App carrega em `https://andressamendes.github.io/medagenda/`
+- [ ] App carrega em `https://andressamendes.github.io/MedAgenda/`
 - [ ] Login com email/senha funciona
 - [ ] Logout funciona
 - [ ] Criar compromisso funciona
@@ -264,8 +264,8 @@ feature/...  →  PR  →  CI (testes automáticos)
 
 1. Confirmar `SUPABASE_URL` e `SUPABASE_ANON_KEY` nos Secrets
 2. Verificar **Authentication → URL Configuration** no Supabase:
-   - Site URL: `https://andressamendes.github.io/medagenda/`
-   - Redirect URLs: `https://andressamendes.github.io/medagenda/**`
+   - Site URL: `https://andressamendes.github.io/MedAgenda/`
+   - Redirect URLs: `https://andressamendes.github.io/MedAgenda/**`
 
 ### PWA não instalável
 
