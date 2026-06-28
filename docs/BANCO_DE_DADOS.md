@@ -124,3 +124,49 @@ CREATE POLICY "Users can delete own events"
 - Nenhuma consulta retorna dados de outro usuário, mesmo sem filtro explícito
 - A foreign key `user_id → auth.users(id)` garante integridade referencial com a tabela de autenticação do Supabase
 - `ON DELETE CASCADE` garante que todos os eventos de um usuário sejam removidos ao deletar a conta
+
+---
+
+## Etapa 17: Calendários Acadêmicos
+
+### Tabela `academic_calendars`
+
+Cada usuário pode ter múltiplos calendários acadêmicos (Medicina 2026, Internato, Ligas…).
+
+| Campo           | Tipo        | Obrigatório | Descrição                          |
+|-----------------|-------------|-------------|-------------------------------------|
+| `id`            | UUID        | Sim         | Identificador único                 |
+| `user_id`       | UUID        | Sim         | Dono do calendário                  |
+| `name`          | TEXT        | Sim         | Nome do calendário                  |
+| `university`    | TEXT        | Não         | Nome da universidade                |
+| `academic_year` | TEXT        | Não         | Ano letivo (ex: "2026")             |
+| `color`         | TEXT        | Sim         | Cor hexadecimal (padrão #7c3aed)    |
+| `created_at`    | TIMESTAMPTZ | Sim         | Data de criação                     |
+| `updated_at`    | TIMESTAMPTZ | Sim         | Data da última atualização          |
+
+**RLS:** `user_id = auth.uid()` em SELECT/INSERT/UPDATE/DELETE.
+
+---
+
+### Tabela `academic_events`
+
+Eventos associados a um calendário acadêmico. Suportam datas únicas ou intervalos (férias, semestres).
+
+| Campo         | Tipo        | Obrigatório | Descrição                                         |
+|---------------|-------------|-------------|---------------------------------------------------|
+| `id`          | UUID        | Sim         | Identificador único                               |
+| `calendar_id` | UUID FK     | Sim         | Calendário ao qual pertence (CASCADE DELETE)      |
+| `title`       | TEXT        | Sim         | Título do evento                                  |
+| `description` | TEXT        | Não         | Descrição opcional                                |
+| `start_date`  | DATE        | Sim         | Data de início                                    |
+| `end_date`    | DATE        | Não         | Data de fim (inclusive); null = evento de 1 dia   |
+| `all_day`     | BOOLEAN     | Sim         | Se é evento de dia inteiro (padrão: true)         |
+| `color`       | TEXT        | Não         | Cor do evento (sobrescreve a cor do calendário)   |
+| `category`    | TEXT        | Não         | Categoria: Aula, Prova, Férias, Rodízio…          |
+| `location`    | TEXT        | Não         | Local do evento                                   |
+| `created_at`  | TIMESTAMPTZ | Sim         | Data de criação                                   |
+| `updated_at`  | TIMESTAMPTZ | Sim         | Data da última atualização                        |
+
+**RLS:** Acesso via subquery — apenas o dono do calendário pode ler/escrever seus eventos.
+
+Script de criação: `sql/07_academic_calendar.sql`

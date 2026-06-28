@@ -2,10 +2,23 @@ import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday } from "./utils.js";
 
+let _showPersonal = () => true;
+
 const MONTHS   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
 let container, calYear, calMonth, callbacks;
+let _academicProvider = null;
+
+/** Registers a provider function (start, end) => Promise<AcademicEvent[]> */
+export function setCalendarAcademicProvider(fn) {
+  _academicProvider = fn;
+}
+
+/** Registers a predicate returning whether personal events are visible */
+export function setCalendarPersonalVisibility(fn) {
+  _showPersonal = fn;
+}
 
 // ── API pública ────────────────────────────────────────────────────────────
 
@@ -67,11 +80,14 @@ async function fetchAndRender() {
   updateTitle();
   showLoading();
   try {
-    const start    = monthStart(calYear, calMonth);
-    const end      = monthEnd(calYear, calMonth);
-    const rawEvents = await getEventsByRange(start, end);
-    const events    = expandEvents(rawEvents, start, end);
-    renderGrid(groupByDate(events));
+    const start = monthStart(calYear, calMonth);
+    const end   = monthEnd(calYear, calMonth);
+    const [rawEvents, academicEvents] = await Promise.all([
+      _showPersonal() ? getEventsByRange(start, end) : Promise.resolve([]),
+      _academicProvider ? _academicProvider(start, end) : Promise.resolve([]),
+    ]);
+    const personal = expandEvents(rawEvents, start, end);
+    renderGrid(groupByDate([...personal, ...academicEvents]));
   } catch {
     renderGrid({});
   }
@@ -120,17 +136,27 @@ function renderGrid(byDate) {
     chipsEl.className = "cal-chips";
     (byDate[date] || []).forEach(ev => {
       const chip = document.createElement("div");
-      chip.className = "cal-chip";
-      chip.style.background = ev.color || "#3b82f6";
-      chip.title = ev.title;
+      const isAcademic = !!ev._isAcademic;
+      chip.className = isAcademic ? "cal-chip cal-chip-academic" : "cal-chip";
+      chip.style.background = isAcademic
+        ? (ev.color || ev._calendarColor || "#7c3aed")
+        : (ev.color || "#3b82f6");
+      chip.title = isAcademic
+        ? `[${ev._calendarName}] ${ev.title}`
+        : ev.title;
       chip.textContent = ev.title;
 
-      // Clique no chip → abrir formulário completo para edição
-      if (callbacks?.onEventClick) {
+      if (!isAcademic && callbacks?.onEventClick) {
         chip.classList.add("cal-chip-clickable");
         chip.addEventListener("click", (e) => {
-          e.stopPropagation(); // impede disparo do clique na célula
+          e.stopPropagation();
           callbacks.onEventClick(ev);
+        });
+      } else if (isAcademic && callbacks?.onAcademicEventClick) {
+        chip.classList.add("cal-chip-clickable");
+        chip.addEventListener("click", (e) => {
+          e.stopPropagation();
+          callbacks.onAcademicEventClick(ev);
         });
       }
 

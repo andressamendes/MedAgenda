@@ -1,7 +1,7 @@
 import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
-import { initCalendar, refreshCalendar } from "./calendar.js";
-import { initWeekView, refreshWeekView } from "./weekView.js";
+import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
+import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import {
   getCategories, createCategory, updateCategory,
@@ -23,6 +23,11 @@ import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetrySe
 import { initErrorService, setErrorDevMode } from "./errorService.js";
 import { runDiagnostics, APP_VERSION, updateLastSync } from "./diagnosticService.js";
 import { initAccountView } from "./accountView.js";
+import {
+  initAcademicCalendarView, initAcademicModal,
+  openAcademicCalendarModal, renderFilterBar,
+  getAcademicEventProvider, isPersonalVisible,
+} from "./academicCalendarView.js";
 
 // Inicializa serviços de observabilidade imediatamente
 initErrorService(_isDevMode());
@@ -178,6 +183,24 @@ async function showApp(session) {
   // Re-sync push subscription in case it changed since last login
   syncPushSubscription().catch(() => {});
 
+  // Initialize academic calendar service & wiring
+  initAcademicModal();
+  await initAcademicCalendarView(() => {
+    // Called whenever calendars change — refresh filters and views
+    renderFilterBar("filter-bar");
+    refreshAll();
+  });
+  renderFilterBar("filter-bar");
+
+  const academicProvider = getAcademicEventProvider();
+  setCalendarAcademicProvider(academicProvider);
+  setWeekViewAcademicProvider(academicProvider);
+  setCalendarPersonalVisibility(isPersonalVisible);
+  setWeekViewPersonalVisibility(isPersonalVisible);
+
+  // Hook up "Calendários" button
+  document.getElementById("btn-academic-cals")?.addEventListener("click", openAcademicCalendarModal);
+
   // Categorias devem estar prontas antes do calendário e da lista
   await initCategories();
   await Promise.all([
@@ -185,11 +208,13 @@ async function showApp(session) {
       onSlotClick: (date, time) =>
         openQuickAdd(date, refreshAll, time),
       onEventClick: handleEventClick,
+      onAcademicEventClick: openAcademicCalendarModal,
     }),
     initCalendar(document.getElementById("calendar-container"), {
       onDayClick: (date) =>
         openQuickAdd(date, refreshAll),
       onEventClick: handleEventClick,
+      onAcademicEventClick: openAcademicCalendarModal,
     }),
     loadEvents(),
   ]);
@@ -677,7 +702,7 @@ eventForm.addEventListener("submit", async (e) => {
 // ── Lista ──────────────────────────────────────────────────────────────────
 async function loadEvents() {
   try {
-    const events = await getEvents();
+    const events = isPersonalVisible() ? await getEvents() : [];
     renderList(events);
     scheduleReminders(events);
   } catch {

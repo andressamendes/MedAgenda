@@ -133,14 +133,27 @@
       <div class="header-right">
         <span id="header-email" class="header-email"></span>
         <button id="btn-install-pwa"  class="btn btn-sm btn-ghost" hidden>Instalar MedAgenda</button>
-        <button id="btn-my-account"  class="btn btn-sm btn-ghost">Minha Conta</button>
-        <button id="btn-settings"    class="btn btn-sm btn-ghost">Configurações</button>
-        <button id="btn-categories"  class="btn btn-sm btn-ghost">Categorias</button>
-        <button id="btn-logout"      class="btn btn-sm btn-ghost">Sair</button>
+        <button id="btn-my-account"       class="btn btn-sm btn-ghost">Minha Conta</button>
+        <button id="btn-settings"         class="btn btn-sm btn-ghost">Configurações</button>
+        <button id="btn-academic-cals"    class="btn btn-sm btn-ghost">Calendários</button>
+        <button id="btn-categories"       class="btn btn-sm btn-ghost">Categorias</button>
+        <button id="btn-logout"           class="btn btn-sm btn-ghost">Sair</button>
       </div>
     </header>
 
     <main class="app-main">
+
+      <!-- Filtros de calendário -->
+      <section class="filter-section">
+        <div class="filter-bar" id="filter-bar">
+          <!-- populated by academicCalendarView.renderFilterBar() -->
+          <span class="filter-label">Exibir:</span>
+          <label class="filter-toggle">
+            <input type="checkbox" id="chk-personal" checked>
+            <span>Compromissos pessoais</span>
+          </label>
+        </div>
+      </section>
 
       <!-- Calendário semanal (vista principal) -->
       <section class="week-section" id="week-container"></section>
@@ -392,6 +405,20 @@
       </div>
       <div class="modal-body diagnostic-body" id="diagnostic-body">
         <p class="diag-loading">Verificando serviços…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Calendários Acadêmicos ── -->
+  <div id="academic-overlay" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="academic-modal-title">
+    <div class="modal-card modal-lg modal-academic">
+      <div class="modal-header">
+        <span class="modal-date" id="academic-modal-title">Calendários Acadêmicos</span>
+        <button class="modal-close" id="academic-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body academic-modal-body" id="academic-modal-body">
+        <p style="text-align:center;color:#9ca3af;padding:1.5rem 0">Carregando…</p>
       </div>
     </div>
   </div>
