@@ -28,6 +28,7 @@ let _nowTimer = null;
 // ── Public API ─────────────────────────────────────────────────────────────
 
 export async function initWeekView(el, cbs = {}) {
+  if (_nowTimer) { clearInterval(_nowTimer); _nowTimer = null; }
   _el  = el;
   _cbs = cbs;
   _mon = mondayOf(new Date());
@@ -39,6 +40,11 @@ export async function initWeekView(el, cbs = {}) {
 export async function refreshWeekView() {
   if (!_el) return;
   await fetchAndRender();
+}
+
+export function destroyWeekView() {
+  if (_nowTimer) { clearInterval(_nowTimer); _nowTimer = null; }
+  _el = null;
 }
 
 // ── Shell (built once) ─────────────────────────────────────────────────────

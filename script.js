@@ -1,7 +1,7 @@
 import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
-import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
+import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, destroyWeekView } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import {
   getCategories, createCategory, updateCategory,
@@ -205,6 +205,7 @@ const AUTH_VIEWS = ['login','register','email-sent','forgot','reset-sent','new-p
 function showAuthView(name) {
   if (appLoading) appLoading.hidden = true;
   _closeAllModals();
+  destroyWeekView();
   _initializedUserId = null;
   assistantHidden    = false;
   loginScreen.hidden = false;
@@ -246,6 +247,15 @@ async function showApp(session) {
 
   loginScreen.hidden = true;
   appScreen.hidden   = false;
+
+  if (window.innerWidth >= 768) {
+    try {
+      const collapsed = localStorage.getItem(SIDEBAR_STATE_KEY);
+      if (collapsed === '1') appSidebar?.classList.add('sidebar-collapsed');
+      else if (collapsed === '0') appSidebar?.classList.remove('sidebar-collapsed');
+    } catch { /* storage unavailable */ }
+  }
+
   headerEmail.textContent = session.user.email;
 
   // Avatar initial from email
@@ -1422,7 +1432,8 @@ function buildUpcomingCard(upcoming) {
 
 // ── Navegação entre páginas ────────────────────────────────────────────────
 const APP_PAGES = ['agenda', 'calendar', 'appointments'];
-const LAST_PAGE_KEY = 'medagenda_last_page';
+const LAST_PAGE_KEY    = 'medagenda_last_page';
+const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 
 function showPage(name) {
   if (!APP_PAGES.includes(name)) name = 'agenda';
@@ -1433,9 +1444,15 @@ function showPage(name) {
   });
   document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
     btn.classList.toggle('nav-item--active', btn.dataset.page === name);
+    btn.dataset.page === name
+      ? btn.setAttribute('aria-current', 'page')
+      : btn.removeAttribute('aria-current');
   });
   document.querySelectorAll('.bottom-nav-item[data-page]').forEach(btn => {
     btn.classList.toggle('bottom-nav-item--active', btn.dataset.page === name);
+    btn.dataset.page === name
+      ? btn.setAttribute('aria-current', 'page')
+      : btn.removeAttribute('aria-current');
   });
   closeSidebar();
 
@@ -1475,6 +1492,9 @@ document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
     if (isOpen) closeSidebar(); else openSidebar();
   } else {
     appSidebar?.classList.toggle('sidebar-collapsed');
+    try {
+      localStorage.setItem(SIDEBAR_STATE_KEY, appSidebar?.classList.contains('sidebar-collapsed') ? '1' : '0');
+    } catch { /* storage unavailable */ }
   }
 });
 
