@@ -7,6 +7,35 @@ Versionamento segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [Unreleased] — Etapa 2: Validação dos bugs críticos remanescentes
+
+### Validado em 2026-06-29
+
+Revalidação de todos os bugs críticos após as correções da Etapa 1.
+Nenhuma regressão detectada. Nenhum bug adicional encontrado.
+
+| Bug    | Descrição                                  | Status                          |
+|--------|--------------------------------------------|---------------------------------|
+| BUG-001 | Painel IA não fecha (X, ESC, overlay)     | Corrigido (Etapa 1)             |
+| BUG-002 | Erro PostgREST trava painel IA            | Corrigido (Etapa 1)             |
+| BUG-003 | Tela de login coexiste com app autenticado | Corrigido (Etapa 1)            |
+| BUG-004 | Credenciais hardcoded em setup-push.sh    | Corrigido (Etapa 1)             |
+| BUG-005 | Botão "+ Novo compromisso" inacessível    | Corrigido por dependência (BUG-001) |
+| BUG-006 | Menu "Calendários" não exibe conteúdo     | Não reproduzido                 |
+
+**BUG-005 — Detalhes:** O bloqueio do botão era causado pelo `.ai-panel`
+permanecer visível (`display:flex`) mesmo com o atributo `[hidden]` presente,
+pois a regra CSS sobrescrevia o comportamento padrão do HTML. A correção de
+BUG-001 (`.ai-panel[hidden] { display: none }`) resolveu o problema: o painel
+IA não bloqueia mais interações quando fechado.
+
+**BUG-006 — Detalhes:** O botão "Calendários" (`#btn-academic-cals`) abre
+corretamente o modal `#academic-overlay` via `openAcademicCalendarModal()`.
+A estrutura do modal está completa, o conteúdo é renderizado e o roteamento
+usa modal (não `data-page`). Nenhuma regressão ou bug identificado.
+
+---
+
 ## [1.0.0-rc1] — 2026-06-28
 
 ### Release Candidate — Consolidação de Arquitetura e Qualidade
