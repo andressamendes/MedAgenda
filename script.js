@@ -1370,10 +1370,18 @@ function buildUpcomingCard(upcoming) {
     showLoading();
     setActionBtnsDisabled(true);
     try {
-      const events = isPersonalVisible() ? await getEvents() : [];
+      let events;
+      try {
+        events = isPersonalVisible() ? await getEvents() : [];
+      } catch (dbErr) {
+        console.error('[AI] Erro ao carregar eventos do banco de dados:', dbErr);
+        showResult(label, 'Não foi possível carregar seus compromissos. Verifique sua conexão e tente novamente.');
+        return;
+      }
       const result = await fn(events);
       showResult(label, result || 'O assistente não retornou resposta. Tente novamente.');
     } catch (err) {
+      console.error('[AI] Erro no assistente de IA:', err);
       showResult(label, err.message || 'Ocorreu um erro ao contatar o assistente de IA. Verifique sua conexão e tente novamente.');
     } finally {
       setActionBtnsDisabled(false);
