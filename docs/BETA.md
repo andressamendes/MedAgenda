@@ -1,6 +1,6 @@
 # MedAgenda — Beta Público
 
-Versão: **1.0.0-beta.1**
+Versão: **1.0.0-rc1**
 Última atualização: 2026-06-28
 
 ---

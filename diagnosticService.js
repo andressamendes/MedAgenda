@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
 
-export const APP_VERSION = '1.0.0-beta.1';
+export const APP_VERSION = '1.0.0-rc1';
 
 const SYNC_KEY = 'medagenda_last_sync';
 
