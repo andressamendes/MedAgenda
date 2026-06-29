@@ -183,7 +183,7 @@ async function showCalendarList() {
         <div class="acal-form-grid">
           <div class="field">
             <label>Nome <span class="required">*</span></label>
-            <input type="text" id="acal-new-name" placeholder="Ex: Medicina 2026" />
+            <input type="text" id="acal-new-name" placeholder="Ex: Medicina 2026" maxlength="120" />
           </div>
           <div class="field">
             <label>Cor</label>
@@ -191,11 +191,11 @@ async function showCalendarList() {
           </div>
           <div class="field">
             <label>Universidade</label>
-            <input type="text" id="acal-new-univ" placeholder="Ex: USP" />
+            <input type="text" id="acal-new-univ" placeholder="Ex: USP" maxlength="120" />
           </div>
           <div class="field">
             <label>Ano letivo</label>
-            <input type="text" id="acal-new-year" placeholder="Ex: 2026" />
+            <input type="text" id="acal-new-year" placeholder="Ex: 2026" maxlength="9" />
           </div>
         </div>
         <p class="error" id="acal-error" role="alert"></p>
@@ -251,7 +251,7 @@ async function showCalendarEditForm(calId) {
       <div class="acal-form-grid">
         <div class="field">
           <label>Nome <span class="required">*</span></label>
-          <input type="text" id="acal-edit-name"  value="${escapeHtml(cal.name)}" />
+          <input type="text" id="acal-edit-name"  value="${escapeHtml(cal.name)}" maxlength="120" />
         </div>
         <div class="field">
           <label>Cor</label>
@@ -259,11 +259,11 @@ async function showCalendarEditForm(calId) {
         </div>
         <div class="field">
           <label>Universidade</label>
-          <input type="text" id="acal-edit-univ" value="${escapeHtml(cal.university || "")}" />
+          <input type="text" id="acal-edit-univ" value="${escapeHtml(cal.university || "")}" maxlength="120" />
         </div>
         <div class="field">
           <label>Ano letivo</label>
-          <input type="text" id="acal-edit-year" value="${escapeHtml(cal.academic_year || "")}" />
+          <input type="text" id="acal-edit-year" value="${escapeHtml(cal.academic_year || "")}" maxlength="9" />
         </div>
       </div>
       <p class="error" id="acal-edit-error" role="alert"></p>
@@ -394,7 +394,7 @@ function renderEventFormHTML(ev = null) {
     <div class="acal-form-grid">
       <div class="field" style="grid-column:1/-1">
         <label>Título <span class="required">*</span></label>
-        <input type="text" id="acev-title" value="${escapeHtml(ev?.title || "")}" placeholder="Ex: Prova de Anatomia" />
+        <input type="text" id="acev-title" value="${escapeHtml(ev?.title || "")}" placeholder="Ex: Prova de Anatomia" maxlength="120" />
       </div>
       <div class="field">
         <label>Data inicial <span class="required">*</span></label>
@@ -417,11 +417,11 @@ function renderEventFormHTML(ev = null) {
       </div>
       <div class="field" style="grid-column:1/-1">
         <label>Local</label>
-        <input type="text" id="acev-location" value="${escapeHtml(ev?.location || "")}" placeholder="Ex: Bloco C, Sala 201" />
+        <input type="text" id="acev-location" value="${escapeHtml(ev?.location || "")}" placeholder="Ex: Bloco C, Sala 201" maxlength="120" />
       </div>
       <div class="field" style="grid-column:1/-1">
         <label>Descrição</label>
-        <textarea id="acev-description" rows="2">${escapeHtml(ev?.description || "")}</textarea>
+        <textarea id="acev-description" rows="2" maxlength="1000">${escapeHtml(ev?.description || "")}</textarea>
       </div>
     </div>
   `;
