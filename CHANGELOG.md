@@ -1,5 +1,46 @@
 # Changelog
 
+---
+
+## [Unreleased] — Etapa 3: Correção dos Bugs de Alta Severidade
+
+### Validado em 2026-06-29
+
+| Bug    | Descrição                                       | Status                               |
+|--------|-------------------------------------------------|--------------------------------------|
+| BUG-007 | Spinner "Consultando o Gemini" infinito após erro | Corrigido por dependência (BUG-002) |
+| BUG-008 | Modal de Categorias com overflow horizontal     | Corrigido                            |
+| BUG-009 | Menu do usuário inacessível                     | Corrigido por dependência (BUG-001)  |
+| BUG-010 | Botão "Atualizar agora" sem feedback            | Corrigido                            |
+
+**BUG-007 — Detalhes:** O spinner é encerrado em todos os caminhos de erro por meio do
+`showResult()` chamado nos blocos `catch` de `runAIAction()`. O `finally` garante que os botões
+sejam reativados. A correção de BUG-002 (Etapa 1) já cobria este caso: ambos os bugs envolvem
+o mesmo fluxo assíncrono da IA.
+
+**BUG-008 — Detalhes:** Dois problemas distintos. (1) A sobreposição do painel IA foi eliminada
+pela correção de BUG-001 (`.ai-panel[hidden]{display:none}`), pois o painel (`z-index:201`)
+sobrepunha o modal (`z-index:100`) mesmo quando deveria estar oculto. (2) O overflow horizontal
+no seletor de cores era causado por `flex:1` sem `min-width:0` nos inputs dentro de `.cat-form-row`
+e `.cat-edit-name` — o navegador não os deixava encolher abaixo da largura intrínseca.
+Correção: `min-width:0` adicionado a ambos e `overflow:hidden` adicionado a `.modal-card`.
+
+**BUG-009 — Detalhes:** O dropdown do usuário (`z-index:200`) era bloqueado pelo `.ai-panel`
+(`position:fixed; z-index:201; display:flex`) que permanecia visível mesmo com o atributo
+`[hidden]`. A correção de BUG-001 (Etapa 1) eliminou o bloqueio por completo.
+
+**BUG-010 — Detalhes:** O botão "Atualizar agora" executava `window.location.reload()` imediatamente
+após `postMessage({type:'SKIP_WAITING'})`, sem qualquer indicação visual de que algo estava
+acontecendo. Corrigido: ao clicar, o botão exibe "Atualizando…" e é desabilitado; o reload
+é disparado pelo evento `controllerchange` do Service Worker (padrão recomendado), garantindo
+que o reload ocorra apenas após o novo SW tomar o controle.
+
+### Arquivos modificados
+- `style.css` — `overflow:hidden` em `.modal-card`; `min-width:0` em `.cat-edit-name` e `.cat-form-row input[type="text"]`
+- `pwa.js` — feedback visual no botão "Atualizar agora"; reload via `controllerchange`
+
+---
+
 Todas as mudanças notáveis deste projeto são documentadas neste arquivo.
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
