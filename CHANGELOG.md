@@ -2,6 +2,41 @@
 
 ---
 
+## [Unreleased] — Etapa 4.1: Correções de Segurança e Robustez
+
+### Validado em 2026-06-29
+
+| Bug     | Descrição                                               | Status      |
+|---------|---------------------------------------------------------|-------------|
+| BUG-011 | `console.log` em `auth.js` expõe e-mail do usuário     | Corrigido   |
+| BUG-014 | Toast injeta mensagem via `innerHTML` (XSS potencial)  | Corrigido   |
+| BUG-015 | Botão "Salvar" de categoria sem disabled durante async  | Corrigido   |
+
+**BUG-011 — Detalhes:** Três chamadas de `console.log`/`console.error` dentro de `signUp()` em `auth.js`
+logavam o e-mail do usuário, o objeto de erro da API e dados internos da resposta (user_id, session,
+identities) no console do navegador em produção. Removidas as três linhas; a função agora é idêntica
+a `signIn()` em termos de logging (nenhum).
+
+**BUG-014 — Detalhes:** `showToast()` em `toastService.js` montava o HTML do toast com `innerHTML`,
+interpolando `${message}` diretamente. Qualquer mensagem contendo HTML (ex: vindo de uma API externa)
+seria renderizada como markup. Corrigido: o template agora cria `<span class="toast-message"></span>`
+vazio via `innerHTML` (apenas conteúdo estático/confiável), e a mensagem é atribuída separadamente via
+`el.querySelector('.toast-message').textContent = message` — `textContent` trata qualquer string como
+texto puro, nunca como HTML.
+
+**BUG-015 — Detalhes:** O botão "Salvar" na edição inline de categoria em `script.js` não era
+desabilitado durante a operação assíncrona `updateCategory()`. Um duplo clique disparava duas chamadas
+simultâneas ao Supabase para o mesmo registro. Corrigido com o padrão já usado nos demais formulários
+da aplicação: `catSaveBtn.disabled = true` antes do `await`, restaurado para `false` no `catch`.
+No fluxo de sucesso, o botão é destruído junto com a linha de edição pelo `renderCatList()`.
+
+### Arquivos modificados
+- `auth.js` — removidos 3 `console.log`/`console.error` de debug em `signUp()`
+- `toastService.js` — mensagem do toast movida de `innerHTML` para `textContent`
+- `script.js` — `catSaveBtn.disabled = true/false` adicionado em `enterEditMode()`
+
+---
+
 ## [Unreleased] — Etapa 3: Correção dos Bugs de Alta Severidade
 
 ### Validado em 2026-06-29

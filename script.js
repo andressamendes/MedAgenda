@@ -480,16 +480,19 @@ function enterEditMode(row, cat) {
   `;
   row.querySelector(".cat-edit-name").focus();
 
-  row.querySelector(".btn-primary").addEventListener("click", async () => {
+  const catSaveBtn = row.querySelector(".btn-primary");
+  catSaveBtn.addEventListener("click", async () => {
     const newName  = row.querySelector(".cat-edit-name").value.trim();
     const newColor = row.querySelector(".cat-edit-color").value;
     if (!newName) return;
+    catSaveBtn.disabled = true;
     try {
       await updateCategory(cat.id, newName, newColor);
       await reloadCategories();
       await renderCatList();
     } catch (err) {
       catError.textContent = err.message;
+      catSaveBtn.disabled = false;
     }
   });
 
