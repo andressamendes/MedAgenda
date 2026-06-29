@@ -1141,21 +1141,30 @@ sendResetBtn?.addEventListener('click', async () => {
 });
 
 // ── Assistente Inteligente ──────────────────────────────────────────────────
-const assistantSection = document.getElementById('assistant-section');
-const assistantBody    = document.getElementById('assistant-body');
-const assistantClose   = document.getElementById('assistant-close');
+const assistantSection   = document.getElementById('assistant-section');
+const assistantBody      = document.getElementById('assistant-body');
+const assistantClose     = document.getElementById('assistant-close');
+const btnShowAssistant   = document.getElementById('btn-show-assistant');
 
 assistantClose?.addEventListener('click', () => {
   if (assistantSection) {
     assistantSection.hidden = true;
     assistantHidden = true;
+    if (btnShowAssistant) btnShowAssistant.hidden = false;
   }
+});
+
+btnShowAssistant?.addEventListener('click', () => {
+  assistantHidden = false;
+  btnShowAssistant.hidden = true;
+  renderAssistant(allEvents);
 });
 
 function renderAssistant(events) {
   if (!assistantSection || !assistantBody) return;
   if (assistantHidden) return;
   assistantSection.hidden = false;
+  if (btnShowAssistant) btnShowAssistant.hidden = true;
 
   const { alerts, suggestions } = analyzeEvents(events);
   const stats = computeStats(events);
