@@ -7,6 +7,7 @@ import { parseICS, deduplicateEvents } from "./icsImporter.js";
 import { exportToICS, downloadICS } from "./icsExporter.js";
 import { toast } from "./toastService.js";
 import { escapeHtml } from "./utils.js";
+import { confirmDialog } from "./confirmDialog.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,12 @@ async function showCalendarEditForm(calId) {
 async function handleCalendarDelete(calId) {
   const cal = _calendarsCache.find(c => c.id === calId);
   if (!cal) return;
-  if (!confirm(`Excluir o calendário "${cal.name}" e todos os seus eventos?`)) return;
+  const ok = await confirmDialog({
+    title:   'Excluir calendário',
+    message: `Excluir o calendário "${cal.name}" e todos os seus eventos?`,
+    danger:  true,
+  });
+  if (!ok) return;
   try {
     await deleteCalendar(calId);
     toast.success("Calendário excluído.");
@@ -359,7 +365,13 @@ async function showEventList(calId) {
   _modalBody.querySelectorAll(".btn-ev-delete").forEach(btn => {
     btn.addEventListener("click", async () => {
       const ev = events.find(e => e.id === btn.dataset.id);
-      if (!ev || !confirm(`Excluir "${ev.title}"?`)) return;
+      if (!ev) return;
+      const ok = await confirmDialog({
+        title:   'Excluir evento',
+        message: `Excluir "${ev.title}"?`,
+        danger:  true,
+      });
+      if (!ok) return;
       try {
         await deleteAcademicEvent(ev.id);
         toast.success("Evento excluído.");
@@ -514,10 +526,12 @@ async function handleICSImport(calId, file) {
     return;
   }
 
-  const confirmed = confirm(
-    `Importar ${unique.length} evento(s) para "${cal?.name}"?` +
-    (duplicates > 0 ? `\n(${duplicates} duplicados serão ignorados)` : "")
-  );
+  const confirmed = await confirmDialog({
+    title:   'Importar eventos',
+    message: `Importar ${unique.length} evento(s) para "${cal?.name}"?` +
+             (duplicates > 0 ? `\n(${duplicates} duplicados serão ignorados)` : ''),
+    confirmText: 'Importar',
+  });
   if (!confirmed) return;
 
   try {
