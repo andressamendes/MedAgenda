@@ -12,6 +12,7 @@ function init() {
   overlay.hidden    = true;
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-labelledby", "qa-date-label");
   overlay.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
@@ -19,8 +20,8 @@ function init() {
         <button class="modal-close" id="qa-close" aria-label="Fechar">✕</button>
       </div>
       <div class="modal-body">
-        <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" />
-        <input type="time"  id="qa-time" />
+        <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" aria-label="Título do compromisso" />
+        <input type="time"  id="qa-time" aria-label="Hora do compromisso" />
         <p class="error" id="qa-error"></p>
       </div>
       <div class="modal-footer">
