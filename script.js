@@ -1,3 +1,34 @@
+/**
+ * script.js — Bootstrap e controlador principal da aplicação MedAgenda
+ *
+ * Este arquivo centraliza a inicialização da aplicação e os módulos de UI
+ * que ainda não foram extraídos para módulos próprios. Ele é o único ponto
+ * de entrada do bundle e deve permanecer o menor possível após a refatoração.
+ *
+ * Domínios mapeados (cada um será extraído em etapas futuras):
+ *
+ *   [1]  observabilidade  — Modo desenvolvedor, flags de debug
+ *   [2]  autenticação     — Login, logout, cadastro, recuperação/redefinição de senha,
+ *                           navegação entre views de auth
+ *   [3]  appInit          — Inicialização do app após login (showApp, refreshAll)
+ *   [4]  formulário       — Criação e edição de compromissos (modal + submit)
+ *   [5]  lista            — Listagem, filtragem, ordenação e exclusão de compromissos
+ *   [6]  categorias       — Modal de gerenciamento de categorias
+ *   [7]  configurações    — Modal de configurações (notificações locais e push)
+ *   [8]  diagnóstico      — Overlay de diagnóstico de serviços
+ *   [9]  assistente       — Assistente inteligente (análise local de eventos)
+ *   [10] painelIA         — Painel Gemini (resumo, sugestão e análise via API)
+ *   [11] navegação        — Páginas, sidebar, user menu, bottom nav
+ *
+ * Estado compartilhado entre domínios (precisa ser resolvido na extração):
+ *   - allEvents        → produzido por: lista; consumido por: assistente, painelIA
+ *   - categoriesCache  → produzido por: categorias; consumido por: formulário, lista
+ *   - editingId        → interno ao: formulário
+ *   - assistantHidden  → interno ao: assistente
+ *
+ * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
+ */
+
 import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
 import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
@@ -33,6 +64,7 @@ import { computeStats } from "./analytics.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
 import { confirmDialog } from "./confirmDialog.js";
 
+// ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
 initErrorService(_isDevMode());
 initTelemetry(_isDevMode());
@@ -53,6 +85,7 @@ function _setDevMode(enabled) {
   setTelemetryDevMode(enabled);
 }
 
+// ── [DOMAIN: appInit] — DOM, estado e bootstrap ───────────────────────────
 // ── Telas ──────────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
 const appScreen   = document.getElementById("app-screen");
@@ -103,11 +136,14 @@ const recurrenceCustom   = document.getElementById("recurrence-custom");
 const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
 
-// ── Estado ─────────────────────────────────────────────────────────────────
-let editingId        = null;
-let categoriesCache  = [];
-let allEvents        = [];
-let assistantHidden  = false;
+// ── Estado compartilhado entre domínios ───────────────────────────────────
+// editingId e assistantHidden são internos; allEvents e categoriesCache
+// precisarão de uma estratégia de compartilhamento (callbacks ou contexto)
+// quando os domínios dependentes forem extraídos.
+let editingId        = null;  // interno: formulário
+let categoriesCache  = [];    // compartilhado: categorias → formulário, lista
+let allEvents        = [];    // compartilhado: lista → assistente, painelIA
+let assistantHidden  = false; // interno: assistente
 
 async function refreshAll() {
   if (syncIndicator) syncIndicator.hidden = false;
@@ -119,6 +155,7 @@ async function refreshAll() {
   }
 }
 
+// ── [DOMAIN: formulário de evento] ────────────────────────────────────────
 // ── Clique em evento (mensal e semanal) ────────────────────────────────────
 async function handleEventClick(ev) {
   const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
@@ -205,6 +242,13 @@ function setSelectedDays(str) {
   });
 }
 
+// ── [DOMAIN: autenticação — fluxo principal] ──────────────────────────────
+// Nota: este domínio está espalhado em quatro regiões do arquivo:
+//   (a) aqui: showAuthView, showApp, listeners de onAuthStateChange/getSession
+//   (b) l.1115+: navegação entre views de auth (btn-to-register, etc.)
+//   (c) l.1124+: cadastro (btn-register)
+//   (d) l.1178+: recuperação de senha (btn-send-reset)
+//   (e) l.1580+: redefinição de nova senha (btn-set-password)
 // ── Auth views ─────────────────────────────────────────────────────────────
 const AUTH_VIEWS = ['login','register','email-sent','forgot','reset-sent','new-password'];
 
@@ -396,6 +440,7 @@ onAuthStateChange((session, event) => {
   showLogin();
 });
 
+// ── [DOMAIN: categorias] ──────────────────────────────────────────────────
 // ── Categorias — dados ─────────────────────────────────────────────────────
 async function initCategories() {
   categoriesCache = await ensureDefaultCategories();
@@ -549,6 +594,7 @@ catAddBtn.addEventListener("click", async () => {
   }
 });
 
+// ── [DOMAIN: configurações e notificações] ────────────────────────────────
 // ── Configurações — modal ──────────────────────────────────────────────────
 const settingsOverlay  = document.getElementById("settings-overlay");
 const notifStatusText  = document.getElementById("notif-status-text");
@@ -695,6 +741,7 @@ btnPushToggle.addEventListener("click", async () => {
   renderPushState();
 });
 
+// ── [DOMAIN: formulário de evento — continuação] ──────────────────────────
 // ── Formulário ─────────────────────────────────────────────────────────────
 function clearForm() {
   editingId = null;
@@ -817,6 +864,7 @@ eventForm.addEventListener("submit", async (e) => {
   }
 });
 
+// ── [DOMAIN: lista de compromissos] ───────────────────────────────────────
 // ── Lista ──────────────────────────────────────────────────────────────────
 async function loadEvents() {
   try {
@@ -953,6 +1001,7 @@ async function handleDelete(id, card) {
   }
 }
 
+// ── [DOMAIN: diagnóstico] ─────────────────────────────────────────────────
 // ── Diagnóstico ────────────────────────────────────────────────────────────
 const diagnosticOverlay = document.getElementById("diagnostic-overlay");
 const diagnosticBody    = document.getElementById("diagnostic-body");
@@ -1043,6 +1092,7 @@ function renderDiagnosticHTML(r) {
     <p class="diag-footer">Versão ${escapeHtml(r.version)} · ${escapeHtml(r.environment)} · ${ts}</p>`;
 }
 
+// ── [DOMAIN: observabilidade — UI do modo desenvolvedor] ──────────────────
 // ── Modo Desenvolvedor ─────────────────────────────────────────────────────
 const btnDevmodeToggle = document.getElementById("btn-devmode-toggle");
 const devmodePanel     = document.getElementById("devmode-panel");
@@ -1079,6 +1129,7 @@ function renderDevmodeState() {
   }
 }
 
+// ── [DOMAIN: autenticação — navegação, cadastro e recuperação] ────────────
 // ── Auth: navegação entre views ─────────────────────────────────────────────
 document.getElementById('btn-to-register')?.addEventListener('click', () => showAuthView('register'));
 document.getElementById('btn-to-login-from-register')?.addEventListener('click', showLogin);
@@ -1166,6 +1217,7 @@ sendResetBtn?.addEventListener('click', async () => {
   }
 });
 
+// ── [DOMAIN: assistente inteligente] ──────────────────────────────────────
 // ── Assistente Inteligente ──────────────────────────────────────────────────
 const assistantSection   = document.getElementById('assistant-section');
 const assistantBody      = document.getElementById('assistant-body');
@@ -1348,6 +1400,7 @@ function buildUpcomingCard(upcoming) {
   return card;
 }
 
+// ── [DOMAIN: painel ia (gemini)] ──────────────────────────────────────────
 // ── Assistente IA (Gemini) ──────────────────────────────────────────────────
 (function initAIPanel() {
   const overlay    = document.getElementById('ai-panel-overlay');
@@ -1446,6 +1499,7 @@ function buildUpcomingCard(upcoming) {
   );
 })();
 
+// ── [DOMAIN: navegação e layout] ──────────────────────────────────────────
 // ── Navegação entre páginas ────────────────────────────────────────────────
 const APP_PAGES = ['agenda', 'calendar', 'appointments'];
 const LAST_PAGE_KEY    = 'medagenda_last_page';
@@ -1543,6 +1597,7 @@ document.getElementById('bottom-nav-more')?.addEventListener('click', () => {
   openSidebar();
 });
 
+// ── [DOMAIN: autenticação — nova senha] ───────────────────────────────────
 // ── Auth: definir nova senha (após clicar no link de reset) ─────────────────
 const setPasswordBtn = document.getElementById('btn-set-password');
 const newPwdError    = document.getElementById('new-pwd-error');
