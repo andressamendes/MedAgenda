@@ -27,9 +27,10 @@ export function showToast(message, type = 'info', duration = 4500) {
   el.setAttribute('aria-label', `${cfg.label}: ${message}`);
   el.innerHTML = `
     <span class="toast-icon" aria-hidden="true">${cfg.icon}</span>
-    <span class="toast-message">${message}</span>
+    <span class="toast-message"></span>
     <button class="toast-close" aria-label="Fechar notificação">✕</button>
   `;
+  el.querySelector('.toast-message').textContent = message;
 
   const dismiss = () => {
     el.classList.add('toast-out');
