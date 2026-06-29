@@ -1137,6 +1137,7 @@ textarea { resize: vertical; }
   box-shadow: 0 8px 32px rgba(0,0,0,.2);
   width: 100%;
   max-width: 360px;
+  overflow: hidden;
   animation: modal-in .14s ease;
 }
 
@@ -1238,6 +1239,7 @@ textarea { resize: vertical; }
 
 .cat-edit-name {
   flex: 1;
+  min-width: 0;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .35rem .6rem;
@@ -1290,6 +1292,7 @@ textarea { resize: vertical; }
 
 .cat-form-row input[type="text"] {
   flex: 1;
+  min-width: 0;
   padding: .5rem .7rem;
   font-size: .9rem;
 }

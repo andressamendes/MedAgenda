@@ -77,12 +77,16 @@ function showUpdateBanner(registration) {
   const btn = document.getElementById('btn-pwa-update');
   if (!btn) return;
 
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  }, { once: true });
+
   btn.addEventListener('click', () => {
+    btn.disabled = true;
+    btn.textContent = 'Atualizando…';
     if (registration.waiting) {
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     }
-    banner.hidden = true;
-    window.location.reload();
   }, { once: true });
 }
 
