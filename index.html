@@ -46,7 +46,9 @@
         <h1>MedAgenda</h1>
         <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
         <div class="form-group">
+          <label class="sr-only" for="email">E-mail</label>
           <input type="email"     id="email"    placeholder="E-mail"  autocomplete="email" />
+          <label class="sr-only" for="password">Senha</label>
           <input type="password"  id="password" placeholder="Senha"   autocomplete="current-password" />
         </div>
         <p id="error-msg" class="error" role="alert" aria-live="assertive"></p>
@@ -62,9 +64,13 @@
         <h1>Criar Conta</h1>
         <p class="slogan">Crie sua conta gratuita e organize sua rotina médica.</p>
         <div class="form-group">
+          <label class="sr-only" for="reg-name">Nome completo</label>
           <input type="text"     id="reg-name"     placeholder="Nome completo"    autocomplete="name" />
+          <label class="sr-only" for="reg-email">E-mail</label>
           <input type="email"    id="reg-email"    placeholder="E-mail"           autocomplete="email" />
+          <label class="sr-only" for="reg-password">Senha (mínimo 8 caracteres)</label>
           <input type="password" id="reg-password" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" />
+          <label class="sr-only" for="reg-confirm">Confirmar senha</label>
           <input type="password" id="reg-confirm"  placeholder="Confirmar senha"  autocomplete="new-password" />
         </div>
         <label class="terms-label">
@@ -94,6 +100,7 @@
         <h1>Recuperar senha</h1>
         <p class="slogan">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
         <div class="form-group">
+          <label class="sr-only" for="forgot-email">E-mail</label>
           <input type="email" id="forgot-email" placeholder="Seu e-mail" autocomplete="email" />
         </div>
         <p id="forgot-error" class="error" role="alert" aria-live="assertive"></p>
@@ -118,7 +125,9 @@
         <h1>Nova senha</h1>
         <p class="slogan">Escolha uma nova senha segura para sua conta.</p>
         <div class="form-group">
+          <label class="sr-only" for="new-password">Nova senha (mínimo 8 caracteres)</label>
           <input type="password" id="new-password"     placeholder="Nova senha (mín. 8 caracteres)" autocomplete="new-password" />
+          <label class="sr-only" for="new-password-confirm">Confirmar nova senha</label>
           <input type="password" id="new-password-confirm" placeholder="Confirmar nova senha"       autocomplete="new-password" />
         </div>
         <p id="new-pwd-error" class="error" role="alert" aria-live="assertive"></p>
@@ -242,6 +251,7 @@
               <p class="assistant-loading">Analisando sua agenda&#8230;</p>
             </div>
           </section>
+          <button id="btn-show-assistant" class="btn btn-ghost btn-sm" hidden aria-label="Mostrar Assistente Inteligente">Mostrar Assistente</button>
 
           <!-- Weekly view -->
           <section class="week-section" id="week-container"></section>
