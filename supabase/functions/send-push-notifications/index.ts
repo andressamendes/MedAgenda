@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push";
+import { expandEvent } from "../_shared/recurrence-core.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
@@ -44,6 +45,9 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     const now      = new Date();
 
+    // ISO date string for today, used by expandEvent
+    const todayStr = isoDateStr(now);
+
     // Fetch all events that have a reminder configured
     const { data: events, error: eventsError } = await supabase
       .from("events")
@@ -59,16 +63,26 @@ Deno.serve(async (req) => {
     let sent = 0, failed = 0, skipped = 0;
 
     for (const event of (events as EventRow[]) ?? []) {
-      // Calculate when the reminder should fire for the current occurrence
-      const fireTime = getReminderFireTime(event, now);
-      if (!fireTime) { skipped++; continue; }
+      if (!event.start_time) { skipped++; continue; }
+
+      // Use the canonical recurrence logic to check if today is a valid occurrence.
+      // expandEvent(event, todayStr, todayStr) returns a one-element array when today
+      // is a valid occurrence, or an empty array otherwise.
+      const occurrences = expandEvent(event as Record<string, unknown>, todayStr, todayStr);
+      if (!occurrences.length) { skipped++; continue; }
+
+      // Calculate when the reminder should fire for today's occurrence
+      const [h, m]    = event.start_time.split(":").map(Number);
+      const offsetMs  = (event.reminder_minutes ?? 0) * 60_000;
+      const eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+      const fireTime  = new Date(eventTime.getTime() - offsetMs);
 
       // Process only if within a 5-minute window (cron runs every minute)
       const diffMs = now.getTime() - fireTime.getTime();
       if (diffMs < 0 || diffMs > 5 * 60 * 1000) { skipped++; continue; }
 
-      // Derive the occurrence date from the fire time + offset
-      const eventDate = getEventDate(event.start_time, event.reminder_minutes, fireTime);
+      // The occurrence date is today (expandEvent confirmed it above)
+      const eventDate = todayStr;
 
       // Skip if already sent for this event × occurrence date
       const { data: existing } = await supabase
@@ -144,74 +158,11 @@ Deno.serve(async (req) => {
   }
 });
 
-// ── Recurrence helpers ─────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Returns the UTC instant when the reminder should fire for the current occurrence, or null. */
-function getReminderFireTime(event: EventRow, now: Date): Date | null {
-  if (!event.start_time) return null;
-
-  const [h, m]           = event.start_time.split(":").map(Number);
-  const offsetMs         = (event.reminder_minutes ?? 0) * 60_000;
-  const recurrenceType   = event.recurrence_type ?? "none";
-
-  if (recurrenceType === "none") {
-    // Single event
-    const [y, mo, d] = event.event_date.split("-").map(Number);
-    const eventTime  = new Date(y, mo - 1, d, h, m, 0, 0);
-    return new Date(eventTime.getTime() - offsetMs);
-  }
-
-  // Recurring: check if today is a valid occurrence
-  const today    = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const [by, bm, bd] = event.event_date.split("-").map(Number);
-  const baseDate = new Date(by, bm - 1, bd);
-
-  if (today < baseDate) return null;
-
-  if (event.recurrence_until) {
-    const until = new Date(event.recurrence_until);
-    if (today > until) return null;
-  }
-
-  if (!isOccurrenceOn(event, today, baseDate)) return null;
-
-  const eventTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h, m, 0, 0);
-  return new Date(eventTime.getTime() - offsetMs);
-}
-
-function isOccurrenceOn(event: EventRow, day: Date, baseDate: Date): boolean {
-  const diffDays = Math.round((day.getTime() - baseDate.getTime()) / 86_400_000);
-
-  switch (event.recurrence_type) {
-    case "daily":
-      return true;
-    case "weekdays":
-      return day.getDay() >= 1 && day.getDay() <= 5;
-    case "weekly":
-      return diffDays % 7 === 0;
-    case "biweekly":
-      return diffDays % 14 === 0;
-    case "monthly":
-      return day.getDate() === baseDate.getDate();
-    case "yearly":
-      return day.getDate() === baseDate.getDate() && day.getMonth() === baseDate.getMonth();
-    case "custom": {
-      const interval     = event.recurrence_interval ?? 1;
-      const daysOfWeek   = event.recurrence_days_of_week?.split(",").map(Number) ?? [];
-      const weeksElapsed = Math.floor(diffDays / 7);
-      if (weeksElapsed % interval !== 0) return false;
-      return daysOfWeek.includes(day.getDay());
-    }
-    default:
-      return false;
-  }
-}
-
-/** Derives the event occurrence date from the fire time. */
-function getEventDate(startTime: string, reminderMinutes: number, fireTime: Date): string {
-  const eventTime = new Date(fireTime.getTime() + reminderMinutes * 60_000);
-  const y  = eventTime.getFullYear();
-  const mo = String(eventTime.getMonth() + 1).padStart(2, "0");
-  const d  = String(eventTime.getDate()).padStart(2, "0");
-  return `${y}-${mo}-${d}`;
+function isoDateStr(d: Date): string {
+  const y  = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const dy = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${dy}`;
 }
