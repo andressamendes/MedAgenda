@@ -66,6 +66,7 @@ body {
   justify-content: center;
   padding: 1rem;
 }
+.login-wrap[hidden] { display: none; }
 
 .card {
   background: #fff;
@@ -2455,6 +2456,8 @@ textarea { resize: vertical; }
 .ai-panel:not([hidden]) {
   animation: slide-in-right .2s ease;
 }
+.ai-panel[hidden]         { display: none; }
+.ai-panel-overlay[hidden] { display: none; }
 
 @keyframes slide-in-right {
   from { transform: translateX(100%); }

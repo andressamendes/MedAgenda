@@ -5,19 +5,53 @@
 
 set -e
 
-PROJECT_REF="ofqlstebdvkgrhzzklqc"
-VAPID_PUBLIC_KEY="BPJiFUY6a2u8PNz2xW3CHKFbNjtnEH5IGPtkztdAcKV50WNQ-gA_r2W5xBdJzCz3CPQg5xGb0Eoeyh_rsy79gHM"
-VAPID_SUBJECT="mailto:souza.andressam@gmail.com"
+# Todas as variáveis devem ser fornecidas via variáveis de ambiente.
+# Nunca insira credenciais reais diretamente neste arquivo.
+#
+# Antes de executar, defina:
+#   export PROJECT_REF="seu-project-ref"
+#   export VAPID_PUBLIC_KEY="sua-chave-publica-vapid"
+#   export VAPID_SUBJECT="mailto:seu@email.com"
+#   export VAPID_PRIVATE_KEY="sua-chave-privada-vapid"
+#
+# Para gerar as chaves VAPID: npx web-push generate-vapid-keys
+# O PROJECT_REF está em: Supabase Dashboard → Settings → General
 
-# A chave privada deve ser gerada uma única vez e guardada com segurança.
-# Se você já tem a chave privada, cole-a abaixo.
-# Caso contrário, gere com: npx web-push generate-vapid-keys
+PROJECT_REF="${PROJECT_REF:-}"
+VAPID_PUBLIC_KEY="${VAPID_PUBLIC_KEY:-}"
+VAPID_SUBJECT="${VAPID_SUBJECT:-}"
 VAPID_PRIVATE_KEY="${VAPID_PRIVATE_KEY:-}"
+
+if [ -z "$PROJECT_REF" ]; then
+  echo ""
+  echo "ATENÇÃO: PROJECT_REF não definida."
+  echo "Execute: export PROJECT_REF='seu-project-ref'"
+  echo "O Project Ref está em: Supabase Dashboard → Settings → General"
+  echo ""
+  exit 1
+fi
+
+if [ -z "$VAPID_PUBLIC_KEY" ]; then
+  echo ""
+  echo "ATENÇÃO: VAPID_PUBLIC_KEY não definida."
+  echo "Execute: export VAPID_PUBLIC_KEY='sua-chave-publica'"
+  echo "Gere as chaves com: npx web-push generate-vapid-keys"
+  echo ""
+  exit 1
+fi
+
+if [ -z "$VAPID_SUBJECT" ]; then
+  echo ""
+  echo "ATENÇÃO: VAPID_SUBJECT não definida."
+  echo "Execute: export VAPID_SUBJECT='mailto:seu@email.com'"
+  echo ""
+  exit 1
+fi
 
 if [ -z "$VAPID_PRIVATE_KEY" ]; then
   echo ""
   echo "ATENÇÃO: VAPID_PRIVATE_KEY não definida."
-  echo "Execute: export VAPID_PRIVATE_KEY='SUA_CHAVE_PRIVADA_AQUI'"
+  echo "Execute: export VAPID_PRIVATE_KEY='sua-chave-privada'"
   echo "Depois rode este script novamente."
   echo ""
   exit 1
