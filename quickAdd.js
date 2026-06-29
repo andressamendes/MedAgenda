@@ -20,7 +20,7 @@ function init() {
         <button class="modal-close" id="qa-close" aria-label="Fechar">✕</button>
       </div>
       <div class="modal-body">
-        <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" aria-label="Título do compromisso" />
+        <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" aria-label="Título do compromisso" maxlength="120" />
         <input type="time"  id="qa-time" aria-label="Hora do compromisso" />
         <p class="error" id="qa-error"></p>
       </div>

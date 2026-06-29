@@ -15,17 +15,10 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_user_endpoint
   ON push_subscriptions (user_id, endpoint);
 
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$;
-
+-- Requer: 01_events.sql (define update_updated_at)
 CREATE TRIGGER push_subscriptions_updated_at
   BEFORE UPDATE ON push_subscriptions
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 

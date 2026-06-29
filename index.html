@@ -47,9 +47,9 @@
         <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
         <div class="form-group">
           <label class="sr-only" for="email">E-mail</label>
-          <input type="email"     id="email"    placeholder="E-mail"  autocomplete="email" />
+          <input type="email"     id="email"    placeholder="E-mail"  autocomplete="email" maxlength="254" />
           <label class="sr-only" for="password">Senha</label>
-          <input type="password"  id="password" placeholder="Senha"   autocomplete="current-password" />
+          <input type="password"  id="password" placeholder="Senha"   autocomplete="current-password" maxlength="128" />
         </div>
         <p id="error-msg" class="error" role="alert" aria-live="assertive"></p>
         <button id="btn-login" class="btn btn-primary">Entrar</button>
@@ -65,13 +65,13 @@
         <p class="slogan">Crie sua conta gratuita e organize sua rotina médica.</p>
         <div class="form-group">
           <label class="sr-only" for="reg-name">Nome completo</label>
-          <input type="text"     id="reg-name"     placeholder="Nome completo"    autocomplete="name" />
+          <input type="text"     id="reg-name"     placeholder="Nome completo"    autocomplete="name" maxlength="100" />
           <label class="sr-only" for="reg-email">E-mail</label>
-          <input type="email"    id="reg-email"    placeholder="E-mail"           autocomplete="email" />
+          <input type="email"    id="reg-email"    placeholder="E-mail"           autocomplete="email" maxlength="254" />
           <label class="sr-only" for="reg-password">Senha (mínimo 8 caracteres)</label>
-          <input type="password" id="reg-password" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" />
+          <input type="password" id="reg-password" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" maxlength="128" />
           <label class="sr-only" for="reg-confirm">Confirmar senha</label>
-          <input type="password" id="reg-confirm"  placeholder="Confirmar senha"  autocomplete="new-password" />
+          <input type="password" id="reg-confirm"  placeholder="Confirmar senha"  autocomplete="new-password" maxlength="128" />
         </div>
         <label class="terms-label">
           <input type="checkbox" id="reg-terms" />
@@ -101,7 +101,7 @@
         <p class="slogan">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
         <div class="form-group">
           <label class="sr-only" for="forgot-email">E-mail</label>
-          <input type="email" id="forgot-email" placeholder="Seu e-mail" autocomplete="email" />
+          <input type="email" id="forgot-email" placeholder="Seu e-mail" autocomplete="email" maxlength="254" />
         </div>
         <p id="forgot-error" class="error" role="alert" aria-live="assertive"></p>
         <button id="btn-send-reset" class="btn btn-primary">Enviar link</button>
@@ -126,9 +126,9 @@
         <p class="slogan">Escolha uma nova senha segura para sua conta.</p>
         <div class="form-group">
           <label class="sr-only" for="new-password">Nova senha (mínimo 8 caracteres)</label>
-          <input type="password" id="new-password"     placeholder="Nova senha (mín. 8 caracteres)" autocomplete="new-password" />
+          <input type="password" id="new-password"     placeholder="Nova senha (mín. 8 caracteres)" autocomplete="new-password" maxlength="128" />
           <label class="sr-only" for="new-password-confirm">Confirmar nova senha</label>
-          <input type="password" id="new-password-confirm" placeholder="Confirmar nova senha"       autocomplete="new-password" />
+          <input type="password" id="new-password-confirm" placeholder="Confirmar nova senha"       autocomplete="new-password" maxlength="128" />
         </div>
         <p id="new-pwd-error" class="error" role="alert" aria-live="assertive"></p>
         <button id="btn-set-password" class="btn btn-primary">Definir senha</button>
@@ -273,7 +273,7 @@
             <button id="btn-new-event-apt" class="btn btn-primary btn-sm">+ Novo compromisso</button>
           </div>
           <div class="appointments-toolbar">
-            <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" />
+            <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" maxlength="120" />
             <div class="toolbar-filters">
               <select id="filter-category-apt" class="toolbar-select">
                 <option value="">Todas as categorias</option>
@@ -332,7 +332,7 @@
 
           <div class="field">
             <label for="f-title">Título <span class="required">*</span></label>
-            <input type="text" id="f-title" placeholder="Ex: Plantão UPA" required />
+            <input type="text" id="f-title" placeholder="Ex: Plantão UPA" required maxlength="120" />
           </div>
 
           <div class="field-row">
@@ -365,12 +365,12 @@
 
           <div class="field">
             <label for="f-location">Local</label>
-            <input type="text" id="f-location" placeholder="Ex: Hospital das Clínicas" />
+            <input type="text" id="f-location" placeholder="Ex: Hospital das Clínicas" maxlength="120" />
           </div>
 
           <div class="field">
             <label for="f-description">Observação</label>
-            <textarea id="f-description" rows="2" placeholder="Detalhes adicionais&#8230;"></textarea>
+            <textarea id="f-description" rows="2" placeholder="Detalhes adicionais&#8230;" maxlength="1000"></textarea>
           </div>
 
           <div class="field-row">
@@ -460,7 +460,7 @@
           <h4 class="cat-add-title">Nova categoria</h4>
           <div class="cat-form-row">
             <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" aria-label="Cor da categoria" />
-            <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" aria-label="Nome da categoria" />
+            <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" aria-label="Nome da categoria" maxlength="60" />
             <button class="btn btn-primary btn-sm" id="cat-add">Adicionar</button>
           </div>
           <p class="error" id="cat-error" role="alert" aria-live="assertive"></p>
