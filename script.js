@@ -31,6 +31,7 @@ import {
 import { analyzeEvents } from "./smartAssistant.js";
 import { computeStats } from "./analytics.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
+import { confirmDialog } from "./confirmDialog.js";
 
 // Inicializa serviços de observabilidade imediatamente
 initErrorService(_isDevMode());
@@ -119,11 +120,16 @@ async function refreshAll() {
 }
 
 // ── Clique em evento (mensal e semanal) ────────────────────────────────────
-function handleEventClick(ev) {
+async function handleEventClick(ev) {
   const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
 
   if (isRecurring) {
-    if (!confirm(`"${ev.title}" é um evento recorrente.\n\nIsso editará toda a série. Deseja continuar?`)) return;
+    const ok = await confirmDialog({
+      title:       `"${ev.title}" é um evento recorrente.`,
+      message:     'Isso editará toda a série. Deseja continuar?',
+      confirmText: 'Continuar',
+    });
+    if (!ok) return;
   }
 
   // Virtual occurrences carry _baseEventId and _baseEventDate; restore them
@@ -510,7 +516,12 @@ function enterEditMode(row, cat) {
 }
 
 async function handleCatDelete(cat, row) {
-  if (!confirm(`Excluir a categoria "${cat.name}"?`)) return;
+  const ok = await confirmDialog({
+    title:   'Excluir categoria',
+    message: `Excluir a categoria "${cat.name}"?`,
+    danger:  true,
+  });
+  if (!ok) return;
   row.style.opacity = ".4";
   try {
     await deleteCategory(cat.id);
@@ -924,7 +935,12 @@ function renderList(events) {
 }
 
 async function handleDelete(id, card) {
-  if (!confirm("Tem certeza que deseja excluir este compromisso?")) return;
+  const ok = await confirmDialog({
+    title:   'Excluir compromisso',
+    message: 'Tem certeza que deseja excluir este compromisso?',
+    danger:  true,
+  });
+  if (!ok) return;
   card.style.opacity = ".4";
   try {
     await deleteEvent(id);

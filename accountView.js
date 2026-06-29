@@ -5,6 +5,7 @@ import { uploadAvatar, removeAvatar } from './avatarService.js';
 import { toast } from './toastService.js';
 import { track, EVENTS } from './telemetryService.js';
 import { escapeHtml } from './utils.js';
+import { confirmDialog } from './confirmDialog.js';
 
 const TIMEZONES = [
   'America/Sao_Paulo', 'America/Manaus', 'America/Belem',
@@ -192,7 +193,12 @@ async function _handleAvatarChange(e) {
 }
 
 async function _handleRemoveAvatar() {
-  if (!confirm('Remover foto de perfil?')) return;
+  const ok = await confirmDialog({
+    title:   'Remover foto de perfil',
+    message: 'Tem certeza que deseja remover sua foto de perfil?',
+    danger:  true,
+  });
+  if (!ok) return;
   const btn = document.getElementById('btn-remove-avatar');
   _setLoading(btn, 'Removendo…', true);
 
@@ -271,14 +277,17 @@ async function _handleChangePassword() {
 
 // ── Delete account ─────────────────────────────────────────────────────────
 async function _handleDeleteAccount() {
-  const confirmed = confirm(
-    'ATENÇÃO: Esta ação é irreversível.\n\n' +
-    'Todos os seus dados serão excluídos permanentemente:\n' +
-    '• Compromissos e categorias\n' +
-    '• Notificações e assinaturas\n' +
-    '• Foto de perfil\n\n' +
-    'Tem certeza que deseja excluir sua conta?'
-  );
+  const confirmed = await confirmDialog({
+    title:       'Excluir conta',
+    message:     'ATENÇÃO: Esta ação é irreversível.\n\n' +
+                 'Todos os seus dados serão excluídos permanentemente:\n' +
+                 '• Compromissos e categorias\n' +
+                 '• Notificações e assinaturas\n' +
+                 '• Foto de perfil\n\n' +
+                 'Tem certeza que deseja excluir sua conta?',
+    confirmText: 'Excluir conta',
+    danger:      true,
+  });
   if (!confirmed) return;
 
   const btn = document.getElementById('btn-delete-account');
