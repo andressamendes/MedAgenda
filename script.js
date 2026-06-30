@@ -11,7 +11,7 @@
  *   [2]  autenticação     — Login, logout, cadastro, recuperação/redefinição de senha,
  *                           navegação entre views de auth
  *   [3]  appInit          — Inicialização do app após login (showApp, refreshAll)
- *   [4]  formulário       — Criação e edição de compromissos (modal + submit)
+ *   [4]  formulário       — Criação e edição de compromissos → extraído para eventFormView.js
  *   [5]  lista            — Listagem, filtragem, ordenação e exclusão de compromissos
  *   [6]  categorias       — Modal de gerenciamento de categorias
  *   [7]  configurações    — Modal de configurações (notificações locais e push)
@@ -22,22 +22,18 @@
  *
  * Estado compartilhado entre domínios (precisa ser resolvido na extração):
  *   - allEvents        → produzido por: lista; consumido por: assistente, painelIA
- *   - categoriesCache  → produzido por: categorias; consumido por: formulário, lista
- *   - editingId        → interno ao: formulário
+ *   - categoriesCache  → interno ao: categorias (extraído para categoryView.js)
+ *   - editingId        → interno ao: formulário (extraído para eventFormView.js)
  *   - assistantHidden  → interno ao: assistente
  *
  * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
  */
 
 import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
-import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService.js";
+import { getEvents, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, destroyWeekView } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
-import {
-  getCategories, createCategory, updateCategory,
-  deleteCategory, ensureDefaultCategories,
-} from "./categoryService.js";
 import {
   initNotifications, scheduleReminders,
   isSupported, isEnabled, setEnabled,
@@ -64,6 +60,8 @@ import { computeStats } from "./analytics.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, showPage, restoreLastPage, openSidebar, closeSidebar, restoreSidebarState } from "./navigationView.js";
+import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
+import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -107,42 +105,14 @@ const logoutBtn     = document.getElementById("btn-logout");
 const errorMsg      = document.getElementById("error-msg");
 const headerEmail   = document.getElementById("header-email");
 
-// ── Formulário (agora em modal) ─────────────────────────────────────────────
-const eventModal   = document.getElementById("event-modal");
-const eventForm    = document.getElementById("event-form");
-const formTitle    = document.getElementById("form-title");
-const formError    = document.getElementById("form-error");
-const eventIdField = document.getElementById("event-id");
-const saveBtn      = document.getElementById("btn-save");
-const cancelBtn    = document.getElementById("btn-cancel");
-
-const fTitle             = document.getElementById("f-title");
-const fDate              = document.getElementById("f-date");
-const fStart             = document.getElementById("f-start");
-const fDuration          = document.getElementById("f-duration");
-const fCategory          = document.getElementById("f-category");
-const fColor             = document.getElementById("f-color");
-const fLocation          = document.getElementById("f-location");
-const fDesc              = document.getElementById("f-description");
-const fReminder          = document.getElementById("f-reminder");
-const fReminderCustom    = document.getElementById("f-reminder-custom");
-const reminderCustomWrap = document.getElementById("reminder-custom-wrap");
-const fRecurrence        = document.getElementById("f-recurrence");
-const fRecurrenceUntil   = document.getElementById("f-recurrence-until");
-const fRecurrenceInterval = document.getElementById("f-recurrence-interval");
-const recurrenceExtra    = document.getElementById("recurrence-extra");
-const recurrenceCustom   = document.getElementById("recurrence-custom");
 
 // ── Lista ──────────────────────────────────────────────────────────────────
 const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
 
 // ── Estado compartilhado entre domínios ───────────────────────────────────
-// editingId e assistantHidden são internos; allEvents e categoriesCache
-// precisarão de uma estratégia de compartilhamento (callbacks ou contexto)
-// quando os domínios dependentes forem extraídos.
-let editingId        = null;  // interno: formulário
-let categoriesCache  = [];    // compartilhado: categorias → formulário, lista
+// allEvents precisará de uma estratégia de compartilhamento quando os domínios
+// dependentes forem extraídos. editingId → interno ao: formulário (eventFormView.js)
 let allEvents        = [];    // compartilhado: lista → assistente, painelIA
 let assistantHidden  = false; // interno: assistente
 
@@ -156,92 +126,7 @@ async function refreshAll() {
   }
 }
 
-// ── [DOMAIN: formulário de evento] ────────────────────────────────────────
-// ── Clique em evento (mensal e semanal) ────────────────────────────────────
-async function handleEventClick(ev) {
-  const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
-
-  if (isRecurring) {
-    const ok = await confirmDialog({
-      title:       `"${ev.title}" é um evento recorrente.`,
-      message:     'Isso editará toda a série. Deseja continuar?',
-      confirmText: 'Continuar',
-    });
-    if (!ok) return;
-  }
-
-  // Virtual occurrences carry _baseEventId and _baseEventDate; restore them
-  // so the form edits the base record, not the ephemeral occurrence object.
-  const formEv = ev._isOccurrence
-    ? { ...ev, id: ev._baseEventId, event_date: ev._baseEventDate }
-    : ev;
-
-  populateForm(formEv);
-  openEventModal();
-}
-
-// ── Modal: Novo / Editar compromisso ───────────────────────────────────────
-function openEventModal() {
-  if (eventModal) {
-    eventModal.hidden = false;
-    document.getElementById("f-title")?.focus();
-  }
-}
-
-function closeEventModal() {
-  if (eventModal) eventModal.hidden = true;
-}
-
-document.getElementById("event-modal-close")?.addEventListener("click", () => {
-  closeEventModal();
-  clearForm();
-});
-
-eventModal?.addEventListener("click", (e) => {
-  if (e.target === eventModal) { closeEventModal(); clearForm(); }
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && eventModal && !eventModal.hidden) { closeEventModal(); clearForm(); }
-});
-
-// ── Botões "Novo compromisso" ───────────────────────────────────────────────
-["btn-new-event", "btn-new-event-cal", "btn-new-event-apt"].forEach(id => {
-  document.getElementById(id)?.addEventListener("click", () => {
-    clearForm();
-    openEventModal();
-  });
-});
-
-// ── Lembrete — mostrar/esconder campo personalizado ───────────────────────
-fReminder.addEventListener("change", () => {
-  reminderCustomWrap.hidden = fReminder.value !== "custom";
-});
-
-// ── Recorrência — visibilidade dos campos extras ───────────────────────────
-fRecurrence.addEventListener("change", () => {
-  const v = fRecurrence.value;
-  recurrenceExtra.hidden  = v === "none";
-  recurrenceCustom.hidden = v !== "custom";
-});
-
-// Day-of-week toggle buttons
-document.querySelectorAll(".day-btn").forEach(btn => {
-  btn.addEventListener("click", () => btn.classList.toggle("day-btn-active"));
-});
-
-function getSelectedDays() {
-  return Array.from(document.querySelectorAll(".day-btn.day-btn-active"))
-    .map(b => b.dataset.day)
-    .join(",");
-}
-
-function setSelectedDays(str) {
-  const days = str ? str.split(",") : [];
-  document.querySelectorAll(".day-btn").forEach(btn => {
-    btn.classList.toggle("day-btn-active", days.includes(btn.dataset.day));
-  });
-}
+// ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
 
 // ── [DOMAIN: autenticação — fluxo principal] ──────────────────────────────
 // Nota: este domínio está espalhado em quatro regiões do arquivo:
@@ -361,10 +246,7 @@ if ("serviceWorker" in navigator) {
     try {
       const events = await getEvents();
       const target = events.find((e) => e.id === event.data.eventId);
-      if (target) {
-        populateForm(target);
-        openEventModal();
-      }
+      if (target) openEventForm(target);
     } catch { /* ignore — session may not be ready */ }
   });
 }
@@ -435,159 +317,7 @@ onAuthStateChange((session, event) => {
   showLogin();
 });
 
-// ── [DOMAIN: categorias] ──────────────────────────────────────────────────
-// ── Categorias — dados ─────────────────────────────────────────────────────
-async function initCategories() {
-  categoriesCache = await ensureDefaultCategories();
-  populateCategorySelect();
-}
-
-async function reloadCategories() {
-  categoriesCache = await getCategories();
-  populateCategorySelect();
-}
-
-function populateCategorySelect() {
-  const current = fCategory.value;
-  fCategory.innerHTML = '<option value="">— Selecione —</option>';
-  categoriesCache.forEach(cat => {
-    const opt = document.createElement("option");
-    opt.value       = cat.name;
-    opt.textContent = cat.name;
-    fCategory.appendChild(opt);
-  });
-  fCategory.value = current; // preserva seleção atual (modo edição)
-}
-
-function categoryColor(name) {
-  const cat = categoriesCache.find(c => c.name === name);
-  return cat?.color || "#6b7280";
-}
-
-// Auto-preenche a cor ao selecionar uma categoria
-fCategory.addEventListener("change", () => {
-  const cat = categoriesCache.find(c => c.name === fCategory.value);
-  if (cat) fColor.value = cat.color;
-});
-
-// ── Categorias — modal ─────────────────────────────────────────────────────
-const catOverlay  = document.getElementById("cat-overlay");
-const catList     = document.getElementById("cat-list");
-const catNewColor = document.getElementById("cat-new-color");
-const catNewName  = document.getElementById("cat-new-name");
-const catAddBtn   = document.getElementById("cat-add");
-const catError    = document.getElementById("cat-error");
-
-document.getElementById("btn-categories").addEventListener("click", openCatModal);
-document.getElementById("cat-close").addEventListener("click", closeCatModal);
-catOverlay.addEventListener("click", (e) => { if (e.target === catOverlay) closeCatModal(); });
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !catOverlay.hidden) closeCatModal();
-});
-
-async function openCatModal() {
-  catError.textContent = "";
-  catNewName.value  = "";
-  catNewColor.value = "#3b82f6";
-  await renderCatList();
-  catOverlay.hidden = false;
-  catNewName.focus();
-}
-
-function closeCatModal() {
-  catOverlay.hidden = true;
-}
-
-async function renderCatList() {
-  catList.innerHTML = "";
-  const cats = await getCategories();
-
-  if (cats.length === 0) {
-    catList.innerHTML = `<p class="cat-empty">Nenhuma categoria cadastrada.</p>`;
-    return;
-  }
-
-  cats.forEach(cat => {
-    const row = document.createElement("div");
-    row.className = "cat-row";
-    row.innerHTML = `
-      <span class="cat-swatch" style="background:${escapeHtml(cat.color)}"></span>
-      <span class="cat-name-display">${escapeHtml(cat.name)}</span>
-      <div class="cat-row-actions">
-        <button class="btn btn-sm btn-ghost">Editar</button>
-        <button class="btn btn-sm btn-danger">Excluir</button>
-      </div>
-    `;
-
-    row.querySelector(".btn-ghost").addEventListener("click",  () => enterEditMode(row, cat));
-    row.querySelector(".btn-danger").addEventListener("click", () => handleCatDelete(cat, row));
-    catList.appendChild(row);
-  });
-}
-
-function enterEditMode(row, cat) {
-  row.innerHTML = `
-    <input type="color" class="cat-edit-color" value="${escapeHtml(cat.color)}" title="Cor" />
-    <input type="text"  class="cat-edit-name"  value="${escapeHtml(cat.name)}" />
-    <div class="cat-row-actions">
-      <button class="btn btn-sm btn-primary">Salvar</button>
-      <button class="btn btn-sm btn-ghost">Cancelar</button>
-    </div>
-  `;
-  row.querySelector(".cat-edit-name").focus();
-
-  const catSaveBtn = row.querySelector(".btn-primary");
-  catSaveBtn.addEventListener("click", async () => {
-    const newName  = row.querySelector(".cat-edit-name").value.trim();
-    const newColor = row.querySelector(".cat-edit-color").value;
-    if (!newName) return;
-    catSaveBtn.disabled = true;
-    try {
-      await updateCategory(cat.id, newName, newColor);
-      await reloadCategories();
-      await renderCatList();
-    } catch (err) {
-      catError.textContent = err.message;
-      catSaveBtn.disabled = false;
-    }
-  });
-
-  row.querySelector(".btn-ghost").addEventListener("click", renderCatList);
-}
-
-async function handleCatDelete(cat, row) {
-  const ok = await confirmDialog({
-    title:   'Excluir categoria',
-    message: `Excluir a categoria "${cat.name}"?`,
-    danger:  true,
-  });
-  if (!ok) return;
-  row.style.opacity = ".4";
-  try {
-    await deleteCategory(cat.id);
-    await reloadCategories();
-    await renderCatList();
-  } catch (err) {
-    row.style.opacity = "1";
-    catError.textContent = err.message;
-  }
-}
-
-catAddBtn.addEventListener("click", async () => {
-  catError.textContent = "";
-  const name  = catNewName.value.trim();
-  const color = catNewColor.value;
-  if (!name) { catError.textContent = "Nome é obrigatório."; catNewName.focus(); return; }
-  try {
-    await createCategory(name, color);
-    catNewName.value  = "";
-    catNewColor.value = "#3b82f6";
-    await reloadCategories();
-    await renderCatList();
-  } catch (err) {
-    catError.textContent = err.message;
-  }
-});
+// ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
 
 // ── [DOMAIN: configurações e notificações] ────────────────────────────────
 // ── Configurações — modal ──────────────────────────────────────────────────
@@ -736,128 +466,7 @@ btnPushToggle.addEventListener("click", async () => {
   renderPushState();
 });
 
-// ── [DOMAIN: formulário de evento — continuação] ──────────────────────────
-// ── Formulário ─────────────────────────────────────────────────────────────
-function clearForm() {
-  editingId = null;
-  eventIdField.value = "";
-  eventForm.reset();
-  fColor.value              = "#3b82f6";
-  fReminder.value           = "";
-  reminderCustomWrap.hidden = true;
-  fReminderCustom.value     = "";
-  fRecurrence.value         = "none";
-  fRecurrenceInterval.value = 1;
-  fRecurrenceUntil.value    = "";
-  recurrenceExtra.hidden    = true;
-  recurrenceCustom.hidden   = true;
-  setSelectedDays("");
-  formTitle.textContent = "Novo compromisso";
-  saveBtn.textContent   = "Salvar compromisso";
-  cancelBtn.hidden      = false;
-  formError.textContent = "";
-}
-
-function populateForm(ev) {
-  editingId             = ev.id;
-  eventIdField.value    = ev.id;
-  fTitle.value          = ev.title           || "";
-  fDate.value           = ev.event_date       || "";
-  fStart.value          = ev.start_time       ? ev.start_time.slice(0, 5) : "";
-  fDuration.value       = ev.duration_minutes || "";
-  fCategory.value       = ev.category         || "";
-  fColor.value          = ev.color            || "#3b82f6";
-  fLocation.value       = ev.location         || "";
-  fDesc.value           = ev.description      || "";
-  _populateReminder(ev.reminder_minutes);
-  fRecurrence.value         = ev.recurrence_type           || "none";
-  fRecurrenceInterval.value = ev.recurrence_interval       || 1;
-  fRecurrenceUntil.value    = ev.recurrence_until          || "";
-  setSelectedDays(ev.recurrence_days_of_week || "");
-  fRecurrence.dispatchEvent(new Event("change")); // show/hide extra fields
-  formTitle.textContent = "Editar compromisso";
-  saveBtn.textContent   = "Atualizar compromisso";
-  cancelBtn.hidden      = false;
-  formError.textContent = "";
-  fTitle.focus();
-}
-
-// ── Helpers de lembrete ────────────────────────────────────────────────────
-const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
-
-function _populateReminder(minutes) {
-  if (minutes === null || minutes === undefined || minutes === "") {
-    fReminder.value           = "";
-    reminderCustomWrap.hidden = true;
-    fReminderCustom.value     = "";
-  } else if (REMINDER_PRESETS.has(String(minutes))) {
-    fReminder.value           = String(minutes);
-    reminderCustomWrap.hidden = true;
-    fReminderCustom.value     = "";
-  } else {
-    fReminder.value           = "custom";
-    fReminderCustom.value     = String(minutes);
-    reminderCustomWrap.hidden = false;
-  }
-}
-
-function _reminderMinutes() {
-  const v = fReminder.value;
-  if (v === "")       return null;
-  if (v === "custom") return parseInt(fReminderCustom.value) || null;
-  return parseInt(v);
-}
-
-cancelBtn.addEventListener("click", () => { clearForm(); closeEventModal(); });
-
-eventForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  formError.textContent = "";
-
-  if (!fTitle.value.trim()) { formError.textContent = "Título é obrigatório."; return; }
-  if (!fDate.value)         { formError.textContent = "Data é obrigatória."; return; }
-  if (!fStart.value)        { formError.textContent = "Hora de início é obrigatória."; return; }
-
-  const recType = fRecurrence.value || "none";
-  const fields = {
-    title:                   fTitle.value.trim(),
-    event_date:              fDate.value,
-    start_time:              fStart.value || null,
-    duration_minutes:        fDuration.value  ? parseInt(fDuration.value)  : null,
-    category:                fCategory.value  || null,
-    color:                   fColor.value     || null,
-    location:                fLocation.value.trim()  || null,
-    description:             fDesc.value.trim()      || null,
-    reminder_minutes:        _reminderMinutes(),
-    recurrence_type:         recType,
-    recurrence_interval:     recType === "custom" ? (parseInt(fRecurrenceInterval.value) || 1) : null,
-    recurrence_until:        recType !== "none"   ? (fRecurrenceUntil.value || null)            : null,
-    recurrence_days_of_week: recType === "custom" ? (getSelectedDays() || null)                 : null,
-  };
-
-  saveBtn.disabled    = true;
-  saveBtn.textContent = editingId ? "Atualizando…" : "Salvando…";
-
-  try {
-    if (editingId) {
-      await updateEvent(editingId, fields);
-      track(EVENTS.APPOINTMENT_EDITED, { title: fields.title });
-      toast.success("Compromisso atualizado com sucesso.");
-    } else {
-      await createEvent(fields);
-      track(EVENTS.APPOINTMENT_CREATED, { title: fields.title });
-      toast.success("Compromisso salvo com sucesso.");
-    }
-    clearForm();
-    closeEventModal();
-    await refreshAll();
-  } catch (err) {
-    formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
-  } finally {
-    saveBtn.disabled    = false;
-    saveBtn.textContent = editingId ? "Atualizar compromisso" : "Salvar compromisso";
-  }
-});
+// ── [DOMAIN: formulário de evento — continuação] — extraído para eventFormView.js ──
 
 // ── [DOMAIN: lista de compromissos] ───────────────────────────────────────
 // ── Lista ──────────────────────────────────────────────────────────────────
@@ -1496,6 +1105,12 @@ function buildUpcomingCard(upcoming) {
 
 // ── [DOMAIN: navegação e layout] — extraído para navigationView.js ──────────
 initNavigation();
+
+// ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
+initCategoryView();
+
+// ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
+initEventForm(refreshAll);
 
 // ── [DOMAIN: autenticação — nova senha] ───────────────────────────────────
 // ── Auth: definir nova senha (após clicar no link de reset) ─────────────────
