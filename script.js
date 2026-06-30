@@ -9,7 +9,7 @@
  *
  *   [1]  observabilidade  — Modo desenvolvedor, flags de debug
  *   [2]  autenticação     — Login, logout, cadastro, recuperação/redefinição de senha,
- *                           navegação entre views de auth
+ *                           navegação entre views de auth → extraído para authView.js
  *   [3]  appInit          — Inicialização do app após login (showApp, refreshAll)
  *   [4]  formulário       — Criação e edição de compromissos → extraído para eventFormView.js
  *   [5]  lista            — Listagem, filtragem, ordenação e exclusão de compromissos
@@ -29,7 +29,6 @@
  * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
  */
 
-import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
 import { getEvents, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, destroyWeekView } from "./weekView.js";
@@ -62,6 +61,7 @@ import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, showPage, restoreLastPage, openSidebar, closeSidebar, restoreSidebarState } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
+import { initAuthView, showAuthView, showApp, showLogin } from "./authView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -85,36 +85,20 @@ function _setDevMode(enabled) {
 }
 
 // ── [DOMAIN: appInit] — DOM, estado e bootstrap ───────────────────────────
-// ── Telas ──────────────────────────────────────────────────────────────────
-const loginScreen = document.getElementById("login-screen");
-const appScreen   = document.getElementById("app-screen");
-const appLoading  = document.getElementById("app-loading");
-
-// Tracks the user ID of the currently initialized session to prevent
-// double-initialization when onAuthStateChange and getSession() both fire.
-let _initializedUserId = null;
-
-// ── Indicador de sincronização ─────────────────────────────────────────────
-const syncIndicator = document.getElementById("sync-indicator");
-
-// ── Login ──────────────────────────────────────────────────────────────────
-const emailInput    = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const loginBtn      = document.getElementById("btn-login");
-const logoutBtn     = document.getElementById("btn-logout");
-const errorMsg      = document.getElementById("error-msg");
-const headerEmail   = document.getElementById("header-email");
-
+const headerEmail = document.getElementById("header-email");
 
 // ── Lista ──────────────────────────────────────────────────────────────────
 const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
 
+// ── Indicador de sincronização ─────────────────────────────────────────────
+const syncIndicator = document.getElementById("sync-indicator");
+
 // ── Estado compartilhado entre domínios ───────────────────────────────────
 // allEvents precisará de uma estratégia de compartilhamento quando os domínios
 // dependentes forem extraídos. editingId → interno ao: formulário (eventFormView.js)
-let allEvents        = [];    // compartilhado: lista → assistente, painelIA
-let assistantHidden  = false; // interno: assistente
+let allEvents       = [];    // compartilhado: lista → assistente, painelIA
+let assistantHidden = false; // interno: assistente
 
 async function refreshAll() {
   if (syncIndicator) syncIndicator.hidden = false;
@@ -126,64 +110,12 @@ async function refreshAll() {
   }
 }
 
-// ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
-
-// ── [DOMAIN: autenticação — fluxo principal] ──────────────────────────────
-// Nota: este domínio está espalhado em quatro regiões do arquivo:
-//   (a) aqui: showAuthView, showApp, listeners de onAuthStateChange/getSession
-//   (b) l.1115+: navegação entre views de auth (btn-to-register, etc.)
-//   (c) l.1124+: cadastro (btn-register)
-//   (d) l.1178+: recuperação de senha (btn-send-reset)
-//   (e) l.1580+: redefinição de nova senha (btn-set-password)
-// ── Auth views ─────────────────────────────────────────────────────────────
-const AUTH_VIEWS = ['login','register','email-sent','forgot','reset-sent','new-password'];
-
-function showAuthView(name) {
-  if (appLoading) appLoading.hidden = true;
-  _closeAllModals();
-  destroyWeekView();
-  _initializedUserId = null;
-  assistantHidden    = false;
-  loginScreen.hidden = false;
-  appScreen.hidden   = true;
-  AUTH_VIEWS.forEach(v => {
-    const el = document.getElementById(`view-${v}`);
-    if (el) el.hidden = (v !== name);
-  });
-}
-
-function showLogin() {
-  showAuthView('login');
-}
-
-function _closeAllModals() {
-  const ids = [
-    'event-modal', 'cat-overlay', 'settings-overlay',
-    'account-overlay', 'diagnostic-overlay', 'academic-overlay',
-    'ai-panel', 'ai-panel-overlay',
-  ];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.hidden = true;
-  });
-}
-
-async function showApp(session) {
-  if (appLoading) appLoading.hidden = true;
-
-  // Both onAuthStateChange (INITIAL_SESSION) and the getSession() IIFE fire on
-  // load for the same session. Skip re-initialization for the same user so we
-  // don't double-register event listeners or double-fetch data.
-  if (_initializedUserId === session.user.id) {
-    loginScreen.hidden = true;
-    appScreen.hidden   = false;
-    return;
-  }
-  _initializedUserId = session.user.id;
-
-  loginScreen.hidden = true;
-  appScreen.hidden   = false;
-
+// ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
+// Inicialização do app após autenticação bem-sucedida.
+// Esta função é passada como callback onSignedIn ao initAuthView() e é chamada
+// uma vez por sessão de usuário — a guarda contra dupla inicialização fica em
+// authView.js (showApp).
+async function _initApp(session) {
   restoreSidebarState();
 
   headerEmail.textContent = session.user.email;
@@ -250,74 +182,6 @@ if ("serviceWorker" in navigator) {
     } catch { /* ignore — session may not be ready */ }
   });
 }
-
-loginBtn.addEventListener("click", async () => {
-  errorMsg.textContent = "";
-  const email    = emailInput.value.trim();
-  const password = passwordInput.value;
-  if (!email || !password) { errorMsg.textContent = "Preencha e-mail e senha."; return; }
-
-  loginBtn.disabled    = true;
-  loginBtn.textContent = "Entrando…";
-  try {
-    await signIn(email, password);
-    passwordInput.value = "";
-    track(EVENTS.LOGIN, { email });
-  } catch (err) {
-    const msg = err.message || "";
-    if (msg.includes("Invalid login") || msg.includes("invalid_credentials")) {
-      errorMsg.textContent = "E-mail ou senha incorretos. Verifique suas credenciais.";
-    } else if (msg.includes("Email not confirmed")) {
-      errorMsg.textContent = "Confirme seu e-mail antes de fazer login.";
-    } else {
-      errorMsg.textContent = "Não foi possível fazer login. Tente novamente.";
-    }
-  } finally {
-    loginBtn.disabled    = false;
-    loginBtn.textContent = "Entrar";
-  }
-});
-
-logoutBtn.addEventListener("click", async () => {
-  logoutBtn.disabled = true;
-  try {
-    await signOut();
-    track(EVENTS.LOGOUT);
-  } finally {
-    logoutBtn.disabled = false;
-  }
-});
-
-// If neither onAuthStateChange nor getSession() resolves within 10s (e.g.
-// Supabase unreachable, token refresh hanging), force the login screen so the
-// user is never stuck on the splash forever.
-const _authSafetyTimer = setTimeout(() => {
-  if (appLoading && !appLoading.hidden) showLogin();
-}, 10000);
-
-onAuthStateChange((session, event) => {
-  clearTimeout(_authSafetyTimer);
-  if (event === 'PASSWORD_RECOVERY') {
-    showAuthView('new-password');
-    return;
-  }
-  if (session) showApp(session);
-  else showLogin();
-});
-
-(async () => {
-  const session = await getSession();
-  if (session) showApp(session);
-  else showLogin();
-})().catch(() => {
-  // getSession() threw (network error, Supabase error, etc.).
-  // onAuthStateChange should handle this too, but fall back to login
-  // in case it also hangs or never fires.
-  clearTimeout(_authSafetyTimer);
-  showLogin();
-});
-
-// ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
 
 // ── [DOMAIN: configurações e notificações] ────────────────────────────────
 // ── Configurações — modal ──────────────────────────────────────────────────
@@ -733,94 +597,6 @@ function renderDevmodeState() {
   }
 }
 
-// ── [DOMAIN: autenticação — navegação, cadastro e recuperação] ────────────
-// ── Auth: navegação entre views ─────────────────────────────────────────────
-document.getElementById('btn-to-register')?.addEventListener('click', () => showAuthView('register'));
-document.getElementById('btn-to-login-from-register')?.addEventListener('click', showLogin);
-document.getElementById('btn-to-forgot')?.addEventListener('click', () => showAuthView('forgot'));
-document.getElementById('btn-to-login-from-forgot')?.addEventListener('click', showLogin);
-document.getElementById('btn-back-to-login-from-sent')?.addEventListener('click', showLogin);
-document.getElementById('btn-back-to-login-from-reset')?.addEventListener('click', showLogin);
-
-// ── Auth: cadastro ──────────────────────────────────────────────────────────
-const registerBtn   = document.getElementById('btn-register');
-const registerError = document.getElementById('register-error');
-
-registerBtn?.addEventListener('click', async () => {
-  if (!registerError) return;
-  registerError.textContent = '';
-
-  const fullName = document.getElementById('reg-name').value.trim();
-  const email    = document.getElementById('reg-email').value.trim();
-  const pwd      = document.getElementById('reg-password').value;
-  const confirm  = document.getElementById('reg-confirm').value;
-  const terms    = document.getElementById('reg-terms').checked;
-
-  if (!fullName)            { registerError.textContent = 'Nome é obrigatório.'; return; }
-  if (!email)               { registerError.textContent = 'E-mail é obrigatório.'; return; }
-  if (pwd.length < 8)       { registerError.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
-  if (pwd !== confirm)      { registerError.textContent = 'As senhas não coincidem.'; return; }
-  if (!terms)               { registerError.textContent = 'Aceite os Termos de Uso para continuar.'; return; }
-
-  registerBtn.disabled    = true;
-  registerBtn.textContent = 'Criando conta…';
-  try {
-    const { user } = await signUp(email, pwd, fullName);
-
-    // user === null  → Supabase email-enumeration protection: e-mail já existe
-    // identities: [] → Supabase comportamento antigo: e-mail já existe
-    // Não tratar identities === undefined como "já cadastrado": o campo é opcional
-    //   no tipo UserIdentity do SDK e sua ausência não indica duplicidade.
-    const alreadyExists =
-      user === null ||
-      (Array.isArray(user.identities) && user.identities.length === 0);
-
-    if (alreadyExists) {
-      registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
-      return;
-    }
-
-    track(EVENTS.SIGNUP, { email });
-    document.getElementById('email-sent-addr').textContent = email;
-    showAuthView('email-sent');
-  } catch (err) {
-    const msg = err.message || '';
-    console.error('[cadastro] exceção capturada:', err);
-    if (msg.includes('already registered') || msg.includes('already exists')) {
-      registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
-    } else {
-      registerError.textContent = msg || 'Não foi possível criar a conta. Tente novamente.';
-    }
-  } finally {
-    registerBtn.disabled    = false;
-    registerBtn.textContent = 'Criar Conta';
-  }
-});
-
-// ── Auth: recuperação de senha ──────────────────────────────────────────────
-const sendResetBtn  = document.getElementById('btn-send-reset');
-const forgotError   = document.getElementById('forgot-error');
-
-sendResetBtn?.addEventListener('click', async () => {
-  if (!forgotError) return;
-  forgotError.textContent = '';
-
-  const email = document.getElementById('forgot-email').value.trim();
-  if (!email) { forgotError.textContent = 'Informe seu e-mail.'; return; }
-
-  sendResetBtn.disabled    = true;
-  sendResetBtn.textContent = 'Enviando…';
-  try {
-    await sendPasswordReset(email);
-    showAuthView('reset-sent');
-  } catch (err) {
-    forgotError.textContent = err.message || 'Não foi possível enviar o link. Tente novamente.';
-  } finally {
-    sendResetBtn.disabled    = false;
-    sendResetBtn.textContent = 'Enviar link';
-  }
-});
-
 // ── [DOMAIN: assistente inteligente] ──────────────────────────────────────
 // ── Assistente Inteligente ──────────────────────────────────────────────────
 const assistantSection   = document.getElementById('assistant-section');
@@ -1112,33 +888,8 @@ initCategoryView();
 // ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
 initEventForm(refreshAll);
 
-// ── [DOMAIN: autenticação — nova senha] ───────────────────────────────────
-// ── Auth: definir nova senha (após clicar no link de reset) ─────────────────
-const setPasswordBtn = document.getElementById('btn-set-password');
-const newPwdError    = document.getElementById('new-pwd-error');
-
-setPasswordBtn?.addEventListener('click', async () => {
-  if (!newPwdError) return;
-  newPwdError.textContent = '';
-
-  const pwd     = document.getElementById('new-password').value;
-  const confirm = document.getElementById('new-password-confirm').value;
-
-  if (pwd.length < 8)    { newPwdError.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
-  if (pwd !== confirm)   { newPwdError.textContent = 'As senhas não coincidem.'; return; }
-
-  setPasswordBtn.disabled    = true;
-  setPasswordBtn.textContent = 'Salvando…';
-  try {
-    await updatePassword(pwd);
-    toast.success('Senha definida com sucesso. Você já pode fazer login.');
-    showLogin();
-  } catch (err) {
-    newPwdError.textContent = err.message || 'Não foi possível definir a senha.';
-  } finally {
-    setPasswordBtn.disabled    = false;
-    setPasswordBtn.textContent = 'Definir senha';
-  }
+// ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
+initAuthView({
+  onSignedIn:      _initApp,
+  onBeforeSignOut: () => { assistantHidden = false; },
 });
-
-
