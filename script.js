@@ -22,7 +22,7 @@
  *
  * Estado compartilhado entre domínios (precisa ser resolvido na extração):
  *   - allEvents        → produzido por: lista; consumido por: assistente, painelIA
- *   - categoriesCache  → produzido por: categorias; consumido por: formulário, lista
+ *   - categoriesCache  → interno ao: categorias (extraído para categoryView.js)
  *   - editingId        → interno ao: formulário
  *   - assistantHidden  → interno ao: assistente
  *
@@ -34,10 +34,6 @@ import { createEvent, getEvents, updateEvent, deleteEvent } from "./eventService
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, destroyWeekView } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
-import {
-  getCategories, createCategory, updateCategory,
-  deleteCategory, ensureDefaultCategories,
-} from "./categoryService.js";
 import {
   initNotifications, scheduleReminders,
   isSupported, isEnabled, setEnabled,
@@ -64,6 +60,7 @@ import { computeStats } from "./analytics.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, showPage, restoreLastPage, openSidebar, closeSidebar, restoreSidebarState } from "./navigationView.js";
+import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -138,11 +135,9 @@ const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
 
 // ── Estado compartilhado entre domínios ───────────────────────────────────
-// editingId e assistantHidden são internos; allEvents e categoriesCache
-// precisarão de uma estratégia de compartilhamento (callbacks ou contexto)
-// quando os domínios dependentes forem extraídos.
+// editingId e assistantHidden são internos; allEvents precisará de uma
+// estratégia de compartilhamento quando os domínios dependentes forem extraídos.
 let editingId        = null;  // interno: formulário
-let categoriesCache  = [];    // compartilhado: categorias → formulário, lista
 let allEvents        = [];    // compartilhado: lista → assistente, painelIA
 let assistantHidden  = false; // interno: assistente
 
@@ -435,159 +430,7 @@ onAuthStateChange((session, event) => {
   showLogin();
 });
 
-// ── [DOMAIN: categorias] ──────────────────────────────────────────────────
-// ── Categorias — dados ─────────────────────────────────────────────────────
-async function initCategories() {
-  categoriesCache = await ensureDefaultCategories();
-  populateCategorySelect();
-}
-
-async function reloadCategories() {
-  categoriesCache = await getCategories();
-  populateCategorySelect();
-}
-
-function populateCategorySelect() {
-  const current = fCategory.value;
-  fCategory.innerHTML = '<option value="">— Selecione —</option>';
-  categoriesCache.forEach(cat => {
-    const opt = document.createElement("option");
-    opt.value       = cat.name;
-    opt.textContent = cat.name;
-    fCategory.appendChild(opt);
-  });
-  fCategory.value = current; // preserva seleção atual (modo edição)
-}
-
-function categoryColor(name) {
-  const cat = categoriesCache.find(c => c.name === name);
-  return cat?.color || "#6b7280";
-}
-
-// Auto-preenche a cor ao selecionar uma categoria
-fCategory.addEventListener("change", () => {
-  const cat = categoriesCache.find(c => c.name === fCategory.value);
-  if (cat) fColor.value = cat.color;
-});
-
-// ── Categorias — modal ─────────────────────────────────────────────────────
-const catOverlay  = document.getElementById("cat-overlay");
-const catList     = document.getElementById("cat-list");
-const catNewColor = document.getElementById("cat-new-color");
-const catNewName  = document.getElementById("cat-new-name");
-const catAddBtn   = document.getElementById("cat-add");
-const catError    = document.getElementById("cat-error");
-
-document.getElementById("btn-categories").addEventListener("click", openCatModal);
-document.getElementById("cat-close").addEventListener("click", closeCatModal);
-catOverlay.addEventListener("click", (e) => { if (e.target === catOverlay) closeCatModal(); });
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !catOverlay.hidden) closeCatModal();
-});
-
-async function openCatModal() {
-  catError.textContent = "";
-  catNewName.value  = "";
-  catNewColor.value = "#3b82f6";
-  await renderCatList();
-  catOverlay.hidden = false;
-  catNewName.focus();
-}
-
-function closeCatModal() {
-  catOverlay.hidden = true;
-}
-
-async function renderCatList() {
-  catList.innerHTML = "";
-  const cats = await getCategories();
-
-  if (cats.length === 0) {
-    catList.innerHTML = `<p class="cat-empty">Nenhuma categoria cadastrada.</p>`;
-    return;
-  }
-
-  cats.forEach(cat => {
-    const row = document.createElement("div");
-    row.className = "cat-row";
-    row.innerHTML = `
-      <span class="cat-swatch" style="background:${escapeHtml(cat.color)}"></span>
-      <span class="cat-name-display">${escapeHtml(cat.name)}</span>
-      <div class="cat-row-actions">
-        <button class="btn btn-sm btn-ghost">Editar</button>
-        <button class="btn btn-sm btn-danger">Excluir</button>
-      </div>
-    `;
-
-    row.querySelector(".btn-ghost").addEventListener("click",  () => enterEditMode(row, cat));
-    row.querySelector(".btn-danger").addEventListener("click", () => handleCatDelete(cat, row));
-    catList.appendChild(row);
-  });
-}
-
-function enterEditMode(row, cat) {
-  row.innerHTML = `
-    <input type="color" class="cat-edit-color" value="${escapeHtml(cat.color)}" title="Cor" />
-    <input type="text"  class="cat-edit-name"  value="${escapeHtml(cat.name)}" />
-    <div class="cat-row-actions">
-      <button class="btn btn-sm btn-primary">Salvar</button>
-      <button class="btn btn-sm btn-ghost">Cancelar</button>
-    </div>
-  `;
-  row.querySelector(".cat-edit-name").focus();
-
-  const catSaveBtn = row.querySelector(".btn-primary");
-  catSaveBtn.addEventListener("click", async () => {
-    const newName  = row.querySelector(".cat-edit-name").value.trim();
-    const newColor = row.querySelector(".cat-edit-color").value;
-    if (!newName) return;
-    catSaveBtn.disabled = true;
-    try {
-      await updateCategory(cat.id, newName, newColor);
-      await reloadCategories();
-      await renderCatList();
-    } catch (err) {
-      catError.textContent = err.message;
-      catSaveBtn.disabled = false;
-    }
-  });
-
-  row.querySelector(".btn-ghost").addEventListener("click", renderCatList);
-}
-
-async function handleCatDelete(cat, row) {
-  const ok = await confirmDialog({
-    title:   'Excluir categoria',
-    message: `Excluir a categoria "${cat.name}"?`,
-    danger:  true,
-  });
-  if (!ok) return;
-  row.style.opacity = ".4";
-  try {
-    await deleteCategory(cat.id);
-    await reloadCategories();
-    await renderCatList();
-  } catch (err) {
-    row.style.opacity = "1";
-    catError.textContent = err.message;
-  }
-}
-
-catAddBtn.addEventListener("click", async () => {
-  catError.textContent = "";
-  const name  = catNewName.value.trim();
-  const color = catNewColor.value;
-  if (!name) { catError.textContent = "Nome é obrigatório."; catNewName.focus(); return; }
-  try {
-    await createCategory(name, color);
-    catNewName.value  = "";
-    catNewColor.value = "#3b82f6";
-    await reloadCategories();
-    await renderCatList();
-  } catch (err) {
-    catError.textContent = err.message;
-  }
-});
+// ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
 
 // ── [DOMAIN: configurações e notificações] ────────────────────────────────
 // ── Configurações — modal ──────────────────────────────────────────────────
@@ -1496,6 +1339,9 @@ function buildUpcomingCard(upcoming) {
 
 // ── [DOMAIN: navegação e layout] — extraído para navigationView.js ──────────
 initNavigation();
+
+// ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
+initCategoryView();
 
 // ── [DOMAIN: autenticação — nova senha] ───────────────────────────────────
 // ── Auth: definir nova senha (após clicar no link de reset) ─────────────────
