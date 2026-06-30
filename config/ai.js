@@ -4,7 +4,7 @@
  */
 export const AI_CONFIG = {
   provider: 'gemini',
-  model: 'gemini-1.5-flash',
+  model: 'gemini-2.5-flash',
   temperature: 0.7,
   maxTokens: 1024,
   timeout: 30000,
