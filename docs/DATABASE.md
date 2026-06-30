@@ -654,6 +654,8 @@ O `getAcademicEventsByRange()` faz select com join `academic_calendars(id, name,
 
 ### Perfil
 
+**Dados textuais:**
+
 ```
 Frontend (accountView.js)
   ↓ getProfile() / upsertProfile()
@@ -668,6 +670,25 @@ Resposta: objeto do perfil completo
 ```
 
 O `upsertProfile()` filtra os campos recebidos contra uma allowlist explícita (`full_name`, `avatar_url`, `university`, `course`, `semester`, `timezone`, `notification_enabled`, `theme`) antes de enviar ao banco.
+
+**Upload de avatar:**
+
+```
+Frontend (accountView.js)
+  ↓ uploadAvatar(file)
+avatarService.js
+  ↓ Valida MIME (jpeg/png/webp/gif) e tamanho (máx 2 MB)
+  ↓ supabase.storage.from('avatars').upload('{user_id}/avatar.{ext}', file, { upsert: true })
+Supabase Storage (policy: avatars_insert_own / avatars_update_own)
+  ↓ Verifica: bucket_id = 'avatars' AND auth.uid()::text = pasta do arquivo
+Bucket: avatars / {user_id}/avatar.{ext}
+  ↓ Retorna URL pública (com ?v={timestamp} para forçar refresh no navegador)
+Frontend
+  ↓ upsertProfile({ avatar_url: url })
+profileService.js → Tabela: profiles (campo avatar_url)
+```
+
+A remoção do avatar (`removeAvatar()`) lista todos os arquivos da pasta do usuário no bucket e os remove via `supabase.storage.from('avatars').remove(paths)`. A política `avatars_delete_own` garante que apenas o próprio usuário possa remover seus arquivos.
 
 ### Notificações Push
 
