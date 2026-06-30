@@ -3,7 +3,7 @@
  * The rest of the application must ONLY interact with the AI through this module.
  * Adding a new provider requires changes only here and in providers/.
  */
-import { AI_CONFIG, PROMPT_TYPES } from '../../config/ai.js';
+import { AI_CONFIG } from '../../config/ai.js';
 import { callGemini }              from './providers/geminiProvider.js';
 import { prepareWeeklySummary }    from './prompts/weeklySummary.js';
 import { prepareStudySuggestion }  from './prompts/studySuggestion.js';
@@ -53,5 +53,3 @@ export async function getScheduleAnalysis(allBaseEvents) {
   const raw     = await getProvider()(payload);
   return parseResponse(raw);
 }
-
-export { PROMPT_TYPES };
