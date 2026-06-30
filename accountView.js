@@ -97,16 +97,16 @@ function _renderProfile(p) {
       <h3 class="account-section-title">Dados Pessoais</h3>
       <div class="field">
         <label for="acc-name">Nome completo</label>
-        <input type="text" id="acc-name" value="${escapeHtml(p?.full_name || '')}" placeholder="Seu nome completo" />
+        <input type="text" id="acc-name" value="${escapeHtml(p?.full_name || '')}" placeholder="Seu nome completo" maxlength="100" />
       </div>
       <div class="field-row">
         <div class="field">
           <label for="acc-university">Universidade</label>
-          <input type="text" id="acc-university" value="${escapeHtml(p?.university || '')}" placeholder="Ex: USP" />
+          <input type="text" id="acc-university" value="${escapeHtml(p?.university || '')}" placeholder="Ex: USP" maxlength="120" />
         </div>
         <div class="field">
           <label for="acc-course">Curso</label>
-          <input type="text" id="acc-course" value="${escapeHtml(p?.course || '')}" placeholder="Ex: Medicina" />
+          <input type="text" id="acc-course" value="${escapeHtml(p?.course || '')}" placeholder="Ex: Medicina" maxlength="60" />
         </div>
       </div>
       <div class="field-row">
@@ -130,11 +130,11 @@ function _renderProfile(p) {
       <h3 class="account-section-title">Alterar Senha</h3>
       <div class="field">
         <label for="acc-new-pwd">Nova senha</label>
-        <input type="password" id="acc-new-pwd" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
+        <input type="password" id="acc-new-pwd" placeholder="Mínimo 8 caracteres" autocomplete="new-password" maxlength="128" />
       </div>
       <div class="field">
         <label for="acc-confirm-pwd">Confirmar nova senha</label>
-        <input type="password" id="acc-confirm-pwd" placeholder="Repita a senha" autocomplete="new-password" />
+        <input type="password" id="acc-confirm-pwd" placeholder="Repita a senha" autocomplete="new-password" maxlength="128" />
       </div>
       <p id="pwd-error" class="error" role="alert" aria-live="assertive"></p>
       <div class="form-actions">
