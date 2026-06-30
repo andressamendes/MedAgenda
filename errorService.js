@@ -1,7 +1,7 @@
 import { showToast } from './toastService.js';
 import { track, EVENTS } from './telemetryService.js';
 
-export const CATEGORIES = {
+const CATEGORIES = {
   AUTH:     'auth',
   NETWORK:  'network',
   DATABASE: 'database',

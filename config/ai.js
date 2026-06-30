@@ -9,10 +9,3 @@ export const AI_CONFIG = {
   maxTokens: 1024,
   timeout: 30000,
 };
-
-/** Prompt types supported by the gateway */
-export const PROMPT_TYPES = {
-  WEEKLY_SUMMARY:    'weekly_summary',
-  STUDY_SUGGESTION:  'study_suggestion',
-  SCHEDULE_ANALYSIS: 'schedule_analysis',
-};

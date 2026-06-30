@@ -95,7 +95,7 @@ CREATE POLICY "Users can delete own events"
 
 ---
 
-## Arquitetura da Interface (Etapa 21)
+## Arquitetura da Interface
 
 ### Dois Layouts Independentes
 
@@ -160,28 +160,108 @@ CREATE POLICY "Users can delete own events"
 
 ```
 medagenda/
-├── index.html              # SPA — estrutura completa da UI
-├── script.js               # Controlador principal
-├── style.css               # Estilos globais (sem frameworks CSS)
-├── config.js               # Variáveis de ambiente (não versionado)
-├── config.example.js       # Exemplo de configuração (versionado)
-├── auth.js                 # signIn, signUp, signOut, onAuthStateChange
-├── supabase.js             # Cliente Supabase singleton
-├── eventService.js         # CRUD de eventos pessoais
-├── categoryService.js      # CRUD de categorias
-├── calendar.js             # Renderização do calendário mensal
-├── weekView.js             # Renderização da agenda semanal
-├── quickAdd.js             # Modal de criação rápida (clique no slot)
-├── accountView.js          # Modal "Minha Conta"
-├── academicCalendarView.js # Modal e filtros de calendários acadêmicos
-├── recurrence.js           # Expansão de eventos recorrentes
-├── notificationService.js  # Lembretes locais (app aberto)
-├── pushService.js          # Notificações push (app fechado)
-├── smartAssistant.js       # Análise de conflitos e sugestões
-├── analytics.js            # Estatísticas mensais
-├── services/ai/            # Integração com Google Gemini
-├── pwa.js                  # Service Worker, instalação, offline
-├── toastService.js         # Notificações toast
-├── utils.js                # Funções puras utilitárias
-└── docs/                   # Documentação técnica
+│
+├── index.html                    # SPA — estrutura completa da UI
+├── style.css                     # Estilos globais (sem frameworks CSS)
+├── config.js                     # Variáveis de ambiente (não versionado)
+├── config.example.js             # Exemplo de configuração (versionado)
+│
+├── script.js                     # Controlador principal e bootstrap
+│
+│── Infraestrutura e cliente ────────────────────────────────────────────────
+├── supabase.js                   # Cliente Supabase singleton + currentUserId
+├── auth.js                       # signIn, signUp, signOut, onAuthStateChange
+├── pwa.js                        # Registro do Service Worker, instalação, offline
+├── service-worker.js             # App Shell, cache offline, handler de push
+│
+│── Serviços de dados ───────────────────────────────────────────────────────
+├── eventService.js               # CRUD de eventos pessoais
+├── categoryService.js            # CRUD de categorias (padrão + customizadas)
+├── academicCalendarService.js    # CRUD de calendários e eventos acadêmicos
+├── profileService.js             # Leitura e atualização do perfil do usuário
+├── avatarService.js              # Upload e remoção de avatares (Supabase Storage)
+├── notificationService.js        # Lembretes locais (app aberto)
+├── pushService.js                # Notificações push Web Push API (app fechado)
+│
+│── Lógica de negócio ───────────────────────────────────────────────────────
+├── recurrence.js                 # Expansão de eventos recorrentes
+├── smartAssistant.js             # Detecção de conflitos e sugestões de estudo
+├── analytics.js                  # Cálculo de estatísticas mensais
+├── icsImporter.js                # Parser de arquivos iCalendar (.ics)
+├── icsExporter.js                # Geração de arquivos iCalendar (.ics)
+│
+│── Serviços de suporte ─────────────────────────────────────────────────────
+├── errorService.js               # Captura, categorização e exibição de erros
+├── telemetryService.js           # Rastreamento de eventos (observabilidade)
+├── diagnosticService.js          # Verificações de saúde do sistema
+├── toastService.js               # Notificações toast (UI)
+├── utils.js                      # Funções puras utilitárias (pad, isoDate, etc.)
+│
+│── Módulos de view ─────────────────────────────────────────────────────────
+├── authView.js                   # Fluxos de autenticação (login, cadastro, senha)
+├── navigationView.js             # Sidebar, bottom-nav, roteamento de páginas
+├── eventFormView.js              # Modal de criação e edição de compromissos
+├── categoryView.js               # Modal de gerenciamento de categorias
+├── accountView.js                # Modal "Minha Conta" (perfil, avatar, senha)
+├── academicCalendarView.js       # Modal e filtros de calendários acadêmicos
+├── assistantView.js              # Painel do Assistente Inteligente
+├── aiPanelView.js                # Drawer do chat com Gemini IA
+│
+│── Renderização de views ───────────────────────────────────────────────────
+├── calendar.js                   # Renderização do calendário mensal
+├── weekView.js                   # Renderização da agenda semanal
+├── quickAdd.js                   # Modal de criação rápida (clique no slot)
+├── confirmDialog.js              # Modal de confirmação reutilizável
+│
+│── IA (Google Gemini) ──────────────────────────────────────────────────────
+├── config/
+│   └── ai.js                     # Configuração do gateway de IA (provider, model)
+│
+└── services/ai/
+    ├── aiService.js              # Gateway de IA (único ponto de acesso à IA)
+    ├── providers/
+    │   └── geminiProvider.js     # Integração com Google Gemini API
+    ├── parsers/
+    │   └── responseParser.js     # Normalização de respostas do LLM
+    └── prompts/
+        ├── weeklySummary.js      # Prompt: resumo da semana atual
+        ├── studySuggestion.js    # Prompt: sugestões de slots de estudo
+        └── scheduleAnalysis.js   # Prompt: análise de conflitos nos próximos 30 dias
 ```
+
+---
+
+## Edge Functions (Supabase)
+
+Operações assíncronas ou que requerem credenciais de servidor são delegadas a Edge Functions TypeScript hospedadas no Supabase:
+
+| Função | Responsabilidade |
+|--------|-----------------|
+| `ai-chat` | Proxy seguro para chamadas à API Gemini (mantém a chave API fora do frontend) |
+| `send-push-notifications` | Envio de notificações push Web Push via VAPID |
+| `delete-account` | Exclusão segura de conta e todos os dados do usuário |
+| `_shared/recurrence-core.js` | Lógica de recorrência compartilhada entre frontend e Edge Functions |
+
+---
+
+## Testes
+
+| Arquivo | Cobertura |
+|---------|-----------|
+| `tests/utils.test.js` | Funções utilitárias puras |
+| `tests/recurrence.test.js` | Expansão de eventos recorrentes |
+| `tests/recurrence-notification.test.js` | Cálculo de timing de notificações |
+| `tests/smartAssistant.test.js` | Detecção de conflitos e análise de carga |
+| `tests/analytics.test.js` | Cálculo de estatísticas mensais |
+
+Executar com `npm test`. Nenhuma dependência externa — os testes usam o módulo nativo `assert` do Node.js com ES Modules (`--experimental-vm-modules`).
+
+---
+
+## CI/CD
+
+| Workflow | Trigger | Ação |
+|----------|---------|------|
+| `ci.yml` | Push em qualquer branch / PRs | Executa `npm test` |
+| `deploy.yml` | Push em `main` / dispatch manual | Gera `config.js` a partir dos secrets e publica no GitHub Pages |
+| `deploy-functions.yml` | Push em `main` | Implanta Edge Functions no Supabase |
