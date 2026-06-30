@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
     else if (payload.type === 'study_suggestion') prompt = buildStudySuggestionPrompt(payload);
     else                                      prompt = buildScheduleAnalysisPrompt(payload);
 
-    const model       = payload.model ?? 'gemini-1.5-flash';
+    const model       = payload.model ?? 'gemini-2.5-flash';
     const temperature = typeof payload.temperature === 'number' ? payload.temperature : 0.7;
     const maxTokens   = typeof payload.maxTokens   === 'number' ? payload.maxTokens   : 1024;
 
