@@ -28,8 +28,10 @@ export function computeStats(allBaseEvents) {
   week7.setDate(today.getDate() + 7);
   const week7Str = isoDate(week7);
 
-  // Expand events over the month + 7-day window
-  const expanded = expandEvents(allBaseEvents, monthStart, week7Str);
+  // Expand events over the full month plus the 7-day upcoming window
+  // (week7Str can fall in the next month, so take whichever end is later)
+  const expandEnd = week7Str > monthEnd ? week7Str : monthEnd;
+  const expanded = expandEvents(allBaseEvents, monthStart, expandEnd);
 
   const thisMonth = expanded.filter(e => e.event_date >= monthStart && e.event_date <= monthEnd);
   const upcoming  = expanded
