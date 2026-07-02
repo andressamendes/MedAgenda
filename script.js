@@ -43,7 +43,7 @@ import { VAPID_PUBLIC_KEY } from "./config.js";
 import { escapeHtml } from "./utils.js";
 import { toast } from "./toastService.js";
 import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
-import { initErrorService, setErrorDevMode } from "./errorService.js";
+import { initErrorService, setErrorDevMode, handleError } from "./errorService.js";
 import { runDiagnostics, APP_VERSION, updateLastSync } from "./diagnosticService.js";
 import { initAccountView } from "./accountView.js";
 import {
@@ -86,6 +86,7 @@ const headerEmail = document.getElementById("header-email");
 // ── Lista ──────────────────────────────────────────────────────────────────
 const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
+const LIST_EMPTY_TEXT = listEmpty.textContent;
 
 // ── Indicador de sincronização ─────────────────────────────────────────────
 const syncIndicator = document.getElementById("sync-indicator");
@@ -336,8 +337,12 @@ async function loadEvents() {
     renderFilteredList();
     scheduleReminders(events);
     renderAssistant(events);
-  } catch {
-    // sessão pode ter expirado; onAuthStateChange cuida do redirecionamento
+  } catch (err) {
+    // Sessão expirada é tratada silenciosamente (onAuthStateChange cuida do
+    // redirecionamento); demais erros (rede, banco, inesperado) precisam ficar
+    // visíveis para o usuário em vez de parecer uma agenda vazia.
+    handleError(err, { context: "loadEvents" });
+    renderListError();
   }
 }
 
@@ -406,6 +411,8 @@ function formatTime(timeStr) {
 function renderList(events) {
   eventList.innerHTML = "";
   listEmpty.hidden    = events.length > 0;
+  listEmpty.textContent = LIST_EMPTY_TEXT;
+  listEmpty.classList.remove("list-error");
 
   events.forEach((ev) => {
     const card = document.createElement("div");
@@ -443,6 +450,16 @@ function renderList(events) {
     card.querySelector(".btn-delete").addEventListener("click", () => handleDelete(ev.id, card));
     eventList.appendChild(card);
   });
+}
+
+// Estado de erro da lista — distinto de "sem compromissos" para que uma
+// falha ao carregar (rede, banco, etc.) nunca seja confundida com uma
+// agenda genuinamente vazia.
+function renderListError() {
+  eventList.innerHTML   = "";
+  listEmpty.hidden      = false;
+  listEmpty.textContent = "Não foi possível carregar seus compromissos. Verifique sua conexão e tente novamente.";
+  listEmpty.classList.add("list-error");
 }
 
 async function handleDelete(id, card) {

@@ -1095,6 +1095,10 @@ textarea { resize: vertical; }
   padding: 1.5rem 0;
 }
 
+.list-empty.list-error {
+  color: var(--red);
+}
+
 .event-card {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
