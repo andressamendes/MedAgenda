@@ -4,17 +4,24 @@
   "description": "Agenda de compromissos para estudantes de Medicina",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-vm-modules tests/utils.test.js && node --experimental-vm-modules tests/recurrence.test.js && node --experimental-vm-modules tests/recurrence-notification.test.js && node --experimental-vm-modules tests/smartAssistant.test.js && node --experimental-vm-modules tests/analytics.test.js",
-    "test:utils": "node --experimental-vm-modules tests/utils.test.js",
-    "test:recurrence": "node --experimental-vm-modules tests/recurrence.test.js && node --experimental-vm-modules tests/recurrence-notification.test.js",
-    "test:notification": "node --experimental-vm-modules tests/recurrence-notification.test.js",
-    "test:assistant": "node --experimental-vm-modules tests/smartAssistant.test.js",
-    "test:analytics": "node --experimental-vm-modules tests/analytics.test.js"
+    "test": "node --experimental-vm-modules --experimental-test-module-mocks --test",
+    "test:unit": "node --experimental-vm-modules --experimental-test-module-mocks --test tests/utils.test.js tests/recurrence.test.js tests/recurrence-notification.test.js tests/smartAssistant.test.js tests/analytics.test.js",
+    "test:services": "node --experimental-vm-modules --experimental-test-module-mocks --test tests/services/*.test.js",
+    "test:views": "node --experimental-vm-modules --experimental-test-module-mocks --test tests/views/*.test.js",
+    "test:integration": "node --experimental-vm-modules --experimental-test-module-mocks --test tests/integration/*.test.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.18.0"
   },
-  "keywords": ["medical", "calendar", "pwa", "agenda"],
+  "keywords": [
+    "medical",
+    "calendar",
+    "pwa",
+    "agenda"
+  ],
   "author": "andressamendes",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
 }
