@@ -4,6 +4,7 @@ import { createEvent, updateEvent } from "./eventService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
+import { initModal } from "./modalController.js";
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
 
@@ -33,6 +34,7 @@ let fRecurrenceUntil   = null;
 let fRecurrenceInterval = null;
 let recurrenceExtra    = null;
 let recurrenceCustom   = null;
+let modal              = null;
 
 export function initEventForm(onSave) {
   _onSave = onSave;
@@ -61,18 +63,9 @@ export function initEventForm(onSave) {
   recurrenceExtra     = document.getElementById("recurrence-extra");
   recurrenceCustom    = document.getElementById("recurrence-custom");
 
-  document.getElementById("event-modal-close")?.addEventListener("click", () => {
-    _closeEventModal();
-    _clearForm();
-  });
+  if (eventModal) modal = initModal(eventModal, _handleModalClose);
 
-  eventModal?.addEventListener("click", (e) => {
-    if (e.target === eventModal) { _closeEventModal(); _clearForm(); }
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && eventModal && !eventModal.hidden) { _closeEventModal(); _clearForm(); }
-  });
+  document.getElementById("event-modal-close")?.addEventListener("click", _handleModalClose);
 
   ["btn-new-event", "btn-new-event-cal", "btn-new-event-apt"].forEach(id => {
     document.getElementById(id)?.addEventListener("click", () => openEventForm());
@@ -92,7 +85,7 @@ export function initEventForm(onSave) {
     btn.addEventListener("click", () => btn.classList.toggle("day-btn-active"));
   });
 
-  cancelBtn?.addEventListener("click", () => { _clearForm(); _closeEventModal(); });
+  cancelBtn?.addEventListener("click", _handleModalClose);
 
   eventForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -169,14 +162,16 @@ export function openEventForm(ev) {
   } else {
     _clearForm();
   }
-  if (eventModal) {
-    eventModal.hidden = false;
-    fTitle?.focus();
-  }
+  modal?.open(fTitle);
 }
 
 function _closeEventModal() {
-  if (eventModal) eventModal.hidden = true;
+  modal?.close();
+}
+
+function _handleModalClose() {
+  _closeEventModal();
+  _clearForm();
 }
 
 function _clearForm() {

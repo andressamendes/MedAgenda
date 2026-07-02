@@ -1,6 +1,7 @@
-let overlay, titleEl, messageEl, confirmBtn, cancelBtn;
-let _resolve       = null;
-let _previousFocus = null;
+import { initModal } from './modalController.js';
+
+let overlay, titleEl, messageEl, confirmBtn, cancelBtn, modal;
+let _resolve = null;
 
 function init() {
   overlay = document.createElement('div');
@@ -33,20 +34,15 @@ function init() {
 
   cancelBtn.addEventListener('click',  () => _settle(false));
   confirmBtn.addEventListener('click', () => _settle(true));
-  overlay.addEventListener('click', e => { if (e.target === overlay) _settle(false); });
 
-  document.addEventListener('keydown', e => {
-    if (overlay.hidden) return;
-    if (e.key === 'Escape') { e.preventDefault(); _settle(false); }
-  });
+  modal = initModal(overlay, () => _settle(false));
 }
 
 function _settle(value) {
   if (!_resolve) return;
-  overlay.hidden = true;
+  modal.close();
   const cb = _resolve;
   _resolve = null;
-  if (_previousFocus) { _previousFocus.focus(); _previousFocus = null; }
   cb(value);
 }
 
@@ -63,9 +59,7 @@ export function confirmDialog({ title = '', message = '', confirmText = 'Confirm
   cancelBtn.textContent  = cancelText;
   confirmBtn.className   = `btn ${danger ? 'btn-danger' : 'btn-primary'}`;
 
-  _previousFocus  = document.activeElement;
-  overlay.hidden  = false;
-  cancelBtn.focus();
+  modal.open(cancelBtn);
 
   return new Promise(res => { _resolve = res; });
 }

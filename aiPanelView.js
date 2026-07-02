@@ -3,6 +3,7 @@
 import { getEvents } from "./eventService.js";
 import { isPersonalVisible } from "./academicCalendarView.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
+import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 
 export function initAIPanel() {
   const overlay     = document.getElementById('ai-panel-overlay');
@@ -18,7 +19,10 @@ export function initAIPanel() {
 
   if (!panel || !openBtn) return;
 
+  let _prevFocus = null;
+
   function openPanel() {
+    _prevFocus = captureFocus();
     panel.hidden   = false;
     overlay.hidden = false;
     panel.removeAttribute('aria-hidden');
@@ -32,7 +36,8 @@ export function initAIPanel() {
     overlay.hidden = true;
     panel.setAttribute('aria-hidden', 'true');
     overlay.setAttribute('aria-hidden', 'true');
-    openBtn.focus();
+    restoreFocus(_prevFocus);
+    _prevFocus = null;
   }
 
   function showActions() {
@@ -83,12 +88,12 @@ export function initAIPanel() {
 
   openBtn.addEventListener('click', openPanel);
   closeBtn.addEventListener('click', closePanel);
-  overlay.addEventListener('click', closePanel);
   backBtn?.addEventListener('click', showActions);
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !panel.hidden) closePanel();
-  });
+  // Estrutura em dois elementos (painel + backdrop separado) — usa as
+  // primitivas de baixo nível do modalController em vez do wrapper padrão de
+  // overlay único, mas reutiliza a mesma lógica de Escape/clique fora/Focus Trap.
+  bindModalBehavior(overlay, () => !panel.hidden, closePanel, panel);
 
   document.getElementById('btn-ai-weekly')?.addEventListener('click', () =>
     runAIAction('Resumo da semana', getWeeklySummary)

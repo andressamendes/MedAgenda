@@ -6,6 +6,7 @@ import { toast } from './toastService.js';
 import { track, EVENTS } from './telemetryService.js';
 import { escapeHtml } from './utils.js';
 import { confirmDialog } from './confirmDialog.js';
+import { initModal } from './modalController.js';
 
 const TIMEZONES = [
   'America/Sao_Paulo', 'America/Manaus', 'America/Belem',
@@ -19,6 +20,7 @@ const TIMEZONES = [
 let _overlay  = null;
 let _profile  = null;
 let _userId   = null;
+let _modal    = null;
 
 export function initAccountView(userId) {
   _userId  = userId;
@@ -26,10 +28,7 @@ export function initAccountView(userId) {
   if (!_overlay) return;
 
   document.getElementById('account-close')?.addEventListener('click', close);
-  _overlay.addEventListener('click', (e) => { if (e.target === _overlay) close(); });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && _overlay && !_overlay.hidden) close();
-  });
+  _modal = initModal(_overlay, close);
 
   document.getElementById('btn-my-account')?.addEventListener('click', open);
 }
@@ -37,7 +36,7 @@ export function initAccountView(userId) {
 export async function open() {
   if (!_overlay) return;
   _renderSkeleton();
-  _overlay.hidden = false;
+  _modal.open();
 
   try {
     _profile = await getProfile();
@@ -48,7 +47,7 @@ export async function open() {
 }
 
 export function close() {
-  if (_overlay) _overlay.hidden = true;
+  _modal?.close();
 }
 
 // ── Skeleton while loading ─────────────────────────────────────────────────

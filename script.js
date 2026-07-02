@@ -58,6 +58,7 @@ import { initNavigation, showPage, restoreLastPage, openSidebar, closeSidebar, r
 import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
 import { initAuthView, showAuthView, showApp, showLogin } from "./authView.js";
+import { initModal } from "./modalController.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -210,24 +211,20 @@ const pushStatusText   = document.getElementById("push-status-text");
 const btnPushToggle    = document.getElementById("btn-push-toggle");
 const pushErrorHint    = document.getElementById("push-error-hint");
 
+const settingsModal = initModal(settingsOverlay, closeSettings);
+
 document.getElementById("btn-settings").addEventListener("click", openSettings);
 document.getElementById("settings-close").addEventListener("click", closeSettings);
-settingsOverlay.addEventListener("click", (e) => {
-  if (e.target === settingsOverlay) closeSettings();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !settingsOverlay.hidden) closeSettings();
-});
 
 function openSettings() {
   renderSettingsState();
   renderPushState();
   renderDevmodeState();
-  settingsOverlay.hidden = false;
+  settingsModal.open();
 }
 
 function closeSettings() {
-  settingsOverlay.hidden = true;
+  settingsModal.close();
 }
 
 function renderSettingsState() {
@@ -509,25 +506,19 @@ const diagnosticBody    = document.getElementById("diagnostic-body");
 const diagnosticClose   = document.getElementById("diagnostic-close");
 const btnDiagnostic     = document.getElementById("btn-diagnostic");
 
+const diagnosticModal = diagnosticOverlay ? initModal(diagnosticOverlay, closeDiagnostic) : null;
+
 if (btnDiagnostic) {
   btnDiagnostic.addEventListener("click", openDiagnostic);
 }
 if (diagnosticClose) {
   diagnosticClose.addEventListener("click", closeDiagnostic);
 }
-if (diagnosticOverlay) {
-  diagnosticOverlay.addEventListener("click", (e) => {
-    if (e.target === diagnosticOverlay) closeDiagnostic();
-  });
-}
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && diagnosticOverlay && !diagnosticOverlay.hidden) closeDiagnostic();
-});
 
 async function openDiagnostic() {
   closeSettings();
   diagnosticBody.innerHTML = '<p class="diag-loading">Verificando serviços…</p>';
-  diagnosticOverlay.hidden = false;
+  diagnosticModal?.open();
 
   try {
     const r = await runDiagnostics();
@@ -538,7 +529,7 @@ async function openDiagnostic() {
 }
 
 function closeDiagnostic() {
-  diagnosticOverlay.hidden = true;
+  diagnosticModal?.close();
 }
 
 function renderDiagnosticHTML(r) {
