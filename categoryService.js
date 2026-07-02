@@ -38,9 +38,18 @@ export async function createCategory(name, color) {
 
 export async function updateCategory(id, name, color) {
   const user_id = await currentUserId();
+  const trimmedName = name.trim();
+
+  const { data: previous } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user_id)
+    .single();
+
   const { data, error } = await supabase
     .from("categories")
-    .update({ name: name.trim(), color })
+    .update({ name: trimmedName, color })
     .eq("id", id)
     .eq("user_id", user_id)
     .select()
@@ -49,6 +58,18 @@ export async function updateCategory(id, name, color) {
     if (error.code === "23505") throw new Error("Já existe uma categoria com esse nome.");
     throw error;
   }
+
+  // Mantém os eventos existentes em sincronia: como events.category guarda o
+  // nome (não uma FK), um rename precisa ser propagado explicitamente.
+  if (previous && previous.name !== trimmedName) {
+    const { error: syncError } = await supabase
+      .from("events")
+      .update({ category: trimmedName })
+      .eq("user_id", user_id)
+      .eq("category", previous.name);
+    if (syncError) throw syncError;
+  }
+
   return data;
 }
 
