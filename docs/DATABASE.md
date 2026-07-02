@@ -182,8 +182,7 @@ auth.users  (Supabase Auth — schema auth)
 ├── push_subscriptions (N:1 — user_id → auth.users.id)
 │
 ├── notification_logs  (N:1 — user_id → auth.users.id)
-│                      [event_id referencia events.id conceitualmente,
-│                       mas sem FK formal — desacoplamento intencional]
+│                      [event_id → events.id, ON DELETE CASCADE]
 │
 ├── academic_calendars (N:1 — user_id → auth.users.id)
 │   │
@@ -318,9 +317,9 @@ storage.objects (Supabase Storage — schema storage)
 
 **Relacionamentos:**
 - `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
-- `event_id` referencia `events.id` conceitualmente, sem FK formal declarada.
+- `event_id` → `events(id)` com `ON DELETE CASCADE` (migration `09_notification_logs_integrity.sql`)
 
-**Observações:** O campo `status` aceita `'sent'` ou `'failed'`. O índice `notification_logs_dedup` é a principal garantia de idempotência — um upsert para a mesma combinação `(user_id, event_id, event_date)` atualiza o registro existente em vez de duplicar. A ausência de FK formal em `event_id` é uma decisão arquitetural intencional para suportar eventos recorrentes sem acoplamento estrutural. A função `cleanup_old_notification_logs()` remove registros com mais de 90 dias.
+**Observações:** O campo `status` aceita `'sent'` ou `'failed'`. O índice `notification_logs_dedup` é a principal garantia de idempotência — um upsert para a mesma combinação `(user_id, event_id, event_date)` atualiza o registro existente em vez de duplicar. A FK em `event_id` com `ON DELETE CASCADE` garante que, ao excluir um evento (recorrente ou não), todo o seu histórico de notificações seja removido junto, eliminando a possibilidade de logs órfãos. A função `cleanup_old_notification_logs()` remove registros com mais de 90 dias.
 
 ---
 
@@ -776,7 +775,7 @@ As 8 migrations estão numeradas sequencialmente de `01` a `08`. A ordem de exec
 | Compatibilidade frontend-banco                 | Consistente            | Todos os campos consultados e escritos pelos services (`eventService.js`, `categoryService.js`, `profileService.js`, `academicCalendarService.js`, `pushService.js`) correspondem exatamente às colunas existentes nas tabelas. |
 | `profiles.created_at` nullable                 | Inconsistência menor   | Em `profiles`, `created_at` e `updated_at` são `TIMESTAMPTZ DEFAULT NOW()` sem `NOT NULL`, quebrando a convenção das demais tabelas. Não impacta funcionalidade pois `DEFAULT now()` garante preenchimento. |
 | `03_recurrence.sql` redundante                 | Inconsistência menor   | As 3 colunas adicionadas por esta migration já estão declaradas em `01_events.sql`. A migration é segura (`IF NOT EXISTS`) mas desnecessária se executada após `01`. |
-| `notification_logs.event_id` sem FK formal     | Decisão arquitetural   | `event_id` referencia `events.id` conceitualmente mas sem FK declarada. Intencional: suporta eventos recorrentes e simplifica cleanup de logs sem CASCADE indesejado. |
+| `notification_logs.event_id` sem FK formal     | Resolvido (`09_notification_logs_integrity.sql`) | `event_id` agora tem FK para `events(id)` com `ON DELETE CASCADE`, eliminando o risco de logs órfãos ao excluir um evento. |
 | `events.category` como TEXT sem FK            | Decisão arquitetural   | O campo armazena o nome da categoria por texto. Vínculo com `categories` é gerenciado pelo frontend via validação de negócio, não por integridade referencial no banco. |
 | `ai_metrics` não populada pela Edge Function   | Inconsistência funcional | A tabela `ai_metrics` existe e está corretamente provisionada com RLS, mas a Edge Function `ai-chat` (única que chama a IA) não insere métricas nela. A tabela está disponível para uso futuro ou instrumentação opcional via `service_role`. |
 
@@ -787,7 +786,7 @@ As 8 migrations estão numeradas sequencialmente de `01` a `08`. A ordem de exec
 | Métrica                    | Quantidade |
 |----------------------------|------------|
 | Tabelas                    | 8          |
-| Migrations                 | 8          |
+| Migrations                 | 9          |
 | Triggers                   | 7          |
 | Funções SQL                | 3          |
 | Políticas RLS (tabelas)    | 26         |
@@ -798,4 +797,4 @@ As 8 migrations estão numeradas sequencialmente de `01` a `08`. A ordem de exec
 
 O banco de dados do MedAgenda é simples, coeso e bem alinhado com as capacidades do Supabase. A delegação de autenticação ao Supabase Auth, combinada com RLS granular, garante isolamento robusto dos dados sem complexidade adicional na camada de serviço. A função `update_updated_at()` centralizada e o padrão uniforme de triggers demonstram coerência arquitetural. As Edge Functions com `service_role` para operações privilegiadas (notificações, métricas) seguem o padrão recomendado pelo Supabase.
 
-As inconsistências identificadas são de baixo impacto: `profiles` com timestamps nullable quebra a convenção mas não compromete a integridade; `03_recurrence.sql` é redundante mas inofensiva; a ausência de FK formal em `notification_logs.event_id` é uma decisão defensiva válida para eventos recorrentes. A única inconsistência funcional relevante é a tabela `ai_metrics` provisionada mas não utilizada pela implementação atual da Edge Function `ai-chat`, o que representa débito técnico a ser resolvido se o monitoramento de uso da IA for necessário.
+As inconsistências identificadas são de baixo impacto: `profiles` com timestamps nullable quebra a convenção mas não compromete a integridade; `03_recurrence.sql` é redundante mas inofensiva. A ausência de FK formal em `notification_logs.event_id` foi corrigida pela migration `09_notification_logs_integrity.sql` (Auditoria P1.3), que adiciona `ON DELETE CASCADE` após limpar logs órfãos pré-existentes. A única inconsistência funcional relevante é a tabela `ai_metrics` provisionada mas não utilizada pela implementação atual da Edge Function `ai-chat`, o que representa débito técnico a ser resolvido se o monitoramento de uso da IA for necessário.

@@ -432,7 +432,7 @@ Toda chave primária do projeto usa `UUID PRIMARY KEY DEFAULT gen_random_uuid()`
 - `ON DELETE CASCADE` em toda FK que referencia `auth.users(id)`: excluir um usuário remove automaticamente `events`, `categories`, `push_subscriptions`, `notification_logs`, `profiles`, `academic_calendars`, `ai_metrics`.
 - `academic_events.calendar_id → academic_calendars(id) ON DELETE CASCADE`: excluir um calendário remove seus eventos acadêmicos.
 - Índices únicos reforçam regras de negócio no nível do banco, não apenas na aplicação: `categories_user_name_idx` (nome único por usuário, case-insensitive), `push_subscriptions_user_endpoint` (uma assinatura por dispositivo/usuário), `notification_logs_dedup` (uma notificação por evento/ocorrência/usuário).
-- `notification_logs.event_id` referencia `events.id` apenas conceitualmente, sem FK formal — decisão arquitetural para não acoplar o histórico de notificações ao ciclo de vida de eventos recorrentes.
+- `notification_logs.event_id → events(id) ON DELETE CASCADE`: excluir um evento remove automaticamente seu histórico de notificações, evitando logs órfãos (migration `09_notification_logs_integrity.sql`, Auditoria P1.3).
 
 ---
 
@@ -550,7 +550,6 @@ Revisão da consistência entre autenticação, RLS, Edge Functions e secrets, s
 | Tabela `ai_metrics` provisionada mas não populada | Observabilidade | RLS e schema existem, mas nenhuma Edge Function insere métricas nela hoje — a telemetria de uso da IA fica só em `console.log`, sem trilha de auditoria persistida no banco. |
 | Validação de tipo/tamanho de avatar apenas no frontend | Validação de entrada | `avatarService.js` valida MIME e tamanho antes do upload, mas não há constraint/trigger no Postgres/Storage revalidando isso no servidor além do comportamento padrão do Supabase Storage. |
 | `profiles.created_at`/`updated_at` nullable | Consistência de schema | Diferente das demais tabelas (`NOT NULL`), não gera problema funcional pois ambos têm `DEFAULT now()`, mas quebra a convenção do restante do schema. |
-| `notification_logs.event_id` sem FK formal | Decisão arquitetural documentada | Intencional — evita acoplar o histórico de notificações ao ciclo de vida de eventos recorrentes; não é uma falha, mas reduz a garantia de integridade referencial automática nessa coluna específica. |
 
 ### O que foi verificado e está consistente
 

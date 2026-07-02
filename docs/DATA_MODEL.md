@@ -37,8 +37,8 @@ O schema é **relacional simples**: chaves primárias `UUID` geradas por `gen_ra
                         │  = categories.name (texto)     ▼              │ academic_events  │
                         │                          ┌──────────────────┐ └──────────────────┘
                         └─────────────────────────▶│ notification_logs│
-                        event_id (sem FK formal)    │                  │
-                                                     └──────────────────┘
+                        event_id (FK, ON DELETE     │                  │
+                        CASCADE)                    └──────────────────┘
 
                                     storage.objects (schema storage — Supabase Storage)
                                     └── bucket: avatars  (sem FK relacional; RLS por pasta {user_id}/...)
@@ -107,7 +107,7 @@ RLS habilitado. Quatro políticas, todas usando `user_id = auth.uid()`:
 
 - `user_id` → `auth.users(id)` (`ON DELETE CASCADE`) — relação física, N:1.
 - `category` (texto) ↔ `categories.name` — relação **lógica**, sem FK. A exclusão de uma categoria no banco não afeta os eventos que a referenciam por nome; a integridade é garantida pelo frontend (`categoryService.deleteCategory` impede excluir categoria em uso).
-- Referenciada conceitualmente por `notification_logs.event_id` (sem FK formal).
+- Referenciada por `notification_logs.event_id` (FK, `ON DELETE CASCADE`).
 
 ### Uso pelo sistema
 
@@ -281,7 +281,7 @@ A Edge Function `send-push-notifications` (com `service_role`, contornando RLS) 
 |--------------|---------------|:-----------:|------------------------|--------------|
 | `id`         | `UUID`        | Sim (PK)    | `gen_random_uuid()`    | |
 | `user_id`    | `UUID`        | Sim         | —                      | FK → `auth.users(id)` `ON DELETE CASCADE`. |
-| `event_id`   | `UUID`        | Sim         | —                      | Referencia `events.id` **sem FK formal** — ver Relacionamentos. |
+| `event_id`   | `UUID`        | Sim         | —                      | FK → `events.id` `ON DELETE CASCADE` — ver Relacionamentos. |
 | `event_date` | `DATE`        | Sim         | —                      | Data da ocorrência específica notificada (não necessariamente `events.event_date`, no caso de recorrência). |
 | `status`     | `TEXT`        | Sim         | `'sent'`                | Valores em uso: `sent`, `failed`. Não há CHECK constraint impondo esse enum no banco. |
 | `error`      | `TEXT`        | Não         | —                      | Mensagem de erro quando `status = 'failed'`. |
@@ -308,7 +308,7 @@ RLS habilitado, porém com apenas **uma** política:
 ### Relacionamentos
 
 - `user_id` → `auth.users(id)` (`ON DELETE CASCADE`) — relação física.
-- `event_id` ↔ `events.id` — relação **lógica**, sem FK declarada. Decisão arquitetural intencional: como `events` representa a linha-base de um compromisso (possivelmente recorrente) e `notification_logs` precisa de uma linha por *ocorrência* (evento × data), uma FK formal exigiria uma modelagem mais complexa (ex.: tabela de ocorrências materializadas) sem benefício adicional, já que a dedução de "occorrências válidas" já é feita em código (`expandEvent`).
+- `event_id` → `events(id)` (`ON DELETE CASCADE`, adicionada em `09_notification_logs_integrity.sql`) — relação física. `event_id` sempre referencia a linha-base do evento em `events`; múltiplas linhas de `notification_logs` (uma por *ocorrência*, evento × data) apontam para o mesmo `event_id`, então a FK não exige modelagem de ocorrências materializadas. Ao excluir um evento, `ON DELETE CASCADE` remove junto todo o seu histórico de notificações, evitando logs órfãos.
 
 ### Uso pelo sistema
 
@@ -318,6 +318,8 @@ Nenhum Service do frontend lê ou escreve nesta tabela — a única gravação o
 2. Após tentar enviar (com sucesso ou falha) para todas as assinaturas do usuário, faz `upsert` com `onConflict: 'user_id,event_id,event_date'`, gravando `status: 'sent'` (se ao menos uma assinatura recebeu) ou `status: 'failed'` (se todas falharam), com `error` preenchido no segundo caso.
 
 A função utilitária `cleanup_old_notification_logs()` (definida na mesma migration) apaga registros com `sent_at` anterior a 90 dias, mas **não é chamada automaticamente** por nenhum trigger ou cron configurado no código — precisa ser agendada manualmente (Supabase Scheduler ou `pg_cron`), conforme o próprio comentário da migration.
+
+Excluir um evento (`eventService.deleteEvent`) não passa mais por essa função de limpeza por idade: a partir de `09_notification_logs_integrity.sql`, a FK `event_id → events.id` com `ON DELETE CASCADE` remove imediatamente as linhas de `notification_logs` daquele evento, independentemente de `sent_at`.
 
 ---
 
@@ -489,9 +491,10 @@ academic_calendars
   │  FK REAL: academic_events.calendar_id → academic_calendars.id  (ON DELETE CASCADE)
   ▼
 academic_events
-  │  (nenhuma FK para notification_logs — tabelas de domínios distintos)
+  │  (nenhuma FK entre academic_events e notification_logs — tabelas de domínios distintos)
   ▼  vínculo lógico: mesmo usuário (indireto, via academic_calendars.user_id)
 notification_logs
+  │  FK REAL: notification_logs.event_id → events.id  (ON DELETE CASCADE)
   │  (nenhuma FK para push_subscriptions — ambas apenas compartilham user_id)
   ▼  vínculo lógico: mesmo usuário (notification_logs.user_id = push_subscriptions.user_id)
 push_subscriptions
@@ -513,6 +516,9 @@ auth.users (id)
 
 academic_calendars (id)
    └──(FK, CASCADE, N:1)──► academic_events.calendar_id
+
+events (id)
+   └──(FK, CASCADE, N:1)──► notification_logs.event_id
 ```
 
 ### Relacionamentos lógicos (sem FK física)
@@ -520,7 +526,6 @@ academic_calendars (id)
 | Origem | Destino | Natureza | Por que não há FK formal |
 |---|---|---|---|
 | `events.category` (TEXT) | `categories.name` (TEXT) | N:1 lógico | O vínculo é por nome, não por `id`. Permite que um evento continue existindo com uma categoria "solta" (texto) mesmo que o nome não corresponda mais a nenhuma categoria cadastrada. A integridade de negócio (impedir excluir categoria em uso) é responsabilidade do frontend (`categoryService.deleteCategory`), não do banco. |
-| `notification_logs.event_id` (UUID) | `events.id` (UUID) | N:1 lógico | Evita acoplamento de `ON DELETE CASCADE` entre logs de auditoria e o ciclo de vida de um evento; simplifica o suporte a eventos recorrentes, onde múltiplas linhas de log (uma por `event_date`) referenciam o mesmo `event_id`. |
 | `academic_events` (via `calendar_id`) | `auth.users` | N:1 indireto | `academic_events` não tem `user_id` próprio; o dono é sempre resolvido através do calendário pai. |
 | Todas as tabelas com `user_id` | `auth.users.id` | Implícito no RLS | Ainda que a FK exista fisicamente, o *isolamento* entre usuários é garantido pela política de RLS (`auth.uid()`), não apenas pela constraint — a FK garante apenas integridade referencial (não apagar `user_id` órfão), não autorização. |
 
@@ -781,7 +786,7 @@ Verificação realizada durante a elaboração desta documentação, comparando 
 |---|---|---|
 | `profiles.created_at`/`updated_at` sem `NOT NULL` | Inconsistência de convenção | Diferente das demais 7 tabelas, onde ambos os campos são `NOT NULL DEFAULT now()`. Sem impacto funcional observado, pois o `DEFAULT` sempre preenche o valor em uso normal. |
 | `03_recurrence.sql` redundante | Inconsistência de migration | As 3 colunas que adiciona (`recurrence_interval`, `recurrence_until`, `recurrence_days_of_week`) já estão declaradas em `01_events.sql`. `ADD COLUMN IF NOT EXISTS` torna a migration segura, mas desnecessária se executada após `01`. |
-| `notification_logs.event_id` sem FK formal | Decisão arquitetural, não bug | Ver justificativa na seção Relacionamentos. |
+| `notification_logs.event_id` sem FK formal | Resolvido (`09_notification_logs_integrity.sql`, Auditoria P1.3) | Passou a ter FK para `events(id)` com `ON DELETE CASCADE`, eliminando o risco de logs órfãos ao excluir um evento. |
 | `events.category` / `academic_events.category` como TEXT livre, sem FK | Decisão arquitetural, não bug | O vínculo com `categories` é gerenciado pelo frontend, não pelo banco. |
 | `ai_metrics` provisionada mas não populada | Inconsistência funcional | A tabela existe, com RLS e FK corretas, mas a Edge Function `ai-chat` (única chamadora de IA do sistema) não insere nenhuma linha nela. Confirmado por leitura direta de `supabase/functions/ai-chat/index.ts` — não há nenhuma referência a `ai_metrics` no código da função. |
 | `delete-account` depende de `CASCADE` implícito para 3 tabelas | Observação de design, não bug | `profiles`, `academic_calendars`/`academic_events` e `ai_metrics` não são apagadas explicitamente pela função — apenas via `ON DELETE CASCADE` ao excluir o usuário em `auth.users`. Funciona corretamente hoje, mas não é auto-evidente lendo apenas o código da Edge Function. |
@@ -809,4 +814,4 @@ Verificação realizada durante a elaboração desta documentação, comparando 
 
 O modelo de dados do MedAgenda é **enxuto, coeso e adequado ao tamanho da aplicação**. A decisão de delegar autenticação ao Supabase Auth e usar RLS como única linha real de autorização elimina uma classe inteira de bugs de isolamento entre usuários — mesmo sem qualquer filtro no código, o banco nunca vaza dado entre contas. A função `update_updated_at()` centralizada e reaproveitada por 6 tabelas, junto com o padrão consistente de `UUID` + `TIMESTAMPTZ` + `ON DELETE CASCADE`, demonstra disciplina arquitetural apesar do crescimento incremental por migrations numeradas.
 
-As decisões de **não** usar FK formal (`events.category`, `notification_logs.event_id`) são escolhas conscientes e documentadas nas próprias migrations, não omissões — trocam integridade referencial estrita por flexibilidade operacional (recorrência, exclusão de categoria sem quebrar histórico). O ponto mais frágil do modelo é a tabela `ai_metrics`: está corretamente desenhada, mas nenhuma parte do sistema a alimenta hoje, o que representa código morto no schema até que a instrumentação seja implementada na Edge Function `ai-chat`. As demais inconsistências (timestamps nullable em `profiles`, migration redundante `03_recurrence.sql`, ausência de CHECK em `notification_logs.status`) são de baixo risco prático e não comprometem a integridade observável do sistema em produção.
+A decisão de **não** usar FK formal em `events.category` é uma escolha consciente e documentada na própria migration, não uma omissão — troca integridade referencial estrita por flexibilidade operacional (um evento pode manter uma categoria "solta" em texto mesmo após ela ser excluída). Já a ausência de FK em `notification_logs.event_id` foi corrigida pela migration `09_notification_logs_integrity.sql` (Auditoria P1.3): a tabela agora tem `event_id → events.id ON DELETE CASCADE`, o que elimina logs órfãos sem afetar o suporte a eventos recorrentes (múltiplas linhas de log continuam apontando para o mesmo `event_id` da linha-base). O ponto mais frágil do modelo é a tabela `ai_metrics`: está corretamente desenhada, mas nenhuma parte do sistema a alimenta hoje, o que representa código morto no schema até que a instrumentação seja implementada na Edge Function `ai-chat`. As demais inconsistências (timestamps nullable em `profiles`, migration redundante `03_recurrence.sql`, ausência de CHECK em `notification_logs.status`) são de baixo risco prático e não comprometem a integridade observável do sistema em produção.

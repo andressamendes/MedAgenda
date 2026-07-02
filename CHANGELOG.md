@@ -2,6 +2,28 @@
 
 ---
 
+## [Unreleased] — Auditoria Backend P1.3: Integridade de notification_logs
+
+### Validado em 2026-07-02
+
+| Item | Descrição                                                        | Status      |
+|------|-------------------------------------------------------------------|-------------|
+| P1.3 | `notification_logs.event_id` sem FK para `events.id` permitia logs órfãos ao excluir um evento | Corrigido |
+
+**P1.3 — Detalhes:** `notification_logs.event_id` não tinha chave estrangeira para `events.id`.
+Como usuários não têm política de `DELETE` sobre `notification_logs` (só `SELECT`) e o Edge Function
+`send-push-notifications` nunca revisita eventos já excluídos, as linhas de log de um evento apagado
+via `eventService.deleteEvent` ficavam órfãs indefinidamente. Corrigido pela migration
+`sql/09_notification_logs_integrity.sql`, que remove logs órfãos pré-existentes e adiciona
+`FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE` — o mesmo padrão já usado nas
+demais FKs do projeto. Eventos recorrentes continuam funcionando normalmente: cada ocorrência
+permanece uma linha própria em `notification_logs` (chave `user_id + event_id + event_date`),
+todas apontando para o mesmo `event_id` da linha-base em `events`. Validado localmente em Postgres:
+limpeza de log órfão pré-existente, rejeição de novo `event_id` inexistente, e cascade-delete de
+múltiplos logs de ocorrências ao excluir o evento-base.
+
+---
+
 ## [Unreleased] — Etapa 4.1: Correções de Segurança e Robustez
 
 ### Validado em 2026-06-29
