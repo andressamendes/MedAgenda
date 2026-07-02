@@ -48,7 +48,18 @@ Deno.serve(async (req) => {
     // ISO date string for today, used by expandEvent
     const todayStr = isoDateStr(now);
 
-    // Fetch all events that have a reminder configured
+    // Fetch only events that could possibly fire today, instead of scanning
+    // the whole table. A row is only relevant when:
+    //   - it has a reminder configured (reminder_minutes IS NOT NULL);
+    //   - it has already started (event_date <= today) — no occurrence,
+    //     recurring or not, can exist before its base event_date;
+    //   - its recurrence hasn't ended yet (recurrence_until IS NULL,
+    //     which also covers non-recurring events, or >= today);
+    //   - non-recurring events additionally require event_date == today,
+    //     since they only ever occur on that single day.
+    // This is a superset of "occurs today" — expandEvent() below still
+    // performs the exact per-type occurrence check (weekday/interval/etc.),
+    // so no reminder that would have fired is ever excluded here.
     const { data: events, error: eventsError } = await supabase
       .from("events")
       .select([
@@ -56,7 +67,10 @@ Deno.serve(async (req) => {
         "reminder_minutes", "recurrence_type",
         "recurrence_interval", "recurrence_until", "recurrence_days_of_week",
       ].join(", "))
-      .not("reminder_minutes", "is", null);
+      .not("reminder_minutes", "is", null)
+      .lte("event_date", todayStr)
+      .or(`recurrence_until.is.null,recurrence_until.gte.${todayStr}`)
+      .or(`recurrence_type.neq.none,event_date.eq.${todayStr}`);
 
     if (eventsError) throw eventsError;
 
