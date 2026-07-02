@@ -112,59 +112,80 @@ async function refreshAll() {
 // uma vez por sessão de usuário — a guarda contra dupla inicialização fica em
 // authView.js (showApp).
 async function _initApp(session) {
-  restoreSidebarState();
+  try {
+    restoreSidebarState();
 
-  headerEmail.textContent = session.user.email;
+    headerEmail.textContent = session.user.email;
 
-  // Avatar initial from email
-  const avatarCircle = document.getElementById("header-avatar-circle");
-  if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
+    // Avatar initial from email
+    const avatarCircle = document.getElementById("header-avatar-circle");
+    if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
 
-  initAccountView(session.user.id);
-  initNotifications(session.user.id);
-  initPushService(session.user.id, VAPID_PUBLIC_KEY);
+    initAccountView(session.user.id);
+    initNotifications(session.user.id);
+    initPushService(session.user.id, VAPID_PUBLIC_KEY);
 
-  // Re-sync push subscription in case it changed since last login
-  syncPushSubscription().catch(() => {});
+    // Re-sync push subscription in case it changed since last login
+    syncPushSubscription().catch(() => {});
 
-  // Initialize academic calendar service & wiring
-  initAcademicModal();
-  await initAcademicCalendarView(() => {
-    // Called whenever calendars change — refresh filters and views
+    // Initialize academic calendar service & wiring
+    initAcademicModal();
+    try {
+      await initAcademicCalendarView(() => {
+        // Called whenever calendars change — refresh filters and views
+        renderFilterBar("filter-bar");
+        refreshAll();
+      });
+    } catch (err) {
+      // Calendário acadêmico é um recurso independente da agenda pessoal —
+      // uma falha aqui (rede, Supabase) não pode impedir categorias, semana,
+      // mês e lista de compromissos de carregarem normalmente.
+      handleError(err, { context: "initApp.academicCalendar" });
+    }
     renderFilterBar("filter-bar");
-    refreshAll();
-  });
-  renderFilterBar("filter-bar");
 
-  const academicProvider = getAcademicEventProvider();
-  setCalendarAcademicProvider(academicProvider);
-  setWeekViewAcademicProvider(academicProvider);
-  setCalendarPersonalVisibility(isPersonalVisible);
-  setWeekViewPersonalVisibility(isPersonalVisible);
+    const academicProvider = getAcademicEventProvider();
+    setCalendarAcademicProvider(academicProvider);
+    setWeekViewAcademicProvider(academicProvider);
+    setCalendarPersonalVisibility(isPersonalVisible);
+    setWeekViewPersonalVisibility(isPersonalVisible);
 
-  // Hook up "Calendários" button
-  document.getElementById("btn-academic-cals")?.addEventListener("click", openAcademicCalendarModal);
+    // Hook up "Calendários" button
+    document.getElementById("btn-academic-cals")?.addEventListener("click", openAcademicCalendarModal);
 
-  // Categorias devem estar prontas antes do calendário e da lista
-  await initCategories();
-  await Promise.all([
-    initWeekView(document.getElementById("week-container"), {
-      onSlotClick: (date, time) =>
-        openQuickAdd(date, refreshAll, time),
-      onEventClick: handleEventClick,
-      onAcademicEventClick: openAcademicCalendarModal,
-    }),
-    initCalendar(document.getElementById("calendar-container"), {
-      onDayClick: (date) =>
-        openQuickAdd(date, refreshAll),
-      onEventClick: handleEventClick,
-      onAcademicEventClick: openAcademicCalendarModal,
-    }),
-    loadEvents(),
-  ]);
+    // Categorias devem estar prontas antes do calendário e da lista
+    try {
+      await initCategories();
+    } catch (err) {
+      // Sem categorias carregadas o app continua utilizável (cor padrão nos
+      // cards); não deve bloquear semana, mês e lista de compromissos.
+      handleError(err, { context: "initApp.categories" });
+    }
 
-  // Restore the page the user was on before the last refresh/logout
-  restoreLastPage();
+    await Promise.all([
+      initWeekView(document.getElementById("week-container"), {
+        onSlotClick: (date, time) =>
+          openQuickAdd(date, refreshAll, time),
+        onEventClick: handleEventClick,
+        onAcademicEventClick: openAcademicCalendarModal,
+      }),
+      initCalendar(document.getElementById("calendar-container"), {
+        onDayClick: (date) =>
+          openQuickAdd(date, refreshAll),
+        onEventClick: handleEventClick,
+        onAcademicEventClick: openAcademicCalendarModal,
+      }),
+      loadEvents(),
+    ]);
+
+    // Restore the page the user was on before the last refresh/logout
+    restoreLastPage();
+  } catch (err) {
+    // Última rede de segurança: qualquer falha não tratada nas etapas acima
+    // não pode deixar o usuário numa tela parcialmente carregada sem aviso.
+    handleError(err, { context: "initApp", silent: true });
+    toast.error("Não foi possível carregar o aplicativo completamente. Recarregue a página para tentar novamente.");
+  }
 }
 
 // ── SW → App message: open event from push notification click ──────────────
