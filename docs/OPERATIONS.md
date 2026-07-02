@@ -273,13 +273,22 @@ Apenas três valores chegam ao frontend, via `config.js` gerado no deploy: `SUPA
 
 ### Service Worker
 
-`service-worker.js` implementa a estratégia **App Shell**, com versão de cache atual `CACHE_VERSION = 'v8'` (nome do cache: `medagenda-shell-v8`).
+`service-worker.js` implementa a estratégia **App Shell**, com versão de cache atual `CACHE_VERSION = 'v9'` (nome do cache: `medagenda-shell-v9`).
 
-- **Instalação (`install`):** pré-cacheia toda a App Shell — cerca de 60 arquivos estáticos (HTML, CSS, todos os módulos JS, manifest e os 8 ícones) — e chama `self.skipWaiting()`.
+- **Instalação (`install`):** pré-cacheia toda a App Shell — HTML, CSS, os 44 módulos JS realmente importados pelo frontend, o manifest e os 8 ícones — e chama `self.skipWaiting()`.
 - **Ativação (`activate`):** apaga qualquer cache cujo nome comece com `medagenda-` e seja diferente do `CACHE_NAME` atual, depois chama `self.clients.claim()`.
 - **Fetch:** requisições não-GET passam direto (sem cache); chamadas para hosts `*.supabase.co` e qualquer origem cross-origin também passam direto para a rede. Para assets same-origin, usa cache-first: retorna do cache se existir, senão busca na rede e grava uma cópia no cache. Se a rede falhar e a requisição for de documento HTML, retorna o `index.html` em cache como fallback offline.
 - **Mensagens:** escuta `{ type: 'SKIP_WAITING' }`, disparado por `pwa.js` para ativar imediatamente um Service Worker em espera.
 - **Push:** escuta o evento `push`, exibe a notificação (título, corpo, ícone, badge, tag, ações "Abrir"/"Dispensar") e trata o clique — foca uma janela existente ou abre uma nova, repassando o `eventId` via `postMessage`.
+
+#### Lista de módulos da App Shell (automatizada)
+
+O bloco de módulos JS dentro de `APP_SHELL` (entre os marcadores `AUTO-GENERATED:BEGIN`/`END`) é gerado por `scripts/generate-app-shell.js`, que percorre o grafo real de `import` a partir dos entry points declarados em `index.html` (`script.js` e o módulo inline que carrega `pwa.js`). Isso elimina a manutenção manual da lista, que já havia ficado desatualizada (10 módulos usados pelo app — `modalController.js`, `eventFormView.js`, `assistantView.js`, `navigationView.js`, `categoryView.js`, `authView.js`, `aiPanelView.js`, `academicCalendarEventsView.js`, `academicCalendarICSView.js` e `academicCalendarFilter.js` — não estavam pré-cacheados).
+
+- `npm run build:app-shell` — regenera o bloco em `service-worker.js` a partir do código-fonte atual.
+- `npm run check:app-shell` — falha (exit 1) se o bloco estiver desatualizado; rodado no `ci.yml` a cada push/PR, para impedir que um novo módulo seja adicionado ao frontend sem entrar no pré-cache.
+
+**Limitação conhecida:** `config.js` (credenciais Supabase/VAPID) é gerado em tempo de deploy pelo `deploy.yml` a partir de secrets do repositório e está no `.gitignore` — nunca existe no checkout do código-fonte, então o gerador não consegue incluí-lo no pré-cache. Ele continua sendo buscado e cacheado oportunisticamente pelo handler de `fetch` (cache-first) no primeiro carregamento online, como já acontecia antes desta automação.
 
 ### Cache
 
