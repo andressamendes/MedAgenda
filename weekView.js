@@ -1,6 +1,7 @@
 import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
+import { handleError } from "./errorService.js";
 
 let _academicProvider  = null;
 let _showPersonal      = () => true;
@@ -160,7 +161,12 @@ async function fetchAndRender() {
     const personal = expandEvents(rawEvents, start, end);
     renderEvents(personal);
     renderAcademicEvents(academicEvents);
-  } catch { /* session expired — onAuthStateChange handles redirect */ }
+  } catch (err) {
+    // Erro (rede/banco/sessão) não deve ser tratado como "semana sem eventos" —
+    // registrar via infraestrutura existente. Toast fica a cargo de loadEvents()
+    // em script.js para não duplicar notificações no mesmo refreshAll().
+    handleError(err, { context: "weekView.fetchAndRender", silent: true });
+  }
 
   updateNowLine();
   scrollToTime();

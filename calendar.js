@@ -1,6 +1,7 @@
 import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday } from "./utils.js";
+import { handleError } from "./errorService.js";
 
 let _showPersonal = () => true;
 
@@ -88,7 +89,11 @@ async function fetchAndRender() {
     ]);
     const personal = expandEvents(rawEvents, start, end);
     renderGrid(groupByDate([...personal, ...academicEvents]));
-  } catch {
+  } catch (err) {
+    // Erro (rede/banco/sessão) não deve ser tratado como "mês sem eventos" —
+    // registrar via infraestrutura existente. Toast fica a cargo de loadEvents()
+    // em script.js para não duplicar notificações no mesmo refreshAll().
+    handleError(err, { context: "calendar.fetchAndRender", silent: true });
     renderGrid({});
   }
 }
