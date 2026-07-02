@@ -59,6 +59,7 @@ import { initCategoryView, initCategories, categoryColor } from "./categoryView.
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
 import { initAuthView, showAuthView, showApp, showLogin } from "./authView.js";
 import { initModal } from "./modalController.js";
+import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -641,3 +642,8 @@ initAuthView({
   onSignedIn:      _initApp,
   onBeforeSignOut: resetAssistant,
 });
+
+// ── [DOMAIN: pwa] — registro do Service Worker e prompts de instalação ───────
+registerServiceWorker();
+initInstallButton();
+initOfflineDetection();

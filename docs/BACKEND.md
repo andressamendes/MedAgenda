@@ -89,7 +89,7 @@ supabase/
 
 ## Edge Functions
 
-O projeto possui **3 Edge Functions**, todas em Deno, todas com CORS liberado (`Access-Control-Allow-Origin: *`) e resposta em JSON.
+O projeto possui **3 Edge Functions**, todas em Deno, todas com resposta em JSON. `delete-account` e `send-push-notifications` têm CORS liberado (`Access-Control-Allow-Origin: *`); `ai-chat` restringe a origem a uma allowlist (produção + localhost/127.0.0.1 para desenvolvimento local) — ver `SECURITY.md`.
 
 ### ai-chat
 
@@ -552,7 +552,7 @@ Revisão documental da arquitetura atual, sem alteração de código:
 
 - **Edge Functions existentes:** exatamente 3 (`ai-chat`, `send-push-notifications`, `delete-account`), cada uma com responsabilidade única e bem definida — não há sobreposição de propósito entre elas.
 - **Responsabilidades bem definidas:** confirmado. `ai-chat` só fala com Gemini; `send-push-notifications` só lida com o ciclo de notificações; `delete-account` só lida com exclusão de conta. Nenhuma mistura lógica de domínios diferentes.
-- **Integração com Supabase:** consistente — todas as três funções usam `@supabase/supabase-js`, ainda que importado de fontes diferentes (`npm:@supabase/supabase-js@2` em `ai-chat`/`send-push-notifications`, `https://esm.sh/@supabase/supabase-js@2` em `delete-account`). Essa divergência de import não é um erro funcional, mas é uma inconsistência de estilo/manutenção entre as funções que vale padronizar.
+- **Integração com Supabase:** consistente — todas as três funções usam `@supabase/supabase-js`, na mesma versão fixa `2.110.0` (sem range flutuante), ainda que importado de fontes diferentes (`npm:@supabase/supabase-js@2.110.0` em `ai-chat`/`send-push-notifications`, `https://esm.sh/@supabase/supabase-js@2.110.0` em `delete-account`). Essa divergência de fonte de import não é um erro funcional, mas é uma inconsistência de estilo/manutenção entre as funções que vale padronizar.
 - **Estilo de servidor divergente:** `ai-chat` e `send-push-notifications` usam `Deno.serve` nativo; `delete-account` usa `serve` de `https://deno.land/std@0.177.0/http/server.ts`. Funcionalmente equivalente, mas inconsistente.
 - **Integração com Gemini:** correta e isolada — a chave nunca é exposta ao frontend, e apenas `ai-chat` a utiliza. O modelo (`gemini-2.5-flash`) é definido no frontend (`config/ai.js`) e enviado como parâmetro, o que significa que a Edge Function confia no valor de `model` vindo do cliente sem validá-lo contra uma lista permitida — um cliente malicioso poderia, em tese, solicitar um modelo Gemini diferente do pretendido (não um risco de segurança de dados, mas uma falta de validação de allowlist no servidor).
 - **Uso dos Secrets:** adequado — segredos sensíveis (`GEMINI_API_KEY`, chaves VAPID, `SUPABASE_SERVICE_ROLE_KEY`) só existem como secrets de Edge Function, nunca no frontend ou no repositório.

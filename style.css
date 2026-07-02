@@ -1961,6 +1961,12 @@ textarea { resize: vertical; }
   font-size: .9rem;
 }
 
+.academic-loading {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 1.5rem 0;
+}
+
 .diag-item {
   display: flex;
   align-items: center;

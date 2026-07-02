@@ -131,7 +131,7 @@ script.js  (Bootstrap: inicializa serviços, Views e AuthView)
 ### Camadas
 
 **index.html**
-Define a estrutura estática de toda a UI: tela de carregamento, telas de autenticação (login, cadastro, recuperação de senha), aplicação principal (header, sidebar, páginas, bottom nav), todos os modais e o painel de IA. Carrega `script.js` como `<script type="module">`.
+Define a estrutura estática de toda a UI: tela de carregamento, telas de autenticação (login, cadastro, recuperação de senha), aplicação principal (header, sidebar, páginas, bottom nav), todos os modais e o painel de IA. Carrega `script.js` como `<script type="module">`. Declara a Content Security Policy da aplicação via `<meta http-equiv="Content-Security-Policy">` (ver `SECURITY.md`) — não há inline scripts nem inline styles no documento.
 
 **script.js (Bootstrap)**
 Único ponto de entrada do bundle. Importa e inicializa todos os módulos de UI. Mantém o estado compartilhado `allEvents` (lista de eventos do usuário). Coordena a sequência de inicialização após login.
@@ -154,17 +154,13 @@ Backend gerenciado: banco de dados PostgreSQL com RLS, autenticação, armazenam
 
 ### Ponto de entrada
 
-O `index.html` carrega dois módulos:
+O `index.html` carrega um único módulo:
 
 ```html
 <script type="module" src="script.js"></script>
-<script type="module">
-  import { registerServiceWorker, initInstallButton, initOfflineDetection } from './pwa.js';
-  registerServiceWorker();
-  initInstallButton();
-  initOfflineDetection();
-</script>
 ```
+
+`script.js` importa `registerServiceWorker`, `initInstallButton` e `initOfflineDetection` de `pwa.js` e os chama ao final de sua execução, junto com os demais `init*()`. Esse bootstrap era antes um segundo `<script type="module">` inline em `index.html`; foi movido para dentro de `script.js` para que a página não dependa de script inline (permitindo uma Content Security Policy sem `'unsafe-inline'` em `script-src` — ver `SECURITY.md`).
 
 ### Sequência de inicialização
 
@@ -779,7 +775,7 @@ restoreSidebarState()
 
 **Responsabilidade:** registra o Service Worker, detecta quando há uma nova versão disponível e exibe o banner de atualização. Gerencia o prompt de instalação nativo do navegador (`beforeinstallprompt`). Detecta mudanças de conectividade e exibe/esconde a barra offline.
 
-**Quem utiliza:** `index.html` (script inline separado de `script.js`).
+**Quem utiliza:** `script.js` (importado junto com os demais módulos e chamado ao final do bootstrap).
 
 **Principais funções exportadas:**
 - `registerServiceWorker()` — registra o SW e lida com atualizações.

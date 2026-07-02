@@ -1,11 +1,24 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin":  "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createClient } from "npm:@supabase/supabase-js@2.110.0";
 
 const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+// Only the official production origin (GitHub Pages) and local dev servers
+// (any port on localhost/127.0.0.1) may call this function from a browser.
+const PROD_ORIGIN = "https://andressamendes.github.io";
+const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+function isAllowedOrigin(origin: string | null): boolean {
+  return !!origin && (origin === PROD_ORIGIN || LOCAL_ORIGIN_RE.test(origin));
+}
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin":  isAllowedOrigin(origin) ? origin! : "null",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 // ── Prompt builders ────────────────────────────────────────────────────────────
 
@@ -74,10 +87,10 @@ function addMinutes(timeStr: string, minutes: number): string {
   return `${String(Math.floor((total % 1440) / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status: number, cors: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
@@ -107,6 +120,10 @@ interface PromptPayload {
 // ── Main handler ───────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
+  const origin       = req.headers.get("Origin");
+  const CORS_HEADERS = corsHeaders(origin);
+  const json = (body: unknown, status = 200) => jsonResponse(body, status, CORS_HEADERS);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
@@ -118,7 +135,7 @@ Deno.serve(async (req) => {
     // ── Auth ────────────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse({ error: "Token de autenticação ausente." }, 401);
+      return json({ error: "Token de autenticação ausente." }, 401);
     }
 
     const supabaseUrl      = Deno.env.get("SUPABASE_URL")!;
@@ -127,7 +144,7 @@ Deno.serve(async (req) => {
 
     if (!geminiApiKey) {
       console.error("[ai-chat] GEMINI_API_KEY not configured");
-      return jsonResponse({ error: "Serviço de IA não configurado." }, 503);
+      return json({ error: "Serviço de IA não configurado." }, 503);
     }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -136,7 +153,7 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return jsonResponse({ error: "Sessão inválida ou expirada." }, 401);
+      return json({ error: "Sessão inválida ou expirada." }, 401);
     }
 
     // ── Input validation ────────────────────────────────────────────────────
@@ -144,18 +161,18 @@ Deno.serve(async (req) => {
     try {
       payload = await req.json();
     } catch {
-      return jsonResponse({ error: "Corpo da requisição inválido." }, 400);
+      return json({ error: "Corpo da requisição inválido." }, 400);
     }
 
     const VALID_TYPES = ['weekly_summary', 'study_suggestion', 'schedule_analysis'];
     if (!payload?.type || !VALID_TYPES.includes(payload.type)) {
-      return jsonResponse({ error: `Tipo de prompt inválido. Use: ${VALID_TYPES.join(', ')}.` }, 400);
+      return json({ error: `Tipo de prompt inválido. Use: ${VALID_TYPES.join(', ')}.` }, 400);
     }
     if (!Array.isArray(payload.events)) {
-      return jsonResponse({ error: "Campo 'events' deve ser um array." }, 400);
+      return json({ error: "Campo 'events' deve ser um array." }, 400);
     }
     if (payload.events.length > 500) {
-      return jsonResponse({ error: "Número de eventos excede o limite (500)." }, 400);
+      return json({ error: "Número de eventos excede o limite (500)." }, 400);
     }
 
     promptType = payload.type;
@@ -187,16 +204,16 @@ Deno.serve(async (req) => {
     console.log(`[ai-chat] type=${promptType} user=${user.id} status=${geminiRes.status} ms=${elapsed}`);
 
     if (geminiRes.status === 429) {
-      return jsonResponse({ error: "Limite de requisições do serviço de IA atingido. Aguarde e tente novamente." }, 429);
+      return json({ error: "Limite de requisições do serviço de IA atingido. Aguarde e tente novamente." }, 429);
     }
     if (geminiRes.status === 401 || geminiRes.status === 403) {
       console.error("[ai-chat] Gemini auth error:", geminiRes.status);
-      return jsonResponse({ error: "Erro de autenticação com o serviço de IA." }, 503);
+      return json({ error: "Erro de autenticação com o serviço de IA." }, 503);
     }
     if (!geminiRes.ok) {
       const errBody = await geminiRes.text().catch(() => '');
       console.error("[ai-chat] Gemini error:", geminiRes.status, errBody);
-      return jsonResponse({ error: "Erro ao contatar o serviço de IA. Tente novamente." }, 502);
+      return json({ error: "Erro ao contatar o serviço de IA. Tente novamente." }, 502);
     }
 
     const geminiBody = await geminiRes.json();
@@ -204,14 +221,14 @@ Deno.serve(async (req) => {
 
     if (!text) {
       console.warn("[ai-chat] Empty response from Gemini");
-      return jsonResponse({ error: "O serviço de IA retornou uma resposta vazia. Tente novamente." }, 502);
+      return json({ error: "O serviço de IA retornou uma resposta vazia. Tente novamente." }, 502);
     }
 
-    return jsonResponse({ text, ms: elapsed });
+    return json({ text, ms: elapsed });
 
   } catch (err) {
     const elapsed = Date.now() - startedAt;
     console.error(`[ai-chat] Unexpected error type=${promptType} ms=${elapsed}:`, err);
-    return jsonResponse({ error: "Erro interno do servidor. Tente novamente." }, 500);
+    return json({ error: "Erro interno do servidor. Tente novamente." }, 500);
   }
 });
