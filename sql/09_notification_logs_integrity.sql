@@ -25,6 +25,18 @@ WHERE NOT EXISTS (
 -- ocorrência continua sendo uma linha própria em notification_logs
 -- (chave user_id + event_id + event_date), todas apontando para o mesmo
 -- event_id da linha-base em events.
-ALTER TABLE notification_logs
-  ADD CONSTRAINT notification_logs_event_id_fkey
-  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE;
+--
+-- Guard idempotente (Postgres não suporta ADD CONSTRAINT IF NOT EXISTS):
+-- mantém consistência com o restante de /sql, onde toda migration pode ser
+-- reexecutada com segurança (CREATE TABLE/POLICY IF NOT EXISTS, ADD COLUMN
+-- IF NOT EXISTS etc.).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'notification_logs_event_id_fkey'
+  ) THEN
+    ALTER TABLE notification_logs
+      ADD CONSTRAINT notification_logs_event_id_fkey
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE;
+  END IF;
+END $$;
