@@ -1,0 +1,497 @@
+# Operação do MedAgenda
+
+> Manual operacional oficial do MedAgenda. Documenta exatamente como o sistema é operado, mantido e administrado em produção, refletindo o estado atual do repositório. Nenhum procedimento aqui descrito foi inventado — onde um processo não existe (ex.: backup automatizado), isso é registrado explicitamente em vez de presumido. Nenhuma alteração de código, workflow, banco ou Edge Function foi feita para produzir este documento.
+
+---
+
+## Visão Geral
+
+O MedAgenda não possui infraestrutura própria para operar. É uma aplicação **cliente-BaaS** (Backend as a Service): o frontend é um site estático publicado no GitHub Pages, e todo o backend — autenticação, banco de dados, storage e funções de servidor — é fornecido pelo Supabase. Não há servidor de aplicação, container, VM ou processo próprio para monitorar, reiniciar ou escalar; "operar o MedAgenda" significa, na prática, operar três coisas: o pipeline do GitHub Actions, o projeto Supabase e os Secrets que conectam um ao outro.
+
+Não existem ambientes separados (dev/staging/prod). Um único projeto Supabase e uma única publicação no GitHub Pages atendem produção; desenvolvimento local usa o mesmo projeto Supabase (ou outro criado manualmente pelo desenvolvedor) apontado via `config.js` local.
+
+### Diagrama do ciclo operacional
+
+```
+                 GitHub
+        (código-fonte, branch main)
+                    │
+                    │ push / merge
+                    ▼
+             GitHub Actions
+   ┌────────────────────────────────┐
+   │ ci.yml               → testes  │
+   │ deploy.yml           → frontend│
+   │ deploy-functions.yml → Edge Fn │
+   └────────────────────────────────┘
+                    │
+                    ▼
+              GitHub Pages
+        (frontend estático: HTML/CSS/JS,
+         Service Worker, manifest)
+                    │
+                    ▼
+                Supabase
+   ┌────────────────────────────────┐
+   │ Auth · PostgreSQL (RLS) ·      │
+   │ Storage · Edge Functions ·     │
+   │ Scheduler (cron)               │
+   └────────────────────────────────┘
+                    │
+                    ▼
+                 Usuários
+        (navegador / PWA instalada)
+```
+
+O fluxo é unidirecional na maior parte do tempo: código sobe para o GitHub, o GitHub Actions publica o frontend e (condicionalmente) uma Edge Function, e os usuários finais falam diretamente com o Supabase a partir do navegador — não há reintermediação pelo GitHub Pages depois que a página carrega.
+
+---
+
+# Deploy
+
+Existem quatro superfícies de deploy no projeto, com automação e frequência diferentes.
+
+### Deploy Frontend
+
+**Quando acontece:** automaticamente a cada `push` na branch `main`, ou manualmente via `workflow_dispatch`.
+
+**Como:** o workflow `deploy.yml` gera `config.js` a partir dos GitHub Secrets, empacota todos os arquivos estáticos do repositório e publica no GitHub Pages via `actions/deploy-pages@v4`.
+
+**Onde fica visível:** `https://andressamendes.github.io/MedAgenda/`.
+
+### Deploy Edge Functions
+
+**Quando acontece:** automaticamente, mas **apenas para a função `ai-chat`**, a cada `push` em `main` que altere arquivos em `supabase/functions/**`, ou manualmente via `workflow_dispatch`.
+
+**Como:** o workflow `deploy-functions.yml` autentica a Supabase CLI com `SUPABASE_ACCESS_TOKEN` e executa `supabase functions deploy ai-chat --project-ref $SUPABASE_PROJECT_REF`.
+
+**Importante:** as outras duas Edge Functions do projeto — `send-push-notifications` e `delete-account` — **não têm deploy automatizado**. Qualquer alteração nelas exige `supabase functions deploy <nome>` manual. Isso é uma lacuna real do pipeline, não uma omissão deste documento (ver seção "Auditoria").
+
+### Deploy Banco
+
+**Quando acontece:** não há gatilho automático. As migrations em `/sql` são aplicadas **manualmente**, uma por vez, colando o conteúdo do arquivo no **SQL Editor do Supabase Dashboard**, sempre em ordem numérica crescente.
+
+**Por que é manual:** o projeto não usa a CLI de migrations do Supabase (`supabase db push`/`supabase migration`) nem qualquer outra ferramenta de versionamento de schema. Não existe pasta `supabase/migrations/`; as migrations vivem em `/sql` na raiz do repositório.
+
+**Ordem obrigatória de aplicação:**
+
+```
+01_events.sql
+02_categories.sql
+03_recurrence.sql
+04_push_notifications.sql
+05_profiles.sql
+06_storage.sql
+07_academic_calendar.sql
+08_ai_metrics.sql
+```
+
+`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql` e `08_ai_metrics.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. Ver detalhamento completo em [`DATABASE.md`](DATABASE.md).
+
+**Quando deve ser aplicado:** sempre **antes** de mesclar/publicar código (frontend ou Edge Function) que dependa das novas tabelas/colunas — caso contrário, o código em produção pode referenciar schema inexistente.
+
+### Deploy PWA
+
+Não existe um "deploy" separado para a PWA — o manifest (`manifest.webmanifest`) e o Service Worker (`service-worker.js`) são arquivos estáticos publicados junto com o restante do frontend pelo mesmo workflow `deploy.yml`. A "atualização" da PWA acontece no navegador do usuário, não em um pipeline: veja a seção "PWA" para o mecanismo de detecção e ativação de nova versão.
+
+### Resumo de quando cada deploy acontece
+
+| Componente | Gatilho | Automação |
+|---|---|---|
+| Frontend (GitHub Pages) | Push em `main` (qualquer arquivo) ou `workflow_dispatch` | Total |
+| Edge Function `ai-chat` | Push em `main` alterando `supabase/functions/**`, ou `workflow_dispatch` | Total |
+| Edge Function `send-push-notifications` | Nenhum — decisão do mantenedor | Manual via CLI |
+| Edge Function `delete-account` | Nenhum — decisão do mantenedor | Manual via CLI |
+| Migrations SQL | Nenhum — decisão do mantenedor | Manual via SQL Editor |
+| PWA (manifest/Service Worker) | Empacotado junto ao deploy do Frontend | Total (como parte do frontend) |
+| Projeto Supabase em si (criação/configuração) | Nenhum — feito uma única vez | Manual via Dashboard |
+
+---
+
+# GitHub Actions
+
+O repositório define **3 workflows**, todos em `.github/workflows/`.
+
+## `ci.yml` — CI — Tests
+
+- **Objetivo:** garantir que a lógica de domínio pura (recorrência, notificações, assistente, analytics, utils) continua correta antes de qualquer merge.
+- **Gatilho:** `push` para `main` e `pull_request` contra `main`.
+- **Etapas executadas:**
+  1. `actions/checkout@v4`
+  2. `actions/setup-node@v4` (Node.js 20)
+  3. `npm test`
+- **Artefatos produzidos:** nenhum. Apenas o resultado (sucesso/falha) do `npm test`, visível na aba **Actions** e no status check do Pull Request.
+- **Efeito de falha:** bloqueia visualmente o PR (status check vermelho); não há branch protection documentada no repositório impedindo o merge por si só além do status check.
+
+## `deploy.yml` — Deploy — GitHub Pages
+
+- **Objetivo:** publicar o frontend estático no GitHub Pages.
+- **Gatilho:** `push` para `main` e `workflow_dispatch` (disparo manual).
+- **Permissões declaradas:** `contents: read`, `pages: write`, `id-token: write`.
+- **Concorrência:** grupo `pages`, sem cancelamento de execuções em andamento (`cancel-in-progress: false`) — deploys enfileiram em vez de se cancelarem.
+- **Etapas executadas:**
+  1. `actions/checkout@v4`
+  2. Gera `config.js` a partir dos Secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`, com `APP_URL` fixo (`https://andressamendes.github.io/MedAgenda/`) escrito diretamente no workflow
+  3. `actions/configure-pages@v5`
+  4. `actions/upload-pages-artifact@v3`, empacotando todo o diretório raiz (`path: '.'`)
+  5. `actions/deploy-pages@v4`, publicando o artefato
+- **Artefatos produzidos:** o artefato de páginas (site estático completo, incluindo o `config.js` gerado) enviado ao GitHub Pages; URL de deploy exposta em `steps.deployment.outputs.page_url` e no ambiente `github-pages` do repositório.
+
+## `deploy-functions.yml` — Deploy — Supabase Edge Functions
+
+- **Objetivo:** publicar a Edge Function `ai-chat` no projeto Supabase.
+- **Gatilho:** `push` para `main` restrito a mudanças em `supabase/functions/**`, e `workflow_dispatch`.
+- **Etapas executadas:**
+  1. `actions/checkout@v4`
+  2. `supabase/setup-cli@v1` (versão `latest`)
+  3. `supabase functions deploy ai-chat --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}`, autenticado via variável de ambiente `SUPABASE_ACCESS_TOKEN`
+- **Artefatos produzidos:** nenhum artefato do GitHub Actions — o resultado é o código da função atualizado diretamente no Edge Runtime do Supabase.
+- **Escopo:** deploya **somente `ai-chat`**. Não há step para `send-push-notifications` nem `delete-account`.
+
+### Como acompanhar
+
+Todos os três workflows são visíveis em **GitHub → Actions**, filtráveis por nome do workflow. Logs completos de cada step ficam disponíveis por execução.
+
+---
+
+# Edge Functions
+
+O projeto possui **3 Edge Functions**, todas em Deno, hospedadas pelo Supabase, em `supabase/functions/`: `ai-chat`, `send-push-notifications`, `delete-account`, além do módulo compartilhado `_shared/recurrence-core.js` (não é uma função invocável, é lógica importada pelas demais).
+
+### Deploy
+
+| Função | Mecanismo de deploy |
+|---|---|
+| `ai-chat` | Automático via `deploy-functions.yml`, a cada push em `main` que altere `supabase/functions/**` |
+| `send-push-notifications` | Manual: `supabase functions deploy send-push-notifications` |
+| `delete-account` | Manual: `supabase functions deploy delete-account` |
+
+Deploy manual completo, para as três funções (útil ao provisionar um projeto novo ou reimplantar tudo de uma vez):
+
+```bash
+supabase login
+supabase link --project-ref <PROJECT_REF>
+supabase functions deploy ai-chat
+supabase functions deploy send-push-notifications
+supabase functions deploy delete-account
+```
+
+### Rollback
+
+Não existe mecanismo de rollback automatizado nem histórico de versões de Edge Function gerenciado por este repositório. O Supabase mantém internamente as implantações de cada função, mas o projeto não documenta nem usa esse recurso. Na prática, o único "rollback" disponível é:
+
+1. Identificar o commit anterior estável no Git (`git log` / `git revert`).
+2. Fazer checkout ou reverter para esse commit.
+3. Rodar novamente `supabase functions deploy <nome>` (manual) ou empurrar o revert para `main` (automático, apenas para `ai-chat`).
+
+Não há ambiente de staging para validar a função antes do rollback afetar produção.
+
+### Versionamento
+
+Não há versionamento semântico de Edge Functions no projeto (sem tags `v1`, `v2` etc.). O código de cada função é versionado exclusivamente pelo histórico do Git no diretório `supabase/functions/<nome>/`. A versão "em produção" é sempre o conteúdo do `index.ts` no commit mais recente que foi efetivamente deployado — não necessariamente o commit mais recente da branch `main`, já que `send-push-notifications` e `delete-account` dependem de deploy manual.
+
+### Atualização
+
+Para atualizar uma Edge Function:
+
+1. Editar o `index.ts` correspondente em `supabase/functions/<nome>/`.
+2. Rodar `npm test` (cobre apenas lógica de frontend — as funções em si não têm teste automatizado).
+3. Testar localmente, se necessário, com `supabase functions serve`.
+4. Commit e push para `main`.
+5. Para `ai-chat`: o deploy acontece automaticamente. Para `send-push-notifications`/`delete-account`: rodar `supabase functions deploy <nome>` manualmente.
+6. Verificar os logs da função no Supabase Dashboard após a atualização.
+
+---
+
+# Banco
+
+### Migrations
+
+Localizadas em `/sql`, oito arquivos numerados sequencialmente (`01_` a `08_`), cada um autocontido e documentando suas dependências no cabeçalho. Cobrem: eventos (`01`), categorias (`02`), colunas de recorrência (`03`, redundante com `01` mas idempotente), push notifications (`04`), perfis (`05`), políticas de Storage (`06`), calendário acadêmico (`07`) e métricas de IA (`08`).
+
+### Ordem
+
+Aplicação obrigatória em ordem numérica crescente — ver lista completa na seção "Deploy → Deploy Banco" acima. A dependência mais relevante é a função `update_updated_at()`, definida em `01_events.sql` e reutilizada por triggers em seis das oito tabelas.
+
+### Cuidados
+
+- Nunca editar uma migration já aplicada em produção — criar uma nova migration numerada para qualquer alteração de schema.
+- Toda tabela nova deve habilitar RLS (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`) e declarar suas políticas na mesma migration que a cria, não separadamente.
+- Migrations SQL não fazem parte de nenhum workflow de CI/CD — aplicar **antes** de publicar código (frontend/Edge Function) que dependa do novo schema, para não deixar produção referenciando colunas/tabelas inexistentes.
+- `06_storage.sql` tem um pré-requisito manual: o bucket `avatars` deve ser criado antes, pelo Supabase Dashboard (Storage → New Bucket → público) — a migration só cria as políticas, não o bucket em si.
+- Alterações na lógica de recorrência devem manter sincronizados `recurrence.js` (frontend) e `supabase/functions/_shared/recurrence-core.js` (Edge Function), que compartilham o mesmo algoritmo.
+
+### Rollback
+
+Não existe mecanismo de rollback (`down migration`) para nenhuma das oito migrations — todas são escritas apenas no sentido de aplicação (`up`), sem script de reversão correspondente. A maioria usa `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`, o que as torna seguras para reexecução, mas não oferece um caminho automatizado para desfazer uma migration já aplicada. Reverter uma mudança de schema em produção exige escrever e executar manualmente o SQL inverso (`DROP TABLE`, `ALTER TABLE ... DROP COLUMN`, etc.) no SQL Editor, avaliando primeiro o impacto sobre dados já gravados.
+
+---
+
+# Secrets
+
+Nenhum valor de secret é divulgado neste documento — apenas onde cada um vive e é consumido.
+
+### Secrets do repositório GitHub
+
+Configurados em **Settings → Secrets and variables → Actions**:
+
+| Secret | Utilizado em |
+|---|---|
+| `SUPABASE_URL` | `deploy.yml` (geração de `config.js`) |
+| `SUPABASE_ANON_KEY` | `deploy.yml` (geração de `config.js`) |
+| `VAPID_PUBLIC_KEY` | `deploy.yml` (geração de `config.js`) — opcional; vazio desativa Push |
+| `SUPABASE_ACCESS_TOKEN` | `deploy-functions.yml` (autenticação da Supabase CLI) |
+| `SUPABASE_PROJECT_REF` | `deploy-functions.yml` (`--project-ref` no deploy da Edge Function) |
+
+### Secrets do projeto Supabase
+
+Configurados via `supabase secrets set` (ou pelo Dashboard → Edge Functions → Secrets), consumidos exclusivamente pelas Edge Functions:
+
+| Secret | Utilizado em |
+|---|---|
+| `GEMINI_API_KEY` | `ai-chat` — autentica as chamadas à API do Google Gemini |
+| `VAPID_PUBLIC_KEY` | `send-push-notifications` — assinatura de notificações Web Push |
+| `VAPID_PRIVATE_KEY` | `send-push-notifications` — assinatura de notificações Web Push |
+| `VAPID_SUBJECT` | `send-push-notifications` — identifica o remetente perante os serviços de push (fallback no código: `mailto:admin@medagenda.app`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | `send-push-notifications`, `delete-account` — operações administrativas que contornam RLS. Injetada automaticamente pelo runtime do Supabase, não configurada manualmente |
+| `SUPABASE_URL` | `ai-chat`, `delete-account` — validação de JWT via `auth.getUser()` |
+| `SUPABASE_ANON_KEY` | `ai-chat`, `delete-account` — validação de JWT via `auth.getUser()` |
+
+### Fronteira de exposição ao navegador
+
+Apenas três valores chegam ao frontend, via `config.js` gerado no deploy: `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `VAPID_PUBLIC_KEY`. Todos são seguros para exposição por definição (a `anon key` não concede acesso a dados sem JWT + RLS; a VAPID pública é pública por definição do protocolo Web Push). Nenhum outro secret listado acima sai do ambiente de servidor (GitHub Actions ou Edge Functions).
+
+`config.js` está listado em `.gitignore` e nunca é versionado; o modelo versionado é `config.example.js`, sem valores reais.
+
+---
+
+# PWA
+
+### Manifest
+
+`manifest.webmanifest` define a instalação da aplicação: `display: standalone`, `start_url`/`scope: /MedAgenda/`, `theme_color: #3b82f6`, `background_color: #f9fafb`, `orientation: portrait-primary`, `lang: pt-BR`, e um conjunto de 8 ícones (72px a 512px, com propósito `any` e `maskable` nos tamanhos 192 e 512).
+
+### Service Worker
+
+`service-worker.js` implementa a estratégia **App Shell**, com versão de cache atual `CACHE_VERSION = 'v8'` (nome do cache: `medagenda-shell-v8`).
+
+- **Instalação (`install`):** pré-cacheia toda a App Shell — cerca de 60 arquivos estáticos (HTML, CSS, todos os módulos JS, manifest e os 8 ícones) — e chama `self.skipWaiting()`.
+- **Ativação (`activate`):** apaga qualquer cache cujo nome comece com `medagenda-` e seja diferente do `CACHE_NAME` atual, depois chama `self.clients.claim()`.
+- **Fetch:** requisições não-GET passam direto (sem cache); chamadas para hosts `*.supabase.co` e qualquer origem cross-origin também passam direto para a rede. Para assets same-origin, usa cache-first: retorna do cache se existir, senão busca na rede e grava uma cópia no cache. Se a rede falhar e a requisição for de documento HTML, retorna o `index.html` em cache como fallback offline.
+- **Mensagens:** escuta `{ type: 'SKIP_WAITING' }`, disparado por `pwa.js` para ativar imediatamente um Service Worker em espera.
+- **Push:** escuta o evento `push`, exibe a notificação (título, corpo, ícone, badge, tag, ações "Abrir"/"Dispensar") e trata o clique — foca uma janela existente ou abre uma nova, repassando o `eventId` via `postMessage`.
+
+### Cache
+
+| Tipo de recurso | Estratégia |
+|---|---|
+| Assets estáticos same-origin (JS, CSS, HTML, ícones, manifest) | Cache-first |
+| Chamadas ao Supabase (`*.supabase.co`) | Network-only — nunca cacheado, dados sempre frescos |
+| Recursos cross-origin (CDN) | Network-only |
+| Requisições não-GET (POST/PUT/DELETE) | Passam direto, nunca cacheadas |
+
+### Offline
+
+Dados e telas já carregadas ficam visíveis offline via cache do Service Worker. Escritas (criar/editar/excluir compromisso) exigem conexão — não há fila de sincronização offline; o SDK do Supabase não implementa isso. O Service Worker continua recebendo e exibindo push notifications mesmo com o app fechado.
+
+### Update
+
+Quando `CACHE_VERSION` é incrementado em um novo deploy, o navegador detecta o novo Service Worker em segundo plano. O frontend (`pwa.js`) exibe um banner "Nova versão disponível"; ao confirmar, envia `SKIP_WAITING` ao worker em espera, que assume o controle e a página recarrega com os assets atualizados. Limpeza manual, se necessário: DevTools → Application → Storage → Clear site data.
+
+---
+
+# Monitoramento
+
+O projeto não possui um agregador de logs, APM ou serviço de observabilidade externo configurado. O monitoramento hoje é composto por quatro mecanismos independentes, nenhum deles conectado entre si:
+
+### `diagnosticService.js` (frontend)
+
+Executa checagens de saúde sob demanda (usadas na tela de diagnóstico do app), sem envio a nenhum backend:
+
+- **Supabase:** faz `supabase.from('events').select('id').limit(1)` e mede a latência; erros de autenticação (`PGRST301`/`PGRST116`) não são tratados como falha de conectividade.
+- **Auth:** verifica sessão ativa via `supabase.auth.getSession()`.
+- **Service Worker:** verifica se `navigator.serviceWorker.controller` está ativo.
+- **Push:** verifica suporte a `PushManager`/`Notification` e o estado da permissão.
+- **Última sincronização:** lida de `localStorage` (`medagenda_last_sync`).
+- **Ambiente:** deduzido do hostname (`localhost` → desenvolvimento; `*.github.io` → produção).
+
+### `telemetryService.js` (frontend)
+
+Mantém um **buffer em memória** (máx. 200 entradas) de eventos de produto (`signup`, `login`, `appointment_created`, `push_subscribed`, `sync_failure`, `notification_failure`, `error`, entre outros). Em modo dev, os eventos são impressos no console (`console.groupCollapsed`); em produção, ficam apenas no buffer em memória — **não há envio para nenhum backend ou serviço de analytics**. O próprio código sinaliza isso com o comentário `// Future: forward to analytics provider`.
+
+### Logs das Edge Functions
+
+As três Edge Functions usam exclusivamente `console.log`/`console.error`/`console.warn` como mecanismo de observabilidade — não há logging estruturado, correlação de request-id nem exportação para fora do Supabase. Consulta em **Supabase Dashboard → Project → Edge Functions → {função} → Logs**, com filtro por período.
+
+### GitHub Actions
+
+Cada execução de `ci.yml`, `deploy.yml` e `deploy-functions.yml` fica registrada em **GitHub → Actions**, com logs completos por step e status (sucesso/falha) por execução. É o único ponto de monitoramento do próprio pipeline de deploy; não há notificação automática configurada (e-mail, Slack, etc.) além do que o GitHub oferece nativamente por padrão.
+
+### `errorService.js` (frontend, complementar)
+
+Não é telemetria enviada a um backend, mas complementa o monitoramento local: centraliza captura (`window.onerror`, `unhandledrejection`) e categorização de erros (`auth`, `network`, `database`, `push`, `service_worker`, `ui`, `unknown`), mantendo um buffer de até 100 entradas usado na tela de diagnóstico.
+
+### O que não existe
+
+Não há dashboard de métricas de produção, alerta automatizado de indisponibilidade, health-check agendado externo, ou qualquer ferramenta de APM (Sentry, Datadog, etc.) integrada ao projeto.
+
+---
+
+# Backup
+
+**Não existe procedimento de backup documentado, configurado ou automatizado neste repositório.**
+
+Nenhum workflow do GitHub Actions, script, migration ou configuração do Supabase presente no código realiza backup do banco de dados, do Storage (avatares) ou de qualquer outro dado de produção. O Supabase, como plataforma gerenciada, pode oferecer backups automáticos de infraestrutura dependendo do plano contratado do projeto — mas isso não é configurado, referenciado nem verificável a partir deste repositório, e portanto não é tratado aqui como parte do procedimento operacional do MedAgenda.
+
+Isso é registrado explicitamente como lacuna, não como uma falha a ser corrigida silenciosamente — ver seção "Auditoria".
+
+---
+
+# Recuperação
+
+Procedimentos de recuperação possíveis com o que existe hoje no repositório e no pipeline. Onde não há automação, isso é indicado.
+
+### Frontend
+
+O frontend é inteiramente reconstruível a partir do Git: qualquer commit da branch `main` pode ser reimplantado disparando `deploy.yml` manualmente (`workflow_dispatch`) ou empurrando um novo commit/revert para `main`. Como o site é 100% estático e gerado a partir do repositório, a recuperação equivale a garantir que o commit correto esteja em `main` e disparar o deploy — não há estado de servidor a restaurar.
+
+### Banco
+
+Não há procedimento de recuperação automatizado. Na ausência de um backup (ver seção "Backup"), a recuperação depende inteiramente do que a própria plataforma Supabase oferecer para o plano do projeto (point-in-time recovery, se disponível) — algo fora do controle deste repositório. O que o repositório oferece é a capacidade de **reconstruir o schema do zero**, reaplicando as 8 migrations de `/sql` em ordem no SQL Editor de um projeto Supabase novo; isso recria estrutura, funções, triggers e políticas RLS, mas **não recupera dados** perdidos, pois as migrations não contêm dados, apenas schema.
+
+### Edge Functions
+
+Como o código de cada função está versionado no Git, a recuperação é: identificar o commit correto de `supabase/functions/<nome>/index.ts` e rodar `supabase functions deploy <nome>` (ou disparar `deploy-functions.yml` manualmente, para `ai-chat`). Secrets precisam ser reconfigurados manualmente com `supabase secrets set` caso o projeto Supabase de destino seja novo (não são versionados nem exportáveis a partir deste repositório).
+
+### GitHub Actions
+
+Os três workflows são arquivos versionados em `.github/workflows/`; recuperá-los é o mesmo processo de recuperar qualquer arquivo do repositório (checkout do commit correto). Uma execução específica que falhou pode ser re-executada diretamente pela interface do GitHub Actions ("Re-run jobs"), sem necessidade de novo commit, contanto que os Secrets do repositório continuem configurados.
+
+---
+
+# Atualização de Produção
+
+Fluxo oficial, conforme implementado nos workflows e descrito consistentemente em `DEPLOY.md` e `DEVELOPMENT.md`:
+
+```
+1. Nova branch a partir de main
+2. Implementação (frontend, SQL e/ou Edge Function conforme o escopo)
+3. npm test localmente
+4. Commit e push da branch
+5. Pull Request para main
+        │
+        ▼
+   ci.yml roda `npm test` automaticamente no PR
+        │
+        ▼
+   Revisão e aprovação do PR
+        │
+        ▼
+   Merge em main
+        │
+        ├──► deploy.yml           → GitHub Pages (sempre)
+        └──► deploy-functions.yml → ai-chat (somente se supabase/functions/** mudou)
+
+6. Se a mudança envolveu SQL: aplicar manualmente as migrations novas
+   no SQL Editor do Supabase — ANTES do merge, se o código novo depende
+   do schema novo, para não deixar produção referenciando algo inexistente.
+
+7. Se a mudança envolveu send-push-notifications ou delete-account:
+   deploy manual via `supabase functions deploy <nome>` — não é coberto
+   pelo merge em main.
+
+8. Validação pós-deploy manual (ver checklist abaixo).
+```
+
+Não há branch de staging/homologação: o merge em `main` é o evento que dispara publicação direta em produção.
+
+---
+
+# Checklist Operacional
+
+### Deploy (frontend)
+
+- [ ] Testes (`npm test`) passando localmente e no CI
+- [ ] PR revisado e aprovado
+- [ ] Merge em `main` concluído
+- [ ] `deploy.yml` concluído com sucesso (Actions → Deploy — GitHub Pages)
+- [ ] App carrega em `https://andressamendes.github.io/MedAgenda/`
+- [ ] Console do navegador sem erros críticos
+
+### Atualização (geral)
+
+- [ ] Código funcionando localmente (testado manualmente no navegador para mudanças de UI)
+- [ ] `npm test` passando
+- [ ] Documentação relevante atualizada (`docs/*.md`, `README.md`, `CHANGELOG.md` quando aplicável)
+- [ ] `config.js` e demais segredos não incluídos no commit
+- [ ] CI verde no PR
+
+### Migração (SQL)
+
+- [ ] Nova migration numerada sequencialmente em `/sql`, nunca uma migration já aplicada em produção editada
+- [ ] RLS habilitado e políticas cobrindo SELECT/INSERT/UPDATE/DELETE conforme necessário, declaradas na própria migration
+- [ ] Dependências de outras migrations documentadas no cabeçalho do arquivo
+- [ ] Migration aplicada manualmente no SQL Editor do Supabase **antes** de publicar código que dependa dela
+- [ ] Se a mudança afeta recorrência: `recurrence.js` (frontend) e `_shared/recurrence-core.js` (Edge Function) revisados e mantidos sincronizados
+
+### Rollback
+
+- [ ] Commit/PR problemático identificado no histórico do Git
+- [ ] Frontend: revert do commit + push em `main` (dispara `deploy.yml` automaticamente) ou re-run manual de um deploy anterior
+- [ ] Edge Function `ai-chat`: revert + push em `main` (automático) ou `supabase functions deploy ai-chat` manual com o código revertido
+- [ ] Edge Functions `send-push-notifications`/`delete-account`: `supabase functions deploy <nome>` manual, sempre — nunca automático
+- [ ] Banco: **sem mecanismo de rollback automatizado** — reversão de schema exige SQL manual escrito e revisado caso a caso
+- [ ] Validação pós-rollback repetindo o checklist de "Validação"
+
+### Validação (pós-deploy)
+
+- [ ] Login com e-mail/senha funciona
+- [ ] Logout funciona
+- [ ] Criar, editar e excluir compromisso funcionam
+- [ ] Calendário mensal e agenda semanal exibem eventos
+- [ ] Categorias personalizadas funcionam
+- [ ] Recorrência funciona (criar evento recorrente)
+- [ ] PWA instalável (botão "Instalar MedAgenda" aparece)
+- [ ] Modo offline funciona (ativar modo avião e recarregar)
+- [ ] Console sem erros críticos
+- [ ] (Se Edge Function alterada) resposta HTTP e logs da função conferidos no Supabase Dashboard
+
+---
+
+# Auditoria
+
+Verificação de cobertura da documentação operacional e do pipeline real, sem qualquer alteração de código. Inconsistências são apenas registradas.
+
+| Item verificado | Status | Observação |
+|---|---|---|
+| Deploy do frontend documentado | Consistente | `deploy.yml` corresponde exatamente ao que está descrito em `DEPLOY.md`, `ARCHITECTURE.md`/`ARQUITETURA.md` e neste documento. |
+| Todos os workflows documentados | Consistente | 3 workflows no repositório (`ci.yml`, `deploy.yml`, `deploy-functions.yml`); todos documentados acima com objetivo, gatilho, etapas e artefatos. |
+| Todas as Edge Functions documentadas | Consistente | 3 funções (`ai-chat`, `send-push-notifications`, `delete-account`); todas cobertas nesta e em outras docs (`BACKEND.md`, `SECURITY.md`). |
+| Deploy automatizado cobre todas as Edge Functions | **Inconsistência confirmada** | `deploy-functions.yml` só publica `ai-chat`. `send-push-notifications` e `delete-account` dependem de deploy manual — risco real de divergência entre o código no repositório e o que está de fato em produção, já apontado em `BACKEND.md`, `SECURITY.md` e `DEVELOPMENT.md`. |
+| Migrations cobertas por CI/CD | **Lacuna confirmada** | Nenhum workflow aplica migrations SQL. A aplicação em produção depende inteiramente de disciplina manual, sem registro automático de quais migrations já foram aplicadas ao projeto Supabase de produção. |
+| Monitoramento documentado | Consistente, porém limitado | `diagnosticService.js`, `telemetryService.js`, `errorService.js` e os logs nativos de Edge Functions/GitHub Actions são os únicos mecanismos existentes — todos documentados acima. Não há agregador central nem alerta automatizado; isso não é uma omissão da documentação, é o estado real do projeto. |
+| Backup documentado ou existente | **Ausência confirmada** | Nenhum backup de banco, Storage ou configuração é realizado, agendado ou documentado por este repositório. Registrado explicitamente na seção "Backup". |
+| Ambientes separados (dev/staging/prod) | **Ausência confirmada** | Um único projeto Supabase é referenciado via `SUPABASE_PROJECT_REF` nos workflows; não há evidência de projetos distintos por ambiente. |
+| Rollback de Edge Functions | **Ausência confirmada** | Não há histórico de versão gerenciado nem comando de rollback — apenas reverter o commit no Git e reimplantar manualmente/automaticamente. |
+| Secrets sem exposição indevida | Consistente | Nenhum valor de secret sensível foi encontrado versionado no repositório; `config.js` está listado em `.gitignore`. |
+
+Estas observações replicam e consolidam, sob a ótica operacional, achados já registrados independentemente nas seções "Auditoria" de `BACKEND.md`, `SECURITY.md` e `DEVELOPMENT.md` — não são novos problemas descobertos, mas a mesma realidade confirmada a partir da leitura direta de `.github/workflows/`, `supabase/` e `docs/` para este documento.
+
+---
+
+# Estado Atual
+
+| Métrica | Quantidade |
+|---|---|
+| Workflows do GitHub Actions | 3 (`ci.yml`, `deploy.yml`, `deploy-functions.yml`) |
+| Edge Functions | 3 (`ai-chat`, `send-push-notifications`, `delete-account`) |
+| Edge Functions com deploy automatizado | 1 de 3 (`ai-chat`) |
+| Migrations SQL | 8, aplicadas manualmente |
+| Ambientes | 1 (produção única; sem dev/staging/prod separados) |
+| Forma oficial de deploy | Push/merge em `main` → GitHub Actions → GitHub Pages (frontend, sempre) + Supabase (`ai-chat`, condicional) |
+| Mecanismo de backup | Nenhum implementado neste repositório |
+| Mecanismo de monitoramento centralizado | Nenhum (checagens locais no frontend + logs nativos do Supabase e do GitHub Actions) |
+
+**Avaliação geral da operação:**
+
+A operação do MedAgenda é enxuta e coerente com o porte do projeto — um site estático publicado por CI, um backend inteiramente gerenciado pelo Supabase, e uma superfície mínima de infraestrutura própria para manter. O caminho crítico de deploy (frontend) é totalmente automatizado e confiável. As lacunas reais da operação são conhecidas e já vinham sendo sinalizadas em outros documentos do projeto: deploy automatizado incompleto para Edge Functions (apenas `ai-chat`), migrations SQL fora de qualquer pipeline, ausência total de backup documentado, e ausência de monitoramento centralizado ou alerta automatizado de indisponibilidade. Nenhuma dessas lacunas impede a operação atual do produto, mas todas representam risco operacional real — principalmente a ausência de backup, que hoje depende inteiramente do que a plataforma Supabase oferecer por conta própria, sem qualquer garantia ou verificação por parte deste repositório.
