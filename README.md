@@ -165,6 +165,7 @@ npm run test:recurrence   # Apenas testes de recurrence.js
 
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — guia completo de deploy e configuração
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — arquitetura técnica
+- [`docs/API.md`](docs/API.md) — API interna: Services, Supabase e Edge Functions
 - [`docs/BANCO_DE_DADOS.md`](docs/BANCO_DE_DADOS.md) — schema do banco de dados
 - [`docs/VISAO_DO_PRODUTO.md`](docs/VISAO_DO_PRODUTO.md) — visão e princípios do produto
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — próximas versões planejadas
