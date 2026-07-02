@@ -198,7 +198,7 @@ Apesar da RLS já garantir o isolamento no banco, os serviços do frontend (`eve
 
 # Edge Functions
 
-O projeto possui **3 Edge Functions**, todas em Deno, hospedadas pelo Supabase, todas respondendo em JSON e com CORS liberado (`Access-Control-Allow-Origin: *`, `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type`).
+O projeto possui **3 Edge Functions**, todas em Deno, hospedadas pelo Supabase, todas respondendo em JSON. `delete-account` e `send-push-notifications` mantêm CORS liberado (`Access-Control-Allow-Origin: *`); `ai-chat` restringe `Access-Control-Allow-Origin` a uma allowlist (origem oficial de produção `https://andressamendes.github.io` + `http://localhost`/`http://127.0.0.1` em qualquer porta, para desenvolvimento local). Todas usam `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type`.
 
 | Função | Autenticação | Chave usada | Invocada por |
 |---|---|---|---|
@@ -472,6 +472,31 @@ O projeto não usa nenhum framework que escape automaticamente conteúdo interpo
 - **Perfil:** `upsertProfile()` filtra os campos recebidos contra uma allowlist explícita (`full_name`, `avatar_url`, `university`, `course`, `semester`, `timezone`, `notification_enabled`, `theme`) antes de enviar ao Supabase — impede que campos arbitrários sejam gravados via chamada da função, ainda que a RLS já restrinja a linha acessível.
 - **IA (`ai-chat`):** validação de `type` contra uma lista fixa de prompts e limite de 500 eventos por requisição, do lado do servidor (Edge Function), não confiando apenas em validação de frontend.
 
+### Content Security Policy
+
+Declarada em `index.html` via `<meta http-equiv="Content-Security-Policy">` (não há servidor próprio para enviar o header HTTP equivalente — o site é estático, servido pelo GitHub Pages):
+
+```
+default-src 'self';
+script-src 'self' https://cdn.jsdelivr.net;
+style-src 'self';
+img-src 'self' data: https://*.supabase.co;
+font-src 'self';
+connect-src 'self' https://*.supabase.co;
+manifest-src 'self';
+worker-src 'self';
+base-uri 'self';
+form-action 'self';
+object-src 'none';
+```
+
+- **`script-src`** permite apenas o próprio origin e o build fixo do SDK Supabase servido pelo jsDelivr (`supabase.js`). Não há `'unsafe-inline'` nem `'unsafe-eval'` — o único `<script>` inline que existia em `index.html` (bootstrap de `pwa.js`) foi movido para dentro de `script.js` para viabilizar essa política sem enfraquecê-la.
+- **`style-src`** não usa `'unsafe-inline'` — o único atributo `style="..."` inline do HTML (placeholder de carregamento do modal de Calendários Acadêmicos) foi convertido para a classe `.academic-loading` em `style.css`. Não há `<style>` inline nem CSS-in-JS.
+- **`img-src`** inclui `data:` (avatar placeholder SVG gerado inline em `accountView.js`) e `https://*.supabase.co` (avatares enviados ao Storage).
+- **`connect-src`** inclui `https://*.supabase.co` para todas as chamadas ao Supabase (Auth, PostgREST, Storage, Edge Functions incluindo `ai-chat`). O frontend nunca chama a API do Google Gemini diretamente — apenas a Edge Function `ai-chat` faz isso, do lado do servidor — então `generativelanguage.googleapis.com` não precisa (e não deve) constar em `connect-src`.
+- **`object-src 'none'`** — a aplicação não usa `<object>`/`<embed>`/plugins.
+- Diretivas que dependem de header HTTP (`frame-ancestors`, `report-uri`/`report-to`, `sandbox`) são ignoradas pelos navegadores quando a CSP é entregue via `<meta>` — por isso não constam na política acima; ficariam como possível melhoria futura caso o hosting passe a permitir configurar headers HTTP customizados.
+
 ---
 
 # CI/CD
@@ -542,7 +567,7 @@ Revisão da consistência entre autenticação, RLS, Edge Functions e secrets, s
 
 | Item | Categoria | Observação |
 |---|---|---|
-| CORS `Access-Control-Allow-Origin: *` nas 3 Edge Functions | Configuração permissiva | Todas as Edge Functions aceitam requisições de qualquer origem. Isso não é, por si, uma falha de autorização — a barreira real é o JWT (`ai-chat`/`delete-account`) ou a ausência total de exposição a clientes externos (`send-push-notifications`, que só é chamada pelo scheduler) — mas é uma configuração mais permissiva do que restringir a origem ao domínio de produção do GitHub Pages. |
+| CORS `Access-Control-Allow-Origin: *` em `delete-account` e `send-push-notifications` | Configuração permissiva | Essas duas Edge Functions aceitam requisições de qualquer origem. Isso não é, por si, uma falha de autorização — a barreira real é o JWT (`delete-account`) ou a ausência total de exposição a clientes externos (`send-push-notifications`, que só é chamada pelo scheduler) — mas é uma configuração mais permissiva do que restringir a origem ao domínio de produção do GitHub Pages. **Corrigido em `ai-chat`**: agora restringe `Access-Control-Allow-Origin` a uma allowlist (produção + localhost/127.0.0.1 para dev). |
 | `model` do payload de `ai-chat` não validado contra allowlist | Validação de entrada | O parâmetro `model` enviado pelo cliente é repassado diretamente à URL do Gemini (`{model}:generateContent`) sem checagem contra uma lista de modelos permitidos. Não é um risco de vazamento de dados de outro usuário, mas permite que um cliente altere qual modelo Gemini é chamado usando a chave do servidor. |
 | Deploy automatizado cobre apenas `ai-chat` | CI/CD | `deploy-functions.yml` só executa `supabase functions deploy ai-chat`. `send-push-notifications` e `delete-account` dependem de deploy manual — o código pode divergir do que está publicado se o deploy manual for esquecido após uma alteração. |
 | Estilo de importação divergente entre Edge Functions | Consistência de manutenção | `ai-chat` e `send-push-notifications` importam `@supabase/supabase-js` via `npm:`; `delete-account` importa via `https://esm.sh/`. Funcionalmente equivalente, mas inconsistente — dificulta auditoria rápida do código das três funções. |

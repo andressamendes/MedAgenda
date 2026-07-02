@@ -280,7 +280,7 @@ Ver seção [Tratamento de Erros](#tratamento-de-erros) para o mapeamento comple
 
 ## Edge Functions
 
-Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em runtime Deno, respondem a `OPTIONS` com CORS liberado (`Access-Control-Allow-Origin: *`) e retornam sempre JSON.
+Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em runtime Deno, respondem a `OPTIONS` e retornam sempre JSON. `delete-account` e `send-push-notifications` respondem com CORS liberado (`Access-Control-Allow-Origin: *`); `ai-chat` restringe a origem a uma allowlist (produção + localhost/127.0.0.1) — ver detalhe abaixo.
 
 ### `ai-chat`
 
@@ -288,7 +288,7 @@ Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em
 |---|---|
 | **Endpoint** | `POST {SUPABASE_URL}/functions/v1/ai-chat` |
 | **Autenticação** | Header `Authorization: Bearer <jwt do usuário>` obrigatório. A função valida o token chamando `supabase.auth.getUser()` com um client criado usando `SUPABASE_ANON_KEY` + o header recebido (não usa `service_role`). |
-| **Headers** | `Content-Type: application/json`; CORS liberado para `authorization, x-client-info, apikey, content-type`. |
+| **Headers** | `Content-Type: application/json`; `Access-Control-Allow-Origin` restrito à allowlist (produção `https://andressamendes.github.io` + `http://localhost`/`http://127.0.0.1` em qualquer porta), `Access-Control-Allow-Headers` liberado para `authorization, x-client-info, apikey, content-type`. |
 | **Payload** | `{ type: 'weekly_summary' \| 'study_suggestion' \| 'schedule_analysis', events: Event[], model?, temperature?, maxTokens? }`. Validado: `type` precisa estar na lista permitida, `events` precisa ser array, e no máximo 500 itens. |
 | **Resposta** | `200 { text: string, ms: number }` |
 | **Erros** | `401` token ausente/inválido/sessão expirada · `400` payload inválido (tipo desconhecido, `events` não é array, mais de 500 eventos) · `429` limite de taxa do Gemini · `503` `GEMINI_API_KEY` não configurada ou erro de autenticação do Gemini · `502` erro genérico do Gemini ou resposta vazia · `500` erro interno inesperado. |

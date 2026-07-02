@@ -5,6 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MedAgenda</title>
 
+  <!-- Content Security Policy: only same-origin assets, the Supabase project
+       (API + Storage) and the pinned jsDelivr build of the Supabase SDK are
+       allowed. No inline scripts/styles, no eval, no plugins/frames. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://cdn.jsdelivr.net;
+    style-src 'self';
+    img-src 'self' data: https://*.supabase.co;
+    font-src 'self';
+    connect-src 'self' https://*.supabase.co;
+    manifest-src 'self';
+    worker-src 'self';
+    base-uri 'self';
+    form-action 'self';
+    object-src 'none';
+  " />
+
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#3b82f6" />
@@ -568,7 +585,7 @@
         <button class="modal-close" id="academic-close" aria-label="Fechar">&#x2715;</button>
       </div>
       <div class="modal-body academic-modal-body" id="academic-modal-body">
-        <p style="text-align:center;color:#9ca3af;padding:1.5rem 0">Carregando&#8230;</p>
+        <p class="academic-loading">Carregando&#8230;</p>
       </div>
     </div>
   </div>
@@ -630,11 +647,5 @@
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
 
   <script type="module" src="script.js"></script>
-  <script type="module">
-    import { registerServiceWorker, initInstallButton, initOfflineDetection } from './pwa.js';
-    registerServiceWorker();
-    initInstallButton();
-    initOfflineDetection();
-  </script>
 </body>
 </html>

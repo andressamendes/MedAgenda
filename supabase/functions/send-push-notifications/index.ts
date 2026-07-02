@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.110.0";
 import webpush from "npm:web-push";
 import { expandEvent } from "../_shared/recurrence-core.js";
 
