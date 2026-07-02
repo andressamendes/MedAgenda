@@ -1,9 +1,10 @@
 import { createEvent } from "./eventService.js";
+import { initModal } from "./modalController.js";
 
 const WEEKDAYS_LONG = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const MONTHS_LONG   = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
-let overlay, titleInput, timeInput, errorEl, saveBtn;
+let overlay, titleInput, timeInput, errorEl, saveBtn, modal;
 let selectedDate, onSaveCallback;
 
 function init() {
@@ -41,12 +42,13 @@ function init() {
   overlay.querySelector("#qa-cancel").addEventListener("click", close);
   saveBtn.addEventListener("click", handleSave);
 
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  modal = initModal(overlay, close);
 
+  // Enter-para-salvar é específico do QuickAdd — Escape e clique fora já são
+  // tratados pelo modalController.
   document.addEventListener("keydown", (e) => {
     if (overlay.hidden) return;
-    if (e.key === "Escape")  { close(); }
-    if (e.key === "Enter")   { e.preventDefault(); handleSave(); }
+    if (e.key === "Enter") { e.preventDefault(); handleSave(); }
   });
 }
 
@@ -67,12 +69,11 @@ export function openQuickAdd(date, onSave, time = "") {
   saveBtn.disabled    = false;
   saveBtn.textContent = "Salvar";
 
-  overlay.hidden = false;
-  titleInput.focus();
+  modal.open(titleInput);
 }
 
 function close() {
-  if (overlay) overlay.hidden = true;
+  modal?.close();
 }
 
 async function handleSave() {

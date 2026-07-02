@@ -6,6 +6,7 @@ import {
 } from "./categoryService.js";
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { initModal } from "./modalController.js";
 
 let categoriesCache = [];
 
@@ -17,6 +18,7 @@ let catNewColor = null;
 let catNewName  = null;
 let catAddBtn   = null;
 let catError    = null;
+let modal       = null;
 
 export function initCategoryView() {
   fCategory   = document.getElementById("f-category");
@@ -30,10 +32,7 @@ export function initCategoryView() {
 
   document.getElementById("btn-categories")?.addEventListener("click", openCategoryModal);
   document.getElementById("cat-close")?.addEventListener("click", closeCategoryModal);
-  catOverlay?.addEventListener("click", (e) => { if (e.target === catOverlay) closeCategoryModal(); });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && catOverlay && !catOverlay.hidden) closeCategoryModal();
-  });
+  if (catOverlay) modal = initModal(catOverlay, closeCategoryModal);
 
   fCategory?.addEventListener("change", () => {
     const cat = categoriesCache.find(c => c.name === fCategory.value);
@@ -72,12 +71,11 @@ export async function openCategoryModal() {
   catNewName.value  = "";
   catNewColor.value = "#3b82f6";
   await _renderCatList();
-  catOverlay.hidden = false;
-  catNewName.focus();
+  modal.open(catNewName);
 }
 
 function closeCategoryModal() {
-  catOverlay.hidden = true;
+  modal.close();
 }
 
 async function _reloadCategories() {

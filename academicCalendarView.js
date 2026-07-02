@@ -11,6 +11,7 @@ import {
 } from "./academicCalendarFilter.js";
 import { initEventsView, showEventList } from "./academicCalendarEventsView.js";
 import { initICSView, triggerICSImport, handleICSExport } from "./academicCalendarICSView.js";
+import { initModal } from "./modalController.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ export function renderFilterBar(containerId) {
 let _modalOverlay = null;
 let _modalTitle   = null;
 let _modalBody    = null;
+let _modal        = null;
 
 export function initAcademicModal() {
   _modalOverlay = document.getElementById("academic-overlay");
@@ -81,21 +83,23 @@ export function initAcademicModal() {
   _modalBody    = document.getElementById("academic-modal-body");
 
   document.getElementById("academic-close")?.addEventListener("click", closeModal);
-  _modalOverlay?.addEventListener("click", e => { if (e.target === _modalOverlay) closeModal(); });
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && _modalOverlay && !_modalOverlay.hidden) closeModal();
-  });
+  if (_modalOverlay) _modal = initModal(_modalOverlay, closeModal);
 }
 
+// openModal() é reutilizada tanto para a abertura inicial quanto para navegar
+// entre sub-views já com o modal aberto (lista de calendários, eventos,
+// import/export ICS) — só captura foco/aciona o ciclo de vida na transição
+// fechado → aberto, para não sobrescrever o foco a restaurar no fechamento real.
 function openModal(title, bodyHTML) {
   if (!_modalOverlay) return;
+  const wasHidden = _modalOverlay.hidden;
   _modalTitle.textContent = title;
   _modalBody.innerHTML    = bodyHTML;
-  _modalOverlay.hidden    = false;
+  if (wasHidden) _modal.open();
 }
 
 function closeModal() {
-  if (_modalOverlay) _modalOverlay.hidden = true;
+  _modal?.close();
   _activeCalendar = null;
 }
 
