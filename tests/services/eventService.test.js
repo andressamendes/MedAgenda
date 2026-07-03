@@ -97,6 +97,17 @@ test("updateEvent() scopes the update to id + user_id and returns the updated ro
   assert.deepStrictEqual(eqCalls, [["id", "evt-1"], ["user_id", "user-123"]]);
 });
 
+test("deleteEvent() scopes the delete to id + user_id", async (t) => {
+  const { mod, supabase } = await loadEventService(t, {
+    events: { data: null, error: null },
+  });
+
+  await mod.deleteEvent("evt-1");
+
+  const eqCalls = supabase._calls.filter(c => c.method === "eq").map(c => c.args);
+  assert.deepStrictEqual(eqCalls, [["id", "evt-1"], ["user_id", "user-123"]]);
+});
+
 test("deleteEvent() throws when Supabase reports an error", async (t) => {
   const { mod } = await loadEventService(t, {
     events: { data: null, error: { message: "not found" } },
