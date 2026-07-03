@@ -26,7 +26,7 @@
  * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
  */
 
-import { getEvents, deleteEvent } from "./eventService.js";
+import { getEvents, getEventById, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
@@ -194,8 +194,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("message", async (event) => {
     if (event.data?.type !== "OPEN_EVENT" || !event.data.eventId) return;
     try {
-      const events = await getEvents();
-      const target = events.find((e) => e.id === event.data.eventId);
+      const target = await getEventById(event.data.eventId);
       if (target) openEventForm(target);
     } catch { /* ignore — session may not be ready */ }
   });

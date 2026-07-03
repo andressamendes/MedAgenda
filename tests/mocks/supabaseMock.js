@@ -30,6 +30,10 @@ function createQueryBuilder(table, result, calls) {
     calls.push({ table, method: "single", args });
     return builder;
   };
+  builder.maybeSingle = (...args) => {
+    calls.push({ table, method: "maybeSingle", args });
+    return builder;
+  };
   // Thenable — `await supabase.from(x).select()...` resolves to the canned result.
   builder.then = (resolve, reject) =>
     Promise.resolve(result).then(resolve, reject);

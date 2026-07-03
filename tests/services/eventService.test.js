@@ -61,6 +61,29 @@ test("getEvents() returns rows scoped to the current user", async (t) => {
   assert.deepStrictEqual(eqCall.args, ["user_id", "user-123"]);
 });
 
+test("getEventById() scopes the lookup to id + user_id and returns the row", async (t) => {
+  const row = { id: "evt-1", title: "Prova de Anatomia" };
+  const { mod, supabase } = await loadEventService(t, {
+    events: { data: row, error: null },
+  });
+
+  const result = await mod.getEventById("evt-1");
+
+  assert.deepStrictEqual(result, row);
+  const eqCalls = supabase._calls.filter(c => c.method === "eq").map(c => c.args);
+  assert.deepStrictEqual(eqCalls, [["id", "evt-1"], ["user_id", "user-123"]]);
+});
+
+test("getEventById() returns null when no row matches, without throwing", async (t) => {
+  const { mod } = await loadEventService(t, {
+    events: { data: null, error: null },
+  });
+
+  const result = await mod.getEventById("evt-missing");
+
+  assert.strictEqual(result, null);
+});
+
 test("updateEvent() scopes the update to id + user_id and returns the updated row", async (t) => {
   const updated = { id: "evt-1", title: "Novo título" };
   const { mod, supabase } = await loadEventService(t, {

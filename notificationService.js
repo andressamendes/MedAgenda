@@ -1,7 +1,7 @@
 import { expandEvent } from "./recurrence.js";
 import { isoDate } from "./utils.js";
 
-const WINDOW_DAYS  = 7;
+export const WINDOW_DAYS = 7;
 const PREF_PREFIX  = "medagenda_notif_";
 const RESCHEDULE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h — mantém a janela de 7 dias em dia
 

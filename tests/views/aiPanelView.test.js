@@ -13,7 +13,7 @@ const ACADEMIC_VIEW_SPECIFIER   = new URL("../../academicCalendarView.js", impor
 
 function loadAiPanel(t, aiOptions) {
   t.mock.module(AI_SERVICE_SPECIFIER, { namedExports: createAiServiceMock(aiOptions) });
-  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { getEvents: async () => [] } });
+  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { getEventsByRange: async () => [] } });
   // aiPanelView.js only needs isPersonalVisible() from academicCalendarView.js;
   // that module itself pulls in Supabase transitively, which isn't relevant here.
   t.mock.module(ACADEMIC_VIEW_SPECIFIER, { namedExports: { isPersonalVisible: () => true } });
