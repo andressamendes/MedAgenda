@@ -440,34 +440,40 @@ Detalhamento completo módulo a módulo: [`FRONTEND.md`](FRONTEND.md).
 
 ### Testes existentes
 
-| Arquivo | Cobertura |
-|---|---|
-| `tests/utils.test.js` | Funções utilitárias puras (`utils.js`) |
-| `tests/recurrence.test.js` | Expansão de eventos recorrentes |
-| `tests/recurrence-notification.test.js` | Cálculo de timing de notificações |
-| `tests/smartAssistant.test.js` | Detecção de conflitos e sugestões |
-| `tests/analytics.test.js` | Cálculo de estatísticas mensais |
+Organizados em quatro camadas (Auditoria A4 + A2.5), cada uma isolada das demais via `t.mock.module()` — nenhuma bate em Supabase ou em uma Edge Function real:
+
+| Camada | Pasta | Cobertura |
+|---|---|---|
+| Domínio puro | `tests/*.test.js` (raiz) | `utils.js`, `recurrence.js`, timing de notificações, `smartAssistant.js`, `analytics.js` |
+| Services | `tests/services/*.test.js` | `eventService.js`, `categoryService.js`, `academicCalendarService.js`, `notificationService.js`, `auth.js` — CRUD, escopo por `user_id`, propagação de erros do Supabase (mockado via `tests/mocks/supabaseMock.js`) |
+| Views | `tests/views/*.test.js` | `modalController.js`, `categoryView.js`, `academicCalendarView.js`, `settingsModal.js`, `navigationView.js`, `aiPanelView.js` (IA mockada via `tests/mocks/aiMock.js`), `eventFormView.js` (criar/editar/excluir compromisso), `weekView.js` (agenda semanal), `calendar.js` (calendário mensal) |
+| Integração | `tests/integration/*.test.js` | Login/logout de ponta a ponta (`authFlow.test.js`) |
+
+Views e integração usam `tests/mocks/domFixture.js`, que carrega o `index.html` real via `jsdom` — os testes exercitam a marcação de produção, não uma cópia paralela.
 
 ### Como executar
 
 ```bash
-npm test                  # roda todos os testes em sequência
-npm run test:utils        # apenas utils.test.js
-npm run test:recurrence   # recurrence.test.js + recurrence-notification.test.js
-npm run test:notification # apenas recurrence-notification.test.js
-npm run test:assistant    # apenas smartAssistant.test.js
-npm run test:analytics    # apenas analytics.test.js
+npm test                # roda todos os testes em sequência
+npm run test:unit       # apenas módulos de domínio puro
+npm run test:services   # apenas tests/services/
+npm run test:views      # apenas tests/views/
+npm run test:integration # apenas tests/integration/
 ```
 
-Os testes usam o módulo nativo `assert` do Node.js com `--experimental-vm-modules`, sem qualquer framework de teste externo (não há Jest, Mocha, Vitest etc. instalado, apesar de `FRONTEND.md` mencionar "Jest" na descrição da pasta `tests/` — ver "Auditoria"). Não requerem credenciais do Supabase, pois cobrem apenas funções puras.
+Os testes usam o módulo nativo `assert` e `node:test` (com `--experimental-vm-modules --experimental-test-module-mocks`), sem qualquer framework de teste externo (não há Jest, Mocha, Vitest etc. instalado, apesar de `FRONTEND.md` mencionar "Jest" na descrição da pasta `tests/` — ver "Auditoria"). Não requerem credenciais reais do Supabase: services e views mockam `supabase.js`/o service correspondente por `t.mock.module()`.
 
 ### Quando criar novos testes
 
-Seguindo o padrão atual: sempre que uma nova função de domínio puro for adicionada (sem DOM, sem chamada de rede), como as existentes em `recurrence.js`, `smartAssistant.js`, `analytics.js` e `utils.js`. Código que depende de DOM ou do SDK do Supabase não tem cobertura automatizada hoje — a validação é manual, testando a funcionalidade no navegador.
+- Domínio puro (sem DOM, sem rede): sempre que uma nova função for adicionada em `recurrence.js`, `smartAssistant.js`, `analytics.js` ou `utils.js`.
+- Services: ao adicionar uma função nova a um `*Service.js`, mockando `supabase.js` como em `tests/services/eventService.test.js`.
+- Views: ao alterar um fluxo crítico (autenticação, CRUD de compromisso, categorias, agenda semanal, calendário, IA), mockando o service correspondente e reaproveitando `domFixture.js`.
+
+Não é objetivo cobrir 100% da base — a prioridade são os fluxos críticos acima. Ainda sem teste automatizado (validação manual no navegador): `diagnosticModal.js`, `accountView.js`, `quickAdd.js`, `confirmDialog.js`, `assistantView.js` (assistente local, distinto do painel de IA), e os services `pushService.js`, `avatarService.js`, `diagnosticService.js`, `icsExporter.js`/`icsImporter.js`, `profileService.js`.
 
 ### Organização
 
-Um arquivo de teste por módulo de domínio, nomeado `<módulo>.test.js`, na raiz de `tests/`. Sem subpastas.
+Um arquivo de teste por módulo, nomeado `<módulo>.test.js`, na subpasta correspondente à camada (`services/`, `views/`, `integration/`) ou na raiz de `tests/` para módulos de domínio puro. Mocks reutilizáveis ficam em `tests/mocks/`.
 
 ---
 
