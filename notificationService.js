@@ -132,3 +132,17 @@ function clearAll() {
   _scheduled.clear();
 }
 
+/**
+ * Cancels all pending reminders and the periodic reschedule timer, and
+ * forgets the last known event list and user. Call on sign-out — otherwise
+ * the periodic reschedule (see _startPeriodicReschedule) keeps re-arming
+ * reminders from the signed-out user's stale event list indefinitely, since
+ * this is an SPA transition (no page reload) and nothing else stops it.
+ */
+export function resetNotifications() {
+  clearAll();
+  _stopPeriodicReschedule();
+  _lastEvents = [];
+  _userId     = null;
+}
+
