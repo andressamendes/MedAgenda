@@ -15,6 +15,9 @@ export async function getProfile() {
 export async function upsertProfile(fields) {
   const id = await currentUserId();
 
+  // 'theme' existe em sql/05_profiles.sql (CHECK light/dark/system) e é aceito
+  // aqui para não quebrar upserts futuros, mas não há seletor de tema na UI
+  // ainda — nenhuma tela grava ou lê este campo hoje.
   const allowed = [
     'full_name', 'avatar_url', 'university', 'course',
     'semester', 'timezone', 'notification_enabled', 'theme',

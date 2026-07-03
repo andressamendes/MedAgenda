@@ -13,9 +13,9 @@
  *   [3]  appInit          — Inicialização do app após login (showApp, refreshAll)
  *   [4]  formulário       — Criação e edição de compromissos → extraído para eventFormView.js
  *   [5]  lista            — Listagem, filtragem, ordenação e exclusão de compromissos
- *   [6]  categorias       — Modal de gerenciamento de categorias
- *   [7]  configurações    — Modal de configurações (notificações locais e push)
- *   [8]  diagnóstico      — Overlay de diagnóstico de serviços
+ *   [6]  categorias       — Modal de gerenciamento de categorias → extraído para categoryView.js
+ *   [7]  configurações    — Modal de configurações (notificações locais e push) → extraído para settingsModal.js
+ *   [8]  diagnóstico      — Overlay de diagnóstico de serviços → extraído para diagnosticModal.js
  *   [9]  assistente       — Assistente inteligente → extraído para assistantView.js
  *   [10] painelIA         — Painel Gemini → extraído para aiPanelView.js
  *   [11] navegação        — Páginas, sidebar, user menu, bottom nav → extraído para navigationView.js
@@ -28,23 +28,16 @@
 
 import { getEvents, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
-import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, destroyWeekView } from "./weekView.js";
+import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
-import {
-  initNotifications, scheduleReminders,
-  isSupported, isEnabled, setEnabled,
-  permissionStatus, requestPermission,
-} from "./notificationService.js";
-import {
-  initPushService, isPushSupported, isPushEnabled,
-  subscribeToPush, unsubscribeFromPush, syncPushSubscription,
-} from "./pushService.js";
+import { initNotifications, scheduleReminders } from "./notificationService.js";
+import { initPushService, syncPushSubscription } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { escapeHtml } from "./utils.js";
 import { toast } from "./toastService.js";
 import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
 import { initErrorService, setErrorDevMode, handleError } from "./errorService.js";
-import { runDiagnostics, APP_VERSION, updateLastSync } from "./diagnosticService.js";
+import { updateLastSync } from "./diagnosticService.js";
 import { initAccountView } from "./accountView.js";
 import {
   initAcademicCalendarView, initAcademicModal,
@@ -54,12 +47,13 @@ import {
 import { initAssistantView, renderAssistant, resetAssistant } from "./assistantView.js";
 import { initAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
-import { initNavigation, showPage, restoreLastPage, openSidebar, closeSidebar, restoreSidebarState } from "./navigationView.js";
+import { initNavigation, restoreLastPage, restoreSidebarState } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
-import { initAuthView, showAuthView, showApp, showLogin } from "./authView.js";
-import { initModal } from "./modalController.js";
+import { initAuthView } from "./authView.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
+import { initSettingsModal } from "./settingsModal.js";
+import { initDiagnosticModal } from "./diagnosticModal.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -92,6 +86,11 @@ const LIST_EMPTY_TEXT = listEmpty.textContent;
 
 // ── Indicador de sincronização ─────────────────────────────────────────────
 const syncIndicator = document.getElementById("sync-indicator");
+
+// ── Toolbar da lista (busca/filtro/ordenação) ─────────────────────────────
+const searchInput          = document.getElementById("search-appointments");
+const filterCategorySelect = document.getElementById("filter-category-apt");
+const sortSelect           = document.getElementById("sort-appointments");
 
 // ── Estado compartilhado entre domínios ───────────────────────────────────
 // allEvents precisará de uma estratégia de compartilhamento quando os domínios
@@ -202,149 +201,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-// ── [DOMAIN: configurações e notificações] ────────────────────────────────
-// ── Configurações — modal ──────────────────────────────────────────────────
-const settingsOverlay  = document.getElementById("settings-overlay");
-const notifStatusText  = document.getElementById("notif-status-text");
-const btnNotifToggle   = document.getElementById("btn-notif-toggle");
-const notifPermHint    = document.getElementById("notif-perm-hint");
-const pushStatusText   = document.getElementById("push-status-text");
-const btnPushToggle    = document.getElementById("btn-push-toggle");
-const pushErrorHint    = document.getElementById("push-error-hint");
-
-const settingsModal = initModal(settingsOverlay, closeSettings);
-
-document.getElementById("btn-settings").addEventListener("click", openSettings);
-document.getElementById("settings-close").addEventListener("click", closeSettings);
-
-function openSettings() {
-  renderSettingsState();
-  renderPushState();
-  renderDevmodeState();
-  settingsModal.open();
-}
-
-function closeSettings() {
-  settingsModal.close();
-}
-
-function renderSettingsState() {
-  if (!isSupported()) {
-    notifStatusText.textContent = "Seu navegador não suporta notificações.";
-    btnNotifToggle.hidden       = true;
-    notifPermHint.hidden        = true;
-    return;
-  }
-
-  const perm    = permissionStatus();
-  const enabled = isEnabled() && perm === "granted";
-
-  if (perm === "denied") {
-    notifStatusText.textContent = "Permissão de notificação negada pelo navegador.";
-    btnNotifToggle.hidden       = true;
-    notifPermHint.hidden        = false;
-    notifPermHint.textContent   = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
-    return;
-  }
-
-  notifPermHint.hidden  = true;
-  btnNotifToggle.hidden = false;
-
-  if (enabled) {
-    notifStatusText.textContent = "Ativadas — lembretes exibidos enquanto o app está aberto.";
-    btnNotifToggle.textContent  = "Desativar";
-    btnNotifToggle.className    = "btn btn-sm btn-ghost";
-  } else {
-    notifStatusText.textContent = perm === "default"
-      ? "Desativadas — clique em Ativar para autorizar o navegador."
-      : "Desativadas.";
-    btnNotifToggle.textContent  = "Ativar";
-    btnNotifToggle.className    = "btn btn-sm btn-primary";
-  }
-}
-
-btnNotifToggle.addEventListener("click", async () => {
-  const perm    = permissionStatus();
-  const enabled = isEnabled() && perm === "granted";
-
-  if (enabled) {
-    setEnabled(false);
-    scheduleReminders([]); // cancela todos os timeouts
-  } else {
-    const result = await requestPermission();
-    if (result === "granted") {
-      setEnabled(true);
-      try {
-        const events = await getEvents();
-        scheduleReminders(events);
-      } catch { /* ignore */ }
-    }
-  }
-
-  renderSettingsState();
-});
-
-// ── Push Notifications — configurações ────────────────────────────────────
-
-function renderPushState() {
-  pushErrorHint.hidden = true;
-
-  if (!isPushSupported()) {
-    pushStatusText.textContent = "Push não é suportado neste navegador.";
-    btnPushToggle.hidden       = true;
-    return;
-  }
-
-  if (!VAPID_PUBLIC_KEY) {
-    pushStatusText.textContent = "VAPID_PUBLIC_KEY não configurada — consulte a documentação.";
-    btnPushToggle.hidden       = true;
-    return;
-  }
-
-  const perm    = Notification.permission;
-  const enabled = isPushEnabled() && perm === "granted";
-
-  btnPushToggle.hidden = false;
-
-  if (perm === "denied") {
-    pushStatusText.textContent = "Permissão de notificação negada pelo navegador.";
-    btnPushToggle.hidden       = true;
-    pushErrorHint.hidden       = false;
-    pushErrorHint.textContent  = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
-    return;
-  }
-
-  if (enabled) {
-    pushStatusText.textContent = "Ativadas — você receberá lembretes mesmo com o app fechado.";
-    btnPushToggle.textContent  = "Desativar Push";
-    btnPushToggle.className    = "btn btn-sm btn-ghost";
-  } else {
-    pushStatusText.textContent = "Desativadas — ative para receber lembretes com o app fechado.";
-    btnPushToggle.textContent  = "Ativar Push";
-    btnPushToggle.className    = "btn btn-sm btn-primary";
-  }
-}
-
-btnPushToggle.addEventListener("click", async () => {
-  btnPushToggle.disabled = true;
-  pushErrorHint.hidden   = true;
-
-  try {
-    if (isPushEnabled() && Notification.permission === "granted") {
-      await unsubscribeFromPush();
-    } else {
-      await subscribeToPush();
-    }
-  } catch (err) {
-    pushErrorHint.hidden      = false;
-    pushErrorHint.textContent = err.message || "Erro ao configurar notificações push.";
-  } finally {
-    btnPushToggle.disabled = false;
-  }
-
-  renderPushState();
-});
-
 // ── [DOMAIN: formulário de evento — continuação] — extraído para eventFormView.js ──
 
 // ── [DOMAIN: lista de compromissos] ───────────────────────────────────────
@@ -366,9 +222,9 @@ async function loadEvents() {
 }
 
 function getFilteredEvents() {
-  const search   = (document.getElementById("search-appointments")?.value || "").toLowerCase();
-  const catFilter = document.getElementById("filter-category-apt")?.value || "";
-  const sort     = document.getElementById("sort-appointments")?.value || "date-asc";
+  const search    = (searchInput?.value || "").toLowerCase();
+  const catFilter = filterCategorySelect?.value || "";
+  const sort      = sortSelect?.value || "date-asc";
 
   let filtered = [...allEvents];
 
@@ -400,22 +256,21 @@ function renderFilteredList() {
 }
 
 function _syncCategoryFilter() {
-  const sel = document.getElementById("filter-category-apt");
-  if (!sel) return;
-  const current = sel.value;
+  if (!filterCategorySelect) return;
+  const current = filterCategorySelect.value;
   const cats = [...new Set(allEvents.map(e => e.category).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">Todas as categorias</option>';
+  filterCategorySelect.innerHTML = '<option value="">Todas as categorias</option>';
   cats.forEach(c => {
     const o = document.createElement("option");
     o.value = c; o.textContent = c;
-    sel.appendChild(o);
+    filterCategorySelect.appendChild(o);
   });
-  sel.value = current;
+  filterCategorySelect.value = current;
 }
 
-document.getElementById("search-appointments")?.addEventListener("input", renderFilteredList);
-document.getElementById("filter-category-apt")?.addEventListener("change", renderFilteredList);
-document.getElementById("sort-appointments")?.addEventListener("change", renderFilteredList);
+searchInput?.addEventListener("input", renderFilteredList);
+filterCategorySelect?.addEventListener("change", renderFilteredList);
+sortSelect?.addEventListener("change", renderFilteredList);
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -500,133 +355,17 @@ async function handleDelete(id, card) {
   }
 }
 
-// ── [DOMAIN: diagnóstico] ─────────────────────────────────────────────────
-// ── Diagnóstico ────────────────────────────────────────────────────────────
-const diagnosticOverlay = document.getElementById("diagnostic-overlay");
-const diagnosticBody    = document.getElementById("diagnostic-body");
-const diagnosticClose   = document.getElementById("diagnostic-close");
-const btnDiagnostic     = document.getElementById("btn-diagnostic");
-
-const diagnosticModal = diagnosticOverlay ? initModal(diagnosticOverlay, closeDiagnostic) : null;
-
-if (btnDiagnostic) {
-  btnDiagnostic.addEventListener("click", openDiagnostic);
-}
-if (diagnosticClose) {
-  diagnosticClose.addEventListener("click", closeDiagnostic);
-}
-
-async function openDiagnostic() {
-  closeSettings();
-  diagnosticBody.innerHTML = '<p class="diag-loading">Verificando serviços…</p>';
-  diagnosticModal?.open();
-
-  try {
-    const r = await runDiagnostics();
-    diagnosticBody.innerHTML = renderDiagnosticHTML(r);
-  } catch {
-    diagnosticBody.innerHTML = '<p class="diag-loading">Erro ao obter diagnóstico.</p>';
-  }
-}
-
-function closeDiagnostic() {
-  diagnosticModal?.close();
-}
-
-function renderDiagnosticHTML(r) {
-  const items = [
-    {
-      ok:     r.supabase.ok,
-      label:  'Banco de Dados',
-      detail: r.supabase.ok
-        ? 'Conectado e respondendo'
-        : (r.supabase.error || 'Falha na conexão'),
-      extra:  r.supabase.latency !== undefined ? `${r.supabase.latency} ms` : '',
-    },
-    {
-      ok:     r.auth.ok,
-      label:  'Autenticação',
-      detail: r.auth.ok
-        ? `${escapeHtml(r.auth.email || '')} — expira ${r.auth.expiresAt}`
-        : r.auth.status,
-    },
-    {
-      ok:     r.serviceWorker.ok,
-      label:  'Service Worker',
-      detail: r.serviceWorker.status,
-    },
-    {
-      ok:     r.push.ok,
-      label:  'Notificações Push',
-      detail: r.push.status,
-    },
-    {
-      ok:     true,
-      label:  'Última sincronização',
-      detail: escapeHtml(r.lastSync),
-      neutral: true,
-    },
-  ];
-
-  const rows = items.map(item => `
-    <div class="diag-item">
-      <span class="diag-dot ${item.neutral ? 'diag-neutral' : item.ok ? 'diag-ok' : 'diag-error'}"></span>
-      <div class="diag-info">
-        <div class="diag-label">${item.label}</div>
-        <div class="diag-detail">${item.detail}</div>
-      </div>
-      ${item.extra ? `<span class="diag-latency">${item.extra}</span>` : ''}
-    </div>
-  `).join('');
-
-  const ts = new Date(r.timestamp).toLocaleString('pt-BR');
-
-  return `${rows}
-    <p class="diag-footer">Versão ${escapeHtml(r.version)} · ${escapeHtml(r.environment)} · ${ts}</p>`;
-}
-
-// ── [DOMAIN: observabilidade — UI do modo desenvolvedor] ──────────────────
-// ── Modo Desenvolvedor ─────────────────────────────────────────────────────
-const btnDevmodeToggle = document.getElementById("btn-devmode-toggle");
-const devmodePanel     = document.getElementById("devmode-panel");
-const devVersion       = document.getElementById("dev-version");
-const devEnv           = document.getElementById("dev-env");
-
-if (btnDevmodeToggle) {
-  btnDevmodeToggle.addEventListener("click", () => {
-    const current = _isDevMode();
-    _setDevMode(!current);
-    renderDevmodeState();
-    toast.info(!current ? "Modo desenvolvedor ativado." : "Modo desenvolvedor desativado.");
-  });
-}
-
-function renderDevmodeState() {
-  const enabled = _isDevMode();
-  if (!btnDevmodeToggle) return;
-
-  btnDevmodeToggle.textContent = enabled ? "Desativar" : "Ativar";
-  btnDevmodeToggle.className   = `btn btn-sm ${enabled ? 'btn-ghost' : 'btn-ghost'}`;
-
-  if (devmodePanel) {
-    devmodePanel.hidden = !enabled;
-    if (enabled) {
-      if (devVersion) devVersion.textContent = APP_VERSION;
-      if (devEnv) {
-        const h = window.location.hostname;
-        devEnv.textContent = h === 'localhost' || h === '127.0.0.1'
-          ? 'Desenvolvimento (local)'
-          : h.endsWith('github.io') ? 'Produção (GitHub Pages)' : h;
-      }
-    }
-  }
-}
-
 // ── [DOMAIN: navegação e layout] — extraído para navigationView.js ──────────
 initNavigation();
 
 // ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
 initCategoryView();
+
+// ── [DOMAIN: configurações e notificações] — extraído para settingsModal.js ──
+initSettingsModal({ isDevMode: _isDevMode, setDevMode: _setDevMode });
+
+// ── [DOMAIN: diagnóstico] — extraído para diagnosticModal.js ─────────────
+initDiagnosticModal();
 
 // ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
 initEventForm(refreshAll);

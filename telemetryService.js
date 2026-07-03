@@ -44,7 +44,3 @@ export function track(event, data = {}) {
   // Future: forward to analytics provider
   // e.g.: window.gtag?.('event', event, data);
 }
-
-export function getEventLog() {
-  return [..._buffer];
-}

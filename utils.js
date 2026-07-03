@@ -28,12 +28,6 @@ export function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-/** Truncates a string and appends "…" when it exceeds maxLength. */
-export function truncate(str, maxLength) {
-  if (!str || str.length <= maxLength) return str ?? "";
-  return str.slice(0, maxLength - 1) + "…";
-}
-
 /** Returns the ISO date string for today. */
 export function isoToday() {
   return isoDate(new Date());

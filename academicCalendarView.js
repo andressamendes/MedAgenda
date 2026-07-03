@@ -51,8 +51,6 @@ export async function initAcademicCalendarView(onChangeCb) {
   return _calendarsCache;
 }
 
-export function getCachedCalendars() { return _calendarsCache; }
-
 export function getAcademicEventProvider() {
   return async (start, end) => {
     const visibleIds = _calendarsCache
