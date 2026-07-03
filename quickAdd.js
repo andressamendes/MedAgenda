@@ -1,5 +1,6 @@
 import { createEvent } from "./eventService.js";
 import { initModal } from "./modalController.js";
+import { handleError } from "./errorService.js";
 
 const WEEKDAYS_LONG = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const MONTHS_LONG   = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
@@ -92,6 +93,7 @@ async function handleSave() {
     close();
     if (onSaveCallback) await onSaveCallback();
   } catch (err) {
+    handleError(err, { context: 'quickAdd.createEvent', silent: true });
     errorEl.textContent = err.message || "Erro ao salvar.";
     saveBtn.disabled    = false;
     saveBtn.textContent = "Salvar";

@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
           if (err.statusCode === 410 || err.statusCode === 404) {
             await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           } else {
-            console.error(`Push failed for subscription ${sub.id}:`, err.message);
+            console.error(`[send-push-notifications] Push failed for subscription ${sub.id}:`, err.message);
           }
           failed++;
         }
@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
-    console.error("Edge Function error:", err);
+    console.error("[send-push-notifications] Edge Function error:", err);
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -5,6 +5,7 @@ const CATEGORIES = {
   AUTH:     'auth',
   NETWORK:  'network',
   DATABASE: 'database',
+  AI:       'ai',
   PUSH:     'push',
   SW:       'service_worker',
   UI:       'ui',
@@ -45,6 +46,12 @@ export function setErrorDevMode(enabled) {
 
 function categorize(err) {
   if (!err) return CATEGORIES.UNKNOWN;
+  // AIError (services/ai/providers/geminiProvider.js) já vem com um código
+  // próprio (AUTH/NETWORK/TIMEOUT/RATE_LIMIT/UNAVAILABLE/API_ERROR/EMPTY_RESPONSE)
+  // e mensagem específica por caso — classificar por nome evita que o texto
+  // (ex.: "temporariamente indisponível") caia num balde genérico por acidente.
+  if (err?.name === 'AIError') return CATEGORIES.AI;
+
   const msg = String(err?.message || err).toLowerCase();
   const code = String(err?.code || '');
 
@@ -109,6 +116,13 @@ function friendlyMessage(category, err) {
     return FRIENDLY.database.default;
   }
 
+  // AIError já traz uma mensagem específica por código (rate limit, timeout,
+  // indisponibilidade, etc. — ver geminiProvider.js) — preservá-la em vez de
+  // reduzir para um texto genérico único.
+  if (category === CATEGORIES.AI) {
+    return err?.message || 'Ocorreu um erro ao contatar o assistente de IA. Verifique sua conexão e tente novamente.';
+  }
+
   const mapped = FRIENDLY[category];
   if (typeof mapped === 'string') return mapped;
 
@@ -132,6 +146,7 @@ export function handleError(err, context = {}) {
   const entry = {
     ts:        new Date().toISOString(),
     category,
+    code:      err?.code ?? null,
     message:   err?.message || String(err),
     friendly,
     context,
@@ -161,4 +176,14 @@ export function handleError(err, context = {}) {
   }
 
   return { category, friendly };
+}
+
+/**
+ * Retorna os últimos erros registrados (mais recente primeiro), sem o stack
+ * trace, para uso em diagnóstico/suporte (ver diagnosticService.js). O
+ * buffer em si (`_logs`) já existia, mas não era consultável de fora deste
+ * módulo — nada mudou na forma como os erros são coletados.
+ */
+export function getRecentErrors(limit = 20) {
+  return _logs.slice(-limit).reverse().map(({ stack, ...rest }) => rest);
 }

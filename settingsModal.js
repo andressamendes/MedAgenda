@@ -15,6 +15,7 @@ import { APP_VERSION } from "./diagnosticService.js";
 import { initModal } from "./modalController.js";
 import { openDiagnosticModal } from "./diagnosticModal.js";
 import { toast } from "./toastService.js";
+import { handleError } from "./errorService.js";
 
 let notifStatusText, btnNotifToggle, notifPermHint;
 let pushStatusText, btnPushToggle, pushErrorHint;
@@ -73,7 +74,9 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
           end.setDate(end.getDate() + WINDOW_DAYS);
           const events = await getEventsByRange(isoDate(start), isoDate(end));
           scheduleReminders(events);
-        } catch { /* ignore */ }
+        } catch (err) {
+          handleError(err, { context: 'settingsModal.rescheduleAfterEnable', silent: true });
+        }
       }
     }
 
@@ -91,6 +94,7 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
         await subscribeToPush();
       }
     } catch (err) {
+      handleError(err, { context: 'settingsModal.pushToggle', silent: true });
       pushErrorHint.hidden      = false;
       pushErrorHint.textContent = err.message || "Erro ao configurar notificações push.";
     } finally {

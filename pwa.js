@@ -1,5 +1,7 @@
 // PWA registration, install prompt management, and offline/update UI
 
+import { handleError } from "./errorService.js";
+
 let deferredInstallPrompt = null;
 
 // ── Service Worker registration ────────────────────────────────────────────
@@ -27,7 +29,7 @@ export async function registerServiceWorker() {
     }
 
   } catch (err) {
-    console.warn('[PWA] Service Worker registration failed:', err);
+    handleError(err, { context: 'pwa.registerServiceWorker', silent: true });
   }
 }
 

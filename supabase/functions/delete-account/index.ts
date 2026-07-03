@@ -55,11 +55,13 @@ serve(async (req: Request) => {
     // Delete auth user — cascades to profiles via FK ON DELETE CASCADE
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
     if (deleteError) {
+      console.error("[delete-account] Failed to delete auth user:", deleteError.message);
       return json({ error: deleteError.message }, 500);
     }
 
     return json({ success: true });
   } catch (err) {
+    console.error("[delete-account] Unexpected error:", err);
     return json({ error: String(err) }, 500);
   }
 });
