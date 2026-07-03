@@ -30,7 +30,7 @@ import { getEvents, deleteEvent } from "./eventService.js";
 import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
-import { initNotifications, scheduleReminders } from "./notificationService.js";
+import { initNotifications, scheduleReminders, resetNotifications } from "./notificationService.js";
 import { initPushService, syncPushSubscription } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { escapeHtml } from "./utils.js";
@@ -379,7 +379,7 @@ initAIPanel();
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
 initAuthView({
   onSignedIn:      _initApp,
-  onBeforeSignOut: resetAssistant,
+  onBeforeSignOut: () => { resetAssistant(); resetNotifications(); },
 });
 
 // ── [DOMAIN: pwa] — registro do Service Worker e prompts de instalação ───────

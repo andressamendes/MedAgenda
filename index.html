@@ -7,11 +7,14 @@
 
   <!-- Content Security Policy: only same-origin assets, the Supabase project
        (API + Storage) and the pinned jsDelivr build of the Supabase SDK are
-       allowed. No inline scripts/styles, no eval, no plugins/frames. -->
+       allowed. No inline scripts, no eval, no plugins/frames. style-src keeps
+       'unsafe-inline' because several views set per-item colors (category
+       swatches, calendar dots, badges) via inline style="" attributes — those
+       values are already escaped with escapeHtml() before insertion. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' https://cdn.jsdelivr.net;
-    style-src 'self';
+    style-src 'self' 'unsafe-inline';
     img-src 'self' data: https://*.supabase.co;
     font-src 'self';
     connect-src 'self' https://*.supabase.co;
