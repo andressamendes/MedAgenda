@@ -1,9 +1,10 @@
 // ── settingsModal.js — Modal de configurações (notificações locais e push) ──
 
-import { getEvents } from "./eventService.js";
+import { getEventsByRange } from "./eventService.js";
+import { isoDate } from "./utils.js";
 import {
   isSupported, isEnabled, setEnabled,
-  permissionStatus, requestPermission, scheduleReminders,
+  permissionStatus, requestPermission, scheduleReminders, WINDOW_DAYS,
 } from "./notificationService.js";
 import {
   isPushSupported, isPushEnabled,
@@ -67,7 +68,10 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
       if (result === "granted") {
         setEnabled(true);
         try {
-          const events = await getEvents();
+          const start = new Date();
+          const end   = new Date(start);
+          end.setDate(end.getDate() + WINDOW_DAYS);
+          const events = await getEventsByRange(isoDate(start), isoDate(end));
           scheduleReminders(events);
         } catch { /* ignore */ }
       }

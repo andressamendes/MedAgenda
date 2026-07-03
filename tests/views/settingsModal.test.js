@@ -18,7 +18,7 @@ let restoreConfig;
 
 function mockServices(t, { pushSupported = false, diagnostics } = {}) {
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
-    namedExports: { getEvents: async () => [] },
+    namedExports: { getEventsByRange: async () => [] },
   });
   t.mock.module(PUSH_SERVICE_SPECIFIER, {
     namedExports: {

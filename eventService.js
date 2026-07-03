@@ -23,6 +23,18 @@ export async function getEvents() {
   return data;
 }
 
+export async function getEventById(id) {
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user_id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function updateEvent(id, fields) {
   const user_id = await currentUserId();
   const { data, error } = await supabase

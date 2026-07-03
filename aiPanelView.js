@@ -1,6 +1,7 @@
 // ── aiPanelView.js — Painel de IA (Gemini): resumo, sugestão e análise
 
-import { getEvents } from "./eventService.js";
+import { getEventsByRange } from "./eventService.js";
+import { isoDate, mondayOf } from "./utils.js";
 import { isPersonalVisible } from "./academicCalendarView.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -70,7 +71,17 @@ export function initAIPanel() {
     try {
       let events;
       try {
-        events = isPersonalVisible() ? await getEvents() : [];
+        if (isPersonalVisible()) {
+          // Superset das janelas usadas pelos 3 prompts de IA (7/14/30 dias) —
+          // ver services/ai/prompts/*.js.
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const end = new Date(today);
+          end.setDate(end.getDate() + 30);
+          events = await getEventsByRange(isoDate(mondayOf(today)), isoDate(end));
+        } else {
+          events = [];
+        }
       } catch (dbErr) {
         console.error('[AI] Erro ao carregar eventos do banco de dados:', dbErr);
         showResult(label, 'Não foi possível carregar seus compromissos. Verifique sua conexão e tente novamente.');
