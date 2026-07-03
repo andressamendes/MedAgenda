@@ -4,7 +4,7 @@
  * Or open tests/index.html in a browser.
  */
 
-import { pad, isoDate, localDate, escapeHtml, isoToday, mondayOf, truncate } from "../utils.js";
+import { pad, isoDate, localDate, escapeHtml, isoToday, mondayOf } from "../utils.js";
 
 let passed = 0;
 let failed = 0;
@@ -81,13 +81,6 @@ assert("Monday → same Monday", isoDate(mondayOf(new Date(2024, 2, 11))), "2024
 assert("Sunday → previous Monday", isoDate(mondayOf(new Date(2024, 2, 17))), "2024-03-11");
 // 2024-03-16 is a Saturday
 assert("Saturday → previous Monday", isoDate(mondayOf(new Date(2024, 2, 16))), "2024-03-11");
-
-// ── truncate ─────────────────────────────────────────────────────────────────
-console.log("\ntruncate()");
-assert("short string unchanged", truncate("Hello", 10), "Hello");
-assert("exact length unchanged", truncate("Hello", 5), "Hello");
-assert("too long — truncated", truncate("Hello World", 8), "Hello W…");
-assert("null input", truncate(null, 5), "");
 
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(40)}`);

@@ -207,7 +207,7 @@ body {
 }
 
 .user-menu-chevron {
-  color: var(--gray-400);
+  color: var(--gray-500);
   flex-shrink: 0;
 }
 
@@ -270,6 +270,7 @@ body {
   height: 100%;
   padding: .75rem .5rem;
   gap: .25rem;
+  transition: width .2s ease;
 }
 
 .sidebar-filter-wrap {
@@ -354,10 +355,6 @@ body {
 }
 
 /* ── Sidebar collapsed (desktop) ── */
-.app-sidebar {
-  transition: width .2s ease;
-}
-
 .app-sidebar.sidebar-collapsed {
   width: 52px;
   padding: .75rem .25rem;
@@ -539,7 +536,7 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-family: inherit;
   transition: color .12s;
   padding: .4rem 0;
@@ -653,7 +650,7 @@ body {
   border: none;
   cursor: pointer;
   font-size: 1rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   line-height: 1;
   padding: .25rem;
   border-radius: 4px;
@@ -671,7 +668,7 @@ body {
 
 .assistant-loading {
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-size: .9rem;
   padding: 1rem 0;
 }
@@ -716,7 +713,7 @@ body {
 
 .assistant-card-empty {
   font-size: .84rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
 }
 
@@ -849,17 +846,15 @@ body {
 
 .upcoming-event-meta {
   font-size: .76rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .assistant-empty-state {
   text-align: center;
   padding: 2rem 1rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-size: .9rem;
 }
-
-/* (form-section and list-section styles removed — form is now in a modal) */
 
 /* ── Calendário ── */
 .cal-header {
@@ -882,7 +877,7 @@ body {
   text-align: center;
   font-size: .72rem;
   font-weight: 700;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: .05em;
   padding-bottom: .5rem;
@@ -967,7 +962,7 @@ body {
 .cal-loading {
   grid-column: 1 / -1;
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 2.5rem 0;
   font-size: .9rem;
 }
@@ -1082,15 +1077,9 @@ textarea { resize: vertical; }
 }
 
 /* ── Cards de eventos ── */
-#event-list {
-  display: flex;
-  flex-direction: column;
-  gap: .75rem;
-}
-
 .list-empty {
   font-size: .9rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-align: center;
   padding: 1.5rem 0;
 }
@@ -1181,7 +1170,7 @@ textarea { resize: vertical; }
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-size: 1rem;
   padding: .25rem .4rem;
   border-radius: 4px;
@@ -1318,7 +1307,7 @@ textarea { resize: vertical; }
 
 .cat-empty {
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-size: .88rem;
   padding: 1rem 0;
 }
@@ -1434,7 +1423,7 @@ textarea { resize: vertical; }
   position: absolute;
   right: 6px;
   font-size: .62rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   transform: translateY(-50%);
   user-select: none;
   white-space: nowrap;
@@ -1534,6 +1523,51 @@ textarea { resize: vertical; }
 
 @media (max-width: 680px) {
   .week-section { padding: 1rem .75rem; }
+}
+
+/* ── Visualização semanal: mobile — grade encolhe para caber na tela,
+   eliminando o scroll horizontal obrigatório (min-width fixo removido) ── */
+@media (max-width: 767px) {
+  .wk-head-row,
+  .wk-allday-row {
+    grid-template-columns: 34px repeat(7, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .wk-body {
+    min-width: 0;
+  }
+
+  .wk-time-col {
+    flex: 0 0 34px;
+  }
+
+  .wk-day-head {
+    padding: .35rem .1rem .3rem;
+    font-size: .6rem;
+  }
+
+  .wk-day-num {
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: .7rem;
+  }
+
+  .wk-gutter-allday {
+    font-size: .52rem;
+    padding-right: .2rem;
+  }
+
+  .wk-hour-label {
+    font-size: .55rem;
+    right: 3px;
+  }
+
+  .wk-ev-title,
+  .wk-ev-cat,
+  .wk-ev-time {
+    font-size: .58rem;
+  }
 }
 
 /* ── Recorrência — campos extras no formulário ── */
@@ -1788,7 +1822,7 @@ textarea { resize: vertical; }
 
 .account-loading {
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 2rem 0;
   font-size: .9rem;
 }
@@ -1811,7 +1845,7 @@ textarea { resize: vertical; }
 
 .account-hint {
   font-size: .78rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin-top: .4rem;
 }
 
@@ -1956,14 +1990,14 @@ textarea { resize: vertical; }
 
 .diag-loading {
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 1.5rem 0;
   font-size: .9rem;
 }
 
 .academic-loading {
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 1.5rem 0;
 }
 
@@ -2011,14 +2045,14 @@ textarea { resize: vertical; }
 
 .diag-latency {
   font-size: .72rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   flex-shrink: 0;
 }
 
 .diag-footer {
   text-align: center;
   font-size: .78rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding-top: .25rem;
   border-top: 1px solid var(--gray-200);
 }
@@ -2046,8 +2080,6 @@ textarea { resize: vertical; }
   color: var(--gray-800);
   font-weight: 600;
 }
-
-/* (old filter-bar styles removed — now defined in the new layout section above) */
 
 /* ── Academic calendar chips (monthly view) ── */
 .cal-chip-academic {
@@ -2077,7 +2109,7 @@ textarea { resize: vertical; }
 
 .wk-gutter-allday {
   font-size: .58rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-align: right;
   padding: .3rem .4rem 0 0;
   border-right: 1px solid var(--gray-200);
@@ -2144,7 +2176,7 @@ textarea { resize: vertical; }
 
 .acal-empty {
   text-align: center;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 1rem 0;
   font-size: .9rem;
 }
@@ -2270,7 +2302,7 @@ textarea { resize: vertical; }
 
 .acal-ev-loc {
   font-size: .78rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .acal-ev-actions {
@@ -2347,7 +2379,7 @@ textarea { resize: vertical; }
   border: none;
   font-size: 1rem;
   cursor: pointer;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: .25rem;
   border-radius: 4px;
   line-height: 1;
@@ -2469,7 +2501,7 @@ textarea { resize: vertical; }
 .ai-panel-footer {
   padding: .75rem 1.25rem;
   font-size: .72rem;
-  color: var(--gray-400);
+  color: var(--gray-500);
   border-top: 1px solid var(--gray-200);
   text-align: center;
 }

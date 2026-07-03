@@ -1,7 +1,10 @@
 # Plano de Modularização do `script.js`
 
-> **Fase atual:** Etapa 7 — Preparação (mapeamento e plano)
-> **Próxima ação:** iniciar a Fase 2 (diagnóstico)
+> **Status:** concluído — todos os domínios isolados já foram extraídos
+> (`diagnosticModal.js`, `settingsModal.js`, e os módulos listados no
+> cabeçalho de `script.js`). O que resta em `script.js` (appInit, lista de
+> compromissos, bootstrap) depende de estado compartilhado (`allEvents`) e
+> não foi extraído para evitar acoplamento artificial — ver F2.7 (M8).
 
 ---
 

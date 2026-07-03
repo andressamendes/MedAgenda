@@ -2,6 +2,76 @@
 
 ---
 
+## [Unreleased] — F2.7: UX, Responsividade e Manutenibilidade (A5 + M7 + M8 + M9 + B1–B9)
+
+### Validado em 2026-07-03
+
+| Item | Descrição                                                                 | Status    |
+|------|----------------------------------------------------------------------------|-----------|
+| A5   | Agenda semanal força scroll horizontal em telas pequenas                  | Corrigido |
+| M7   | Contraste insuficiente (`--gray-400`, 2.54:1) em textos/ícones secundários | Corrigido |
+| M8   | Domínios "configurações" e "diagnóstico" ainda em `script.js`             | Corrigido |
+| M9   | Lembretes locais não reagendavam com o app aberto por vários dias         | Corrigido |
+| B1–B9 | CSS duplicado, comentários mortos, `aria-hidden`, código morto, DOM cache, `escapeHtml`, campo `theme` | Corrigido |
+
+**A5 — Detalhes:** `.wk-head-row`, `.wk-allday-row` e `.wk-body` fixavam `min-width: 480px`
+dentro de `.wk-scroll { overflow-x: auto }`, forçando scroll horizontal em qualquer viewport
+abaixo de ~504px (a maioria dos celulares). Adicionado um bloco `@media (max-width: 767px)`
+(o mesmo breakpoint "mobile" já usado pelo resto do app) que troca para
+`grid-template-columns: 34px repeat(7, minmax(0, 1fr))` e remove o `min-width` fixo — as
+colunas agora encolhem para caber na tela, com fonte e gutter reduzidos para manter a
+legibilidade. Nenhuma mudança na estrutura de 7 colunas ou no comportamento em desktop/tablet.
+
+**M7 — Detalhes:** `--gray-400` (`#9ca3af`) rende 2.54:1 de contraste sobre fundo branco —
+abaixo do mínimo WCAG AA (4.5:1 para texto normal, 3:1 para ícones de UI). Usado como `color`
+em 24 seletores (textos secundários, estados vazios, badges, botões de fechar, itens de
+navegação). Todos migrados para `--gray-500` (`#6b7280`, 4.83:1 — passa AA), variável já
+existente no design system. As 2 ocorrências de `border-color`/`border-left-color` (decorativas,
+não textuais) foram mantidas.
+
+**M8 — Detalhes:** Extraídos `diagnosticModal.js` (zero estado compartilhado) e
+`settingsModal.js` (modo desenvolvedor injetado via callback, seguindo o plano documentado em
+`docs/MODULARIZACAO_SCRIPT.md`). `script.js` caiu de 649 para ~390 linhas. Nenhum comportamento
+alterado — testado com uma nova suíte (`tests/views/settingsModal.test.js`, 6 casos) cobrindo
+abrir/fechar, toggle de notificações, transição configurações → diagnóstico, escaping do
+diagnóstico e o modo desenvolvedor.
+
+**M9 — Detalhes:** `scheduleReminders()` recalculava a janela de 7 dias apenas quando chamada
+(login, CRUD, toggle de configurações) — com o app aberto por vários dias sem recarregar, eventos
+que "entravam" na janela nunca eram agendados. Adicionado um `setInterval` (6h) guardado contra
+duplicação que reexecuta `scheduleReminders()` com a última lista de eventos conhecida,
+deslizando a janela adiante automaticamente.
+
+**B1–B9 — Detalhes:** regra `#event-list` duplicada e `.app-sidebar` dividida em dois blocos
+(mesclados); 2 comentários de CSS morto removidos; `aria-hidden="true"` adicionado a ~15
+ícones decorativos (nav, bottom-nav, painel IA, ícones de sucesso, SVGs); removidas 4 funções
+mortas sem nenhum call site (`getErrorLog`, `getEventLog`, `getCachedCalendars`, `truncate` —
+esta última também removida de `tests/utils.test.js`); referências DOM de busca/filtro/ordenação
+da lista de compromissos cacheadas em `script.js`; `escapeHtml()` aplicado aos 3 campos de status
+do diagnóstico que ainda iam direto para `innerHTML`; campo `profiles.theme` documentado em
+`profileService.js` (aceito no allowlist para não quebrar upserts futuros, mas sem seletor de
+tema na UI ainda).
+
+### Arquivos modificados
+- `style.css` — A5 (mobile), M7 (contraste), B1 (CSS duplicado)
+- `script.js` — M8 (extração), B6 (cache DOM)
+- `settingsModal.js`, `diagnosticModal.js` — M8 (novos módulos)
+- `notificationService.js` — M9 (reagendamento periódico)
+- `index.html` — B3 (`aria-hidden`)
+- `academicCalendarView.js`, `errorService.js`, `telemetryService.js`, `utils.js` — B4 (código morto)
+- `profileService.js` — B8 (campo `theme` documentado)
+- `service-worker.js` — lista `APP_SHELL` regenerada (`npm run build:app-shell`) para incluir os 2 módulos novos
+- `tests/utils.test.js` — remove os testes de `truncate()`
+- `tests/views/settingsModal.test.js` — nova suíte para M8
+- `docs/MODULARIZACAO_SCRIPT.md` — status atualizado
+
+### Impacto
+Nenhuma regra de negócio, endpoint, tabela ou Edge Function foi alterada. Todas as mudanças são
+de CSS, organização de módulos front-end e um `setInterval` client-side — comportamento
+observável preservado (106/106 testes automatizados verdes, incluindo 6 novos casos).
+
+---
+
 ## [Unreleased] — Auditoria Backend P1.3: Integridade de notification_logs
 
 ### Validado em 2026-07-02

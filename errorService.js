@@ -162,7 +162,3 @@ export function handleError(err, context = {}) {
 
   return { category, friendly };
 }
-
-export function getErrorLog() {
-  return [..._logs];
-}

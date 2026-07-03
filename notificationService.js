@@ -3,9 +3,12 @@ import { isoDate } from "./utils.js";
 
 const WINDOW_DAYS  = 7;
 const PREF_PREFIX  = "medagenda_notif_";
+const RESCHEDULE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h — mantém a janela de 7 dias em dia
 
 let _userId    = null;
 let _scheduled = new Map(); // key → timeoutId
+let _lastEvents      = [];
+let _rescheduleTimer = null;
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -41,12 +44,18 @@ export async function requestPermission() {
 
 /**
  * Clears all pending reminders and re-schedules from the given event list.
- * Called after login and after any CRUD operation.
+ * Called after login, after any CRUD operation, and periodically (see
+ * _startPeriodicReschedule) so events sliding into the 7-day window over
+ * several days of an open tab still get scheduled.
  */
 export function scheduleReminders(events) {
+  _lastEvents = events;
   clearAll();
-  if (!isSupported() || !isEnabled()) return;
-  if (Notification.permission !== "granted") return;
+
+  if (!isSupported() || !isEnabled() || Notification.permission !== "granted") {
+    _stopPeriodicReschedule();
+    return;
+  }
 
   const now       = new Date();
   const windowEnd = new Date(now);
@@ -62,9 +71,24 @@ export function scheduleReminders(events) {
       _scheduleOne(occ);
     }
   }
+
+  _startPeriodicReschedule();
 }
 
 // ── Internal ───────────────────────────────────────────────────────────────
+
+// Re-runs scheduleReminders() with the last known event list on a fixed
+// interval, so the 7-day scheduling window keeps sliding forward even if the
+// app is left open for several days without a reload or CRUD operation.
+function _startPeriodicReschedule() {
+  if (_rescheduleTimer) return; // já em execução — evita timers duplicados
+  _rescheduleTimer = setInterval(() => scheduleReminders(_lastEvents), RESCHEDULE_INTERVAL_MS);
+  _rescheduleTimer.unref?.(); // Node (testes): não impede o processo de encerrar
+}
+
+function _stopPeriodicReschedule() {
+  if (_rescheduleTimer) { clearInterval(_rescheduleTimer); _rescheduleTimer = null; }
+}
 
 function _scheduleOne(ev) {
   if (!ev.event_date || !ev.start_time) return;
