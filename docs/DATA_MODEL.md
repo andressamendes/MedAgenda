@@ -430,18 +430,21 @@ A mesma condição é usada para SELECT, INSERT (`WITH CHECK`), UPDATE e DELETE 
 
 # Tabela `ai_metrics`
 
-**Finalidade:** registrar métricas de uso das funcionalidades de IA (tipo de chamada, duração, sucesso/erro) **sem armazenar o conteúdo das conversas ou prompts** — por design, para preservar privacidade dos dados do usuário. Definida em `sql/08_ai_metrics.sql`.
+**Finalidade:** registrar métricas de uso das funcionalidades de IA (tipo de chamada, modelo, duração, status HTTP, sucesso/erro) **sem armazenar o conteúdo das conversas ou prompts** — por design, para preservar privacidade dos dados do usuário. Definida em `sql/08_ai_metrics.sql`; colunas `model`, `http_status` e `error_message` adicionadas em `sql/10_ai_metrics_observability.sql` (Auditoria A2.2).
 
 ### Colunas
 
-| Coluna         | Tipo          | Obrigatório | Padrão               | Observações |
+| Coluna          | Tipo          | Obrigatório | Padrão               | Observações |
 |-----------------|---------------|:-----------:|------------------------|--------------|
 | `id`            | `UUID`        | Sim (PK)    | `gen_random_uuid()`    | |
 | `user_id`       | `UUID`        | Sim         | —                      | FK → `auth.users(id)` `ON DELETE CASCADE`. |
 | `prompt_type`   | `TEXT`        | Sim         | —                      | Tipo de operação de IA solicitada (ex.: `weekly_summary`, `study_suggestion`, `schedule_analysis`, conforme os tipos aceitos pela Edge Function `ai-chat`). |
+| `model`         | `TEXT`        | Não         | —                      | Modelo Gemini efetivamente usado na chamada (ex.: `gemini-2.5-flash`). Nulo quando a falha ocorre antes da resolução do modelo (ex.: erro de autenticação). |
 | `duration_ms`   | `INTEGER`     | Não         | —                      | Duração da chamada em milissegundos. |
 | `success`       | `BOOLEAN`     | Sim         | `true`                  | |
-| `error_code`    | `TEXT`        | Não         | —                      | |
+| `http_status`   | `INTEGER`     | Não         | —                      | Código HTTP retornado ao cliente pela Edge Function (200, 400, 401, 429, 502, 503, 500 etc.). |
+| `error_code`    | `TEXT`        | Não         | —                      | Categoria curta do erro (ex.: `gemini_rate_limit`, `invalid_body`, `internal_error`). Nulo em chamadas bem-sucedidas. |
+| `error_message` | `TEXT`        | Não         | —                      | Resumo curto e não sensível do erro (máx. 200 caracteres), sem conteúdo de prompt/resposta/dados pessoais. Nulo em chamadas bem-sucedidas. |
 | `created_at`    | `TIMESTAMPTZ` | Sim         | `now()`                 | Não há `updated_at` — registros de métrica são imutáveis por natureza. |
 
 ### Índices
@@ -467,7 +470,7 @@ RLS habilitado, com apenas **uma** política:
 
 ### Uso pelo sistema
 
-**Nenhum.** A tabela está corretamente provisionada (RLS habilitado, FK válida, comentário de intenção na migration), mas nenhuma Edge Function nem Service do frontend grava nela atualmente. A Edge Function `ai-chat` (`supabase/functions/ai-chat/index.ts`), única que faz chamadas de IA na aplicação, processa a requisição e retorna `{ text, ms }` ao cliente **sem inserir nenhuma linha em `ai_metrics`**. A tabela existe pronta para uso futuro ou instrumentação opcional — ver seção **Auditoria**.
+A Edge Function `ai-chat` (`supabase/functions/ai-chat/index.ts`), única que faz chamadas de IA na aplicação, grava uma linha em `ai_metrics` a cada requisição — sucesso ou falha — usando um client `service_role` (`SUPABASE_SERVICE_ROLE_KEY`), em background via `EdgeRuntime.waitUntil()` (não bloqueia nem altera a resposta `{ text, ms }` retornada ao cliente). A gravação só ocorre após o requisitante ser autenticado (`user_id` é `NOT NULL`); falhas de autenticação do requisitante (token ausente/inválido) ocorrem antes disso e não geram linha. Se a inserção falhar (ex.: `service_role` não configurado), o erro é apenas logado via `console.error` — nunca propaga para a resposta HTTP.
 
 ---
 
@@ -548,7 +551,7 @@ events (id)
 
 Além destes 10 índices explícitos, o Postgres cria automaticamente um índice único para cada chave primária (`id` em todas as tabelas, ou `id` em `profiles` que também é FK), não listado nas migrations por ser implícito ao `PRIMARY KEY`.
 
-`ai_metrics` é a única tabela do schema **sem nenhum índice explícito** além da chave primária — coerente com seu uso atual (nenhuma escrita, nenhuma consulta em produção).
+`ai_metrics` é a única tabela do schema **sem nenhum índice explícito** além da chave primária — aceitável para seu volume e padrão de uso atual (apenas INSERT via `service_role` e SELECT eventual do próprio usuário; sem consultas agregadas em produção que justifiquem um índice adicional).
 
 ---
 
@@ -788,7 +791,7 @@ Verificação realizada durante a elaboração desta documentação, comparando 
 | `03_recurrence.sql` redundante | Inconsistência de migration | As 3 colunas que adiciona (`recurrence_interval`, `recurrence_until`, `recurrence_days_of_week`) já estão declaradas em `01_events.sql`. `ADD COLUMN IF NOT EXISTS` torna a migration segura, mas desnecessária se executada após `01`. |
 | `notification_logs.event_id` sem FK formal | Resolvido (`09_notification_logs_integrity.sql`, Auditoria P1.3) | Passou a ter FK para `events(id)` com `ON DELETE CASCADE`, eliminando o risco de logs órfãos ao excluir um evento. |
 | `events.category` / `academic_events.category` como TEXT livre, sem FK | Decisão arquitetural, não bug | O vínculo com `categories` é gerenciado pelo frontend, não pelo banco. |
-| `ai_metrics` provisionada mas não populada | Inconsistência funcional | A tabela existe, com RLS e FK corretas, mas a Edge Function `ai-chat` (única chamadora de IA do sistema) não insere nenhuma linha nela. Confirmado por leitura direta de `supabase/functions/ai-chat/index.ts` — não há nenhuma referência a `ai_metrics` no código da função. |
+| `ai_metrics` provisionada mas não populada | Resolvido (`10_ai_metrics_observability.sql`, Auditoria A2.2) | A Edge Function `ai-chat` agora insere uma linha por chamada (sucesso ou falha) em `ai_metrics`, incluindo as colunas `model`, `http_status` e `error_message` adicionadas nesta migration. |
 | `delete-account` depende de `CASCADE` implícito para 3 tabelas | Observação de design, não bug | `profiles`, `academic_calendars`/`academic_events` e `ai_metrics` não são apagadas explicitamente pela função — apenas via `ON DELETE CASCADE` ao excluir o usuário em `auth.users`. Funciona corretamente hoje, mas não é auto-evidente lendo apenas o código da Edge Function. |
 | `categories.icon` não utilizado | Campo ocioso | A coluna existe desde `02_categories.sql`, mas nenhum Service ou View lê ou escreve nela atualmente. |
 | `notification_logs.status` sem CHECK | Ausência de constraint | Os valores `sent`/`failed` são um contrato apenas de código (Edge Function), não impostos pelo banco — qualquer string seria aceita fisicamente. |
@@ -801,17 +804,17 @@ Verificação realizada durante a elaboração desta documentação, comparando 
 | Métrica | Quantidade |
 |---|---|
 | Tabelas no schema `public` | 8 |
-| Migrations SQL | 8 (`01` a `08`) |
+| Migrations SQL | 10 (`01` a `10`) |
 | Triggers | 7 (6× `update_updated_at()` + `on_auth_user_created`) |
 | Funções SQL | 3 (`update_updated_at()`, `handle_new_user()`, `cleanup_old_notification_logs()`) |
 | Índices explícitos | 10 (4 únicos + 6 B-tree simples/compostos) |
 | Políticas de RLS em tabelas | 26 |
 | Políticas de RLS em Storage (`avatars`) | 4 |
 | Tabelas sem `user_id` próprio | 1 (`academic_events`, autorização via JOIN) |
-| Tabelas sem escrita por Service ou Edge Function em uso | 1 (`ai_metrics`) |
+| Tabelas sem escrita por Service ou Edge Function em uso | 0 |
 
 ### Avaliação geral da modelagem
 
 O modelo de dados do MedAgenda é **enxuto, coeso e adequado ao tamanho da aplicação**. A decisão de delegar autenticação ao Supabase Auth e usar RLS como única linha real de autorização elimina uma classe inteira de bugs de isolamento entre usuários — mesmo sem qualquer filtro no código, o banco nunca vaza dado entre contas. A função `update_updated_at()` centralizada e reaproveitada por 6 tabelas, junto com o padrão consistente de `UUID` + `TIMESTAMPTZ` + `ON DELETE CASCADE`, demonstra disciplina arquitetural apesar do crescimento incremental por migrations numeradas.
 
-A decisão de **não** usar FK formal em `events.category` é uma escolha consciente e documentada na própria migration, não uma omissão — troca integridade referencial estrita por flexibilidade operacional (um evento pode manter uma categoria "solta" em texto mesmo após ela ser excluída). Já a ausência de FK em `notification_logs.event_id` foi corrigida pela migration `09_notification_logs_integrity.sql` (Auditoria P1.3): a tabela agora tem `event_id → events.id ON DELETE CASCADE`, o que elimina logs órfãos sem afetar o suporte a eventos recorrentes (múltiplas linhas de log continuam apontando para o mesmo `event_id` da linha-base). O ponto mais frágil do modelo é a tabela `ai_metrics`: está corretamente desenhada, mas nenhuma parte do sistema a alimenta hoje, o que representa código morto no schema até que a instrumentação seja implementada na Edge Function `ai-chat`. As demais inconsistências (timestamps nullable em `profiles`, migration redundante `03_recurrence.sql`, ausência de CHECK em `notification_logs.status`) são de baixo risco prático e não comprometem a integridade observável do sistema em produção.
+A decisão de **não** usar FK formal em `events.category` é uma escolha consciente e documentada na própria migration, não uma omissão — troca integridade referencial estrita por flexibilidade operacional (um evento pode manter uma categoria "solta" em texto mesmo após ela ser excluída). Já a ausência de FK em `notification_logs.event_id` foi corrigida pela migration `09_notification_logs_integrity.sql` (Auditoria P1.3): a tabela agora tem `event_id → events.id ON DELETE CASCADE`, o que elimina logs órfãos sem afetar o suporte a eventos recorrentes (múltiplas linhas de log continuam apontando para o mesmo `event_id` da linha-base). A tabela `ai_metrics`, antes provisionada mas não alimentada, passou a ser gravada pela Edge Function `ai-chat` a cada chamada (Auditoria A2.2), fechando a lacuna de observabilidade sem alterar RLS, prompts ou o payload da API. As demais inconsistências (timestamps nullable em `profiles`, migration redundante `03_recurrence.sql`, ausência de CHECK em `notification_logs.status`) são de baixo risco prático e não comprometem a integridade observável do sistema em produção.

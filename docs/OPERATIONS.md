@@ -84,9 +84,11 @@ Existem quatro superfícies de deploy no projeto, com automação e frequência 
 06_storage.sql
 07_academic_calendar.sql
 08_ai_metrics.sql
+09_notification_logs_integrity.sql
+10_ai_metrics_observability.sql
 ```
 
-`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql` e `08_ai_metrics.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. Ver detalhamento completo em [`DATABASE.md`](DATABASE.md).
+`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql` e `08_ai_metrics.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. Ver detalhamento completo em [`DATABASE.md`](DATABASE.md).
 
 **Quando deve ser aplicado:** sempre **antes** de mesclar/publicar código (frontend ou Edge Function) que dependa das novas tabelas/colunas — caso contrário, o código em produção pode referenciar schema inexistente.
 
