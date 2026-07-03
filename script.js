@@ -230,11 +230,12 @@ async function loadEvents() {
     scheduleReminders(events);
     renderAssistant(events);
   } catch (err) {
-    // Sessão expirada é tratada silenciosamente (onAuthStateChange cuida do
-    // redirecionamento); demais erros (rede, banco, inesperado) precisam ficar
-    // visíveis para o usuário em vez de parecer uma agenda vazia.
-    handleError(err, { context: "loadEvents" });
-    renderListError();
+    // Um erro (rede, banco, sessão expirada, etc.) nunca pode parecer uma
+    // agenda vazia — a mensagem exibida é a mesma categorizada pelo
+    // errorService, para que o usuário distinga os casos (ex.: "Sua sessão
+    // expirou" vs. "Sem conexão com a internet").
+    const { friendly } = handleError(err, { context: "loadEvents", silent: true });
+    renderListError(friendly);
   }
 }
 
@@ -302,8 +303,8 @@ function formatTime(timeStr) {
 function renderList(events) {
   eventList.innerHTML = "";
   listEmpty.hidden    = events.length > 0;
-  listEmpty.textContent = LIST_EMPTY_TEXT;
   listEmpty.classList.remove("list-error");
+  listEmpty.textContent = LIST_EMPTY_TEXT;
 
   events.forEach((ev) => {
     const card = document.createElement("div");
@@ -344,13 +345,25 @@ function renderList(events) {
 }
 
 // Estado de erro da lista — distinto de "sem compromissos" para que uma
-// falha ao carregar (rede, banco, etc.) nunca seja confundida com uma
-// agenda genuinamente vazia.
-function renderListError() {
-  eventList.innerHTML   = "";
-  listEmpty.hidden      = false;
-  listEmpty.textContent = "Não foi possível carregar seus compromissos. Verifique sua conexão e tente novamente.";
+// falha ao carregar (rede, banco, sessão, etc.) nunca seja confundida com
+// uma agenda genuinamente vazia. Inclui um botão "Tentar novamente" para que
+// o usuário possa se recuperar sem precisar recarregar a página inteira.
+function renderListError(message) {
+  eventList.innerHTML = "";
+  listEmpty.hidden     = false;
   listEmpty.classList.add("list-error");
+  listEmpty.innerHTML  = "";
+
+  const msg = document.createElement("span");
+  msg.textContent = message;
+  listEmpty.appendChild(msg);
+
+  const retryBtn = document.createElement("button");
+  retryBtn.type      = "button";
+  retryBtn.className = "btn btn-sm btn-ghost list-error-retry";
+  retryBtn.textContent = "Tentar novamente";
+  retryBtn.addEventListener("click", loadEvents);
+  listEmpty.appendChild(retryBtn);
 }
 
 async function handleDelete(id, card) {

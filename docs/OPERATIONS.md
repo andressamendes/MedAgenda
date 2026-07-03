@@ -326,6 +326,20 @@ Desde a Auditoria A2.6, é o ponto central por onde praticamente todo catch de e
 
 A mensagem exibida ao usuário em cada view **não mudou** com essa mudança — o que mudou é que agora todo erro relevante fica categorizado e registrado num único lugar, em vez de invisível em `console.error`/`console.warn` espalhados.
 
+### Estados de carregamento: loading / vazio / erro (Auditoria A2.7)
+
+Antes da Auditoria A2.7, um erro ao buscar dados (rede, timeout, erro do Supabase, sessão expirada) em vários fluxos acabava produzindo a mesma tela de "sem dados" de uma ausência real de registros — mascarando falhas reais como se a agenda/calendário/categoria estivesse genuinamente vazia. A auditoria separou os estados **vazio** e **erro** nos fluxos de listagem, reaproveitando 100% a categorização de `errorService.js` (nenhuma nova lógica de classificação de erro foi criada):
+
+- **Lista principal** (`script.js` → `loadEvents()`/`renderListError()`): estado de erro exibido em `#list-empty.list-error`, com o texto amigável (`friendly`) retornado por `handleError()` e um botão "Tentar novamente" que re-executa `loadEvents()`.
+- **Calendário** (`calendar.js` → `renderCalError()`): em vez de renderizar a grade com todas as células vazias, exibe `.cal-error` com mensagem + botão "Tentar novamente" (`fetchAndRender()`).
+- **Agenda semanal** (`weekView.js` → `showWeekError()`/`hideWeekError()`): banner `#wk-error` acima da grade, com mensagem + botão "Tentar novamente".
+- **Categorias** (`categoryView.js` → `_renderCatList()`): antes não havia tratamento de erro nenhum (uma falha virava uma promise rejeitada silenciosa); agora exibe `.cat-empty.cat-error` + botão "Tentar novamente".
+- **Calendário acadêmico** (`academicCalendarView.js` → `showCalendarList()`, `academicCalendarEventsView.js` → `showEventList()`): uma falha ao listar calendários/eventos não é mais mascarada como "nenhum calendário/evento cadastrado" — exibe erro + retry. Exceção: se já havia uma lista de calendários carregada anteriormente (atualização em segundo plano), a lista antiga é mantida na tela com um toast de aviso, para não interromper o uso do restante do app.
+
+Como a mensagem amigável já é categorizada por `errorService.js`, o texto muda de acordo com a causa (ex.: "Sem conexão com a internet..." para falha de rede, "Sua sessão expirou. Faça login novamente." para erro de autenticação, "Erro ao comunicar com o servidor..." para erro do Supabase/banco) — sem necessidade de nenhum código de classificação novo nessas views.
+
+Fora de escopo desta auditoria (fluxos de ação/gravação, não de carregamento — já exibiam erro de forma visível, sem risco de mascaramento): formulário de evento (`eventFormView.js`), exclusão de evento (`script.js` → `handleDelete()`), importação/exportação ICS (`academicCalendarICSView.js`), painel de IA (`aiPanelView.js`, que já diferenciava erro de IA/rede antes desta auditoria).
+
 ### `diagnosticService.js` (frontend)
 
 Executa checagens de saúde sob demanda (`runDiagnostics()`, usada na tela de diagnóstico do app):

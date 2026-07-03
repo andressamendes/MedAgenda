@@ -58,6 +58,10 @@ function buildShell() {
       <button class="btn btn-sm btn-ghost" id="wk-today">Hoje</button>
       <button class="btn btn-sm btn-ghost" id="wk-next" aria-label="Próxima semana">›</button>
     </div>
+    <div class="wk-error" id="wk-error" hidden>
+      <span id="wk-error-msg"></span>
+      <button type="button" class="btn btn-sm btn-ghost" id="wk-retry">Tentar novamente</button>
+    </div>
     <div class="wk-wrap">
       <div class="wk-scroll" id="wk-scroll">
         <div class="wk-head-row" id="wk-head-row">
@@ -88,6 +92,7 @@ function buildShell() {
   _el.querySelector("#wk-prev").addEventListener("click",  () => navigate(-1));
   _el.querySelector("#wk-next").addEventListener("click",  () => navigate(1));
   _el.querySelector("#wk-today").addEventListener("click", goToday);
+  _el.querySelector("#wk-retry").addEventListener("click", fetchAndRender);
 
   buildTimeCol();
   buildDayCols();
@@ -161,15 +166,29 @@ async function fetchAndRender() {
     const personal = expandEvents(rawEvents, start, end);
     renderEvents(personal);
     renderAcademicEvents(academicEvents);
+    hideWeekError();
   } catch (err) {
     // Erro (rede/banco/sessão) não deve ser tratado como "semana sem eventos" —
-    // registrar via infraestrutura existente. Toast fica a cargo de loadEvents()
-    // em script.js para não duplicar notificações no mesmo refreshAll().
-    handleError(err, { context: "weekView.fetchAndRender", silent: true });
+    // exibe um banner de erro distinto, com opção de tentar novamente, em vez
+    // de deixar a grade silenciosamente vazia.
+    const { friendly } = handleError(err, { context: "weekView.fetchAndRender", silent: true });
+    showWeekError(friendly);
   }
 
   updateNowLine();
   scrollToTime();
+}
+
+function showWeekError(message) {
+  const banner = _el.querySelector("#wk-error");
+  if (!banner) return;
+  banner.querySelector("#wk-error-msg").textContent = message;
+  banner.hidden = false;
+}
+
+function hideWeekError() {
+  const banner = _el.querySelector("#wk-error");
+  if (banner) banner.hidden = true;
 }
 
 function updateLabel() {

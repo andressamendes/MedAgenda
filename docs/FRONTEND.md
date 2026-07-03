@@ -219,9 +219,10 @@ restoreSidebarState()
 **Principais funções:**
 - `_initApp(session)` — inicializa toda a aplicação após login bem-sucedido.
 - `refreshAll()` — recarrega eventos, weekView e calendar em paralelo; atualiza timestamp de sincronização.
-- `loadEvents()` — busca eventos, atualiza `allEvents`, renderiza lista, agenda notificações, atualiza assistente.
+- `loadEvents()` — busca eventos, atualiza `allEvents`, renderiza lista, agenda notificações, atualiza assistente. Em caso de falha, chama `renderListError()` — nunca renderiza a lista vazia como se não houvesse compromissos (ver Auditoria A2.7).
 - `renderFilteredList()` — aplica filtros de busca/categoria/ordenação e renderiza a lista de compromissos.
 - `renderList(events)` — constrói os cards de evento no DOM.
+- `renderListError(message)` — exibe o estado de erro da lista (mensagem amigável categorizada por `errorService` + botão "Tentar novamente"), distinto do estado "sem compromissos".
 - `handleDelete(id, card)` — exclui evento com confirmação via `confirmDialog`.
 - `openSettings() / closeSettings()` — controla o modal de configurações.
 - `renderSettingsState() / renderPushState()` — atualiza o estado visual das configurações de notificação.
@@ -354,7 +355,7 @@ restoreSidebarState()
 
 **Objetivo:** calendário mensal com visualização de eventos.
 
-**Responsabilidade:** renderiza a grade mensal com navegação por mês. Exibe eventos pessoais (via `eventService`) e acadêmicos (via provider injetado) em chips coloridos. Chama callbacks ao clicar em dia (quickAdd) ou em evento (eventForm). Suporta filtragem de visibilidade de eventos pessoais.
+**Responsabilidade:** renderiza a grade mensal com navegação por mês. Exibe eventos pessoais (via `eventService`) e acadêmicos (via provider injetado) em chips coloridos. Chama callbacks ao clicar em dia (quickAdd) ou em evento (eventForm). Suporta filtragem de visibilidade de eventos pessoais. Em caso de falha ao buscar eventos, exibe um estado de erro distinto (`.cal-error`, mensagem amigável categorizada por `errorService` + botão "Tentar novamente") em vez de renderizar a grade vazia (ver Auditoria A2.7).
 
 **Quem utiliza:** `script.js` (inicializa e injeta providers e callbacks).
 
@@ -377,7 +378,7 @@ restoreSidebarState()
 
 **Objetivo:** agenda semanal com grade de horários (time grid).
 
-**Responsabilidade:** renderiza a semana atual com colunas por dia (Seg–Dom) e linhas de 30 minutos. Posiciona eventos como blocos na grade com altura proporcional à duração. Exibe uma linha do "agora" que atualiza a cada minuto via `setInterval`. Distingue eventos pessoais de acadêmicos visualmente. Auto-scroll para o horário atual ao carregar.
+**Responsabilidade:** renderiza a semana atual com colunas por dia (Seg–Dom) e linhas de 30 minutos. Posiciona eventos como blocos na grade com altura proporcional à duração. Exibe uma linha do "agora" que atualiza a cada minuto via `setInterval`. Distingue eventos pessoais de acadêmicos visualmente. Auto-scroll para o horário atual ao carregar. Em caso de falha ao buscar eventos, exibe um banner de erro distinto (`#wk-error`, mensagem amigável + botão "Tentar novamente") em vez de deixar a grade silenciosamente vazia (ver Auditoria A2.7).
 
 **Quem utiliza:** `script.js`.
 
@@ -400,7 +401,7 @@ restoreSidebarState()
 
 **Objetivo:** modal de gerenciamento de categorias.
 
-**Responsabilidade:** lista, cria, edita e exclui categorias. Mantém um cache local (`categoriesCache`) que alimenta o `<select>` de categoria no formulário de evento. Ao selecionar uma categoria no formulário, sincroniza automaticamente a cor. Ao inicializar, garante a existência das categorias padrão via `ensureDefaultCategories`.
+**Responsabilidade:** lista, cria, edita e exclui categorias. Mantém um cache local (`categoriesCache`) que alimenta o `<select>` de categoria no formulário de evento. Ao selecionar uma categoria no formulário, sincroniza automaticamente a cor. Ao inicializar, garante a existência das categorias padrão via `ensureDefaultCategories`. Uma falha ao carregar a lista de categorias no modal exibe um estado de erro distinto (`.cat-empty.cat-error` + botão "Tentar novamente") em vez de "Nenhuma categoria cadastrada." (ver Auditoria A2.7).
 
 **Quem utiliza:** `script.js` (via `initCategoryView()` e `initCategories()`).
 
@@ -479,7 +480,7 @@ restoreSidebarState()
 
 **Objetivo:** modal de gestão de calendários acadêmicos.
 
-**Responsabilidade:** orquestra a UI completa dos calendários acadêmicos: lista de calendários, formulário de criação/edição, lista de eventos por calendário, importação/exportação ICS. Mantém um cache de calendários em memória. Expõe `getAcademicEventProvider()` — uma função que retorna eventos acadêmicos filtrados por visibilidade, usada pelo calendar e weekView.
+**Responsabilidade:** orquestra a UI completa dos calendários acadêmicos: lista de calendários, formulário de criação/edição, lista de eventos por calendário, importação/exportação ICS. Mantém um cache de calendários em memória. Expõe `getAcademicEventProvider()` — uma função que retorna eventos acadêmicos filtrados por visibilidade, usada pelo calendar e weekView. Se `showCalendarList()` falhar ao buscar e não houver cache anterior, exibe um estado de erro distinto com botão "Tentar novamente"; se já houver cache (atualização), degrada mantendo a última lista conhecida + toast de aviso (ver Auditoria A2.7).
 
 **Quem utiliza:** `script.js`.
 
@@ -506,7 +507,7 @@ restoreSidebarState()
 
 **Objetivo:** sub-view de eventos dentro do modal de calendários acadêmicos.
 
-**Responsabilidade:** lista, cria, edita e exclui eventos acadêmicos de um calendário específico. Implementada como módulo de UI puro que recebe suas dependências via `initEventsView()` para evitar acoplamento direto com `academicCalendarView.js`.
+**Responsabilidade:** lista, cria, edita e exclui eventos acadêmicos de um calendário específico. Implementada como módulo de UI puro que recebe suas dependências via `initEventsView()` para evitar acoplamento direto com `academicCalendarView.js`. Uma falha ao buscar os eventos exibe um estado de erro distinto com botão "Tentar novamente", em vez de "Nenhum evento neste calendário." (ver Auditoria A2.7).
 
 **Quem utiliza:** academicCalendarView.js (via `initEventsView()`).
 
@@ -639,8 +640,8 @@ restoreSidebarState()
 **Principais funções exportadas:**
 - `initErrorService(devMode)` — instala handlers globais.
 - `setErrorDevMode(enabled)`.
-- `handleError(err, context)` — classifica, loga e trata um erro.
-- `getErrorLog()` — retorna cópia do log de erros.
+- `handleError(err, context)` — classifica, loga e trata um erro. Retorna `{ category, friendly }`; a mensagem `friendly` é reaproveitada pelos fluxos de carregamento (lista, calendário, semana, categorias, calendário acadêmico) para exibir um estado de erro distinto do estado vazio (ver Auditoria A2.7 em `OPERATIONS.md`).
+- `getRecentErrors(limit)` — retorna cópia dos últimos erros registrados (usado por `diagnosticService.js`).
 
 ---
 

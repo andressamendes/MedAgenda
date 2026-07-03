@@ -110,14 +110,22 @@ export async function openAcademicCalendarModal() {
 }
 
 async function showCalendarList() {
+  let loadError = null;
   try {
     _calendarsCache = await getCalendars();
   } catch (err) {
-    handleError(err, { context: 'academicCalendarView.loadCalendars', silent: true });
-    toast.error("Erro ao carregar calendários.");
+    const { friendly } = handleError(err, { context: 'academicCalendarView.loadCalendars', silent: true });
+    // Se já havia uma lista carregada (ex.: atualização após criar/editar),
+    // degrada mostrando os dados anteriores + um aviso; sem dados anteriores,
+    // a falha não pode ser mascarada como "nenhum calendário cadastrado".
+    if (_calendarsCache.length === 0) loadError = friendly;
+    else toast.error(friendly);
   }
 
-  const listHTML = _calendarsCache.length === 0
+  const listHTML = loadError
+    ? `<p class="acal-empty acal-error">${escapeHtml(loadError)}</p>
+       <button type="button" class="btn btn-sm btn-ghost" id="acal-retry">Tentar novamente</button>`
+    : _calendarsCache.length === 0
     ? `<p class="acal-empty">Nenhum calendário acadêmico cadastrado.</p>`
     : _calendarsCache.map(c => `
         <div class="acal-row" data-id="${escapeHtml(c.id)}">
@@ -184,6 +192,7 @@ async function showCalendarList() {
   });
 
   document.getElementById("acal-add")?.addEventListener("click", handleCalendarCreate);
+  document.getElementById("acal-retry")?.addEventListener("click", showCalendarList);
 }
 
 // ── Calendar CRUD ──────────────────────────────────────────────────────────

@@ -45,14 +45,18 @@ export async function showEventList(calId) {
   if (!activeCalendar) return;
 
   let events = [];
+  let loadError = null;
   try {
     events = await getAcademicEvents(calId);
   } catch (err) {
-    handleError(err, { context: 'academicCalendarEventsView.load', silent: true });
-    toast.error("Erro ao carregar eventos.");
+    const { friendly } = handleError(err, { context: 'academicCalendarEventsView.load', silent: true });
+    loadError = friendly;
   }
 
-  const listHTML = events.length === 0
+  const listHTML = loadError
+    ? `<p class="acal-empty acal-error">${escapeHtml(loadError)}</p>
+       <button type="button" class="btn btn-sm btn-ghost" id="acev-retry">Tentar novamente</button>`
+    : events.length === 0
     ? `<p class="acal-empty">Nenhum evento neste calendário.</p>`
     : events.map(ev => `
         <div class="acal-ev-row">
@@ -119,6 +123,7 @@ export async function showEventList(calId) {
 
   document.getElementById("acev-add")?.addEventListener("click", () => handleEventCreate(calId));
   document.getElementById("acev-back")?.addEventListener("click", _onBack);
+  document.getElementById("acev-retry")?.addEventListener("click", () => showEventList(calId));
 }
 
 // ── Event form helpers ─────────────────────────────────────────────────────

@@ -100,7 +100,21 @@ function _populateCategorySelect() {
 
 async function _renderCatList() {
   catList.innerHTML = "";
-  const cats = await getCategories();
+
+  let cats;
+  try {
+    cats = await getCategories();
+  } catch (err) {
+    // Erro ao carregar não pode aparecer como "nenhuma categoria cadastrada" —
+    // exibe um estado distinto, com opção de tentar novamente.
+    const { friendly } = handleError(err, { context: 'categoryView.load', silent: true });
+    catList.innerHTML = `
+      <p class="cat-empty cat-error">${escapeHtml(friendly)}</p>
+      <button type="button" class="btn btn-sm btn-ghost" id="cat-retry">Tentar novamente</button>
+    `;
+    catList.querySelector("#cat-retry")?.addEventListener("click", _renderCatList);
+    return;
+  }
 
   if (cats.length === 0) {
     catList.innerHTML = `<p class="cat-empty">Nenhuma categoria cadastrada.</p>`;
