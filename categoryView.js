@@ -7,6 +7,7 @@ import {
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initModal } from "./modalController.js";
+import { handleError } from "./errorService.js";
 
 let categoriesCache = [];
 
@@ -51,6 +52,7 @@ export function initCategoryView() {
       await _reloadCategories();
       await _renderCatList();
     } catch (err) {
+      handleError(err, { context: 'categoryView.create', silent: true });
       catError.textContent = err.message;
     }
   });
@@ -145,6 +147,7 @@ function _enterEditMode(row, cat) {
       await _reloadCategories();
       await _renderCatList();
     } catch (err) {
+      handleError(err, { context: 'categoryView.update', silent: true });
       catError.textContent = err.message;
       catSaveBtn.disabled = false;
     }
@@ -166,6 +169,7 @@ async function _handleCatDelete(cat, row) {
     await _reloadCategories();
     await _renderCatList();
   } catch (err) {
+    handleError(err, { context: 'categoryView.delete', silent: true });
     row.style.opacity = "1";
     catError.textContent = err.message;
   }

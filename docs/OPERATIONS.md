@@ -313,11 +313,22 @@ Quando `CACHE_VERSION` é incrementado em um novo deploy, o navegador detecta o 
 
 # Monitoramento
 
-O projeto não possui um agregador de logs, APM ou serviço de observabilidade externo configurado. O monitoramento hoje é composto por quatro mecanismos independentes, nenhum deles conectado entre si:
+O projeto não possui um agregador de logs, APM ou serviço de observabilidade externo configurado. O monitoramento é composto por mecanismos independentes (Auditoria A2.6 os inventariou e ligou o que era possível ligar sem infraestrutura nova — ver detalhes abaixo):
+
+### `errorService.js` (frontend — ponto único de categorização de erros)
+
+Desde a Auditoria A2.6, é o ponto central por onde praticamente todo catch de erro do frontend passa — não só `window.onerror`/`unhandledrejection`, mas também os fluxos de autenticação (`authView.js`), CRUD de compromissos/categorias/calendários acadêmicos/conta (`eventFormView.js`, `categoryView.js`, `academicCalendarView.js`, `academicCalendarEventsView.js`, `accountView.js`, `quickAdd.js`, `script.js`), o painel de IA (`aiPanelView.js`) e o registro do Service Worker (`pwa.js`). Cada chamada:
+
+- Categoriza o erro em `auth`, `network`, `database`, `ai`, `push`, `service_worker`, `ui` ou `unknown` (erros de `AIError` — ver `services/ai/providers/geminiProvider.js` — são reconhecidos pelo nome, não por texto, e preservam sua mensagem específica por código: `RATE_LIMIT`, `UNAVAILABLE`, `TIMEOUT`, `AUTH`, `NETWORK`, `API_ERROR`, `EMPTY_RESPONSE`).
+- Grava no buffer em memória (máx. 100 entradas) — cada entrada inclui categoria, código (`err.code`, quando existe), mensagem e contexto (`{ context: '<módulo>.<ação>' }`).
+- Dispara `track(EVENTS.ERROR, ...)` em `telemetryService.js` (exceto categoria `ui`).
+- Mostra um toast amigável, a menos que a própria view já mostre seu próprio texto de erro inline (passando `{ silent: true }` — a maioria dos casos, para não duplicar feedback).
+
+A mensagem exibida ao usuário em cada view **não mudou** com essa mudança — o que mudou é que agora todo erro relevante fica categorizado e registrado num único lugar, em vez de invisível em `console.error`/`console.warn` espalhados.
 
 ### `diagnosticService.js` (frontend)
 
-Executa checagens de saúde sob demanda (usadas na tela de diagnóstico do app), sem envio a nenhum backend:
+Executa checagens de saúde sob demanda (`runDiagnostics()`, usada na tela de diagnóstico do app):
 
 - **Supabase:** faz `supabase.from('events').select('id').limit(1)` e mede a latência; erros de autenticação (`PGRST301`/`PGRST116`) não são tratados como falha de conectividade.
 - **Auth:** verifica sessão ativa via `supabase.auth.getSession()`.
@@ -325,26 +336,27 @@ Executa checagens de saúde sob demanda (usadas na tela de diagnóstico do app),
 - **Push:** verifica suporte a `PushManager`/`Notification` e o estado da permissão.
 - **Última sincronização:** lida de `localStorage` (`medagenda_last_sync`).
 - **Ambiente:** deduzido do hostname (`localhost` → desenvolvimento; `*.github.io` → produção).
+- **Erros recentes** (Auditoria A2.6): os últimos 10 erros de `errorService.js` (via `getRecentErrors()`) — o buffer de erros existia mas não era consultável de nenhum outro lugar antes desta auditoria. Não é renderizado na tela de diagnóstico hoje (`diagnosticModal.js` não mudou, para não alterar a interface); disponível chamando `runDiagnostics()` diretamente para investigação manual.
 
 ### `telemetryService.js` (frontend)
 
-Mantém um **buffer em memória** (máx. 200 entradas) de eventos de produto (`signup`, `login`, `appointment_created`, `push_subscribed`, `sync_failure`, `notification_failure`, `error`, entre outros). Em modo dev, os eventos são impressos no console (`console.groupCollapsed`); em produção, ficam apenas no buffer em memória — **não há envio para nenhum backend ou serviço de analytics**. O próprio código sinaliza isso com o comentário `// Future: forward to analytics provider`.
+Mantém um **buffer em memória** (máx. 200 entradas) de eventos de produto (`signup`, `login`, `appointment_created`, `push_subscribed`, `sync_failure`, `notification_failure`, `error`, entre outros — o evento `error` agora chega de muito mais lugares, ver `errorService.js` acima). Em modo dev, os eventos são impressos no console (`console.groupCollapsed`); em produção, ficam apenas no buffer em memória — **não há envio para nenhum backend ou serviço de analytics**. O próprio código sinaliza isso com o comentário `// Future: forward to analytics provider`.
 
 ### Logs das Edge Functions
 
-As três Edge Functions usam exclusivamente `console.log`/`console.error`/`console.warn` como mecanismo de observabilidade — não há logging estruturado, correlação de request-id nem exportação para fora do Supabase. Consulta em **Supabase Dashboard → Project → Edge Functions → {função} → Logs**, com filtro por período.
+As três Edge Functions usam `console.log`/`console.error`/`console.warn` como mecanismo de observabilidade — não há logging estruturado, correlação de request-id nem exportação para fora do Supabase. Consulta em **Supabase Dashboard → Project → Edge Functions → {função} → Logs**, com filtro por período. Desde a Auditoria A2.6, as três funções prefixam suas mensagens de log com `[nome-da-função]` (`[ai-chat]`, `[send-push-notifications]`, `[delete-account]`) para consistência — `delete-account` não tinha nenhum log de erro antes.
+
+### `ai_metrics` (backend — uso da Edge Function `ai-chat`)
+
+Tabela populada pela Edge Function `ai-chat` a cada chamada (ver Auditoria A2.2): tipo de prompt, modelo, duração, status HTTP, sucesso/falha e um código + resumo curto de erro — sem prompt, resposta da IA, JWT ou dado pessoal. Consultável via SQL/dashboard do Supabase; não há relatório ou dashboard próprio no projeto.
 
 ### GitHub Actions
 
 Cada execução de `ci.yml`, `deploy.yml` e `deploy-functions.yml` fica registrada em **GitHub → Actions**, com logs completos por step e status (sucesso/falha) por execução. É o único ponto de monitoramento do próprio pipeline de deploy; não há notificação automática configurada (e-mail, Slack, etc.) além do que o GitHub oferece nativamente por padrão.
 
-### `errorService.js` (frontend, complementar)
-
-Não é telemetria enviada a um backend, mas complementa o monitoramento local: centraliza captura (`window.onerror`, `unhandledrejection`) e categorização de erros (`auth`, `network`, `database`, `push`, `service_worker`, `ui`, `unknown`), mantendo um buffer de até 100 entradas usado na tela de diagnóstico.
-
 ### O que não existe
 
-Não há dashboard de métricas de produção, alerta automatizado de indisponibilidade, health-check agendado externo, ou qualquer ferramenta de APM (Sentry, Datadog, etc.) integrada ao projeto.
+Não há dashboard de métricas de produção, alerta automatizado de indisponibilidade, health-check agendado externo, agregador central entre frontend/backend, ou qualquer ferramenta de APM (Sentry, Datadog, etc.) integrada ao projeto.
 
 ---
 
@@ -480,7 +492,7 @@ Verificação de cobertura da documentação operacional e do pipeline real, sem
 | Todas as Edge Functions documentadas | Consistente | 3 funções (`ai-chat`, `send-push-notifications`, `delete-account`); todas cobertas nesta e em outras docs (`BACKEND.md`, `SECURITY.md`). |
 | Deploy automatizado cobre todas as Edge Functions | **Inconsistência confirmada** | `deploy-functions.yml` só publica `ai-chat`. `send-push-notifications` e `delete-account` dependem de deploy manual — risco real de divergência entre o código no repositório e o que está de fato em produção, já apontado em `BACKEND.md`, `SECURITY.md` e `DEVELOPMENT.md`. |
 | Migrations cobertas por CI/CD | **Lacuna confirmada** | Nenhum workflow aplica migrations SQL. A aplicação em produção depende inteiramente de disciplina manual, sem registro automático de quais migrations já foram aplicadas ao projeto Supabase de produção. |
-| Monitoramento documentado | Consistente, porém limitado | `diagnosticService.js`, `telemetryService.js`, `errorService.js` e os logs nativos de Edge Functions/GitHub Actions são os únicos mecanismos existentes — todos documentados acima. Não há agregador central nem alerta automatizado; isso não é uma omissão da documentação, é o estado real do projeto. |
+| Monitoramento documentado | Consistente, porém limitado | `diagnosticService.js`, `telemetryService.js`, `errorService.js`, `ai_metrics` e os logs nativos de Edge Functions/GitHub Actions são os únicos mecanismos existentes — todos documentados acima. Desde a Auditoria A2.6, `errorService.js` é o ponto único de categorização de erros do frontend e `diagnosticService.js` também expõe o buffer de erros recentes. Ainda não há agregador central entre frontend e backend nem alerta automatizado; isso não é uma omissão da documentação, é o estado real do projeto. |
 | Backup documentado ou existente | **Ausência confirmada** | Nenhum backup de banco, Storage ou configuração é realizado, agendado ou documentado por este repositório. Registrado explicitamente na seção "Backup". |
 | Ambientes separados (dev/staging/prod) | **Ausência confirmada** | Um único projeto Supabase é referenciado via `SUPABASE_PROJECT_REF` nos workflows; não há evidência de projetos distintos por ambiente. |
 | Rollback de Edge Functions | **Ausência confirmada** | Não há histórico de versão gerenciado nem comando de rollback — apenas reverter o commit no Git e reimplantar manualmente/automaticamente. |

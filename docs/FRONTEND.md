@@ -626,9 +626,9 @@ restoreSidebarState()
 
 **Objetivo:** centralizar o tratamento e classificação de erros.
 
-**Responsabilidade:** instala handlers globais de erro no `window`. Classifica erros em categorias (auth, network, database, push, service_worker, unknown). Gera mensagens amigáveis em português. Mantém um log circular dos últimos 100 erros. Registra erros via telemetry. Opcionalmente exibe toast ao usuário.
+**Responsabilidade:** instala handlers globais de erro no `window`. Classifica erros em categorias (auth, network, database, ai, push, service_worker, unknown). Gera mensagens amigáveis em português. Mantém um log circular dos últimos 100 erros, consultável via `getRecentErrors()` (usado por `diagnosticService.js`). Registra erros via telemetry. Opcionalmente exibe toast ao usuário.
 
-**Quem utiliza:** `script.js` (via `initErrorService()`). `handleError()` pode ser chamado por qualquer módulo.
+**Quem utiliza:** `script.js` (via `initErrorService()`). `handleError()` é chamado explicitamente por praticamente todas as views que fazem CRUD ou chamam um service (ver Auditoria A2.6 em `OPERATIONS.md`), além dos handlers globais.
 
 **Quem ele utiliza:** toastService (showToast), telemetryService (track).
 
@@ -1231,7 +1231,7 @@ A aplicação usa exclusivamente `addEventListener` padrão. Não há sistema de
 
 ### errorService.js (handler global)
 
-Instala handlers em `window.error` e `window.unhandledrejection`. Classifica o erro em uma das categorias: `auth`, `network`, `database`, `push`, `service_worker`, `unknown`. Gera mensagem amigável em português. Loga no buffer interno. Registra no telemetry. Exibe toast ao usuário quando apropriado (exceto erros silenciosos e erros de auth, que são tratados pelo redirecionamento para login).
+Instala handlers em `window.error` e `window.unhandledrejection`. Classifica o erro em uma das categorias: `auth`, `network`, `database`, `ai`, `push`, `service_worker`, `unknown`. Gera mensagem amigável em português. Loga no buffer interno. Registra no telemetry. Exibe toast ao usuário quando apropriado (exceto erros silenciosos e erros de auth, que são tratados pelo redirecionamento para login). Desde a Auditoria A2.6, `handleError()` também é chamado explicitamente pela maioria das views (autenticação, CRUD de compromissos/categorias/calendários acadêmicos/conta, painel de IA, Service Worker) — não só pelos handlers globais.
 
 ### Erros de auth
 

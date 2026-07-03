@@ -5,6 +5,7 @@ import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordRes
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { destroyWeekView } from "./weekView.js";
+import { handleError } from "./errorService.js";
 
 const AUTH_VIEWS = ['login', 'register', 'email-sent', 'forgot', 'reset-sent', 'new-password'];
 
@@ -105,6 +106,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       passwordInput.value = '';
       track(EVENTS.LOGIN, { email });
     } catch (err) {
+      handleError(err, { context: 'authView.login', silent: true });
       const msg = err.message || '';
       if (msg.includes('Invalid login') || msg.includes('invalid_credentials')) {
         errorMsg.textContent = 'E-mail ou senha incorretos. Verifique suas credenciais.';
@@ -180,8 +182,8 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       document.getElementById('email-sent-addr').textContent = email;
       showAuthView('email-sent');
     } catch (err) {
+      handleError(err, { context: 'authView.signup', silent: true });
       const msg = err.message || '';
-      console.error('[cadastro] exceção capturada:', err);
       if (msg.includes('already registered') || msg.includes('already exists')) {
         registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
       } else {
@@ -210,6 +212,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       await sendPasswordReset(email);
       showAuthView('reset-sent');
     } catch (err) {
+      handleError(err, { context: 'authView.forgotPassword', silent: true });
       forgotError.textContent = err.message || 'Não foi possível enviar o link. Tente novamente.';
     } finally {
       sendResetBtn.disabled    = false;
@@ -238,6 +241,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       toast.success('Senha definida com sucesso. Você já pode fazer login.');
       showLogin();
     } catch (err) {
+      handleError(err, { context: 'authView.setPassword', silent: true });
       newPwdError.textContent = err.message || 'Não foi possível definir a senha.';
     } finally {
       setPasswordBtn.disabled    = false;
@@ -267,10 +271,11 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
     const session = await getSession();
     if (session) showApp(session);
     else showLogin();
-  })().catch(() => {
+  })().catch((err) => {
     // getSession() threw (network error, Supabase error, etc.).
     // onAuthStateChange should handle this too, but fall back to login
     // in case it also hangs or never fires.
+    handleError(err, { context: 'authView.getSession', silent: true });
     clearTimeout(_authSafetyTimer);
     showLogin();
   });

@@ -5,6 +5,7 @@ import { isoDate, mondayOf } from "./utils.js";
 import { isPersonalVisible } from "./academicCalendarView.js";
 import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
+import { handleError } from "./errorService.js";
 
 export function initAIPanel() {
   const overlay     = document.getElementById('ai-panel-overlay');
@@ -83,14 +84,14 @@ export function initAIPanel() {
           events = [];
         }
       } catch (dbErr) {
-        console.error('[AI] Erro ao carregar eventos do banco de dados:', dbErr);
+        handleError(dbErr, { context: 'aiPanel.loadEvents', silent: true });
         showResult(label, 'Não foi possível carregar seus compromissos. Verifique sua conexão e tente novamente.');
         return;
       }
       const result = await fn(events);
       showResult(label, result || 'O assistente não retornou resposta. Tente novamente.');
     } catch (err) {
-      console.error('[AI] Erro no assistente de IA:', err);
+      handleError(err, { context: 'aiPanel.runAIAction', silent: true });
       showResult(label, err.message || 'Ocorreu um erro ao contatar o assistente de IA. Verifique sua conexão e tente novamente.');
     } finally {
       setActionBtnsDisabled(false);

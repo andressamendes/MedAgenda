@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { getRecentErrors } from './errorService.js';
 
 export const APP_VERSION = '1.0.0-rc1';
 
@@ -19,6 +20,10 @@ export async function runDiagnostics() {
     push:          checkPush(),
     lastSync:      getLastSync(),
     environment:   getEnvironment(),
+    // Não renderizado pelo modal de diagnóstico hoje (ver diagnosticModal.js)
+    // — disponível para suporte/depuração via runDiagnostics() diretamente,
+    // reaproveitando o buffer de erros que já existia em errorService.js.
+    recentErrors:  getRecentErrors(10),
   };
 }
 

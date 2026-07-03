@@ -4,6 +4,7 @@ import {
 import { toast } from "./toastService.js";
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { handleError } from "./errorService.js";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -44,7 +45,12 @@ export async function showEventList(calId) {
   if (!activeCalendar) return;
 
   let events = [];
-  try { events = await getAcademicEvents(calId); } catch { toast.error("Erro ao carregar eventos."); }
+  try {
+    events = await getAcademicEvents(calId);
+  } catch (err) {
+    handleError(err, { context: 'academicCalendarEventsView.load', silent: true });
+    toast.error("Erro ao carregar eventos.");
+  }
 
   const listHTML = events.length === 0
     ? `<p class="acal-empty">Nenhum evento neste calendário.</p>`
@@ -104,7 +110,10 @@ export async function showEventList(calId) {
         toast.success("Evento excluído.");
         _getOnChange()?.();
         await showEventList(calId);
-      } catch (err) { toast.error(err.message || "Erro ao excluir evento."); }
+      } catch (err) {
+        handleError(err, { context: 'academicCalendarEventsView.delete', silent: true });
+        toast.error(err.message || "Erro ao excluir evento.");
+      }
     });
   });
 
@@ -189,6 +198,7 @@ async function handleEventCreate(calId) {
     _getOnChange()?.();
     await showEventList(calId);
   } catch (err) {
+    handleError(err, { context: 'academicCalendarEventsView.create', silent: true });
     errEl.textContent = err.message || "Erro ao criar evento.";
   }
 }
@@ -217,6 +227,7 @@ function showEventEditForm(ev) {
       _getOnChange()?.();
       await showEventList(calId);
     } catch (err) {
+      handleError(err, { context: 'academicCalendarEventsView.update', silent: true });
       errEl.textContent = err.message || "Erro ao atualizar.";
     }
   });

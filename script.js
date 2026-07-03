@@ -367,6 +367,7 @@ async function handleDelete(id, card) {
     toast.success("Compromisso excluído.");
     await refreshAll();
   } catch (err) {
+    handleError(err, { context: 'script.handleDelete', silent: true });
     card.style.opacity = "1";
     toast.error(err.message || "Não foi possível excluir. Tente novamente.");
   }

@@ -7,6 +7,7 @@ import { track, EVENTS } from './telemetryService.js';
 import { escapeHtml } from './utils.js';
 import { confirmDialog } from './confirmDialog.js';
 import { initModal } from './modalController.js';
+import { handleError } from './errorService.js';
 
 const TIMEZONES = [
   'America/Sao_Paulo', 'America/Manaus', 'America/Belem',
@@ -41,7 +42,8 @@ export async function open() {
   try {
     _profile = await getProfile();
     _renderProfile(_profile);
-  } catch {
+  } catch (err) {
+    handleError(err, { context: 'accountView.loadProfile', silent: true });
     toast.error('Não foi possível carregar o perfil.');
   }
 }
@@ -184,6 +186,7 @@ async function _handleAvatarChange(e) {
     document.getElementById('btn-remove-avatar').hidden = false;
     toast.success('Foto atualizada com sucesso.');
   } catch (err) {
+    handleError(err, { context: 'accountView.uploadAvatar', silent: true });
     toast.error(err.message || 'Não foi possível enviar a foto.');
   } finally {
     _setLoading(btn, 'Alterar foto', false);
@@ -209,6 +212,7 @@ async function _handleRemoveAvatar() {
     btn.hidden = true;
     toast.success('Foto removida.');
   } catch (err) {
+    handleError(err, { context: 'accountView.removeAvatar', silent: true });
     toast.error(err.message || 'Não foi possível remover a foto.');
   } finally {
     _setLoading(btn, 'Remover foto', false);
@@ -241,6 +245,7 @@ async function _handleSaveProfile() {
     });
     toast.success('Perfil atualizado com sucesso.');
   } catch (err) {
+    handleError(err, { context: 'accountView.saveProfile', silent: true });
     errEl.textContent = err.message || 'Não foi possível salvar o perfil.';
   } finally {
     _setLoading(btn, 'Salvar perfil', false);
@@ -268,6 +273,7 @@ async function _handleChangePassword() {
     document.getElementById('acc-confirm-pwd').value = '';
     toast.success('Senha alterada com sucesso.');
   } catch (err) {
+    handleError(err, { context: 'accountView.changePassword', silent: true });
     errEl.textContent = err.message || 'Não foi possível alterar a senha.';
   } finally {
     _setLoading(btn, 'Alterar senha', false);
@@ -298,6 +304,7 @@ async function _handleDeleteAccount() {
     await supabase.auth.signOut();
     toast.info('Conta excluída. Até logo!');
   } catch (err) {
+    handleError(err, { context: 'accountView.deleteAccount', silent: true });
     _setLoading(btn, 'Excluir minha conta', false);
     toast.error(err.message || 'Não foi possível excluir a conta. Tente novamente.');
   }

@@ -480,9 +480,9 @@ Toda chamada Supabase segue o padrão `const { data, error } = await ...; if (er
 | **Erros da IA** | Qualquer falha do pipeline de IA (auth, rede, timeout, rate limit, indisponibilidade, resposta vazia, erro genérico da API) | Sempre convertidos para a classe `AIError` (`code` + `message` em português), nunca vaza o erro cru do Gemini para a UI. |
 
 **Camada final (`errorService.js`):** funciona como um handler global (`window.onerror`, `unhandledrejection`) e também pode ser chamado explicitamente. Ele:
-1. Categoriza o erro (`auth`, `network`, `database`, `push`, `service_worker`, `ui`, `unknown`) por palavras-chave na mensagem/código.
-2. Gera uma mensagem amigável em português (`friendlyMessage`) — nunca expõe stack trace ou mensagem técnica ao usuário final.
-3. Registra um log em memória (`getErrorLog()`, até 100 entradas) e envia telemetria (`track(EVENTS.ERROR, ...)`), exceto para erros de categoria `ui`.
+1. Categoriza o erro (`auth`, `network`, `database`, `ai`, `push`, `service_worker`, `ui`, `unknown`) — a maioria por palavras-chave na mensagem/código, exceto `AIError` (ver acima), reconhecida pelo nome da classe independentemente do texto.
+2. Gera uma mensagem amigável em português (`friendlyMessage`) — nunca expõe stack trace ou mensagem técnica ao usuário final; para `AIError`, preserva a mensagem específica por código já gerada em `geminiProvider.js`.
+3. Registra um log em memória (`getRecentErrors()`, até 100 entradas) e envia telemetria (`track(EVENTS.ERROR, ...)`), exceto para erros de categoria `ui`.
 4. Exibe um toast de erro (`showToast`), a menos que o contexto marque `silent: true` ou a categoria seja `auth` (erros de auth normalmente já são tratados de forma específica pela View que fez a chamada).
 
 Erros de autenticação (`AUTH`/`PGRST301`/mensagens contendo `jwt`/`session`) tipicamente indicam sessão expirada — a UI deve reagir redirecionando para o login, não apenas exibindo o toast.

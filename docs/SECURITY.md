@@ -460,10 +460,10 @@ O projeto não usa nenhum framework que escape automaticamente conteúdo interpo
 
 `errorService.js` centraliza captura e categorização de erros (`window.onerror`, `unhandledrejection`, chamadas explícitas de `handleError()`):
 
-- Categoriza erros em `auth`, `network`, `database`, `push`, `service_worker`, `ui`, `unknown` com base em heurísticas de mensagem/código.
+- Categoriza erros em `auth`, `network`, `database`, `ai`, `push`, `service_worker`, `ui`, `unknown` com base em heurísticas de mensagem/código (exceto `AIError`, reconhecida pelo nome da classe).
 - Converte mensagens técnicas em mensagens amigáveis em português, **sem expor stack traces, nomes de tabelas ou detalhes internos do Supabase ao usuário final** — mensagens originais só são exibidas se "parecerem" seguras (curtas, sem palavras como `TypeError`, `Cannot read`, `undefined`, sem quebras de linha).
 - Em modo produção (`_devMode = false`), o log detalhado (`console.group`, stack completo) não é exibido; em modo dev, é.
-- Mantém um buffer local de até 100 entradas (`getErrorLog()`), usado pela tela de diagnóstico — não é enviado a nenhum backend externo.
+- Mantém um buffer local de até 100 entradas, consultável via `getRecentErrors()` e exposto por `diagnosticService.js` — não é enviado a nenhum backend externo.
 
 ### Validações
 

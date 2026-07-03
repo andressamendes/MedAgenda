@@ -12,6 +12,7 @@ import {
 import { initEventsView, showEventList } from "./academicCalendarEventsView.js";
 import { initICSView, triggerICSImport, handleICSExport } from "./academicCalendarICSView.js";
 import { initModal } from "./modalController.js";
+import { handleError } from "./errorService.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -111,7 +112,8 @@ export async function openAcademicCalendarModal() {
 async function showCalendarList() {
   try {
     _calendarsCache = await getCalendars();
-  } catch {
+  } catch (err) {
+    handleError(err, { context: 'academicCalendarView.loadCalendars', silent: true });
     toast.error("Erro ao carregar calendários.");
   }
 
@@ -200,6 +202,7 @@ async function handleCalendarCreate() {
     _onChange?.();
     await showCalendarList();
   } catch (err) {
+    handleError(err, { context: 'academicCalendarView.create', silent: true });
     errEl.textContent = err.message || "Erro ao criar calendário.";
   }
 }
@@ -250,6 +253,7 @@ async function showCalendarEditForm(calId) {
       _onChange?.();
       await showCalendarList();
     } catch (err) {
+      handleError(err, { context: 'academicCalendarView.update', silent: true });
       errEl.textContent = err.message || "Erro ao atualizar.";
     }
   });
@@ -271,6 +275,7 @@ async function handleCalendarDelete(calId) {
     _onChange?.();
     await showCalendarList();
   } catch (err) {
+    handleError(err, { context: 'academicCalendarView.delete', silent: true });
     toast.error(err.message || "Erro ao excluir.");
   }
 }

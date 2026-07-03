@@ -5,6 +5,7 @@ import { confirmDialog } from "./confirmDialog.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
+import { handleError } from "./errorService.js";
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
 
@@ -129,6 +130,7 @@ export function initEventForm(onSave) {
       _closeEventModal();
       if (_onSave) await _onSave();
     } catch (err) {
+      handleError(err, { context: editingId ? 'eventFormView.update' : 'eventFormView.create', silent: true });
       formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
     } finally {
       saveBtn.disabled    = false;
