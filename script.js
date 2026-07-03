@@ -107,6 +107,19 @@ async function refreshAll() {
   }
 }
 
+// Isola a falha de uma inicialização recuperável (ex.: IA, categorias,
+// notificações, diagnóstico) para que ela nunca impeça as demais etapas de
+// bootstrap — em especial a autenticação — de rodar. `fn` pode ser síncrona
+// ou assíncrona; o erro é tratado com a mesma infraestrutura (handleError)
+// já usada pelos demais try/catch de _initApp.
+async function safeInit(label, fn) {
+  try {
+    await fn();
+  } catch (err) {
+    handleError(err, { context: `initApp.${label}` });
+  }
+}
+
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
 // Inicialização do app após autenticação bem-sucedida.
 // Esta função é passada como callback onSignedIn ao initAuthView() e é chamada
@@ -122,15 +135,17 @@ async function _initApp(session) {
     const avatarCircle = document.getElementById("header-avatar-circle");
     if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
 
-    initAccountView(session.user.id);
-    initNotifications(session.user.id);
-    initPushService(session.user.id, VAPID_PUBLIC_KEY);
+    safeInit("conta", () => initAccountView(session.user.id));
+    safeInit("notificações", () => {
+      initNotifications(session.user.id);
+      initPushService(session.user.id, VAPID_PUBLIC_KEY);
+    });
 
     // Re-sync push subscription in case it changed since last login
     syncPushSubscription().catch(() => {});
 
     // Initialize academic calendar service & wiring
-    initAcademicModal();
+    safeInit("calendário acadêmico", () => initAcademicModal());
     try {
       await initAcademicCalendarView(() => {
         // Called whenever calendars change — refresh filters and views
@@ -163,20 +178,23 @@ async function _initApp(session) {
       handleError(err, { context: "initApp.categories" });
     }
 
+    // Semana, mês e lista são isolados entre si: uma falha em qualquer um não
+    // pode impedir os outros dois de carregar, nem impedir restoreLastPage()
+    // de rodar em seguida.
     await Promise.all([
-      initWeekView(document.getElementById("week-container"), {
+      safeInit("semana", () => initWeekView(document.getElementById("week-container"), {
         onSlotClick: (date, time) =>
           openQuickAdd(date, refreshAll, time),
         onEventClick: handleEventClick,
         onAcademicEventClick: openAcademicCalendarModal,
-      }),
-      initCalendar(document.getElementById("calendar-container"), {
+      })),
+      safeInit("calendário", () => initCalendar(document.getElementById("calendar-container"), {
         onDayClick: (date) =>
           openQuickAdd(date, refreshAll),
         onEventClick: handleEventClick,
         onAcademicEventClick: openAcademicCalendarModal,
-      }),
-      loadEvents(),
+      })),
+      safeInit("agenda", loadEvents),
     ]);
 
     // Restore the page the user was on before the last refresh/logout
@@ -355,33 +373,36 @@ async function handleDelete(id, card) {
 }
 
 // ── [DOMAIN: navegação e layout] — extraído para navigationView.js ──────────
-initNavigation();
+safeInit("navegação", initNavigation);
 
 // ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
-initCategoryView();
+safeInit("categorias (modal)", initCategoryView);
 
 // ── [DOMAIN: configurações e notificações] — extraído para settingsModal.js ──
-initSettingsModal({ isDevMode: _isDevMode, setDevMode: _setDevMode });
+safeInit("configurações", () => initSettingsModal({ isDevMode: _isDevMode, setDevMode: _setDevMode }));
 
 // ── [DOMAIN: diagnóstico] — extraído para diagnosticModal.js ─────────────
-initDiagnosticModal();
+safeInit("diagnóstico", initDiagnosticModal);
 
 // ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
-initEventForm(refreshAll);
+safeInit("formulário de compromisso", () => initEventForm(refreshAll));
 
 // ── [DOMAIN: assistente inteligente] — extraído para assistantView.js ────────
-initAssistantView();
+safeInit("assistente", initAssistantView);
 
 // ── [DOMAIN: painel ia (gemini)] — extraído para aiPanelView.js ──────────────
-initAIPanel();
+safeInit("painel de IA", initAIPanel);
 
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
+// Única etapa crítica do bootstrap (ver auditoria A2.3): sem ela nenhuma outra
+// parte da aplicação pode funcionar, então — ao contrário das demais — uma
+// falha aqui não é isolada por safeInit().
 initAuthView({
   onSignedIn:      _initApp,
   onBeforeSignOut: () => { resetAssistant(); resetNotifications(); },
 });
 
 // ── [DOMAIN: pwa] — registro do Service Worker e prompts de instalação ───────
-registerServiceWorker();
-initInstallButton();
-initOfflineDetection();
+safeInit("service worker", registerServiceWorker);
+safeInit("botão de instalação", initInstallButton);
+safeInit("detecção offline", initOfflineDetection);
