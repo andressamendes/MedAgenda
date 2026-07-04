@@ -6,9 +6,10 @@ export const APP_VERSION = '1.0.0-rc1';
 const SYNC_KEY = 'medagenda_last_sync';
 
 export async function runDiagnostics() {
-  const [dbResult, authResult] = await Promise.allSettled([
+  const [dbResult, authResult, storageResult] = await Promise.allSettled([
     checkSupabase(),
     checkAuth(),
+    checkStorage(),
   ]);
 
   return {
@@ -16,6 +17,7 @@ export async function runDiagnostics() {
     timestamp:     new Date().toISOString(),
     supabase:      dbResult.status   === 'fulfilled' ? dbResult.value   : { ok: false, error: dbResult.reason?.message },
     auth:          authResult.status === 'fulfilled' ? authResult.value : { ok: false, error: authResult.reason?.message },
+    storage:       storageResult.status === 'fulfilled' ? storageResult.value : { ok: false, error: storageResult.reason?.message },
     serviceWorker: checkServiceWorker(),
     push:          checkPush(),
     lastSync:      getLastSync(),
@@ -36,6 +38,21 @@ async function checkSupabase() {
     if (error && error.code !== 'PGRST301' && error.code !== 'PGRST116') {
       return { ok: false, latency, error: error.message };
     }
+    return { ok: true, latency };
+  } catch (err) {
+    return { ok: false, latency: Date.now() - t0, error: err.message };
+  }
+}
+
+// Confirma se o bucket 'avatars' existe e está acessível, sem depender do
+// usuário reproduzir um upload — usado para diagnosticar a causa raiz de
+// falhas no avatarService.js (ver ETAPA 3 da auditoria de upload de foto).
+async function checkStorage() {
+  const t0 = Date.now();
+  try {
+    const { error } = await supabase.storage.from('avatars').list('', { limit: 1 });
+    const latency = Date.now() - t0;
+    if (error) return { ok: false, latency, error: error.message };
     return { ok: true, latency };
   } catch (err) {
     return { ok: false, latency: Date.now() - t0, error: err.message };

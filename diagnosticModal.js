@@ -54,6 +54,14 @@ function renderDiagnosticHTML(r) {
         : escapeHtml(r.auth.status),
     },
     {
+      ok:     r.storage.ok,
+      label:  'Storage (Fotos)',
+      detail: r.storage.ok
+        ? 'Bucket disponível'
+        : escapeHtml(r.storage.error || 'Indisponível'),
+      extra:  r.storage.latency !== undefined ? `${r.storage.latency} ms` : '',
+    },
+    {
       ok:     r.serviceWorker.ok,
       label:  'Service Worker',
       detail: escapeHtml(r.serviceWorker.status),

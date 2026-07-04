@@ -34,6 +34,7 @@ function mockServices(t, { pushSupported = false, diagnostics } = {}) {
       runDiagnostics: async () => diagnostics ?? {
         supabase:      { ok: true, latency: 12 },
         auth:          { ok: true, email: "user@example.com", expiresAt: "01/01/2030" },
+        storage:       { ok: true, latency: 8 },
         serviceWorker: { ok: true, status: "Ativo" },
         push:          { ok: false, status: "Permissão não solicitada" },
         lastSync:      "01/01/2026",
@@ -134,6 +135,7 @@ test("diagnostic modal escapes non-static status strings before rendering", asyn
     diagnostics: {
       supabase:      { ok: true, latency: 5 },
       auth:          { ok: false, status: '<img src=x onerror=alert(1)>' },
+      storage:       { ok: true, latency: 5 },
       serviceWorker: { ok: true, status: "Ativo" },
       push:          { ok: true, status: "Autorizado" },
       lastSync:      "01/01/2026",

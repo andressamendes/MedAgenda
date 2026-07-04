@@ -154,9 +154,15 @@ export function handleError(err, context = {}) {
     ts:        new Date().toISOString(),
     category,
     code:      err?.code ?? null,
+    status:    err?.status ?? err?.statusCode ?? null,
     message:   err?.message || String(err),
     friendly,
     context,
+    // Metadados de diagnóstico de Storage (ver avatarService.js), nunca
+    // exibidos ao usuário — apenas para consulta em getRecentErrors().
+    storageOp:     err?.storageOp ?? null,
+    storageBucket: err?.storageBucket ?? null,
+    storagePath:   err?.storagePath ?? null,
     stack:     err?.stack,
   };
 
@@ -168,6 +174,12 @@ export function handleError(err, context = {}) {
     console.error(err);
     console.log('contexto:', context);
     console.log('mensagem amigável:', friendly);
+    if (entry.storageOp) {
+      console.log('storage:', {
+        op: entry.storageOp, bucket: entry.storageBucket,
+        path: entry.storagePath, status: entry.status, code: entry.code,
+      });
+    }
     console.groupEnd();
   }
 
