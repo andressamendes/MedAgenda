@@ -6,6 +6,7 @@ const CATEGORIES = {
   NETWORK:  'network',
   DATABASE: 'database',
   AI:       'ai',
+  STORAGE:  'storage',
   PUSH:     'push',
   SW:       'service_worker',
   UI:       'ui',
@@ -69,6 +70,11 @@ function categorize(err) {
   ) return CATEGORIES.NETWORK;
 
   if (
+    msg.includes('bucket') || msg.includes('storage/object') ||
+    msg.includes('storage api')
+  ) return CATEGORIES.STORAGE;
+
+  if (
     msg.includes('supabase') || code.startsWith('PGRST') ||
     msg.includes('database') || code.startsWith('23') || code.startsWith('42')
   ) return CATEGORIES.DATABASE;
@@ -97,6 +103,7 @@ const FRIENDLY = {
     default:  'Erro ao comunicar com o servidor. Tente novamente em instantes.',
     duplicate:'Já existe um registro com essas informações.',
   },
+  [CATEGORIES.STORAGE]: 'Serviço de armazenamento indisponível. Tente novamente mais tarde.',
   [CATEGORIES.PUSH]:  'Erro ao configurar notificações. Verifique as permissões do navegador.',
   [CATEGORIES.SW]:    'Erro no serviço em segundo plano. Recarregue a página.',
   [CATEGORIES.UNKNOWN]:'Algo deu errado. Tente novamente.',
