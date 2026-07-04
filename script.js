@@ -54,6 +54,7 @@ import { initAuthView } from "./authView.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
+import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -136,6 +137,7 @@ async function _initApp(session) {
     if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
 
     safeInit("conta", () => initAccountView(session.user.id));
+    safeInit("cronômetro de sessão", () => initActivitySessionView());
     safeInit("notificações", () => {
       initNotifications(session.user.id);
       initPushService(session.user.id, VAPID_PUBLIC_KEY);
@@ -413,7 +415,7 @@ safeInit("painel de IA", initAIPanel);
 // falha aqui não é isolada por safeInit().
 initAuthView({
   onSignedIn:      _initApp,
-  onBeforeSignOut: () => { resetAssistant(); resetNotifications(); },
+  onBeforeSignOut: () => { resetAssistant(); resetNotifications(); resetActivitySessionView(); },
 });
 
 // ── [DOMAIN: pwa] — registro do Service Worker e prompts de instalação ───────
