@@ -6,10 +6,12 @@ import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { startSessionForEvent } from "./activitySessionView.js";
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
 
-let editingId = null;
+let editingId    = null;
+let _editingEvent = null;
 let _onSave   = null;
 
 let eventModal         = null;
@@ -18,6 +20,7 @@ let formTitle          = null;
 let formError          = null;
 let eventIdField       = null;
 let saveBtn            = null;
+let startSessionBtn    = null;
 let cancelBtn          = null;
 let fTitle             = null;
 let fDate              = null;
@@ -46,6 +49,7 @@ export function initEventForm(onSave) {
   formError           = document.getElementById("form-error");
   eventIdField        = document.getElementById("event-id");
   saveBtn             = document.getElementById("btn-save");
+  startSessionBtn     = document.getElementById("btn-start-session");
   cancelBtn           = document.getElementById("btn-cancel");
   fTitle              = document.getElementById("f-title");
   fDate               = document.getElementById("f-date");
@@ -87,6 +91,17 @@ export function initEventForm(onSave) {
   });
 
   cancelBtn?.addEventListener("click", _handleModalClose);
+
+  startSessionBtn?.addEventListener("click", async () => {
+    if (!_editingEvent) return;
+    startSessionBtn.disabled = true;
+    try {
+      const started = await startSessionForEvent(_editingEvent);
+      if (started) _handleModalClose();
+    } finally {
+      startSessionBtn.disabled = false;
+    }
+  });
 
   eventForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -177,7 +192,9 @@ function _handleModalClose() {
 }
 
 function _clearForm() {
-  editingId = null;
+  editingId      = null;
+  _editingEvent  = null;
+  startSessionBtn.hidden = true;
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
@@ -198,6 +215,8 @@ function _clearForm() {
 
 function _populateForm(ev) {
   editingId             = ev.id;
+  _editingEvent         = ev;
+  startSessionBtn.hidden = false;
   eventIdField.value    = ev.id;
   fTitle.value          = ev.title           || "";
   fDate.value           = ev.event_date       || "";

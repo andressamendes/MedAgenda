@@ -3,6 +3,13 @@
 // sessões simultâneas, calcular duração, transições de status válidas) mora
 // em activitySessionService.js — este módulo não decide nada, só reflete o
 // estado retornado pelo service e reage a cliques.
+//
+// F1.4: sessões podem se originar de um compromisso (event_id/category_id).
+// Título e categoria exibidos no widget são resolvidos a partir do evento
+// (eventService/categoryService) só para exibição — nunca persistidos na
+// sessão além dos ids que o service já grava. Nenhuma outra camada (ex.:
+// eventFormView.js) implementa a regra de "uma sessão por vez": todas
+// chamam startSessionForEvent() e recebem o conflito já tratado aqui.
 
 import {
   getRunningSession,
@@ -11,16 +18,20 @@ import {
   resumeSession,
   finishSession,
 } from "./activitySessionService.js";
+import { getEventById } from "./eventService.js";
+import { getCategories } from "./categoryService.js";
+import { confirmDialog } from "./confirmDialog.js";
 import { handleError } from "./errorService.js";
 
 const TICK_MS = 1000;
 
-let widget, statusEl, timeEl, noteEl;
+let widget, statusEl, timeEl, eventEl, noteEl;
 let btnStart, btnPause, btnResume, btnFinish;
 
-let _session  = null; // fonte da verdade: a última linha conhecida do banco
-let _tickId   = null;
-let _busy     = false; // evita cliques duplicados durante uma chamada em andamento
+let _session   = null; // fonte da verdade: a última linha conhecida do banco
+let _eventMeta = null; // { title, category } — só para exibição, nunca persistido
+let _tickId    = null;
+let _busy      = false; // evita cliques duplicados durante uma chamada em andamento
 
 function _buildWidget() {
   widget = document.createElement("div");
@@ -30,6 +41,7 @@ function _buildWidget() {
   widget.innerHTML = `
     <div class="as-widget-body">
       <span class="as-widget-status" id="as-status">Nenhuma sessão em andamento</span>
+      <span class="as-widget-event" id="as-event" hidden></span>
       <span class="as-widget-time" id="as-time" aria-hidden="true"></span>
       <p class="as-widget-note" id="as-note" hidden></p>
     </div>
@@ -43,6 +55,7 @@ function _buildWidget() {
   document.body.appendChild(widget);
 
   statusEl  = widget.querySelector("#as-status");
+  eventEl   = widget.querySelector("#as-event");
   timeEl    = widget.querySelector("#as-time");
   noteEl    = widget.querySelector("#as-note");
   btnStart  = widget.querySelector("#as-btn-start");
@@ -103,6 +116,14 @@ function _render() {
   btnResume.hidden = status !== "paused";
   btnFinish.hidden = !_session;
 
+  // Nada além de título e categoria — sem estatísticas, sem progresso.
+  eventEl.hidden = !_session || !_eventMeta;
+  if (_session && _eventMeta) {
+    eventEl.textContent = _eventMeta.category
+      ? `${_eventMeta.title} · ${_eventMeta.category}`
+      : _eventMeta.title;
+  }
+
   // Limitação conhecida (ver activitySessionService.js): o modelo não
   // acumula tempo pausado separadamente, então a duração final de
   // finishSession() sempre inclui qualquer intervalo em pausa.
@@ -124,6 +145,45 @@ function _render() {
   }
 }
 
+// Aplica o resultado (vindo do service) ao estado do widget, limpando os
+// metadados de exibição do evento quando a sessão deixa de existir.
+function _applySession(session) {
+  _session = session;
+  if (!_session || _session.status === "finished" || _session.status === "cancelled") {
+    _session   = null;
+    _eventMeta = null;
+  }
+  _render();
+}
+
+// Melhor esforço: resolve o nome da categoria do compromisso para o id
+// esperado por activity_sessions.category_id. Nunca impede o início da
+// sessão — na dúvida, fica sem categoria.
+async function _resolveCategoryId(categoryName) {
+  if (!categoryName) return null;
+  try {
+    const categories = await getCategories();
+    return categories.find(c => c.name === categoryName)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Resolve título/categoria para exibição a partir do event_id gravado na
+// sessão — usado ao restaurar após reload. Se o compromisso foi excluído
+// enquanto a sessão estava ativa, a sessão continua normalmente (o evento é
+// independente da sessão); o widget apenas mostra um rótulo genérico.
+async function _resolveEventMeta(session) {
+  if (!session?.event_id) return null;
+  try {
+    const ev = await getEventById(session.event_id);
+    return ev ? { title: ev.title, category: ev.category || null } : { title: "Compromisso removido", category: null };
+  } catch (err) {
+    handleError(err, { context: "activitySessionView.resolveEventMeta" });
+    return { title: "Compromisso removido", category: null };
+  }
+}
+
 // Executa uma ação de domínio, atualizando o widget a partir do resultado
 // (ou preservando o estado anterior em caso de erro — nunca deixa a UI
 // travada num estado que não corresponde ao banco).
@@ -132,11 +192,7 @@ async function _run(action) {
   _busy = true;
   _setButtonsDisabled(true);
   try {
-    _session = await action();
-    if (_session?.status === "finished" || _session?.status === "cancelled") {
-      _session = null;
-    }
-    _render();
+    _applySession(await action());
   } catch (err) {
     handleError(err, { context: "activitySessionView" });
   } finally {
@@ -148,25 +204,72 @@ async function _run(action) {
 /**
  * Monta o cronômetro global e restaura, se existir, a sessão em andamento
  * do usuário atual — recarregar a página nunca deve fazer o usuário perder
- * uma sessão ativa.
+ * uma sessão ativa (nem o título/categoria do compromisso vinculado, se houver).
  */
 export async function initActivitySessionView() {
   if (!widget) _buildWidget();
 
   try {
-    _session = await getRunningSession();
+    _session   = await getRunningSession();
+    _eventMeta = await _resolveEventMeta(_session);
   } catch (err) {
     handleError(err, { context: "activitySessionView.restore" });
-    _session = null;
+    _session   = null;
+    _eventMeta = null;
   }
   _render();
+}
+
+/**
+ * Inicia uma sessão vinculada a um compromisso (ver eventFormView.js —
+ * botão "Iniciar Sessão"). Se já existir outra sessão ativa, NUNCA troca
+ * silenciosamente: mostra uma mensagem amigável oferecendo apenas finalizar
+ * a sessão atual, e exige um novo clique para de fato iniciar a nova.
+ *
+ * @returns {Promise<boolean>} true se a sessão do evento foi iniciada.
+ */
+export async function startSessionForEvent(event) {
+  if (_busy || !widget) return false;
+  _busy = true;
+  _setButtonsDisabled(true);
+  try {
+    const category_id = await _resolveCategoryId(event.category);
+    const session = await startSession({ event_id: event.id, category_id });
+    _eventMeta = { title: event.title, category: event.category || null };
+    _applySession(session);
+    return true;
+  } catch (err) {
+    if (err?.code === "SESSION_ALREADY_RUNNING") {
+      const runningLabel = _eventMeta?.title ? `"${_eventMeta.title}"` : "outra atividade";
+      const shouldFinish = await confirmDialog({
+        title:       "Sessão em andamento",
+        message:     `Já existe uma sessão em andamento para ${runningLabel}. Finalize-a antes de iniciar uma nova sessão.`,
+        confirmText: "Finalizar sessão atual",
+        cancelText:  "Cancelar",
+      });
+      if (shouldFinish && _session) {
+        try {
+          _applySession(await finishSession(_session.id));
+        } catch (finishErr) {
+          handleError(finishErr, { context: "activitySessionView.finishBeforeSwitch" });
+        }
+      }
+      return false;
+    }
+    handleError(err, { context: "activitySessionView.startSessionForEvent" });
+    return false;
+  } finally {
+    _busy = false;
+    _setButtonsDisabled(false);
+  }
 }
 
 // Chamado no logout (ver script.js/authView.js): o widget não deve
 // continuar mostrando/tiquetaqueando a sessão do usuário anterior.
 export function resetActivitySessionView() {
   _stopTicking();
-  _session = null;
-  _busy = false;
+  _session   = null;
+  _eventMeta = null;
+  _busy      = false;
   if (widget) _render();
 }
