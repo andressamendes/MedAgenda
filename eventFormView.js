@@ -2,6 +2,7 @@
 
 import { createEvent, updateEvent } from "./eventService.js";
 import { listByEvent } from "./activitySessionService.js";
+import { computeSessionStats } from "./activitySessionStats.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
@@ -40,6 +41,12 @@ let cancelBtn          = null;
 let historySection     = null;
 let historyEmpty       = null;
 let historyList        = null;
+let statsSection       = null;
+let statTotal          = null;
+let statCount          = null;
+let statLast           = null;
+let statLongest        = null;
+let statAverage        = null;
 let fTitle             = null;
 let fDate              = null;
 let fStart             = null;
@@ -72,6 +79,12 @@ export function initEventForm(onSave) {
   historySection      = document.getElementById("session-history");
   historyEmpty        = document.getElementById("session-history-empty");
   historyList         = document.getElementById("session-history-list");
+  statsSection        = document.getElementById("session-stats");
+  statTotal           = document.getElementById("stat-total");
+  statCount           = document.getElementById("stat-count");
+  statLast            = document.getElementById("stat-last");
+  statLongest         = document.getElementById("stat-longest");
+  statAverage         = document.getElementById("stat-average");
   fTitle              = document.getElementById("f-title");
   fDate               = document.getElementById("f-date");
   fStart              = document.getElementById("f-start");
@@ -220,6 +233,7 @@ function _clearForm() {
   historySection.hidden = true;
   historyList.innerHTML = "";
   historyEmpty.hidden = true;
+  statsSection.hidden = true;
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
@@ -309,10 +323,14 @@ async function _loadSessionHistory(eventId) {
   const requestId = ++_historyRequestId;
   historyList.innerHTML = '<li class="session-history-loading">Carregando sessões…</li>';
   historyEmpty.hidden = true;
+  statsSection.hidden = true;
 
   try {
     const sessions = await listByEvent(eventId);
     if (requestId !== _historyRequestId) return; // formulário mudou de evento antes da resposta chegar
+    // Estatísticas (F1.6) reaproveitam a MESMA lista do histórico — nunca uma
+    // segunda consulta.
+    _renderSessionStats(sessions);
     _renderSessionHistory(sessions);
   } catch (err) {
     if (requestId !== _historyRequestId) return;
@@ -320,7 +338,28 @@ async function _loadSessionHistory(eventId) {
     historyList.innerHTML = "";
     historyEmpty.hidden = false;
     historyEmpty.textContent = friendly;
+    statsSection.hidden = true;
   }
+}
+
+// ── Estatísticas do compromisso (F1.6) ──────────────────────────────────────
+// Cálculos puros vivem em activitySessionStats.js — esta função só formata
+// e escreve no DOM. Sem gráficos, sem porcentagens, sem agregação global.
+
+function _renderSessionStats(sessions) {
+  const stats = computeSessionStats(sessions);
+
+  if (stats.sessionCount === 0) {
+    statsSection.hidden = true;
+    return;
+  }
+
+  statsSection.hidden = false;
+  statTotal.textContent   = _formatSessionDuration(stats.totalMinutes);
+  statCount.textContent   = String(stats.sessionCount);
+  statLast.textContent    = _formatRelativeMoment(stats.lastSession.started_at);
+  statLongest.textContent = _formatSessionDuration(stats.longestSession.duration_minutes);
+  statAverage.textContent = _formatSessionDuration(stats.averageMinutes);
 }
 
 function _renderSessionHistory(sessions) {
@@ -368,4 +407,21 @@ function _formatSessionDuration(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+function _isSameLocalDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// "Última sessão": Hoje/Ontem às HH:MM, ou a data por extenso se for mais antiga.
+function _formatRelativeMoment(iso) {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const time = _formatSessionTime(iso);
+  if (_isSameLocalDay(d, today))     return `Hoje às ${time}`;
+  if (_isSameLocalDay(d, yesterday)) return `Ontem às ${time}`;
+  return `${_formatSessionDate(iso)} às ${time}`;
 }
