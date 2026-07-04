@@ -1,18 +1,33 @@
 // ── eventFormView.js — Modal de criação e edição de compromissos ─────────────
 
 import { createEvent, updateEvent } from "./eventService.js";
+import { listByEvent } from "./activitySessionService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { startSessionForEvent } from "./activitySessionView.js";
+import { pad, escapeHtml } from "./utils.js";
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
+
+const SESSION_STATUS_LABELS = {
+  running:   "Em andamento",
+  paused:    "Pausada",
+  finished:  "Concluída",
+  cancelled: "Cancelada",
+};
+const SESSION_SOURCE_LABELS = {
+  manual: "Manual",
+  event:  "Compromisso",
+  quick:  "Rápida",
+};
 
 let editingId    = null;
 let _editingEvent = null;
 let _onSave   = null;
+let _historyRequestId = 0; // descarta respostas obsoletas se o evento editado mudar antes da resposta chegar
 
 let eventModal         = null;
 let eventForm          = null;
@@ -22,6 +37,9 @@ let eventIdField       = null;
 let saveBtn            = null;
 let startSessionBtn    = null;
 let cancelBtn          = null;
+let historySection     = null;
+let historyEmpty       = null;
+let historyList        = null;
 let fTitle             = null;
 let fDate              = null;
 let fStart             = null;
@@ -51,6 +69,9 @@ export function initEventForm(onSave) {
   saveBtn             = document.getElementById("btn-save");
   startSessionBtn     = document.getElementById("btn-start-session");
   cancelBtn           = document.getElementById("btn-cancel");
+  historySection      = document.getElementById("session-history");
+  historyEmpty        = document.getElementById("session-history-empty");
+  historyList         = document.getElementById("session-history-list");
   fTitle              = document.getElementById("f-title");
   fDate               = document.getElementById("f-date");
   fStart              = document.getElementById("f-start");
@@ -195,6 +216,10 @@ function _clearForm() {
   editingId      = null;
   _editingEvent  = null;
   startSessionBtn.hidden = true;
+  _historyRequestId++; // invalida qualquer busca de histórico ainda em andamento
+  historySection.hidden = true;
+  historyList.innerHTML = "";
+  historyEmpty.hidden = true;
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
@@ -217,6 +242,8 @@ function _populateForm(ev) {
   editingId             = ev.id;
   _editingEvent         = ev;
   startSessionBtn.hidden = false;
+  historySection.hidden  = false;
+  _loadSessionHistory(ev.id);
   eventIdField.value    = ev.id;
   fTitle.value          = ev.title           || "";
   fDate.value           = ev.event_date       || "";
@@ -272,4 +299,73 @@ function _setSelectedDays(str) {
   document.querySelectorAll(".day-btn").forEach(btn => {
     btn.classList.toggle("day-btn-active", days.includes(btn.dataset.day));
   });
+}
+
+// ── Histórico de sessões do compromisso (F1.5) ──────────────────────────────
+// Só busca as sessões do evento aberto (listByEvent já filtra por event_id +
+// user_id e ordena started_at DESC no service) — nunca a lista inteira.
+
+async function _loadSessionHistory(eventId) {
+  const requestId = ++_historyRequestId;
+  historyList.innerHTML = '<li class="session-history-loading">Carregando sessões…</li>';
+  historyEmpty.hidden = true;
+
+  try {
+    const sessions = await listByEvent(eventId);
+    if (requestId !== _historyRequestId) return; // formulário mudou de evento antes da resposta chegar
+    _renderSessionHistory(sessions);
+  } catch (err) {
+    if (requestId !== _historyRequestId) return;
+    const { friendly } = handleError(err, { context: "eventFormView.sessionHistory", silent: true });
+    historyList.innerHTML = "";
+    historyEmpty.hidden = false;
+    historyEmpty.textContent = friendly;
+  }
+}
+
+function _renderSessionHistory(sessions) {
+  historyList.innerHTML = "";
+
+  if (!sessions.length) {
+    historyEmpty.hidden = false;
+    historyEmpty.textContent = "Nenhuma sessão registrada para este compromisso.";
+    return;
+  }
+  historyEmpty.hidden = true;
+
+  sessions.forEach(s => {
+    const li = document.createElement("li");
+    li.className = "session-history-item";
+    li.innerHTML = `
+      <div class="session-history-row">
+        <span class="session-history-date">${_formatSessionDate(s.started_at)}</span>
+        <span class="session-history-status session-history-status--${s.status}">${SESSION_STATUS_LABELS[s.status] || s.status}</span>
+      </div>
+      <div class="session-history-row session-history-meta">
+        <span>${_formatSessionTime(s.started_at)} – ${_formatSessionTime(s.ended_at)}</span>
+        <span>${_formatSessionDuration(s.duration_minutes)}</span>
+        <span>${SESSION_SOURCE_LABELS[s.source] || s.source}</span>
+      </div>
+      ${s.notes ? `<p class="session-history-notes">${escapeHtml(s.notes)}</p>` : ""}
+    `;
+    historyList.appendChild(li);
+  });
+}
+
+function _formatSessionDate(iso) {
+  const d = new Date(iso);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function _formatSessionTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function _formatSessionDuration(minutes) {
+  if (minutes === null || minutes === undefined) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }

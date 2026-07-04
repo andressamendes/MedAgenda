@@ -234,7 +234,7 @@ export async function startSessionForEvent(event) {
   _setButtonsDisabled(true);
   try {
     const category_id = await _resolveCategoryId(event.category);
-    const session = await startSession({ event_id: event.id, category_id });
+    const session = await startSession({ event_id: event.id, category_id, source: "event" });
     _eventMeta = { title: event.title, category: event.category || null };
     _applySession(session);
     return true;
