@@ -44,15 +44,28 @@ async function checkSupabase() {
   }
 }
 
-// Confirma se o bucket 'avatars' existe e está acessível, sem depender do
-// usuário reproduzir um upload — usado para diagnosticar a causa raiz de
-// falhas no avatarService.js (ver ETAPA 3 da auditoria de upload de foto).
+// Confirma se o upload de avatar realmente funciona, escrevendo e removendo
+// um objeto de teste no bucket 'avatars'. `list()` NÃO serve para isso: ele
+// consulta storage.objects filtrando por bucket_id e retorna lista vazia
+// mesmo quando o bucket não existe em storage.buckets, enquanto `upload()`
+// valida a existência do bucket antes de gravar e falha com
+// "Bucket not found" nesse caso — por isso o diagnóstico anterior (baseado
+// em list()) reportava "Bucket disponível" mesmo com o upload real falhando.
 async function checkStorage() {
   const t0 = Date.now();
+  const { data } = await supabase.auth.getSession();
+  const userId = data?.session?.user?.id;
+  if (!userId) return { ok: false, error: 'Sem sessão ativa' };
+
+  const path = `${userId}/__diagnostic`;
   try {
-    const { error } = await supabase.storage.from('avatars').list('', { limit: 1 });
+    const { error } = await supabase.storage
+      .from('avatars')
+      .upload(path, 'diagnostic', { upsert: true, contentType: 'text/plain' });
     const latency = Date.now() - t0;
     if (error) return { ok: false, latency, error: error.message };
+
+    await supabase.storage.from('avatars').remove([path]);
     return { ok: true, latency };
   } catch (err) {
     return { ok: false, latency: Date.now() - t0, error: err.message };
