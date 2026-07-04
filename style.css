@@ -1140,6 +1140,78 @@ textarea { resize: vertical; }
   gap: .4rem .9rem;
 }
 
+/* ── Histórico de Sessões do compromisso (F1.5) ── */
+.session-history {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.session-history-title {
+  margin: 0 0 .6rem;
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.session-history-empty {
+  font-size: .85rem;
+  color: var(--gray-600);
+}
+
+.session-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.session-history-item {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .6rem .8rem;
+  font-size: .82rem;
+}
+
+.session-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.session-history-meta {
+  color: var(--gray-600);
+  margin-top: .25rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: .4rem .9rem;
+}
+
+.session-history-date { font-weight: 600; }
+
+.session-history-status {
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.session-history-status--finished  { background: #dcfce7; color: #15803d; }
+.session-history-status--cancelled { background: #fee2e2; color: #b91c1c; }
+.session-history-status--running,
+.session-history-status--paused    { background: #dbeafe; color: #1d4ed8; }
+
+.session-history-notes {
+  margin: .4rem 0 0;
+  color: var(--gray-600);
+  white-space: pre-wrap;
+}
+
 /* ── Modal Quick Add ── */
 .modal-overlay {
   position: fixed;

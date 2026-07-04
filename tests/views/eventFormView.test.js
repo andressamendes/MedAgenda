@@ -11,11 +11,12 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import.meta.url).href;
 const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
 const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../activitySessionView.js", import.meta.url).href;
+const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 
 let serviceCalls;
 let startSessionForEventCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -41,6 +42,17 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
       startSessionForEvent: async (event) => {
         startSessionForEventCalls.push(event);
         return startSessionResult;
+      },
+    },
+  });
+
+  // Histórico de sessões (F1.5) — listByEvent() é a única função de
+  // activitySessionService.js que eventFormView.js chama diretamente.
+  t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
+    namedExports: {
+      listByEvent: async () => {
+        if (sessionHistoryError) throw sessionHistoryError;
+        return sessionHistory;
       },
     },
   });
@@ -189,6 +201,105 @@ test("openEventForm(event) populates the fields for editing, and submitting call
   assert.strictEqual(serviceCalls[0].fn, "updateEvent");
   assert.strictEqual(serviceCalls[0].id, "evt-1");
   assert.strictEqual(serviceCalls[0].fields.title, "Plantão UPA");
+});
+
+// ── F1.5: Histórico de Sessões do compromisso ───────────────────────────────
+
+test("a new event never shows the session history section", async (t) => {
+  mockEventService(t);
+  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  document.getElementById("btn-new-event").click();
+
+  assert.strictEqual(document.getElementById("session-history").hidden, true);
+});
+
+test("an event with no sessions shows a friendly empty state", async (t) => {
+  mockEventService(t, { sessionHistory: [] });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  assert.strictEqual(document.getElementById("session-history").hidden, false);
+  assert.strictEqual(document.getElementById("session-history-empty").hidden, false);
+  assert.strictEqual(document.getElementById("session-history-list").children.length, 0);
+});
+
+test("an event with one finished session shows its date, times, duration, status and source", async (t) => {
+  mockEventService(t, {
+    sessionHistory: [{
+      id: "sess-1", status: "finished", source: "event",
+      started_at: "2026-08-12T08:00:00.000Z", ended_at: "2026-08-12T09:30:00.000Z",
+      duration_minutes: 90, notes: null,
+    }],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  const items = document.querySelectorAll("#session-history-list .session-history-item");
+  assert.strictEqual(items.length, 1);
+  assert.strictEqual(items[0].textContent.includes("Concluída"), true);
+  assert.strictEqual(items[0].textContent.includes("1h 30min"), true);
+  assert.strictEqual(items[0].textContent.includes("Compromisso"), true);
+});
+
+test("multiple sessions are rendered ordered by started_at DESC (most recent first)", async (t) => {
+  mockEventService(t, {
+    // O service (listByEvent) já ordena DESC — a view apenas renderiza na
+    // ordem recebida, sem reordenar.
+    sessionHistory: [
+      { id: "sess-2", status: "finished", source: "manual", started_at: "2026-08-12T14:00:00.000Z", ended_at: "2026-08-12T15:00:00.000Z", duration_minutes: 60 },
+      { id: "sess-1", status: "finished", source: "manual", started_at: "2026-08-10T08:00:00.000Z", ended_at: "2026-08-10T08:30:00.000Z", duration_minutes: 30 },
+    ],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  const items = document.querySelectorAll("#session-history-list .session-history-item");
+  assert.strictEqual(items.length, 2);
+  assert.strictEqual(items[0].textContent.includes("12/08/2026"), true);
+  assert.strictEqual(items[1].textContent.includes("10/08/2026"), true);
+});
+
+test("a cancelled session is labeled accordingly and keeps its notes visible", async (t) => {
+  mockEventService(t, {
+    sessionHistory: [{
+      id: "sess-1", status: "cancelled", source: "manual",
+      started_at: "2026-08-12T08:00:00.000Z", ended_at: null, duration_minutes: null,
+      notes: "Interrompida por emergência.",
+    }],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  const item = document.querySelector("#session-history-list .session-history-item");
+  assert.strictEqual(item.textContent.includes("Cancelada"), true);
+  assert.strictEqual(item.textContent.includes("Interrompida por emergência."), true);
+});
+
+test("a loading error shows a friendly message via errorService instead of breaking the form", async (t) => {
+  mockEventService(t, { sessionHistoryError: new Error("Failed to fetch") });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  assert.strictEqual(document.getElementById("session-history-empty").hidden, false);
+  assert.strictEqual(document.getElementById("session-history-empty").textContent.length > 0, true);
+  assert.strictEqual(document.getElementById("session-history-list").children.length, 0);
 });
 
 test("'Iniciar Sessão' is hidden for a new event and shown when editing an existing one", async (t) => {
