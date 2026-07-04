@@ -105,15 +105,19 @@ Acesse `http://localhost:8080`.
 ## Configurar o Supabase
 
 1. Criar um projeto em [supabase.com](https://supabase.com)
-2. Executar os scripts SQL na ordem:
+2. Em **Storage → New Bucket**, criar o bucket `avatars` (Public: yes) — necessário
+   antes do próximo passo, pois `sql/06_storage.sql` só cria as *policies* do
+   bucket, não o bucket em si. Pular esta etapa causa o erro "Bucket not found"
+   ao tentar alterar a foto de perfil.
+3. Executar os scripts SQL na ordem:
    - `sql/02_categories.sql`
    - `sql/03_recurrence.sql`
    - `sql/04_push_notifications.sql`
    - `sql/05_profiles.sql`
    - `sql/06_storage.sql`
    - `sql/07_academic_calendar.sql`
-3. Copiar a **URL do projeto** e a **chave anon** para `config.js`
-4. Em **Authentication → URL Configuration**, configurar:
+4. Copiar a **URL do projeto** e a **chave anon** para `config.js`
+5. Em **Authentication → URL Configuration**, configurar:
    - Site URL: `https://andressamendes.github.io/MedAgenda/`
    - Redirect URLs: `https://andressamendes.github.io/MedAgenda/**`
 

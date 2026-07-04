@@ -186,8 +186,8 @@ async function _handleAvatarChange(e) {
     document.getElementById('btn-remove-avatar').hidden = false;
     toast.success('Foto atualizada com sucesso.');
   } catch (err) {
-    handleError(err, { context: 'accountView.uploadAvatar', silent: true });
-    toast.error(err.message || 'Não foi possível enviar a foto.');
+    const { friendly } = handleError(err, { context: 'accountView.uploadAvatar', silent: true });
+    toast.error(friendly);
   } finally {
     _setLoading(btn, 'Alterar foto', false);
     e.target.value = '';
@@ -212,8 +212,8 @@ async function _handleRemoveAvatar() {
     btn.hidden = true;
     toast.success('Foto removida.');
   } catch (err) {
-    handleError(err, { context: 'accountView.removeAvatar', silent: true });
-    toast.error(err.message || 'Não foi possível remover a foto.');
+    const { friendly } = handleError(err, { context: 'accountView.removeAvatar', silent: true });
+    toast.error(friendly);
   } finally {
     _setLoading(btn, 'Remover foto', false);
   }
