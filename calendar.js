@@ -1,6 +1,6 @@
 import { getEventsByRange } from "./eventService.js";
 import { expandEvents } from "./recurrence.js";
-import { pad, isoDate, isoToday } from "./utils.js";
+import { pad, isoDate, isoToday, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
 
 let _showPersonal = () => true;
@@ -91,10 +91,10 @@ async function fetchAndRender() {
     renderGrid(groupByDate([...personal, ...academicEvents]));
   } catch (err) {
     // Erro (rede/banco/sessão) não deve ser tratado como "mês sem eventos" —
-    // registrar via infraestrutura existente. Toast fica a cargo de loadEvents()
-    // em script.js para não duplicar notificações no mesmo refreshAll().
-    handleError(err, { context: "calendar.fetchAndRender", silent: true });
-    renderGrid({});
+    // renderiza um estado de erro distinto, com opção de tentar novamente,
+    // em vez de uma grade vazia indistinguível de um mês sem compromissos.
+    const { friendly } = handleError(err, { context: "calendar.fetchAndRender", silent: true });
+    renderCalError(friendly);
   }
 }
 
@@ -106,6 +106,18 @@ function updateTitle() {
 function showLoading() {
   const body = container.querySelector("#cal-body");
   if (body) body.innerHTML = `<div class="cal-loading">Carregando…</div>`;
+}
+
+function renderCalError(message) {
+  const body = container.querySelector("#cal-body");
+  if (!body) return;
+  body.innerHTML = `
+    <div class="cal-error">
+      <p>${escapeHtml(message)}</p>
+      <button type="button" class="btn btn-sm btn-ghost" id="cal-retry">Tentar novamente</button>
+    </div>
+  `;
+  body.querySelector("#cal-retry")?.addEventListener("click", fetchAndRender);
 }
 
 // ── Grade ──────────────────────────────────────────────────────────────────

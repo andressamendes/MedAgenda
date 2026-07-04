@@ -967,6 +967,18 @@ body {
   font-size: .9rem;
 }
 
+.cal-error {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--red);
+  padding: 2.5rem 0;
+  font-size: .9rem;
+}
+
+.cal-error .btn {
+  margin-top: .6rem;
+}
+
 /* ── Campos ── */
 .field {
   display: flex;
@@ -1086,6 +1098,11 @@ textarea { resize: vertical; }
 
 .list-empty.list-error {
   color: var(--red);
+}
+
+.list-empty .list-error-retry {
+  display: block;
+  margin: .6rem auto 0;
 }
 
 .event-card {
@@ -1312,6 +1329,10 @@ textarea { resize: vertical; }
   padding: 1rem 0;
 }
 
+.cat-empty.cat-error {
+  color: var(--red);
+}
+
 .badge {
   display: inline-block;
   padding: .15rem .6rem;
@@ -1343,6 +1364,23 @@ textarea { resize: vertical; }
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   overflow: hidden;
+}
+
+.wk-error {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  color: var(--red);
+  font-size: .85rem;
+  padding: .5rem .75rem;
+  margin-bottom: .75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+}
+
+.wk-error span {
+  flex: 1;
 }
 
 /* scroll container — always show scrollbar to keep head/body aligned */
@@ -2179,6 +2217,10 @@ textarea { resize: vertical; }
   color: var(--gray-500);
   padding: 1rem 0;
   font-size: .9rem;
+}
+
+.acal-empty.acal-error {
+  color: var(--red);
 }
 
 .acal-row {
