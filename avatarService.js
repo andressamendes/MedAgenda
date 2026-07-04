@@ -20,7 +20,7 @@ export async function uploadAvatar(file) {
     .from(BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type });
 
-  if (error) throw error;
+  if (error) throw _withStorageContext(error, 'avatar.upload', path);
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return `${data.publicUrl}?v=${Date.now()}`;
@@ -33,10 +33,20 @@ export async function removeAvatar() {
     .from(BUCKET)
     .list(id);
 
-  if (listError) throw listError;
+  if (listError) throw _withStorageContext(listError, 'avatar.list', id);
   if (!files?.length) return;
 
   const paths = files.map(f => `${id}/${f.name}`);
   const { error } = await supabase.storage.from(BUCKET).remove(paths);
-  if (error) throw error;
+  if (error) throw _withStorageContext(error, 'avatar.remove', paths.join(', '));
+}
+
+// Anexa metadados de diagnóstico (bucket/path/operação) ao erro do Storage
+// antes de propagá-lo, para que errorService registre a causa exata sem
+// expor esses detalhes ao usuário final.
+function _withStorageContext(error, op, path) {
+  error.storageOp     = op;
+  error.storageBucket = BUCKET;
+  error.storagePath   = path;
+  return error;
 }
