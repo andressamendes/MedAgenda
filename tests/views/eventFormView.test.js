@@ -8,12 +8,14 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
-const EVENT_SERVICE_SPECIFIER  = new URL("../../eventService.js", import.meta.url).href;
-const CONFIRM_DIALOG_SPECIFIER = new URL("../../confirmDialog.js", import.meta.url).href;
+const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import.meta.url).href;
+const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
+const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../activitySessionView.js", import.meta.url).href;
 
 let serviceCalls;
+let startSessionForEventCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -26,6 +28,19 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
         serviceCalls.push({ fn: "updateEvent", id, fields });
         if (updateError) throw updateError;
         return updateResult ?? { id, ...fields };
+      },
+    },
+  });
+
+  // activitySessionView.js (F1.4's "Iniciar Sessão" button) pulls in
+  // categoryService/eventService transitively, which need real Supabase
+  // config — mocked here like any other dependency instead.
+  startSessionForEventCalls = [];
+  t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, {
+    namedExports: {
+      startSessionForEvent: async (event) => {
+        startSessionForEventCalls.push(event);
+        return startSessionResult;
       },
     },
   });
@@ -174,6 +189,48 @@ test("openEventForm(event) populates the fields for editing, and submitting call
   assert.strictEqual(serviceCalls[0].fn, "updateEvent");
   assert.strictEqual(serviceCalls[0].id, "evt-1");
   assert.strictEqual(serviceCalls[0].fields.title, "Plantão UPA");
+});
+
+test("'Iniciar Sessão' is hidden for a new event and shown when editing an existing one", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  document.getElementById("btn-new-event").click();
+  assert.strictEqual(document.getElementById("btn-start-session").hidden, true);
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", category: "Plantão" });
+  assert.strictEqual(document.getElementById("btn-start-session").hidden, false);
+});
+
+test("clicking 'Iniciar Sessão' starts a session for the event being edited and closes the modal", async (t) => {
+  mockEventService(t, { startSessionResult: true });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  const event = { id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", category: "Plantão" };
+  openEventForm(event);
+
+  document.getElementById("btn-start-session").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flush();
+
+  assert.strictEqual(startSessionForEventCalls.length, 1);
+  assert.strictEqual(startSessionForEventCalls[0].id, "evt-1");
+  assert.strictEqual(document.getElementById("event-modal").hidden, true);
+});
+
+test("if a session conflict isn't resolved, the form stays open so the user can retry", async (t) => {
+  mockEventService(t, { startSessionResult: false });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", category: "Plantão" });
+
+  document.getElementById("btn-start-session").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flush();
+
+  assert.strictEqual(startSessionForEventCalls.length, 1);
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
 });
 
 test("cancelling the form closes the modal without calling the service", async (t) => {

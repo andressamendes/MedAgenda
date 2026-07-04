@@ -1972,6 +1972,15 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+.as-widget-event {
+  font-size: .78rem;
+  color: var(--gray-600);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .as-widget-time {
   font-size: 1.05rem;
   font-weight: 700;
