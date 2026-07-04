@@ -1,4 +1,5 @@
 import { supabase, currentUserId } from "./supabase.js";
+import { summarizeExecution } from "./activitySessionStats.js";
 
 // ── Acesso a dados (CRUD) ───────────────────────────────────────────────────
 // Usado tanto diretamente quanto como base para a camada de domínio abaixo.
@@ -204,4 +205,40 @@ export async function listByDateRange(start, end) {
     .order("started_at", { ascending: true });
   if (error) throw error;
   return data;
+}
+
+// ── F1.7 — Resumo de execução (indicadores na agenda) ───────────────────────
+
+// Resumo de execução de um único compromisso. Reaproveita listByEvent() (já
+// existente desde a F1.5) — não introduz consulta nova nem tabela nova.
+export async function getEventExecutionSummary(eventId) {
+  const sessions = await listByEvent(eventId);
+  return summarizeExecution(sessions);
+}
+
+// Resumo de execução em lote, para telas de agenda (weekView/calendar) que
+// renderizam muitos compromissos de uma vez: uma única consulta com `in`
+// evita o problema N+1 de chamar getEventExecutionSummary() por compromisso.
+export async function getEventExecutionSummaries(eventIds) {
+  const ids = [...new Set((eventIds || []).filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("activity_sessions")
+    .select("*")
+    .eq("user_id", user_id)
+    .in("event_id", ids)
+    .order("started_at", { ascending: false });
+  if (error) throw error;
+
+  const byEvent = {};
+  for (const id of ids) byEvent[id] = [];
+  for (const session of data) {
+    if (byEvent[session.event_id]) byEvent[session.event_id].push(session);
+  }
+
+  const summaries = {};
+  for (const id of ids) summaries[id] = summarizeExecution(byEvent[id]);
+  return summaries;
 }

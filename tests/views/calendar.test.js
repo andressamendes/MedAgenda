@@ -11,18 +11,30 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 import { pad } from "../../utils.js";
 
 const EVENT_SERVICE_SPECIFIER = new URL("../../eventService.js", import.meta.url).href;
+const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 
 let rangeCalls;
+let summaryCalls;
 let container;
 
-function mockEventService(t, { events = [], fail = false } = {}) {
+function mockEventService(t, { events = [], fail = false, summaries = {}, summariesFail = false } = {}) {
   rangeCalls = [];
+  summaryCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
       getEventsByRange: async (start, end) => {
         rangeCalls.push({ start, end });
         if (fail) throw new Error("network down");
         return events;
+      },
+    },
+  });
+  t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
+    namedExports: {
+      getEventExecutionSummaries: async (ids) => {
+        summaryCalls.push(ids);
+        if (summariesFail) throw new Error("summaries down");
+        return summaries;
       },
     },
   });
@@ -124,4 +136,77 @@ test("a fetch error does not throw and renders an empty grid instead of crashing
 
   await assert.doesNotReject(() => initCalendar(container, {}));
   assert.strictEqual(container.querySelectorAll(".cal-chip").length, 0);
+});
+
+test("execution summaries are fetched once, in batch, for all rendered events (no N+1)", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev1 = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  const ev2 = { id: "evt-2", title: "Revisão de Fisiologia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, { events: [ev1, ev2], summaries: {} });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  await initCalendar(container, {});
+
+  assert.strictEqual(summaryCalls.length, 1, "summaries should be fetched in a single batch call");
+  assert.deepStrictEqual([...summaryCalls[0]].sort(), ["evt-1", "evt-2"]);
+});
+
+test("a compromisso with a running session is visually highlighted", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, {
+    events: [ev],
+    summaries: { "evt-1": { totalDuration: 0, sessionsCount: 0, lastSession: null, hasFinishedSession: false, hasRunningSession: true } },
+  });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  await initCalendar(container, {});
+
+  const chip = findCellByDayNum(15).querySelector(".cal-chip");
+  assert.ok(chip.classList.contains("cal-chip-running"));
+  assert.ok(chip.textContent.startsWith("●"));
+  assert.ok(chip.title.includes("Em andamento"));
+});
+
+test("an already-executed compromisso shows the accumulated time indicator", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, {
+    events: [ev],
+    summaries: { "evt-1": { totalDuration: 200, sessionsCount: 2, lastSession: null, hasFinishedSession: true, hasRunningSession: false } },
+  });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  await initCalendar(container, {});
+
+  const chip = findCellByDayNum(15).querySelector(".cal-chip");
+  assert.ok(chip.classList.contains("cal-chip-executed"));
+  assert.ok(chip.textContent.startsWith("✓"));
+  assert.ok(chip.title.includes("3h20"));
+});
+
+test("a compromisso with no sessions shows no indicator", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, { events: [ev], summaries: {} });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  await initCalendar(container, {});
+
+  const chip = findCellByDayNum(15).querySelector(".cal-chip");
+  assert.strictEqual(chip.textContent, "Prova de Anatomia");
+  assert.strictEqual(chip.classList.contains("cal-chip-running"), false);
+  assert.strictEqual(chip.classList.contains("cal-chip-executed"), false);
+});
+
+test("a failure fetching execution summaries does not break the calendar", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, { events: [ev], summariesFail: true });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  await assert.doesNotReject(() => initCalendar(container, {}));
+  const chip = findCellByDayNum(15).querySelector(".cal-chip");
+  assert.ok(chip, "event chip should still render even if summaries fail");
+  assert.strictEqual(chip.textContent, "Prova de Anatomia");
 });
