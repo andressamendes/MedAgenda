@@ -1,4 +1,6 @@
 import { getEventsByRange } from "./eventService.js";
+import { getEventExecutionSummaries } from "./activitySessionService.js";
+import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
@@ -164,7 +166,8 @@ async function fetchAndRender() {
       _academicProvider ? _academicProvider(start, end) : Promise.resolve([]),
     ]);
     const personal = expandEvents(rawEvents, start, end);
-    renderEvents(personal);
+    const executionSummaries = await fetchExecutionSummaries(personal);
+    renderEvents(personal, executionSummaries);
     renderAcademicEvents(academicEvents);
     hideWeekError();
   } catch (err) {
@@ -233,7 +236,22 @@ function clearEvents() {
   }
 }
 
-function renderEvents(events) {
+// Busca os resumos de execução de todos os compromissos exibidos em uma
+// única consulta em lote (evita N+1 — uma chamada por compromisso). Falha
+// aqui nunca impede a agenda de exibir os compromissos: só os indicadores
+// deixam de aparecer.
+async function fetchExecutionSummaries(events) {
+  const ids = [...new Set(events.map(ev => ev.id).filter(Boolean))];
+  if (!ids.length) return {};
+  try {
+    return await getEventExecutionSummaries(ids);
+  } catch (err) {
+    handleError(err, { context: "weekView.executionSummaries", silent: true });
+    return {};
+  }
+}
+
+function renderEvents(events, summaries = {}) {
   events.forEach(ev => {
     if (!ev.start_time) return;
 
@@ -246,8 +264,10 @@ function renderEvents(events) {
     const dur    = ev.duration_minutes || 30;
     const height = Math.max((dur / 30) * ROW_H - 2, 22);
 
+    const indicator = describeExecutionIndicator(summaries[ev.id]);
+
     const block = document.createElement("div");
-    block.className   = "wk-event";
+    block.className = indicator ? `wk-event wk-event-${indicator.state}` : "wk-event";
     block.style.top      = `${top}px`;
     block.style.height   = `${height}px`;
     block.style.background = ev.color || "#3b82f6";
@@ -255,6 +275,7 @@ function renderEvents(events) {
       <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
       ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
       <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
+      ${indicator ? `<span class="wk-ev-indicator">${indicator.icon} ${escapeHtml(indicator.text)}</span>` : ""}
     `;
 
     if (_cbs.onEventClick) {

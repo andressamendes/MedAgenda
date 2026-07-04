@@ -1,4 +1,6 @@
 import { getEventsByRange } from "./eventService.js";
+import { getEventExecutionSummaries } from "./activitySessionService.js";
+import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
@@ -88,7 +90,8 @@ async function fetchAndRender() {
       _academicProvider ? _academicProvider(start, end) : Promise.resolve([]),
     ]);
     const personal = expandEvents(rawEvents, start, end);
-    renderGrid(groupByDate([...personal, ...academicEvents]));
+    const executionSummaries = await fetchExecutionSummaries(personal);
+    renderGrid(groupByDate([...personal, ...academicEvents]), executionSummaries);
   } catch (err) {
     // Erro (rede/banco/sessão) não deve ser tratado como "mês sem eventos" —
     // renderiza um estado de erro distinto, com opção de tentar novamente,
@@ -120,9 +123,23 @@ function renderCalError(message) {
   body.querySelector("#cal-retry")?.addEventListener("click", fetchAndRender);
 }
 
+// Busca os resumos de execução de todos os compromissos exibidos em uma
+// única consulta em lote (evita N+1 — uma chamada por compromisso). Falha
+// aqui nunca impede o mês de ser exibido: só os indicadores deixam de aparecer.
+async function fetchExecutionSummaries(events) {
+  const ids = [...new Set(events.map(ev => ev.id).filter(Boolean))];
+  if (!ids.length) return {};
+  try {
+    return await getEventExecutionSummaries(ids);
+  } catch (err) {
+    handleError(err, { context: "calendar.executionSummaries", silent: true });
+    return {};
+  }
+}
+
 // ── Grade ──────────────────────────────────────────────────────────────────
 
-function renderGrid(byDate) {
+function renderGrid(byDate, summaries = {}) {
   const body = container.querySelector("#cal-body");
   if (!body) return;
 
@@ -162,6 +179,15 @@ function renderGrid(byDate) {
         ? `[${ev._calendarName}] ${ev.title}`
         : ev.title;
       chip.textContent = ev.title;
+
+      if (!isAcademic) {
+        const indicator = describeExecutionIndicator(summaries[ev.id]);
+        if (indicator) {
+          chip.classList.add(`cal-chip-${indicator.state}`);
+          chip.textContent = `${indicator.icon} ${ev.title}`;
+          chip.title = `${chip.title} — ${indicator.text}`;
+        }
+      }
 
       if (!isAcademic && callbacks?.onEventClick) {
         chip.classList.add("cal-chip-clickable");

@@ -334,3 +334,74 @@ test("listByDateRange() scopes results to user_id and the started_at range", asy
   const orderCall = supabase._calls.find(c => c.method === "order");
   assert.deepStrictEqual(orderCall.args, ["started_at", { ascending: true }]);
 });
+
+test("getEventExecutionSummary() summarizes the sessions of a single event", async (t) => {
+  const rows = [
+    { id: "sess-1", status: "finished", started_at: "2026-08-10T08:00:00.000Z", duration_minutes: 30 },
+    { id: "sess-2", status: "finished", started_at: "2026-08-15T08:00:00.000Z", duration_minutes: 90 },
+  ];
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null },
+  });
+
+  const summary = await mod.getEventExecutionSummary("event-1");
+
+  assert.deepStrictEqual(summary, {
+    totalDuration: 120,
+    sessionsCount: 2,
+    lastSession: rows[1],
+    hasFinishedSession: true,
+    hasRunningSession: false,
+  });
+});
+
+test("getEventExecutionSummary() flags a currently-running session", async (t) => {
+  const rows = [{ id: "sess-1", status: "running", started_at: "2026-08-10T08:00:00.000Z", duration_minutes: null }];
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null },
+  });
+
+  const summary = await mod.getEventExecutionSummary("event-1");
+
+  assert.strictEqual(summary.hasRunningSession, true);
+  assert.strictEqual(summary.hasFinishedSession, false);
+});
+
+test("getEventExecutionSummaries() issues a single batched query for every eventId (no N+1)", async (t) => {
+  const rows = [
+    { id: "sess-1", event_id: "event-1", status: "finished", started_at: "2026-08-10T08:00:00.000Z", duration_minutes: 30 },
+    { id: "sess-2", event_id: "event-2", status: "running", started_at: "2026-08-11T08:00:00.000Z", duration_minutes: null },
+  ];
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null },
+  });
+
+  const summaries = await mod.getEventExecutionSummaries(["event-1", "event-2", "event-3"]);
+
+  const fromCalls = supabase._calls.filter(c => c.table === "activity_sessions" && c.method === "in");
+  assert.strictEqual(fromCalls.length, 1, "should only issue one .in() query, not one per event");
+  assert.deepStrictEqual(fromCalls[0].args, ["event_id", ["event-1", "event-2", "event-3"]]);
+
+  assert.strictEqual(summaries["event-1"].hasFinishedSession, true);
+  assert.strictEqual(summaries["event-1"].totalDuration, 30);
+  assert.strictEqual(summaries["event-2"].hasRunningSession, true);
+  // event-3 has no sessions at all — still present with empty values, never omitted.
+  assert.deepStrictEqual(summaries["event-3"], {
+    totalDuration: 0,
+    sessionsCount: 0,
+    lastSession: null,
+    hasFinishedSession: false,
+    hasRunningSession: false,
+  });
+});
+
+test("getEventExecutionSummaries() returns an empty object without querying when given no ids", async (t) => {
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [], error: null },
+  });
+
+  const summaries = await mod.getEventExecutionSummaries([]);
+
+  assert.deepStrictEqual(summaries, {});
+  assert.strictEqual(supabase._calls.length, 0);
+});

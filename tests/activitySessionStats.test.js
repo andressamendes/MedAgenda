@@ -11,6 +11,9 @@ import {
   calculateLastSession,
   calculateSessionCount,
   computeSessionStats,
+  formatCompactDuration,
+  summarizeExecution,
+  describeExecutionIndicator,
 } from "../activitySessionStats.js";
 
 const finished = (id, started_at, duration_minutes) => ({ id, status: "finished", started_at, duration_minutes });
@@ -111,4 +114,81 @@ test("computeSessionStats() bundles every calculation from a single pass over th
   assert.strictEqual(stats.averageMinutes, 60);
   assert.strictEqual(stats.longestSession.id, "s2");
   assert.strictEqual(stats.lastSession.id, "s2");
+});
+
+// ── F1.7 — resumo de execução (indicadores na agenda) ───────────────────────
+
+test("formatCompactDuration() formats minutes as compact 'XhYY' / 'Xmin' strings", () => {
+  assert.strictEqual(formatCompactDuration(0), "");
+  assert.strictEqual(formatCompactDuration(null), "");
+  assert.strictEqual(formatCompactDuration(45), "45min");
+  assert.strictEqual(formatCompactDuration(60), "1h");
+  assert.strictEqual(formatCompactDuration(200), "3h20");
+});
+
+test("summarizeExecution() reports hasRunningSession when a session is running", () => {
+  const sessions = [{ id: "s1", status: "running", started_at: "2026-08-10T08:00:00.000Z", duration_minutes: null }];
+  const summary = summarizeExecution(sessions);
+
+  assert.strictEqual(summary.hasRunningSession, true);
+  assert.strictEqual(summary.hasFinishedSession, false);
+  assert.strictEqual(summary.totalDuration, 0);
+});
+
+test("summarizeExecution() reports hasFinishedSession and totals from finished sessions", () => {
+  const sessions = [
+    finished("s1", "2026-08-10T08:00:00.000Z", 30),
+    finished("s2", "2026-08-15T08:00:00.000Z", 90),
+    cancelled("s3", "2026-08-16T08:00:00.000Z"),
+  ];
+  const summary = summarizeExecution(sessions);
+
+  assert.strictEqual(summary.hasFinishedSession, true);
+  assert.strictEqual(summary.hasRunningSession, false);
+  assert.strictEqual(summary.totalDuration, 120);
+  assert.strictEqual(summary.sessionsCount, 2);
+  assert.strictEqual(summary.lastSession.id, "s2");
+});
+
+test("summarizeExecution() with no sessions returns an empty, non-throwing summary", () => {
+  assert.deepStrictEqual(summarizeExecution([]), {
+    totalDuration: 0,
+    sessionsCount: 0,
+    lastSession: null,
+    hasFinishedSession: false,
+    hasRunningSession: false,
+  });
+  assert.deepStrictEqual(summarizeExecution(undefined), {
+    totalDuration: 0,
+    sessionsCount: 0,
+    lastSession: null,
+    hasFinishedSession: false,
+    hasRunningSession: false,
+  });
+});
+
+test("describeExecutionIndicator() returns null for an empty/no-session summary", () => {
+  assert.strictEqual(describeExecutionIndicator(null), null);
+  assert.strictEqual(describeExecutionIndicator(summarizeExecution([])), null);
+});
+
+test("describeExecutionIndicator() prioritizes a running session over finished ones", () => {
+  const summary = { totalDuration: 60, sessionsCount: 1, lastSession: null, hasFinishedSession: true, hasRunningSession: true };
+  const indicator = describeExecutionIndicator(summary);
+
+  assert.deepStrictEqual(indicator, { state: "running", icon: "●", text: "Em andamento" });
+});
+
+test("describeExecutionIndicator() shows the compact accumulated time when finished", () => {
+  const summary = { totalDuration: 200, sessionsCount: 2, lastSession: null, hasFinishedSession: true, hasRunningSession: false };
+  const indicator = describeExecutionIndicator(summary);
+
+  assert.deepStrictEqual(indicator, { state: "executed", icon: "✓", text: "3h20" });
+});
+
+test("describeExecutionIndicator() falls back to a session count when there's no duration to show", () => {
+  const summary = { totalDuration: 0, sessionsCount: 3, lastSession: null, hasFinishedSession: true, hasRunningSession: false };
+  const indicator = describeExecutionIndicator(summary);
+
+  assert.deepStrictEqual(indicator, { state: "executed", icon: "✓", text: "3 sessões" });
 });
