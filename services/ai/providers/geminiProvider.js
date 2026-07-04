@@ -13,15 +13,16 @@ const EDGE_FUNCTION_URL = (() => {
 
 /**
  * @param {{ type: string, events: object[], [key: string]: unknown }} payload
+ * @param {AbortController} [controller] - Shared with the caller so it can cancel
+ *   manually; the timeout below aborts the same controller when it fires first.
  * @returns {Promise<string>} AI-generated text
  * @throws {AIError}
  */
-export async function callGemini(payload) {
+export async function callGemini(payload, controller = new AbortController()) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new AIError('Usuário não autenticado.', 'AUTH');
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
+  const timer = setTimeout(() => controller.abort('timeout'), AI_CONFIG.timeout);
 
   let res;
   try {
@@ -35,7 +36,10 @@ export async function callGemini(payload) {
       signal: controller.signal,
     });
   } catch (err) {
-    if (err.name === 'AbortError') throw new AIError('A requisição excedeu o tempo limite. Tente novamente.', 'TIMEOUT');
+    if (err.name === 'AbortError') {
+      if (controller.signal.reason === 'user') throw new AIError('Consulta cancelada.', 'CANCELLED');
+      throw new AIError('A requisição excedeu o tempo limite. Tente novamente.', 'TIMEOUT');
+    }
     throw new AIError('Não foi possível conectar ao assistente de IA. Verifique sua conexão.', 'NETWORK');
   } finally {
     clearTimeout(timer);

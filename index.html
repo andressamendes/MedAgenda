@@ -633,14 +633,18 @@
     <div id="ai-panel-result" class="ai-panel-result" hidden aria-live="polite">
       <div class="ai-result-header">
         <span id="ai-result-title" class="ai-result-title"></span>
-        <button id="btn-ai-back" class="btn btn-sm btn-ghost">&#8592; Voltar</button>
+        <div class="ai-result-header-actions">
+          <button id="btn-ai-retry" class="btn btn-sm btn-ghost" hidden>&#8635; Tentar novamente</button>
+          <button id="btn-ai-back" class="btn btn-sm btn-ghost">&#8592; Voltar</button>
+        </div>
       </div>
       <div id="ai-result-body" class="ai-result-body"></div>
     </div>
 
     <div id="ai-panel-loading" class="ai-panel-loading" hidden aria-live="polite" aria-label="Aguardando resposta da IA">
       <div class="ai-loading-spinner"></div>
-      <p>Consultando o Gemini&#8230;</p>
+      <p id="ai-loading-text">Preparando análise&#8230;</p>
+      <button id="btn-ai-cancel" class="btn btn-sm btn-ghost" type="button">Cancelar</button>
     </div>
 
     <p class="ai-panel-footer">Powered by Google Gemini &middot; Dados protegidos &middot; Sem armazenamento de conversas</p>

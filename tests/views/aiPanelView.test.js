@@ -88,3 +88,77 @@ test("the back button returns from the result view to the actions view", async (
   assert.strictEqual(document.querySelector(".ai-panel-actions").hidden, false);
   assert.strictEqual(document.getElementById("ai-panel-result").hidden, true);
 });
+
+async function flushMicrotasks(times = 15) {
+  for (let i = 0; i < times; i++) await Promise.resolve();
+}
+
+test("the loading message progresses through stages while the AI call is in flight", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { initAIPanel } = await loadAiPanel(t, { hang: true });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flushMicrotasks();
+
+  const loadingText = document.getElementById("ai-loading-text");
+  assert.strictEqual(loadingText.textContent, "Preparando análise…");
+
+  t.mock.timers.tick(2000);
+  assert.strictEqual(loadingText.textContent, "Consultando o assistente…");
+
+  t.mock.timers.tick(4000);
+  assert.strictEqual(loadingText.textContent, "Processando sua solicitação…");
+
+  t.mock.timers.tick(6000);
+  assert.strictEqual(loadingText.textContent, "Esta resposta está demorando mais que o normal…");
+
+  assert.strictEqual(document.getElementById("ai-panel-loading").hidden, false);
+});
+
+test("a failing AI call shows a retry button that re-runs the same action", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, { fail: true, failMessage: "Falha simulada." });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const retryBtn = document.getElementById("btn-ai-retry");
+  assert.strictEqual(retryBtn.hidden, false);
+
+  retryBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ai-result-body").textContent, "Falha simulada.");
+  assert.strictEqual(retryBtn.hidden, false);
+});
+
+test("a successful AI call keeps the retry button hidden", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, { weeklySummary: "Tudo certo." });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("btn-ai-retry").hidden, true);
+});
+
+test("clicking cancel while an AI call is in flight returns to the actions view", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, { hang: true });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flushMicrotasks();
+  assert.strictEqual(document.getElementById("ai-panel-loading").hidden, false);
+
+  document.getElementById("btn-ai-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flushMicrotasks();
+
+  assert.strictEqual(document.querySelector(".ai-panel-actions").hidden, false);
+  assert.strictEqual(document.getElementById("ai-panel-loading").hidden, true);
+  document.querySelectorAll('.ai-action-btn').forEach(b => assert.strictEqual(b.disabled, false));
+});

@@ -2497,6 +2497,12 @@ textarea { resize: vertical; }
   margin-bottom: 1rem;
 }
 
+.ai-result-header-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
 .ai-result-title {
   font-weight: 700;
   font-size: .9rem;
@@ -2533,6 +2539,11 @@ textarea { resize: vertical; }
   border-top-color: #8b5cf6;
   border-radius: 50%;
   animation: ai-spin .7s linear infinite;
+}
+
+#ai-loading-text {
+  min-height: 1.3em;
+  text-align: center;
 }
 
 @keyframes ai-spin {
