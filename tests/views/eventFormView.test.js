@@ -226,6 +226,8 @@ test("an event with no sessions shows a friendly empty state", async (t) => {
   assert.strictEqual(document.getElementById("session-history").hidden, false);
   assert.strictEqual(document.getElementById("session-history-empty").hidden, false);
   assert.strictEqual(document.getElementById("session-history-list").children.length, 0);
+  // Sem sessões concluídas, o card de estatísticas não aparece.
+  assert.strictEqual(document.getElementById("session-stats").hidden, true);
 });
 
 test("an event with one finished session shows its date, times, duration, status and source", async (t) => {
@@ -300,6 +302,83 @@ test("a loading error shows a friendly message via errorService instead of break
   assert.strictEqual(document.getElementById("session-history-empty").hidden, false);
   assert.strictEqual(document.getElementById("session-history-empty").textContent.length > 0, true);
   assert.strictEqual(document.getElementById("session-history-list").children.length, 0);
+  assert.strictEqual(document.getElementById("session-stats").hidden, true);
+});
+
+// ── F1.6: Estatísticas do compromisso ───────────────────────────────────────
+// Os cálculos em si (soma, média, maior, última) já são testados em
+// tests/activitySessionStats.test.js — aqui só verificamos que a view exibe
+// o resultado corretamente e reaproveita a mesma lista do histórico.
+
+test("a single finished session fills in every stat field", async (t) => {
+  mockEventService(t, {
+    sessionHistory: [{
+      id: "sess-1", status: "finished", source: "manual",
+      started_at: "2026-08-12T08:00:00.000Z", ended_at: "2026-08-12T08:45:00.000Z",
+      duration_minutes: 45,
+    }],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  assert.strictEqual(document.getElementById("session-stats").hidden, false);
+  assert.strictEqual(document.getElementById("stat-total").textContent, "45min");
+  assert.strictEqual(document.getElementById("stat-count").textContent, "1");
+  assert.strictEqual(document.getElementById("stat-longest").textContent, "45min");
+  assert.strictEqual(document.getElementById("stat-average").textContent, "45min");
+});
+
+test("multiple finished sessions produce correct totals, average and longest", async (t) => {
+  mockEventService(t, {
+    sessionHistory: [
+      { id: "s2", status: "finished", source: "manual", started_at: "2026-08-15T08:00:00.000Z", ended_at: "2026-08-15T09:52:00.000Z", duration_minutes: 112 },
+      { id: "s1", status: "finished", source: "manual", started_at: "2026-08-10T08:00:00.000Z", ended_at: "2026-08-10T08:30:00.000Z", duration_minutes: 30 },
+    ],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  assert.strictEqual(document.getElementById("stat-total").textContent, "2h 22min");
+  assert.strictEqual(document.getElementById("stat-count").textContent, "2");
+  assert.strictEqual(document.getElementById("stat-longest").textContent, "1h 52min");
+  assert.strictEqual(document.getElementById("stat-average").textContent, "1h 11min"); // (112+30)/2 = 71
+  // A sessão mais recente por started_at é a "última" (s2, 15/08), independente
+  // da posição em que veio na lista.
+  assert.strictEqual(document.getElementById("stat-last").textContent.startsWith("15/08/2026"), true);
+});
+
+test("cancelled sessions are ignored by the stats card, even when they're the only ones", async (t) => {
+  mockEventService(t, {
+    sessionHistory: [
+      { id: "s1", status: "cancelled", source: "manual", started_at: "2026-08-10T08:00:00.000Z", ended_at: null, duration_minutes: null },
+    ],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  // Sem sessões concluídas, mesmo havendo uma cancelada no histórico, o card
+  // de estatísticas fica oculto — nunca mostra um resumo baseado em zero.
+  assert.strictEqual(document.getElementById("session-stats").hidden, true);
+});
+
+test("a stats-loading error (same fetch as the history) hides the stats card instead of showing stale data", async (t) => {
+  mockEventService(t, { sessionHistoryError: new Error("Failed to fetch") });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  assert.strictEqual(document.getElementById("session-stats").hidden, true);
 });
 
 test("'Iniciar Sessão' is hidden for a new event and shown when editing an existing one", async (t) => {
