@@ -13,10 +13,13 @@ const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js",
 const SESSION_SERVICE_SPECIFIER   = new URL("../../activitySessionService.js", import.meta.url).href;
 const ERROR_SPECIFIER             = new URL("../../errorService.js", import.meta.url).href;
 
+const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
+
 const EMPTY_DATA = {
   todayMinutes: 0, weekMinutes: 0, monthMinutes: 0,
   todaySessionsCount: 0, weekSessionsCount: 0, monthSessionsCount: 0,
   averageMinutes: 0, longestSession: null,
+  dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
 };
 
 function loadView(t, overrides = {}) {
@@ -55,19 +58,76 @@ afterEach(() => {
   uninstallDom();
 });
 
-test("with no sessions, all eight cards render with empty/zero values", async (t) => {
+test("with no sessions, all eleven cards render with empty/zero/no-goal values", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
 
   const cards = document.getElementById("dash-cards");
   assert.strictEqual(cards.hidden, false);
-  assert.strictEqual(cards.children.length, 8);
+  assert.strictEqual(cards.children.length, 11);
   assert.match(cards.textContent, /Tempo estudado hoje/);
   assert.match(cards.textContent, /Sessões no mês/);
   assert.match(cards.textContent, /Maior sessão/);
   assert.match(cards.textContent, /—/); // sem sessão mais longa
   assert.strictEqual(document.getElementById("dash-error").hidden, true);
+});
+
+// ── Metas de Tempo (F2.2) — estados ─────────────────────────────────────────
+
+test("with no goals configured, the three goal cards show 'Sem meta configurada'", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+
+  await mod.initActivityDashboardView();
+
+  const text = document.getElementById("dash-cards").textContent;
+  assert.match(text, /Meta diária/);
+  assert.match(text, /Meta semanal/);
+  assert.match(text, /Meta mensal/);
+  assert.strictEqual((text.match(/Sem meta configurada/g) || []).length, 3);
+});
+
+test("a partially reached goal shows the percentage and remaining-time message", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      dailyGoal: { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const text = document.getElementById("dash-cards").textContent;
+  assert.match(text, /50%/);
+  assert.match(text, /Meta parcialmente atingida/);
+});
+
+test("a goal reached exactly shows 'Meta atingida'", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      weeklyGoal: { configured: true, goalMinutes: 600, actualMinutes: 600, percentage: 100, remainingMinutes: 0, state: "achieved" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  assert.match(document.getElementById("dash-cards").textContent, /Meta atingida/);
+});
+
+test("a goal exceeded shows 'Meta ultrapassada'", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      monthlyGoal: { configured: true, goalMinutes: 2400, actualMinutes: 3000, percentage: 125, remainingMinutes: 0, state: "exceeded" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const text = document.getElementById("dash-cards").textContent;
+  assert.match(text, /125%/);
+  assert.match(text, /Meta ultrapassada/);
 });
 
 test("today's indicator renders the formatted duration and count", async (t) => {
