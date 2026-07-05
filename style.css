@@ -1252,6 +1252,35 @@ textarea { resize: vertical; }
   white-space: pre-wrap;
 }
 
+/* ── Revisões do compromisso (F2.3) ── */
+.review-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-bottom: .6rem;
+}
+
+.review-item-actions {
+  display: flex;
+  gap: .4rem;
+  margin-top: .4rem;
+}
+
+.review-status {
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.review-status--completed { background: #dcfce7; color: #15803d; }
+.review-status--skipped   { background: #fee2e2; color: #b91c1c; }
+.review-status--pending   { background: #dbeafe; color: #1d4ed8; }
+
 /* ── Dashboard de Execução (F2.1) ── */
 .dashboard-cards {
   display: grid;
