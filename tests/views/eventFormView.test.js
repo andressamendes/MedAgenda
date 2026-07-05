@@ -12,11 +12,12 @@ const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import
 const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
 const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../activitySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
+const REVIEW_SERVICE_SPECIFIER         = new URL("../../reviewService.js", import.meta.url).href;
 
 let serviceCalls;
 let startSessionForEventCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, reviews = [] } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -54,6 +55,19 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
         if (sessionHistoryError) throw sessionHistoryError;
         return sessionHistory;
       },
+    },
+  });
+
+  // Revisões (F2.3) — reviewService.js importa supabase.js/config.js
+  // diretamente, então precisa ser mockado aqui como qualquer outra
+  // dependência, do contrário quebra em ambientes sem config.js (CI).
+  t.mock.module(REVIEW_SERVICE_SPECIFIER, {
+    namedExports: {
+      list:            async () => reviews,
+      listPending:     async () => reviews.filter(r => r.status === "pending"),
+      generateForEvent: async () => [],
+      complete:        async () => {},
+      skip:            async () => {},
     },
   });
 }

@@ -3,13 +3,14 @@
 import { createEvent, updateEvent } from "./eventService.js";
 import { listByEvent } from "./activitySessionService.js";
 import { computeSessionStats } from "./activitySessionStats.js";
+import * as reviewService from "./reviewService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { startSessionForEvent } from "./activitySessionView.js";
-import { pad, escapeHtml } from "./utils.js";
+import { pad, escapeHtml, localDate } from "./utils.js";
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
 
@@ -25,10 +26,17 @@ const SESSION_SOURCE_LABELS = {
   quick:  "Rápida",
 };
 
+const REVIEW_STATUS_LABELS = {
+  pending:   "Pendente",
+  completed: "Concluída",
+  skipped:   "Ignorada",
+};
+
 let editingId    = null;
 let _editingEvent = null;
 let _onSave   = null;
 let _historyRequestId = 0; // descarta respostas obsoletas se o evento editado mudar antes da resposta chegar
+let _reviewRequestId  = 0; // mesmo padrão de _historyRequestId, para a seção de revisões
 
 let eventModal         = null;
 let eventForm          = null;
@@ -47,6 +55,12 @@ let statCount          = null;
 let statLast           = null;
 let statLongest        = null;
 let statAverage        = null;
+let reviewSection      = null;
+let generateReviewsBtn = null;
+let reviewPendingList  = null;
+let reviewPendingEmpty = null;
+let reviewDoneList     = null;
+let reviewDoneEmpty    = null;
 let fTitle             = null;
 let fDate              = null;
 let fStart             = null;
@@ -85,6 +99,12 @@ export function initEventForm(onSave) {
   statLast            = document.getElementById("stat-last");
   statLongest         = document.getElementById("stat-longest");
   statAverage         = document.getElementById("stat-average");
+  reviewSection       = document.getElementById("review-section");
+  generateReviewsBtn  = document.getElementById("btn-generate-reviews");
+  reviewPendingList   = document.getElementById("review-pending-list");
+  reviewPendingEmpty  = document.getElementById("review-pending-empty");
+  reviewDoneList      = document.getElementById("review-done-list");
+  reviewDoneEmpty     = document.getElementById("review-done-empty");
   fTitle              = document.getElementById("f-title");
   fDate               = document.getElementById("f-date");
   fStart              = document.getElementById("f-start");
@@ -134,6 +154,21 @@ export function initEventForm(onSave) {
       if (started) _handleModalClose();
     } finally {
       startSessionBtn.disabled = false;
+    }
+  });
+
+  generateReviewsBtn?.addEventListener("click", async () => {
+    if (!_editingEvent) return;
+    generateReviewsBtn.disabled = true;
+    try {
+      await reviewService.generateForEvent(_editingEvent.id, _editingEvent.event_date);
+      toast.success("Revisões geradas com sucesso.");
+      await _loadReviews(_editingEvent.id);
+    } catch (err) {
+      const { friendly } = handleError(err, { context: "eventFormView.generateReviews", silent: true });
+      toast.error(friendly);
+    } finally {
+      generateReviewsBtn.disabled = false;
     }
   });
 
@@ -234,6 +269,12 @@ function _clearForm() {
   historyList.innerHTML = "";
   historyEmpty.hidden = true;
   statsSection.hidden = true;
+  _reviewRequestId++; // mesmo padrão, para a seção de revisões
+  reviewSection.hidden = true;
+  reviewPendingList.innerHTML = "";
+  reviewDoneList.innerHTML = "";
+  reviewPendingEmpty.hidden = true;
+  reviewDoneEmpty.hidden = true;
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
@@ -258,6 +299,8 @@ function _populateForm(ev) {
   startSessionBtn.hidden = false;
   historySection.hidden  = false;
   _loadSessionHistory(ev.id);
+  reviewSection.hidden = false;
+  _loadReviews(ev.id);
   eventIdField.value    = ev.id;
   fTitle.value          = ev.title           || "";
   fDate.value           = ev.event_date       || "";
@@ -424,4 +467,95 @@ function _formatRelativeMoment(iso) {
   if (_isSameLocalDay(d, today))     return `Hoje às ${time}`;
   if (_isSameLocalDay(d, yesterday)) return `Ontem às ${time}`;
   return `${_formatSessionDate(iso)} às ${time}`;
+}
+
+// ── Revisões do compromisso (F2.3) ──────────────────────────────────────────
+// Só infraestrutura: lista revisões futuras (pending) e concluídas
+// (completed/skipped) do compromisso aberto. Sem recomendação, sem IA, sem
+// notificação — apenas listar e permitir concluir/ignorar/gerar manualmente.
+
+async function _loadReviews(eventId) {
+  const requestId = ++_reviewRequestId;
+  reviewPendingList.innerHTML = "";
+  reviewDoneList.innerHTML = "";
+  reviewPendingEmpty.hidden = true;
+  reviewDoneEmpty.hidden = true;
+
+  try {
+    const reviews = await reviewService.list(eventId);
+    if (requestId !== _reviewRequestId) return; // formulário mudou de evento antes da resposta chegar
+    _renderReviews(reviews);
+  } catch (err) {
+    if (requestId !== _reviewRequestId) return;
+    const { friendly } = handleError(err, { context: "eventFormView.loadReviews", silent: true });
+    reviewPendingEmpty.hidden = false;
+    reviewPendingEmpty.textContent = friendly;
+    reviewDoneEmpty.hidden = true;
+  }
+}
+
+function _renderReviews(reviews) {
+  const pending = reviews.filter(r => r.status === "pending");
+  const done    = reviews.filter(r => r.status !== "pending");
+
+  reviewPendingList.innerHTML = "";
+  if (!pending.length) {
+    reviewPendingEmpty.hidden = false;
+    reviewPendingEmpty.textContent = "Nenhuma revisão futura para este compromisso.";
+  } else {
+    reviewPendingEmpty.hidden = true;
+    pending.forEach(r => reviewPendingList.appendChild(_buildReviewItem(r, true)));
+  }
+
+  reviewDoneList.innerHTML = "";
+  if (!done.length) {
+    reviewDoneEmpty.hidden = false;
+    reviewDoneEmpty.textContent = "Nenhuma revisão concluída para este compromisso.";
+  } else {
+    reviewDoneEmpty.hidden = true;
+    done.forEach(r => reviewDoneList.appendChild(_buildReviewItem(r, false)));
+  }
+}
+
+// scheduled_date é uma DATE pura ("YYYY-MM-DD"), sem horário — usa localDate()
+// (mesma função de utils.js usada em todo o app) para evitar o desvio de fuso
+// horário de `new Date("YYYY-MM-DD")` (interpretado como UTC meia-noite).
+function _formatReviewDate(dateStr) {
+  const d = localDate(dateStr);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function _buildReviewItem(review, withActions) {
+  const li = document.createElement("li");
+  li.className = "session-history-item";
+  li.innerHTML = `
+    <div class="session-history-row">
+      <span class="session-history-date">${_formatReviewDate(review.scheduled_date)}</span>
+      <span class="review-status review-status--${review.status}">${REVIEW_STATUS_LABELS[review.status] || review.status}</span>
+    </div>
+    ${withActions ? `
+      <div class="review-item-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-review-complete="${review.id}">Concluir</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-review-skip="${review.id}">Ignorar</button>
+      </div>
+    ` : ""}
+  `;
+
+  if (withActions) {
+    li.querySelector("[data-review-complete]")?.addEventListener("click", () => _handleReviewAction(review, "complete"));
+    li.querySelector("[data-review-skip]")?.addEventListener("click", () => _handleReviewAction(review, "skip"));
+  }
+  return li;
+}
+
+async function _handleReviewAction(review, action) {
+  if (!_editingEvent) return;
+  try {
+    if (action === "complete") await reviewService.complete(review.id);
+    else                       await reviewService.skip(review.id);
+    await _loadReviews(_editingEvent.id);
+  } catch (err) {
+    const { friendly } = handleError(err, { context: `eventFormView.review.${action}`, silent: true });
+    toast.error(friendly);
+  }
 }
