@@ -38,6 +38,15 @@ test("showPage() marks the matching nav item as active with aria-current", () =>
   assert.strictEqual(agendaBtn.hasAttribute("aria-current"), false);
 });
 
+test("showPage() shows the history page (F1.8) and hides the others", () => {
+  nav.showPage("history");
+
+  assert.strictEqual(document.getElementById("page-history").hidden, false);
+  assert.strictEqual(document.getElementById("page-agenda").hidden, true);
+  const historyBtn = document.querySelector('.nav-item[data-page="history"]');
+  assert.strictEqual(historyBtn.classList.contains("nav-item--active"), true);
+});
+
 test("showPage() with an unknown page name falls back to agenda", () => {
   nav.showPage("nonexistent-page");
   assert.strictEqual(document.getElementById("page-agenda").hidden, false);

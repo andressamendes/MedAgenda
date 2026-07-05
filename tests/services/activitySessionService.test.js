@@ -405,3 +405,86 @@ test("getEventExecutionSummaries() returns an empty object without querying when
   assert.deepStrictEqual(summaries, {});
   assert.strictEqual(supabase._calls.length, 0);
 });
+
+// ── F1.8 — Histórico global de sessões ──────────────────────────────────────
+
+test("listSessions() defaults to finished+cancelled sessions only, most recent first", async (t) => {
+  const rows = [{ id: "sess-2", status: "finished" }, { id: "sess-1", status: "cancelled" }];
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null, count: 2 },
+  });
+
+  const result = await mod.listSessions();
+
+  assert.deepStrictEqual(result, { sessions: rows, total: 2, hasMore: false });
+  const inCall = supabase._calls.find(c => c.method === "in");
+  assert.deepStrictEqual(inCall.args, ["status", ["finished", "cancelled"]]);
+  assert.ok(!supabase._calls.some(c => c.method === "eq" && c.args[0] === "status"));
+  const orderCall = supabase._calls.find(c => c.method === "order");
+  assert.deepStrictEqual(orderCall.args, ["started_at", { ascending: false }]);
+  const rangeCall = supabase._calls.find(c => c.method === "range");
+  assert.deepStrictEqual(rangeCall.args, [0, 19]);
+});
+
+test("listSessions() never includes running or paused sessions even without an explicit filter", async (t) => {
+  // Regressão: o histórico nunca deve carregar sessões em andamento — a
+  // consulta filtra por status no banco, não no cliente.
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [], error: null, count: 0 },
+  });
+
+  await mod.listSessions();
+
+  const inCall = supabase._calls.find(c => c.method === "in");
+  assert.deepStrictEqual(inCall.args[1], ["finished", "cancelled"]);
+});
+
+test("listSessions() filters by a single status when requested", async (t) => {
+  const rows = [{ id: "sess-1", status: "cancelled" }];
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null, count: 1 },
+  });
+
+  const result = await mod.listSessions({ status: "cancelled" });
+
+  assert.deepStrictEqual(result.sessions, rows);
+  const eqCall = supabase._calls.find(c => c.method === "eq" && c.args[0] === "status");
+  assert.deepStrictEqual(eqCall.args, ["status", "cancelled"]);
+  assert.ok(!supabase._calls.some(c => c.method === "in"));
+});
+
+test("listSessions() paginates using limit/offset via .range()", async (t) => {
+  const rows = [{ id: "sess-1", status: "finished" }];
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null, count: 45 },
+  });
+
+  const result = await mod.listSessions({ limit: 20, offset: 20 });
+
+  assert.strictEqual(result.total, 45);
+  assert.strictEqual(result.hasMore, true); // 20 + 1 < 45
+  const rangeCall = supabase._calls.find(c => c.method === "range");
+  assert.deepStrictEqual(rangeCall.args, [20, 39]);
+});
+
+test("listSessions() reports hasMore = false once the last page is reached", async (t) => {
+  const rows = [{ id: "sess-1", status: "finished" }];
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: rows, error: null, count: 21 },
+  });
+
+  const result = await mod.listSessions({ limit: 20, offset: 20 });
+
+  assert.strictEqual(result.hasMore, false); // 20 + 1 === 21
+});
+
+test("listSessions() propagates a Supabase error", async (t) => {
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: null, error: { message: "query failed" }, count: null },
+  });
+
+  await assert.rejects(
+    () => mod.listSessions(),
+    (err) => err.message === "query failed"
+  );
+});

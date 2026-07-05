@@ -247,6 +247,10 @@
             <span class="nav-icon" aria-hidden="true">&#127991;</span>
             <span class="nav-label">Categorias</span>
           </button>
+          <button class="nav-item" data-page="history">
+            <span class="nav-icon" aria-hidden="true">&#128337;</span>
+            <span class="nav-label">Histórico</span>
+          </button>
         </div>
 
       </nav>
@@ -307,6 +311,21 @@
           </div>
           <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
           <div id="event-list"></div>
+        </div>
+
+        <!-- Page: Histórico de Sessões -->
+        <div id="page-history" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Histórico de Sessões</h1>
+          </div>
+          <div class="ah-filter-tabs" id="ah-filter-tabs" role="tablist" aria-label="Filtrar histórico de sessões">
+            <button type="button" class="ah-filter-tab ah-filter-tab--active" data-status="all" role="tab" aria-selected="true">Todos</button>
+            <button type="button" class="ah-filter-tab" data-status="finished" role="tab" aria-selected="false">Finalizadas</button>
+            <button type="button" class="ah-filter-tab" data-status="cancelled" role="tab" aria-selected="false">Canceladas</button>
+          </div>
+          <p id="ah-list-empty" class="list-empty" hidden></p>
+          <ul id="ah-list" class="session-history-list"></ul>
+          <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
         </div>
 
       </main>

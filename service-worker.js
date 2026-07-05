@@ -19,6 +19,7 @@ const APP_SHELL = [
   './academicCalendarService.js',
   './academicCalendarView.js',
   './accountView.js',
+  './activityHistoryView.js',
   './activitySessionService.js',
   './activitySessionStats.js',
   './activitySessionView.js',
