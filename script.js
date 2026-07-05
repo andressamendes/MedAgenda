@@ -56,6 +56,7 @@ import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
 import { initActivityHistoryView } from "./activityHistoryView.js";
+import { initActivityDashboardView } from "./activityDashboardView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -199,6 +200,7 @@ async function _initApp(session) {
       })),
       safeInit("agenda", loadEvents),
       safeInit("histórico de sessões", () => initActivityHistoryView()),
+      safeInit("dashboard de execução", () => initActivityDashboardView()),
     ]);
 
     // Restore the page the user was on before the last refresh/logout
