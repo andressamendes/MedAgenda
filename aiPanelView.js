@@ -1,9 +1,12 @@
-// ── aiPanelView.js — Painel de IA (Gemini): resumo, sugestão e análise
+// ── aiPanelView.js — Painel de IA (Gemini): resumo, sugestão, análise e
+// recomendações (F3.2). A View nunca busca nem monta contexto: cada ação só
+// chama uma função do gateway (services/ai/aiService.js), que por sua vez
+// consulta exclusivamente aiContextService.getAIContext() — a única fonte
+// de contexto do app (ver aiContextService.js).
 
-import { getEventsByRange } from "./eventService.js";
-import { isoDate, mondayOf } from "./utils.js";
-import { isPersonalVisible } from "./academicCalendarView.js";
-import { getWeeklySummary, getStudySuggestion, getScheduleAnalysis } from "./services/ai/aiService.js";
+import {
+  getWeeklySummary, getStudySuggestion, getScheduleAnalysis, getContextualRecommendations,
+} from "./services/ai/aiService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { AI_CONFIG } from "./config/ai.js";
@@ -115,25 +118,7 @@ export function initAIPanel() {
     setActionBtnsDisabled(true);
     currentController = new AbortController();
     try {
-      let events;
-      try {
-        if (isPersonalVisible()) {
-          // Superset das janelas usadas pelos 3 prompts de IA (7/14/30 dias) —
-          // ver services/ai/prompts/*.js.
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const end = new Date(today);
-          end.setDate(end.getDate() + 30);
-          events = await getEventsByRange(isoDate(mondayOf(today)), isoDate(end));
-        } else {
-          events = [];
-        }
-      } catch (dbErr) {
-        handleError(dbErr, { context: 'aiPanel.loadEvents', silent: true });
-        showResult(label, 'Não foi possível carregar seus compromissos. Verifique sua conexão e tente novamente.', true);
-        return;
-      }
-      const result = await fn(events, currentController);
+      const result = await fn(currentController);
       showResult(label, result || 'O assistente não retornou resposta. Tente novamente.', !result);
     } catch (err) {
       if (err?.code === 'CANCELLED') {
@@ -170,5 +155,8 @@ export function initAIPanel() {
   );
   document.getElementById('btn-ai-analysis')?.addEventListener('click', () =>
     runAIAction('Análise da agenda', getScheduleAnalysis)
+  );
+  document.getElementById('btn-ai-recommendations')?.addEventListener('click', () =>
+    runAIAction('Recomendações', getContextualRecommendations)
   );
 }
