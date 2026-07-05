@@ -55,6 +55,7 @@ import { registerServiceWorker, initInstallButton, initOfflineDetection } from "
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
+import { initActivityHistoryView } from "./activityHistoryView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -197,6 +198,7 @@ async function _initApp(session) {
         onAcademicEventClick: openAcademicCalendarModal,
       })),
       safeInit("agenda", loadEvents),
+      safeInit("histórico de sessões", () => initActivityHistoryView()),
     ]);
 
     // Restore the page the user was on before the last refresh/logout

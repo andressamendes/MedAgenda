@@ -207,6 +207,34 @@ export async function listByDateRange(start, end) {
   return data;
 }
 
+// ── F1.8 — Histórico global de sessões ──────────────────────────────────────
+// Alimenta activityHistoryView.js. Nunca inclui sessões "running"/"paused" —
+// o histórico é só o que já foi encerrado (finished ou cancelled); sessões em
+// andamento continuam vivendo só no cronômetro (getRunningSession()).
+// Paginado via .range() para nunca carregar o histórico inteiro de uma vez;
+// o `status` aceito hoje é "all" | "finished" | "cancelled", mas a assinatura
+// em objeto já deixa espaço para novos filtros futuros sem quebrar chamadores.
+export async function listSessions({ status = "all", limit = 20, offset = 0 } = {}) {
+  const user_id = await currentUserId();
+  let query = supabase
+    .from("activity_sessions")
+    .select("*", { count: "exact" })
+    .eq("user_id", user_id);
+
+  query = (status === "finished" || status === "cancelled")
+    ? query.eq("status", status)
+    : query.in("status", ["finished", "cancelled"]);
+
+  const { data, error, count } = await query
+    .order("started_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+
+  const sessions = data ?? [];
+  const total = count ?? 0;
+  return { sessions, total, hasMore: offset + sessions.length < total };
+}
+
 // ── F1.7 — Resumo de execução (indicadores na agenda) ───────────────────────
 
 // Resumo de execução de um único compromisso. Reaproveita listByEvent() (já
