@@ -51,6 +51,7 @@ const APP_SHELL = [
   './pwa.js',
   './quickAdd.js',
   './recurrence.js',
+  './reviewService.js',
   './script.js',
   './services/ai/aiService.js',
   './services/ai/parsers/responseParser.js',
