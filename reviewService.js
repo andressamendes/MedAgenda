@@ -96,6 +96,23 @@ export async function listPending(eventId) {
   return data;
 }
 
+// Revisões concluídas, globais (sem filtro) ou de um compromisso específico.
+// Mesmo formato de listPending() — usado pela Central de Insights (F2.4) para
+// o indicador "Revisões concluídas", sem introduzir nenhuma tabela ou cálculo novo.
+export async function listCompleted(eventId) {
+  const user_id = await currentUserId();
+  let query = supabase
+    .from("reviews")
+    .select("*")
+    .eq("user_id", user_id)
+    .eq("status", "completed");
+  if (eventId) query = query.eq("event_id", eventId);
+
+  const { data, error } = await query.order("completed_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 async function _updateStatus(id, statusFields) {
   const review = await getById(id);
   if (!review) {
@@ -117,16 +134,42 @@ async function _updateStatus(id, statusFields) {
   return data;
 }
 
+// ── Notificação de revisão encerrada ────────────────────────────────────────
+// Mesmo pub/sub mínimo em memória de activitySessionService.onSessionFinished():
+// permite que outras telas (ex.: Central de Insights, F2.4) recalculem seus
+// indicadores assim que uma revisão for concluída ou pulada, sem polling.
+const _statusListeners = new Set();
+
+/** Assina notificações de revisão encerrada (completed/skipped). Retorna uma função para cancelar a assinatura. */
+export function onReviewStatusChanged(callback) {
+  _statusListeners.add(callback);
+  return () => _statusListeners.delete(callback);
+}
+
+function _notifyReviewStatusChanged(review) {
+  for (const callback of _statusListeners) {
+    try {
+      callback(review);
+    } catch (err) {
+      console.error("onReviewStatusChanged listener falhou:", err);
+    }
+  }
+}
+
 export async function complete(id, completedAt = new Date()) {
   const completedAtDate = completedAt instanceof Date ? completedAt : new Date(completedAt);
-  return _updateStatus(id, {
+  const review = await _updateStatus(id, {
     status:       "completed",
     completed_at: completedAtDate.toISOString(),
   });
+  _notifyReviewStatusChanged(review);
+  return review;
 }
 
 export async function skip(id) {
-  return _updateStatus(id, { status: "skipped" });
+  const review = await _updateStatus(id, { status: "skipped" });
+  _notifyReviewStatusChanged(review);
+  return review;
 }
 
 // ── Geração manual (F2.3 — Etapa 5) ─────────────────────────────────────────

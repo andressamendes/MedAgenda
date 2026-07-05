@@ -1317,6 +1317,27 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+/* ── Central de Insights (F2.4) ── */
+.insights-block + .insights-block {
+  margin-top: 1.6rem;
+}
+
+.insights-block-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin: 0 0 .6rem;
+}
+
+.insights-block-notice {
+  font-size: .8rem;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  border-radius: var(--radius);
+  padding: .5rem .7rem;
+  margin: 0 0 .6rem;
+}
+
 /* ── Histórico global de Sessões (F1.8) ── */
 .ah-filter-tabs {
   display: flex;

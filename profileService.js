@@ -1,5 +1,28 @@
 import { supabase, currentUserId } from './supabase.js';
 
+// ── Notificação de perfil atualizado ────────────────────────────────────────
+// Mesmo pub/sub mínimo em memória de activitySessionService.onSessionFinished():
+// permite que outras telas (ex.: Central de Insights, F2.4) recalculem seus
+// indicadores assim que as metas de tempo (ou outro campo do perfil) mudarem,
+// sem precisar recarregar a página nem fazer polling.
+const _updateListeners = new Set();
+
+/** Assina notificações de perfil atualizado. Retorna uma função para cancelar a assinatura. */
+export function onProfileUpdated(callback) {
+  _updateListeners.add(callback);
+  return () => _updateListeners.delete(callback);
+}
+
+function _notifyProfileUpdated(profile) {
+  for (const callback of _updateListeners) {
+    try {
+      callback(profile);
+    } catch (err) {
+      console.error("onProfileUpdated listener falhou:", err);
+    }
+  }
+}
+
 export async function getProfile() {
   const id = await currentUserId();
   const { data, error } = await supabase
@@ -38,5 +61,6 @@ export async function upsertProfile(fields) {
     .single();
 
   if (error) throw error;
+  _notifyProfileUpdated(data);
   return data;
 }
