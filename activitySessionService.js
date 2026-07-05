@@ -125,11 +125,37 @@ export async function finishSession(id, endedAt = new Date()) {
     );
   }
 
-  return updateActivitySession(id, {
+  const finished = await updateActivitySession(id, {
     status: "finished",
     ended_at: endedAtDate.toISOString(),
     duration_minutes: durationMinutes,
   });
+  _notifySessionFinished(finished);
+  return finished;
+}
+
+// ── Notificação de sessão finalizada ────────────────────────────────────────
+// Pub/sub mínimo em memória: permite que outras views (ex.: dashboard de
+// execução) recalculem seus indicadores assim que uma sessão é finalizada,
+// sem precisar recarregar a página nem fazer polling. Nenhum estado é
+// persistido aqui — apenas repassa o registro já atualizado no banco.
+const _finishListeners = new Set();
+
+/** Assina notificações de sessão finalizada. Retorna uma função para cancelar a assinatura. */
+export function onSessionFinished(callback) {
+  _finishListeners.add(callback);
+  return () => _finishListeners.delete(callback);
+}
+
+function _notifySessionFinished(session) {
+  for (const callback of _finishListeners) {
+    try {
+      callback(session);
+    } catch (err) {
+      // Um listener quebrado não pode impedir os demais nem a finalização em si.
+      console.error("onSessionFinished listener falhou:", err);
+    }
+  }
 }
 
 // Cancelamento não exclui o registro: sessões canceladas continuam existindo

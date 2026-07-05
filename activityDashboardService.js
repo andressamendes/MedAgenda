@@ -1,0 +1,98 @@
+/**
+ * activityDashboardService.js — Dashboard de Execução (F2.1).
+ *
+ * Responde a uma única pergunta: "Como está minha execução?" — através de
+ * indicadores simples de tempo estudado e sessões, hoje/semana/mês. Sem
+ * gráficos, sem previsões, sem IA: apenas agregação sobre as mesmas sessões
+ * de activity_sessions já existentes (nenhuma tabela nova, nenhum cálculo
+ * feito na view).
+ *
+ * Toda a lógica de agregação mora aqui. A view (activityDashboardView.js) só
+ * chama getDashboardData() e renderiza o resultado em cards.
+ *
+ * Estratégia de uma única consulta (ETAPA 6): "hoje" e "semana" estão sempre
+ * contidos no intervalo [início da semana, agora] ∪ [início do mês, agora].
+ * Como a semana pode começar no mês anterior (ex.: dia 1 cai numa
+ * quinta-feira), buscamos a partir do mais antigo entre início da semana e
+ * início do mês — uma única chamada a listByDateRange() cobre hoje, semana e
+ * mês. Todos os indicadores são então derivados desse mesmo array em memória
+ * (computeDashboardIndicators()), sem nenhuma consulta adicional.
+ *
+ * "Tempo médio por sessão" e "Maior sessão" são calculados sobre as sessões
+ * do mês corrente — o mesmo recorte mais amplo já buscado, mantendo o
+ * dashboard inteiro consistente com um único período de referência.
+ */
+
+import { listByDateRange } from "./activitySessionService.js";
+import {
+  calculateTotalDuration,
+  calculateSessionCount,
+  calculateAverageDuration,
+  calculateLongestSession,
+} from "./activitySessionStats.js";
+import { mondayOf } from "./utils.js";
+
+function _startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function _endOfDay(date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function _startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function _inRange(session, start, end) {
+  const startedAt = new Date(session.started_at);
+  return startedAt >= start && startedAt <= end;
+}
+
+/**
+ * Deriva todos os indicadores do dashboard a partir de uma única lista de
+ * sessões já carregada. Função pura — sem I/O, sem DOM — para ser testável
+ * isoladamente e reaproveitada sempre que o conjunto de sessões mudar (ex.:
+ * após uma sessão ser finalizada).
+ */
+export function computeDashboardIndicators(sessions, now = new Date()) {
+  const list = sessions || [];
+
+  const dayStart   = _startOfDay(now);
+  const dayEnd     = _endOfDay(now);
+  const weekStart  = mondayOf(now);
+  const monthStart = _startOfMonth(now);
+
+  const todaySessions = list.filter(s => _inRange(s, dayStart, dayEnd));
+  const weekSessions  = list.filter(s => _inRange(s, weekStart, dayEnd));
+  const monthSessions = list.filter(s => _inRange(s, monthStart, dayEnd));
+
+  return {
+    todayMinutes:       calculateTotalDuration(todaySessions),
+    weekMinutes:        calculateTotalDuration(weekSessions),
+    monthMinutes:       calculateTotalDuration(monthSessions),
+    todaySessionsCount: calculateSessionCount(todaySessions),
+    weekSessionsCount:  calculateSessionCount(weekSessions),
+    monthSessionsCount: calculateSessionCount(monthSessions),
+    averageMinutes:     calculateAverageDuration(monthSessions),
+    longestSession:     calculateLongestSession(monthSessions),
+  };
+}
+
+/**
+ * Busca as sessões necessárias (uma única consulta) e retorna os indicadores
+ * já calculados. Ponto de entrada usado pela view.
+ */
+export async function getDashboardData(now = new Date()) {
+  const weekStart  = mondayOf(now);
+  const monthStart = _startOfMonth(now);
+  const rangeStart = weekStart < monthStart ? weekStart : monthStart;
+  const rangeEnd   = _endOfDay(now);
+
+  const sessions = await listByDateRange(rangeStart.toISOString(), rangeEnd.toISOString());
+  return computeDashboardIndicators(sessions, now);
+}

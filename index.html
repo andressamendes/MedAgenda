@@ -239,6 +239,10 @@
 
         <!-- Secondary nav -->
         <div class="sidebar-nav-group sidebar-nav-group--secondary">
+          <button class="nav-item" data-page="dashboard">
+            <span class="nav-icon" aria-hidden="true">&#128202;</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
           <button class="nav-item" id="btn-academic-cals">
             <span class="nav-icon" aria-hidden="true">&#128218;</span>
             <span class="nav-label">Calendários</span>
@@ -311,6 +315,15 @@
           </div>
           <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
           <div id="event-list"></div>
+        </div>
+
+        <!-- Page: Dashboard de Execução (F2.1) -->
+        <div id="page-dashboard" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Dashboard</h1>
+          </div>
+          <p id="dash-error" class="list-empty list-error" hidden></p>
+          <div id="dash-cards" class="dashboard-cards" hidden></div>
         </div>
 
         <!-- Page: Histórico de Sessões -->

@@ -1252,6 +1252,42 @@ textarea { resize: vertical; }
   white-space: pre-wrap;
 }
 
+/* ── Dashboard de Execução (F2.1) ── */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .8rem;
+}
+
+.dashboard-card {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.dashboard-card-title {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.dashboard-card-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.dashboard-card-desc {
+  margin: 0;
+  font-size: .8rem;
+  color: var(--gray-600);
+}
+
 /* ── Histórico global de Sessões (F1.8) ── */
 .ah-filter-tabs {
   display: flex;
