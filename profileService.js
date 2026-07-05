@@ -21,6 +21,8 @@ export async function upsertProfile(fields) {
   const allowed = [
     'full_name', 'avatar_url', 'university', 'course',
     'semester', 'timezone', 'notification_enabled', 'theme',
+    // Metas de Tempo (F2.2) — ver sql/12_time_goals.sql.
+    'daily_goal_minutes', 'weekly_goal_minutes', 'monthly_goal_minutes',
   ];
   const payload = { id };
   for (const key of allowed) {

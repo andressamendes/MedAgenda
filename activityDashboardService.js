@@ -30,6 +30,8 @@ import {
   calculateAverageDuration,
   calculateLongestSession,
 } from "./activitySessionStats.js";
+import { getProfile } from "./profileService.js";
+import { calculateGoalProgress } from "./timeGoals.js";
 import { mondayOf } from "./utils.js";
 
 function _startOfDay(date) {
@@ -84,8 +86,24 @@ export function computeDashboardIndicators(sessions, now = new Date()) {
 }
 
 /**
- * Busca as sessões necessárias (uma única consulta) e retorna os indicadores
- * já calculados. Ponto de entrada usado pela view.
+ * Deriva o progresso das três metas de tempo (diária/semanal/mensal) a
+ * partir dos indicadores já computados e das metas configuradas em
+ * profiles (F2.2). Função pura — mesma ideia de computeDashboardIndicators():
+ * separada para ser testável isoladamente e reaproveitada sempre que os
+ * indicadores ou as metas mudarem.
+ */
+export function computeGoalsProgress(indicators, goals = {}) {
+  return {
+    dailyGoal:   calculateGoalProgress(indicators.todayMinutes, goals?.daily_goal_minutes),
+    weeklyGoal:  calculateGoalProgress(indicators.weekMinutes, goals?.weekly_goal_minutes),
+    monthlyGoal: calculateGoalProgress(indicators.monthMinutes, goals?.monthly_goal_minutes),
+  };
+}
+
+/**
+ * Busca as sessões necessárias (uma única consulta) e o perfil (metas
+ * configuradas), e retorna os indicadores e o progresso das metas já
+ * calculados. Ponto de entrada usado pela view.
  */
 export async function getDashboardData(now = new Date()) {
   const weekStart  = mondayOf(now);
@@ -93,6 +111,12 @@ export async function getDashboardData(now = new Date()) {
   const rangeStart = weekStart < monthStart ? weekStart : monthStart;
   const rangeEnd   = _endOfDay(now);
 
-  const sessions = await listByDateRange(rangeStart.toISOString(), rangeEnd.toISOString());
-  return computeDashboardIndicators(sessions, now);
+  const [sessions, profile] = await Promise.all([
+    listByDateRange(rangeStart.toISOString(), rangeEnd.toISOString()),
+    getProfile(),
+  ]);
+
+  const indicators = computeDashboardIndicators(sessions, now);
+  const goals = computeGoalsProgress(indicators, profile || {});
+  return { ...indicators, ...goals };
 }

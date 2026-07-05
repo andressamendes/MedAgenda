@@ -8,6 +8,7 @@ import { escapeHtml } from './utils.js';
 import { confirmDialog } from './confirmDialog.js';
 import { initModal } from './modalController.js';
 import { handleError } from './errorService.js';
+import { GOAL_LIMITS, validateGoalMinutes } from './timeGoals.js';
 
 const TIMEZONES = [
   'America/Sao_Paulo', 'America/Manaus', 'America/Belem',
@@ -126,6 +127,33 @@ function _renderProfile(p) {
       </div>
     </div>
 
+    <!-- Metas de Tempo (F2.2) — apenas informativas, exibidas no Dashboard -->
+    <div class="account-section">
+      <h3 class="account-section-title">Metas de Tempo</h3>
+      <p class="account-hint">Metas pessoais de estudo, em minutos. Deixe em branco para não definir uma meta.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="acc-goal-daily">Meta diária (min)</label>
+          <input type="number" id="acc-goal-daily" min="${GOAL_LIMITS.daily.min}" max="${GOAL_LIMITS.daily.max}"
+            value="${p?.daily_goal_minutes ?? ''}" placeholder="Ex: 120" />
+        </div>
+        <div class="field">
+          <label for="acc-goal-weekly">Meta semanal (min)</label>
+          <input type="number" id="acc-goal-weekly" min="${GOAL_LIMITS.weekly.min}" max="${GOAL_LIMITS.weekly.max}"
+            value="${p?.weekly_goal_minutes ?? ''}" placeholder="Ex: 600" />
+        </div>
+        <div class="field">
+          <label for="acc-goal-monthly">Meta mensal (min)</label>
+          <input type="number" id="acc-goal-monthly" min="${GOAL_LIMITS.monthly.min}" max="${GOAL_LIMITS.monthly.max}"
+            value="${p?.monthly_goal_minutes ?? ''}" placeholder="Ex: 2400" />
+        </div>
+      </div>
+      <p id="goals-error" class="error" role="alert" aria-live="assertive"></p>
+      <div class="form-actions">
+        <button type="button" id="btn-save-goals" class="btn btn-primary">Salvar metas</button>
+      </div>
+    </div>
+
     <!-- Change password -->
     <div class="account-section">
       <h3 class="account-section-title">Alterar Senha</h3>
@@ -162,6 +190,9 @@ function _bindProfileEvents() {
 
   // Save profile
   document.getElementById('btn-save-profile')?.addEventListener('click', _handleSaveProfile);
+
+  // Save time goals (F2.2)
+  document.getElementById('btn-save-goals')?.addEventListener('click', _handleSaveGoals);
 
   // Change password
   document.getElementById('btn-change-pwd')?.addEventListener('click', _handleChangePassword);
@@ -249,6 +280,40 @@ async function _handleSaveProfile() {
     errEl.textContent = err.message || 'Não foi possível salvar o perfil.';
   } finally {
     _setLoading(btn, 'Salvar perfil', false);
+  }
+}
+
+// ── Metas de Tempo (F2.2) ──────────────────────────────────────────────────
+async function _handleSaveGoals() {
+  const errEl = document.getElementById('goals-error');
+  errEl.textContent = '';
+
+  const rawDaily   = document.getElementById('acc-goal-daily').value.trim();
+  const rawWeekly  = document.getElementById('acc-goal-weekly').value.trim();
+  const rawMonthly = document.getElementById('acc-goal-monthly').value.trim();
+
+  const daily   = validateGoalMinutes(rawDaily, 'daily');
+  const weekly  = validateGoalMinutes(rawWeekly, 'weekly');
+  const monthly = validateGoalMinutes(rawMonthly, 'monthly');
+
+  const firstError = [daily, weekly, monthly].find(r => !r.valid);
+  if (firstError) { errEl.textContent = firstError.error; return; }
+
+  const btn = document.getElementById('btn-save-goals');
+  _setLoading(btn, 'Salvando…', true);
+
+  try {
+    _profile = await upsertProfile({
+      daily_goal_minutes:   daily.value,
+      weekly_goal_minutes:  weekly.value,
+      monthly_goal_minutes: monthly.value,
+    });
+    toast.success('Metas atualizadas com sucesso.');
+  } catch (err) {
+    handleError(err, { context: 'accountView.saveGoals', silent: true });
+    errEl.textContent = err.message || 'Não foi possível salvar as metas.';
+  } finally {
+    _setLoading(btn, 'Salvar metas', false);
   }
 }
 

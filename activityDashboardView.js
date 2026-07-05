@@ -24,9 +24,50 @@ function _formatDate(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
+// ── Metas de Tempo (F2.2) — apenas informativas, sem recomendação automática.
+// O progresso (percentual, estado) já vem pronto de
+// activityDashboardService.getDashboardData() -> timeGoals.calculateGoalProgress();
+// aqui só formatamos o texto do card, nenhum cálculo é feito na view.
+const GOAL_STATE_LABEL = {
+  no_goal:  "Sem meta configurada.",
+  partial:  "Meta parcialmente atingida.",
+  achieved: "Meta atingida.",
+  exceeded: "Meta ultrapassada.",
+};
+
+function _formatGoalValue(progress) {
+  return progress.configured ? `${progress.percentage}%` : "—";
+}
+
+function _formatGoalDesc(progress) {
+  if (!progress.configured) return GOAL_STATE_LABEL.no_goal;
+  const meta      = _formatDuration(progress.goalMinutes);
+  const realizado = _formatDuration(progress.actualMinutes);
+  return `Meta: ${meta} · Realizado: ${realizado}. ${GOAL_STATE_LABEL[progress.state]}`;
+}
+
+const GOAL_CARD_DEFS = [
+  {
+    title: "Meta diária",
+    value: d => _formatGoalValue(d.dailyGoal),
+    desc:  d => _formatGoalDesc(d.dailyGoal),
+  },
+  {
+    title: "Meta semanal",
+    value: d => _formatGoalValue(d.weeklyGoal),
+    desc:  d => _formatGoalDesc(d.weeklyGoal),
+  },
+  {
+    title: "Meta mensal",
+    value: d => _formatGoalValue(d.monthlyGoal),
+    desc:  d => _formatGoalDesc(d.monthlyGoal),
+  },
+];
+
 // Ordem de exibição = ordem pedida na ETAPA 3. Cada card só mostra
 // título/valor/descrição — nada de gráfico, barra ou ícone de tendência.
 const CARD_DEFS = [
+  ...GOAL_CARD_DEFS,
   {
     title: "Tempo estudado hoje",
     value: d => _formatDuration(d.todayMinutes),

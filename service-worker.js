@@ -62,6 +62,7 @@ const APP_SHELL = [
   './smartAssistant.js',
   './supabase.js',
   './telemetryService.js',
+  './timeGoals.js',
   './toastService.js',
   './utils.js',
   './weekView.js',

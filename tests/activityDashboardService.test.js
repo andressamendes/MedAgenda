@@ -11,6 +11,7 @@ import { createSupabaseMock } from "./mocks/supabaseMock.js";
 
 const SUPABASE_SPECIFIER = new URL("../supabase.js", import.meta.url).href;
 const SERVICE_SPECIFIER  = new URL("../activitySessionService.js", import.meta.url).href;
+const PROFILE_SPECIFIER  = new URL("../profileService.js", import.meta.url).href;
 
 // activityDashboardService.js importa activitySessionService.js, que importa
 // supabase.js -> config.js (gitignored, ausente em CI/dev containers).
@@ -157,6 +158,9 @@ test("getDashboardData() fetches sessions exactly once, from the earliest of wee
       },
     },
   });
+  t.mock.module(PROFILE_SPECIFIER, {
+    namedExports: { getProfile: async () => ({}) },
+  });
 
   const { getDashboardData } = await import(`../activityDashboardService.js?t=${Math.random()}`);
   const result = await getDashboardData(NOW);
@@ -168,6 +172,10 @@ test("getDashboardData() fetches sessions exactly once, from the earliest of wee
   assert.strictEqual(calls[0].end, "2026-07-08T23:59:59.999Z");
   assert.strictEqual(result.todayMinutes, 25);
   assert.strictEqual(result.monthMinutes, 25);
+  // Sem metas configuradas no perfil -> todos os cards de meta ficam "no_goal".
+  assert.strictEqual(result.dailyGoal.state, "no_goal");
+  assert.strictEqual(result.weeklyGoal.state, "no_goal");
+  assert.strictEqual(result.monthlyGoal.state, "no_goal");
 });
 
 test("getDashboardData() widens the query to the week start when it falls in the previous month", async (t) => {
@@ -181,10 +189,59 @@ test("getDashboardData() widens the query to the week start when it falls in the
       },
     },
   });
+  t.mock.module(PROFILE_SPECIFIER, {
+    namedExports: { getProfile: async () => ({}) },
+  });
 
   const { getDashboardData } = await import(`../activityDashboardService.js?t=${Math.random()}`);
   await getDashboardData(early);
 
   // Semana começa segunda 2026-06-29 (mês anterior) — mais cedo que o início do mês (07-01).
   assert.strictEqual(calls[0].start, "2026-06-29T00:00:00.000Z");
+});
+
+test("getDashboardData() merges the configured goals with the computed indicators", async (t) => {
+  t.mock.module(SERVICE_SPECIFIER, {
+    namedExports: {
+      listByDateRange: async () => [finished("s1", "2026-07-08T10:00:00.000Z", 60)],
+    },
+  });
+  t.mock.module(PROFILE_SPECIFIER, {
+    namedExports: {
+      getProfile: async () => ({
+        daily_goal_minutes: 120, weekly_goal_minutes: 600, monthly_goal_minutes: 2400,
+      }),
+    },
+  });
+
+  const { getDashboardData } = await import(`../activityDashboardService.js?t=${Math.random()}`);
+  const result = await getDashboardData(NOW);
+
+  assert.strictEqual(result.dailyGoal.percentage, 50);
+  assert.strictEqual(result.dailyGoal.state, "partial");
+});
+
+// ── computeGoalsProgress() ───────────────────────────────────────────────────
+
+test("computeGoalsProgress() maps todayMinutes/weekMinutes/monthMinutes onto daily/weekly/monthly goals", async (t) => {
+  const { computeGoalsProgress } = await loadDashboardService(t);
+  const indicators = { todayMinutes: 30, weekMinutes: 150, monthMinutes: 600 };
+  const goals = { daily_goal_minutes: 60, weekly_goal_minutes: 300, monthly_goal_minutes: 1200 };
+
+  const result = computeGoalsProgress(indicators, goals);
+
+  assert.strictEqual(result.dailyGoal.percentage, 50);
+  assert.strictEqual(result.weeklyGoal.percentage, 50);
+  assert.strictEqual(result.monthlyGoal.percentage, 50);
+});
+
+test("computeGoalsProgress() returns 'no_goal' for every card when profile has no goals set", async (t) => {
+  const { computeGoalsProgress } = await loadDashboardService(t);
+  const indicators = { todayMinutes: 30, weekMinutes: 150, monthMinutes: 600 };
+
+  const result = computeGoalsProgress(indicators, {});
+
+  assert.strictEqual(result.dailyGoal.state, "no_goal");
+  assert.strictEqual(result.weeklyGoal.state, "no_goal");
+  assert.strictEqual(result.monthlyGoal.state, "no_goal");
 });
