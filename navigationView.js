@@ -1,6 +1,6 @@
 // ── navigationView.js — Navegação entre páginas, sidebar e bottom nav ────────
 
-const APP_PAGES = ['agenda', 'calendar', 'appointments', 'history', 'dashboard'];
+const APP_PAGES = ['agenda', 'calendar', 'appointments', 'history', 'dashboard', 'insights'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 

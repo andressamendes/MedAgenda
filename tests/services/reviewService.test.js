@@ -139,6 +139,31 @@ test("listPending(eventId) também filtra por evento", async (t) => {
   assert.deepStrictEqual(eqCalls, [["user_id", "user-123"], ["status", "pending"], ["event_id", "event-1"]]);
 });
 
+test("listCompleted() filtra apenas status completed, globalmente", async (t) => {
+  const rows = [{ id: "rev-1", status: "completed" }];
+  const { mod, supabase } = await loadReviewService(t, {
+    reviews: { data: rows, error: null },
+  });
+
+  const result = await mod.listCompleted();
+
+  assert.deepStrictEqual(result, rows);
+  const eqCalls = supabase._calls.filter(c => c.table === "reviews" && c.method === "eq").map(c => c.args);
+  assert.deepStrictEqual(eqCalls, [["user_id", "user-123"], ["status", "completed"]]);
+});
+
+test("listCompleted(eventId) também filtra por evento", async (t) => {
+  const rows = [{ id: "rev-1", status: "completed", event_id: "event-1" }];
+  const { mod, supabase } = await loadReviewService(t, {
+    reviews: { data: rows, error: null },
+  });
+
+  await mod.listCompleted("event-1");
+
+  const eqCalls = supabase._calls.filter(c => c.table === "reviews" && c.method === "eq").map(c => c.args);
+  assert.deepStrictEqual(eqCalls, [["user_id", "user-123"], ["status", "completed"], ["event_id", "event-1"]]);
+});
+
 test("complete() marca a revisão como concluída com completed_at", async (t) => {
   const pending   = { id: "rev-1", status: "pending" };
   const completed = { id: "rev-1", status: "completed", completed_at: "2026-07-05T10:00:00.000Z" };
@@ -205,6 +230,60 @@ test("skip() rejeita quando a revisão não existe", async (t) => {
     () => mod.skip("rev-missing"),
     (err) => err.code === "REVIEW_NOT_FOUND"
   );
+});
+
+// ── onReviewStatusChanged() — notificação (F2.4) ────────────────────────────
+
+test("onReviewStatusChanged() é notificado com a revisão já atualizada quando complete() é chamado", async (t) => {
+  const pending   = { id: "rev-1", status: "pending" };
+  const completed = { id: "rev-1", status: "completed", completed_at: "2026-07-05T10:00:00.000Z" };
+  const { mod } = await loadReviewService(t, {
+    reviews: [
+      { data: pending, error: null },
+      { data: completed, error: null },
+    ],
+  });
+
+  const received = [];
+  mod.onReviewStatusChanged((review) => received.push(review));
+  await mod.complete("rev-1", new Date("2026-07-05T10:00:00.000Z"));
+
+  assert.deepStrictEqual(received, [completed]);
+});
+
+test("onReviewStatusChanged() é notificado quando skip() é chamado", async (t) => {
+  const pending = { id: "rev-1", status: "pending" };
+  const skipped = { id: "rev-1", status: "skipped" };
+  const { mod } = await loadReviewService(t, {
+    reviews: [
+      { data: pending, error: null },
+      { data: skipped, error: null },
+    ],
+  });
+
+  const received = [];
+  mod.onReviewStatusChanged((review) => received.push(review));
+  await mod.skip("rev-1");
+
+  assert.deepStrictEqual(received, [skipped]);
+});
+
+test("a função retornada por onReviewStatusChanged() cancela a assinatura", async (t) => {
+  const pending   = { id: "rev-1", status: "pending" };
+  const completed = { id: "rev-1", status: "completed", completed_at: "2026-07-05T10:00:00.000Z" };
+  const { mod } = await loadReviewService(t, {
+    reviews: [
+      { data: pending, error: null },
+      { data: completed, error: null },
+    ],
+  });
+
+  let calls = 0;
+  const unsubscribe = mod.onReviewStatusChanged(() => calls++);
+  unsubscribe();
+  await mod.complete("rev-1", new Date("2026-07-05T10:00:00.000Z"));
+
+  assert.strictEqual(calls, 0);
 });
 
 test("generateForEvent() cria revisões em +1, +7 e +30 dias por padrão", async (t) => {

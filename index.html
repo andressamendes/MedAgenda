@@ -243,6 +243,10 @@
             <span class="nav-icon" aria-hidden="true">&#128202;</span>
             <span class="nav-label">Dashboard</span>
           </button>
+          <button class="nav-item" data-page="insights">
+            <span class="nav-icon" aria-hidden="true">&#128161;</span>
+            <span class="nav-label">Central de Insights</span>
+          </button>
           <button class="nav-item" id="btn-academic-cals">
             <span class="nav-icon" aria-hidden="true">&#128218;</span>
             <span class="nav-label">Calendários</span>
@@ -339,6 +343,41 @@
           <p id="ah-list-empty" class="list-empty" hidden></p>
           <ul id="ah-list" class="session-history-list"></ul>
           <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
+        </div>
+
+        <!-- Page: Central de Insights (F2.4) -->
+        <div id="page-insights" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Central de Insights</h1>
+          </div>
+
+          <section class="insights-block" aria-labelledby="insights-execucao-title">
+            <h2 id="insights-execucao-title" class="insights-block-title">Execução</h2>
+            <p id="insights-execucao-notice" class="insights-block-notice" hidden></p>
+            <p id="insights-execucao-error" class="list-empty list-error" hidden></p>
+            <div id="insights-execucao-cards" class="dashboard-cards" hidden></div>
+          </section>
+
+          <section class="insights-block" aria-labelledby="insights-metas-title">
+            <h2 id="insights-metas-title" class="insights-block-title">Metas</h2>
+            <p id="insights-metas-notice" class="insights-block-notice" hidden></p>
+            <p id="insights-metas-error" class="list-empty list-error" hidden></p>
+            <div id="insights-metas-cards" class="dashboard-cards" hidden></div>
+          </section>
+
+          <section class="insights-block" aria-labelledby="insights-revisoes-title">
+            <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
+            <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
+            <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
+            <div id="insights-revisoes-cards" class="dashboard-cards" hidden></div>
+          </section>
+
+          <section class="insights-block" aria-labelledby="insights-produtividade-title">
+            <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
+            <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
+            <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
+            <div id="insights-produtividade-cards" class="dashboard-cards" hidden></div>
+          </section>
         </div>
 
       </main>
