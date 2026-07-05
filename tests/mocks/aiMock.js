@@ -8,6 +8,7 @@ export function createAiServiceMock({
   weeklySummary   = "Resumo semanal de teste.",
   studySuggestion = "Sugestão de estudo de teste.",
   scheduleAnalysis = "Análise de agenda de teste.",
+  recommendations = "• Recomendação de teste.",
   fail = false,
   failMessage = "Erro simulado do assistente de IA.",
   // Nunca resolve por si só — simula uma chamada real em andamento, para
@@ -34,23 +35,29 @@ export function createAiServiceMock({
   };
   return {
     _calls: calls,
-    getWeeklySummary: async (events, controller) => {
-      calls.push({ fn: "getWeeklySummary", events, controller });
+    getWeeklySummary: async (controller) => {
+      calls.push({ fn: "getWeeklySummary", controller });
       if (hang) return maybeHang(controller);
       maybeFail();
       return weeklySummary;
     },
-    getStudySuggestion: async (events, controller) => {
-      calls.push({ fn: "getStudySuggestion", events, controller });
+    getStudySuggestion: async (controller) => {
+      calls.push({ fn: "getStudySuggestion", controller });
       if (hang) return maybeHang(controller);
       maybeFail();
       return studySuggestion;
     },
-    getScheduleAnalysis: async (events, controller) => {
-      calls.push({ fn: "getScheduleAnalysis", events, controller });
+    getScheduleAnalysis: async (controller) => {
+      calls.push({ fn: "getScheduleAnalysis", controller });
       if (hang) return maybeHang(controller);
       maybeFail();
       return scheduleAnalysis;
+    },
+    getContextualRecommendations: async (controller) => {
+      calls.push({ fn: "getContextualRecommendations", controller });
+      if (hang) return maybeHang(controller);
+      maybeFail();
+      return recommendations;
     },
   };
 }

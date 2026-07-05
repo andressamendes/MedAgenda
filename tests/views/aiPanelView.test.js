@@ -7,16 +7,14 @@ import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 import { createAiServiceMock } from "../mocks/aiMock.js";
 
-const AI_SERVICE_SPECIFIER      = new URL("../../services/ai/aiService.js", import.meta.url).href;
-const EVENT_SERVICE_SPECIFIER   = new URL("../../eventService.js", import.meta.url).href;
-const ACADEMIC_VIEW_SPECIFIER   = new URL("../../academicCalendarView.js", import.meta.url).href;
+const AI_SERVICE_SPECIFIER = new URL("../../services/ai/aiService.js", import.meta.url).href;
 
+// aiPanelView.js (F3.2) no longer fetches or shapes context on its own — it
+// only calls the AI gateway (services/ai/aiService.js), which internally
+// consults aiContextService.getAIContext(). Mocking the gateway is enough;
+// there's no event-service or academic-view context left in the view to mock.
 function loadAiPanel(t, aiOptions) {
   t.mock.module(AI_SERVICE_SPECIFIER, { namedExports: createAiServiceMock(aiOptions) });
-  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { getEventsByRange: async () => [] } });
-  // aiPanelView.js only needs isPersonalVisible() from academicCalendarView.js;
-  // that module itself pulls in Supabase transitively, which isn't relevant here.
-  t.mock.module(ACADEMIC_VIEW_SPECIFIER, { namedExports: { isPersonalVisible: () => true } });
   return import(`../../aiPanelView.js?t=${Math.random()}`);
 }
 
@@ -62,6 +60,18 @@ test("running the weekly-summary action shows the mocked AI result", async (t) =
 
   assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
   assert.strictEqual(document.getElementById("ai-result-body").textContent, "Você tem 3 provas esta semana.");
+});
+
+test("running the recommendations action shows the mocked result, without calling Gemini", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, { recommendations: "• Você tem 2 revisões pendentes." });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-recommendations").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
+  assert.strictEqual(document.getElementById("ai-result-body").textContent, "• Você tem 2 revisões pendentes.");
 });
 
 test("a failing AI call shows a friendly error instead of throwing", async (t) => {
