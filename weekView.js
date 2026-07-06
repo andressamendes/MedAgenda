@@ -4,6 +4,10 @@ import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
+import { getAIContext } from "./aiContextService.js";
+import { computeWeeklyPlan } from "./planningService.js";
+import { renderSmartCards, planItemToCard } from "./smartCardView.js";
+import { renderPlanList } from "./planListView.js";
 
 let _academicProvider  = null;
 let _showPersonal      = () => true;
@@ -27,6 +31,8 @@ let _el  = null;
 let _cbs = {};
 let _mon = null; // Date — Monday of the displayed week (time=00:00:00)
 let _nowTimer = null;
+let _weeklyPlan = []; // último plano computado por loadTip() (F3.5, ETAPA 6)
+let _planExpanded = false;
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -37,12 +43,18 @@ export async function initWeekView(el, cbs = {}) {
   _mon = mondayOf(new Date());
   buildShell();
   await fetchAndRender();
+  // A dica contextual e o plano da semana (F3.5, ETAPA 4/6) usam uma janela
+  // própria (Context/Planning Engine) independente da semana exibida — não
+  // recarregam ao navegar entre semanas (navigate()/goToday() só chamam
+  // fetchAndRender diretamente), só na carga inicial e em refreshWeekView().
+  loadTip();
   _nowTimer = setInterval(updateNowLine, 60_000);
 }
 
 export async function refreshWeekView() {
   if (!_el) return;
   await fetchAndRender();
+  loadTip();
 }
 
 export function destroyWeekView() {
@@ -64,6 +76,11 @@ function buildShell() {
       <span id="wk-error-msg"></span>
       <button type="button" class="btn btn-sm btn-ghost" id="wk-retry">Tentar novamente</button>
     </div>
+    <div id="wk-tip" class="smart-cards" hidden></div>
+    <div class="wk-plan-toggle-row">
+      <button type="button" class="btn btn-sm btn-ghost" id="wk-plan-toggle" hidden>Ver plano da semana</button>
+    </div>
+    <div id="wk-plan-list" class="ai-result-body--plan wk-plan-list" hidden></div>
     <div class="wk-wrap">
       <div class="wk-scroll" id="wk-scroll">
         <div class="wk-head-row" id="wk-head-row">
@@ -95,6 +112,7 @@ function buildShell() {
   _el.querySelector("#wk-next").addEventListener("click",  () => navigate(1));
   _el.querySelector("#wk-today").addEventListener("click", goToday);
   _el.querySelector("#wk-retry").addEventListener("click", fetchAndRender);
+  _el.querySelector("#wk-plan-toggle").addEventListener("click", togglePlan);
 
   buildTimeCol();
   buildDayCols();
@@ -192,6 +210,58 @@ function showWeekError(message) {
 function hideWeekError() {
   const banner = _el.querySelector("#wk-error");
   if (banner) banner.hidden = true;
+}
+
+// ── Dica contextual e plano rápido (F3.5, ETAPA 4/6) ────────────────────────
+// Reaproveita integralmente o Context Engine (aiContextService.getAIContext())
+// e o Planning Engine (planningService.computeWeeklyPlan()) já existentes —
+// nenhuma consulta ou cálculo novo. A dica é só o primeiro item do plano cuja
+// data sugerida é hoje (ou o item de maior prioridade, na ausência de um item
+// para hoje); o plano completo fica disponível por trás do botão "Ver plano
+// da semana", sem precisar abrir o painel de IA. Nunca cria, altera ou agenda
+// nada — é só leitura.
+async function loadTip() {
+  const tipEl = _el?.querySelector("#wk-tip");
+  const toggleBtn = _el?.querySelector("#wk-plan-toggle");
+  const planListEl = _el?.querySelector("#wk-plan-list");
+  if (!tipEl || !toggleBtn || !planListEl) return;
+
+  try {
+    const context = await getAIContext();
+    _weeklyPlan = computeWeeklyPlan(context);
+  } catch (err) {
+    handleError(err, { context: "weekView.loadTip", silent: true });
+    _weeklyPlan = [];
+  }
+
+  const todayISO = isoToday();
+  const todayItem = _weeklyPlan.find(p => p.dataSugerida === todayISO) || _weeklyPlan[0] || null;
+  let tip = null;
+  if (todayItem) {
+    tip = planItemToCard(todayItem);
+    // "study" com categoria conhecida vira a frase de exemplo do enunciado
+    // ("Hoje seria interessante revisar Anatomia."); os demais tipos mantêm
+    // o próprio motivo já redigido pelo Planning Engine.
+    if (todayItem.tipo === "study" && todayItem.categoria) {
+      tip = { ...tip, mensagem: `Hoje seria interessante revisar ${todayItem.categoria}.` };
+    }
+  }
+  renderSmartCards(tipEl, tip ? [tip] : []);
+
+  toggleBtn.hidden = _weeklyPlan.length === 0;
+  _planExpanded = false;
+  planListEl.hidden = true;
+  toggleBtn.textContent = "Ver plano da semana";
+  if (_weeklyPlan.length) renderPlanList(planListEl, _weeklyPlan);
+}
+
+function togglePlan() {
+  const toggleBtn = _el?.querySelector("#wk-plan-toggle");
+  const planListEl = _el?.querySelector("#wk-plan-list");
+  if (!toggleBtn || !planListEl) return;
+  _planExpanded = !_planExpanded;
+  planListEl.hidden = !_planExpanded;
+  toggleBtn.textContent = _planExpanded ? "Ocultar plano da semana" : "Ver plano da semana";
 }
 
 function updateLabel() {

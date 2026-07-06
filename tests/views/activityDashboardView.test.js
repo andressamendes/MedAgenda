@@ -9,9 +9,13 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
-const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
-const SESSION_SERVICE_SPECIFIER   = new URL("../../activitySessionService.js", import.meta.url).href;
-const ERROR_SPECIFIER             = new URL("../../errorService.js", import.meta.url).href;
+const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
+const SESSION_SERVICE_SPECIFIER    = new URL("../../activitySessionService.js", import.meta.url).href;
+const REVIEW_SERVICE_SPECIFIER     = new URL("../../reviewService.js", import.meta.url).href;
+const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
+const AICONTEXT_SPECIFIER          = new URL("../../aiContextService.js", import.meta.url).href;
+const REFLECTION_SERVICE_SPECIFIER = new URL("../../reflectionService.js", import.meta.url).href;
+const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
@@ -21,6 +25,22 @@ const EMPTY_DATA = {
   averageMinutes: 0, longestSession: null,
   dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
 };
+
+// Contexto/reflexão vazios (F3.5): cards inteligentes reaproveitam o Context
+// Engine + Recommendation Engine (pura, não mockada) e o Reflection Engine —
+// mockados aqui por padrão para não produzir nenhum card, mantendo o foco
+// destes testes nos cards de execução em si (F2.1/F2.2).
+const EMPTY_AI_CONTEXT = {
+  events: [], hasAnyEvents: false, weekEventsCount: 0,
+  execution: {
+    todayMinutes: 0, weekMinutes: 0, monthMinutes: 0,
+    todaySessionsCount: 0, weekSessionsCount: 0, monthSessionsCount: 0,
+    dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
+  },
+  reviews: { pendingCount: 0, pending: [], completedCount: 0 },
+  categories: [], hasStudyHistory: false, daysSinceLastSession: null, overdueEvents: [],
+};
+const EMPTY_REFLECTION = { status: "insufficient_data", resumo: "", pontosPositivos: [], pontosAtencao: [], evolucaoRecente: [], insights: [] };
 
 function loadView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -46,8 +66,35 @@ function loadView(t, overrides = {}) {
     },
   });
 
+  let reviewChangedCallback = null;
+  t.mock.module(REVIEW_SERVICE_SPECIFIER, {
+    namedExports: {
+      onReviewStatusChanged: (cb) => { reviewChangedCallback = cb; return () => {}; },
+    },
+  });
+
+  let profileUpdatedCallback = null;
+  t.mock.module(PROFILE_SERVICE_SPECIFIER, {
+    namedExports: {
+      onProfileUpdated: (cb) => { profileUpdatedCallback = cb; return () => {}; },
+    },
+  });
+
+  t.mock.module(AICONTEXT_SPECIFIER, {
+    namedExports: { getAIContext: overrides.getAIContext ?? (async () => EMPTY_AI_CONTEXT) },
+  });
+
+  t.mock.module(REFLECTION_SERVICE_SPECIFIER, {
+    namedExports: { getReflectionData: overrides.getReflectionData ?? (async () => EMPTY_REFLECTION) },
+  });
+
   return import(`../../activityDashboardView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, triggerSessionFinished: (session) => finishedCallback?.(session) }));
+    .then(mod => ({
+      mod, handleErrorCalls,
+      triggerSessionFinished: (session) => finishedCallback?.(session),
+      triggerReviewStatusChanged: (review) => reviewChangedCallback?.(review),
+      triggerProfileUpdated: (profile) => profileUpdatedCallback?.(profile),
+    }));
 }
 
 beforeEach(() => {
@@ -253,4 +300,108 @@ test("indicators refresh automatically when a session finishes, without reloadin
 
   assert.strictEqual(calls, 2);
   assert.match(document.getElementById("dash-cards").textContent, /25min/);
+});
+
+// ── Cards inteligentes (F3.5, ETAPA 3/7) ────────────────────────────────────
+// Reaproveita o Context Engine + Recommendation Engine (mensagens reais, sem
+// mock — pura) e o Reflection Engine (resumo). Isolado do carregamento
+// principal: nunca esconde os cards de execução.
+
+test("a recommendation from the Recommendation Engine renders as a smart card, sourced from the same context", async (t) => {
+  const { mod } = await loadView(t, {
+    getAIContext: async () => ({
+      ...EMPTY_AI_CONTEXT,
+      hasAnyEvents: true,
+      weekEventsCount: 0, // "semana vazia" — recommendationEngine.findWeekLoadRecommendation()
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const tips = document.getElementById("dash-smart-tips");
+  assert.strictEqual(tips.hidden, false);
+  assert.match(tips.textContent, /Sua semana está vazia/);
+});
+
+test("the reflection summary ('Você concluiu X% do planejamento') renders as a smart card", async (t) => {
+  const { mod } = await loadView(t, {
+    getReflectionData: async () => ({ ...EMPTY_REFLECTION, status: "ok", resumo: "Você concluiu 82% do planejamento nos últimos 7 dias." }),
+  });
+
+  await mod.initActivityDashboardView();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const tips = document.getElementById("dash-smart-tips");
+  assert.match(tips.textContent, /Você concluiu 82% do planejamento/);
+});
+
+test("an 'insufficient_data' reflection never produces an invented summary card", async (t) => {
+  const { mod } = await loadView(t, {
+    getReflectionData: async () => EMPTY_REFLECTION, // status: "insufficient_data"
+  });
+
+  await mod.initActivityDashboardView();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.strictEqual(document.getElementById("dash-smart-tips").hidden, true);
+});
+
+test("smart tips stay discreet: at most 3 cards even with several recommendations and a reflection summary", async (t) => {
+  const { mod } = await loadView(t, {
+    getAIContext: async () => ({
+      ...EMPTY_AI_CONTEXT,
+      hasAnyEvents: true,
+      weekEventsCount: 20, // "semana muito carregada"
+      reviews: { pendingCount: 3, pending: [{ scheduledDate: "2026-06-01", daysOverdue: 10 }], completedCount: 0 },
+      execution: {
+        ...EMPTY_AI_CONTEXT.execution,
+        weeklyGoal: { configured: true, goalMinutes: 600, actualMinutes: 570, percentage: 95, remainingMinutes: 30, state: "partial" },
+      },
+      overdueEvents: [{ title: "Prova", category: null, date: "2026-07-01", daysOverdue: 5 }],
+    }),
+    getReflectionData: async () => ({ ...EMPTY_REFLECTION, status: "ok", resumo: "Você concluiu 82% do planejamento." }),
+  });
+
+  await mod.initActivityDashboardView();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const cards = document.getElementById("dash-smart-tips").querySelectorAll(".smart-card");
+  assert.ok(cards.length <= 3);
+});
+
+test("smart tips never break the dashboard when their own sources fail (partial error)", async (t) => {
+  const { mod, handleErrorCalls } = await loadView(t, {
+    getAIContext: async () => { throw new Error("network down"); },
+  });
+
+  await assert.doesNotReject(() => mod.initActivityDashboardView());
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  // Cards de execução continuam de pé mesmo com a fonte de cards inteligentes fora do ar.
+  assert.strictEqual(document.getElementById("dash-cards").hidden, false);
+  assert.strictEqual(document.getElementById("dash-smart-tips").hidden, true);
+  assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.smartTips" && c.context.silent === true));
+});
+
+test("smart tips refresh automatically when a review is completed/skipped or a goal (profile) is updated", async (t) => {
+  let recCalls = 0;
+  const { mod, triggerReviewStatusChanged, triggerProfileUpdated } = await loadView(t, {
+    getAIContext: async () => {
+      recCalls += 1;
+      return { ...EMPTY_AI_CONTEXT, hasAnyEvents: true, weekEventsCount: recCalls > 1 ? 0 : 5 };
+    },
+  });
+
+  await mod.initActivityDashboardView();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.strictEqual(recCalls, 1);
+
+  triggerReviewStatusChanged({ id: "r1", status: "completed" });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.strictEqual(recCalls, 2);
+
+  triggerProfileUpdated({ weekly_goal_minutes: 300 });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.strictEqual(recCalls, 3);
 });

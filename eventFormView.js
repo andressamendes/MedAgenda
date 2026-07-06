@@ -10,7 +10,17 @@ import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { startSessionForEvent } from "./activitySessionView.js";
+import { getAIContext } from "./aiContextService.js";
+import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
+
+// Categoria "com poucas sessões": mesmo piso de recommendationEngine.js/
+// planningService.js (categoria sem sessão finalizada há muito tempo, ou
+// nunca estudada) — redefinido aqui, sem importar esses módulos, para não
+// acoplar o formulário a eles.
+const UNDERSTUDIED_DAYS = 5;
+// Meta semanal "quase atingida": mesmo piso de recommendationEngine.js.
+const GOAL_NEAR_MIN_PCT = 70;
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
 
@@ -37,6 +47,7 @@ let _editingEvent = null;
 let _onSave   = null;
 let _historyRequestId = 0; // descarta respostas obsoletas se o evento editado mudar antes da resposta chegar
 let _reviewRequestId  = 0; // mesmo padrão de _historyRequestId, para a seção de revisões
+let _insightsRequestId = 0; // mesmo padrão, para os cards inteligentes (F3.5)
 
 let eventModal         = null;
 let eventForm          = null;
@@ -61,6 +72,7 @@ let reviewPendingList  = null;
 let reviewPendingEmpty = null;
 let reviewDoneList     = null;
 let reviewDoneEmpty    = null;
+let insightsEl         = null;
 let fTitle             = null;
 let fDate              = null;
 let fStart             = null;
@@ -105,6 +117,7 @@ export function initEventForm(onSave) {
   reviewPendingEmpty  = document.getElementById("review-pending-empty");
   reviewDoneList      = document.getElementById("review-done-list");
   reviewDoneEmpty     = document.getElementById("review-done-empty");
+  insightsEl          = document.getElementById("event-insights");
   fTitle              = document.getElementById("f-title");
   fDate               = document.getElementById("f-date");
   fStart              = document.getElementById("f-start");
@@ -275,6 +288,8 @@ function _clearForm() {
   reviewDoneList.innerHTML = "";
   reviewPendingEmpty.hidden = true;
   reviewDoneEmpty.hidden = true;
+  _insightsRequestId++; // mesmo padrão, para os cards inteligentes (F3.5)
+  if (insightsEl) renderSmartCards(insightsEl, []);
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
@@ -301,6 +316,7 @@ function _populateForm(ev) {
   _loadSessionHistory(ev.id);
   reviewSection.hidden = false;
   _loadReviews(ev.id);
+  _loadInsights(ev);
   eventIdField.value    = ev.id;
   fTitle.value          = ev.title           || "";
   fDate.value           = ev.event_date       || "";
@@ -558,4 +574,45 @@ async function _handleReviewAction(review, action) {
     const { friendly } = handleError(err, { context: `eventFormView.review.${action}`, silent: true });
     toast.error(friendly);
   }
+}
+
+// ── Cards inteligentes do compromisso (F3.5, ETAPA 5) ───────────────────────
+// Reaproveita integralmente o Context Engine (aiContextService.getAIContext())
+// já usado pelo painel de IA/planejamento/reflexão — nenhuma consulta nova é
+// feita aqui, só leitura dos mesmos blocos (categorias, meta semanal) já
+// consolidados. Nunca altera o compromisso: é só um resumo informativo.
+async function _loadInsights(ev) {
+  const requestId = ++_insightsRequestId;
+  if (!insightsEl) return;
+  renderSmartCards(insightsEl, []);
+
+  try {
+    const context = await getAIContext();
+    if (requestId !== _insightsRequestId) return; // formulário mudou de evento antes da resposta chegar
+    renderSmartCards(insightsEl, _buildEventInsightCards(ev, context));
+  } catch (err) {
+    if (requestId !== _insightsRequestId) return;
+    handleError(err, { context: "eventFormView.insights", silent: true });
+    renderSmartCards(insightsEl, []); // silencioso — o formulário continua totalmente utilizável
+  }
+}
+
+function _buildEventInsightCards(ev, context) {
+  const cards = [];
+
+  const category = (context.categories || []).find(c => c.name === ev.category);
+  if (category) {
+    if (category.daysSinceLastStudy === null) {
+      cards.push(buildSmartCard("dica", `Categoria ${ev.category} ainda sem sessões registradas.`));
+    } else if (category.daysSinceLastStudy >= UNDERSTUDIED_DAYS) {
+      cards.push(buildSmartCard("atencao", `Última sessão desta categoria há ${category.daysSinceLastStudy} dias.`));
+    }
+  }
+
+  const weeklyGoal = context.execution?.weeklyGoal;
+  if (weeklyGoal?.configured && weeklyGoal.state === "partial" && weeklyGoal.percentage >= GOAL_NEAR_MIN_PCT) {
+    cards.push(buildSmartCard("meta", `Meta semanal quase atingida: ${weeklyGoal.percentage}%.`));
+  }
+
+  return cards;
 }

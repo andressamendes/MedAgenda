@@ -12,8 +12,7 @@ import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController
 import { handleError } from "./errorService.js";
 import { AI_CONFIG } from "./config/ai.js";
 import { escapeHtml } from "./utils.js";
-
-const PRIORITY_LABELS = { alta: "Alta prioridade", "média": "Prioridade média", baixa: "Baixa prioridade" };
+import { renderPlanList } from "./planListView.js";
 
 // Mensagens progressivas para a espera da IA — a chamada real (Edge Function
 // + Gemini) costuma levar entre 3 e 10s; os degraus abaixo cobrem esse caso
@@ -127,21 +126,7 @@ export function initAIPanel() {
     resultDiv.hidden  = false;
     if (retryBtn) retryBtn.hidden = true;
 
-    if (!plan || !plan.length) {
-      resultBody.innerHTML = `<p class="ai-plan-empty">Nenhuma sugestão no momento — sua semana está em dia!</p>`;
-      return;
-    }
-
-    resultBody.innerHTML = plan.map(item => `
-      <div class="ai-plan-item ai-plan-item--${escapeHtml(item.prioridade)}">
-        <div class="ai-plan-item-header">
-          <span class="ai-plan-priority ai-plan-priority--${escapeHtml(item.prioridade)}">${escapeHtml(PRIORITY_LABELS[item.prioridade] || item.prioridade)}</span>
-          ${item.categoria ? `<span class="ai-plan-category">${escapeHtml(item.categoria)}</span>` : ''}
-          <span class="ai-plan-time">${escapeHtml(item.tempoSugerido)}</span>
-        </div>
-        <p class="ai-plan-reason">${escapeHtml(item.motivo)}</p>
-      </div>
-    `).join('');
+    renderPlanList(resultBody, plan);
   }
 
   // Minha Evolução (F3.4): reflectionService já devolve tudo estruturado
