@@ -11,32 +11,25 @@ import { mondayOf, isoDate } from "../../utils.js";
 
 const EVENT_SERVICE_SPECIFIER = new URL("../../eventService.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
-const AICONTEXT_SPECIFIER = new URL("../../aiContextService.js", import.meta.url).href;
+const DECISION_ENGINE_SPECIFIER = new URL("../../decisionEngine.js", import.meta.url).href;
 
-const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
-const EMPTY_AI_CONTEXT = {
-  events: [], hasAnyEvents: false, weekEventsCount: 0,
-  execution: {
-    todayMinutes: 0, weekMinutes: 0, monthMinutes: 0,
-    todaySessionsCount: 0, weekSessionsCount: 0, monthSessionsCount: 0,
-    dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
-  },
-  reviews: { pendingCount: 0, pending: [], completedCount: 0 },
-  categories: [], hasStudyHistory: false, daysSinceLastSession: null, overdueEvents: [],
-};
+const EMPTY_DECISIONS = { decisions: [], planning: [], unavailable: [] };
 
 let rangeCalls;
 let summaryCalls;
 let container;
 let destroyWeekView;
 
-// weekView.js reaproveita o Context Engine (aiContextService.getAIContext())
-// e o Planning Engine (planningService.computeWeeklyPlan(), puro, sem mock
-// necessário) para a dica contextual e o plano rápido (F3.5) — mockado aqui
-// por padrão com um contexto vazio (nenhum item de plano), com `aiContext`
-// (valor fixo) ou `getAIContext` (função, para simular falha/contador de
-// chamadas) disponíveis para sobrescrever por teste.
-function mockEventService(t, { events = [], fail = false, summaries = {}, summariesFail = false, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
+function decision({ origem = "recommendation", origemTipo = "empty_week", prioridade = "informativo", mensagem, dadosUtilizados = {}, acaoSugerida = null }) {
+  return { origem, origemTipo, prioridade, mensagem, assunto: `${origem}:${origemTipo}`, confianca: "alta", dadosUtilizados, acaoSugerida };
+}
+
+// weekView.js reaproveita decisionEngine.getDecisions() (F3.7 — Decision
+// Engine) para a dica contextual (a decisão de maior prioridade) e o plano
+// bruto do Planning Engine, já devolvido pela mesma chamada, para o botão
+// "Ver plano da semana" (F3.5) — mockado aqui por padrão sem nenhuma decisão
+// e sem plano, com `getDecisions` disponível para sobrescrever por teste.
+function mockEventService(t, { events = [], fail = false, summaries = {}, summariesFail = false, getDecisions } = {}) {
   rangeCalls = [];
   summaryCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
@@ -57,8 +50,8 @@ function mockEventService(t, { events = [], fail = false, summaries = {}, summar
       },
     },
   });
-  t.mock.module(AICONTEXT_SPECIFIER, {
-    namedExports: { getAIContext: getAIContext ?? (async () => aiContext) },
+  t.mock.module(DECISION_ENGINE_SPECIFIER, {
+    namedExports: { getDecisions: getDecisions ?? (async () => EMPTY_DECISIONS) },
   });
 }
 
@@ -234,24 +227,28 @@ test("a failure fetching execution summaries does not break the week view", asyn
   assert.strictEqual(block.querySelector(".wk-ev-indicator"), null);
 });
 
-// ── Dica contextual e plano rápido (F3.5, ETAPA 4/6) ────────────────────────
-// loadTip() reaproveita o Context Engine (aiContextService.getAIContext(),
-// mockado acima) + o Planning Engine (planningService.computeWeeklyPlan(),
-// real e puro) para uma dica discreta e um botão "Ver plano da semana" que
-// nunca abre o painel de IA.
+// ── Dica contextual e plano rápido (F3.5, ETAPA 4/6; consumindo o Decision
+// Engine — F3.7) ─────────────────────────────────────────────────────────────
+// loadTip() reaproveita decisionEngine.getDecisions() (mockado acima) para
+// uma dica discreta e um botão "Ver plano da semana" que nunca abre o painel
+// de IA.
 
 async function flush() {
   await new Promise(r => setTimeout(r, 0));
 }
 
-test("a context with an understudied category shows the 'Hoje seria interessante revisar X' tip", async (t) => {
+test("a decision with an understudied category shows the 'Hoje seria interessante revisar X' tip", async (t) => {
   mockEventService(t, {
     events: [],
-    aiContext: {
-      ...EMPTY_AI_CONTEXT,
-      hasStudyHistory: true,
-      categories: [{ name: "Anatomia", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
-    },
+    getDecisions: async () => ({
+      decisions: [decision({
+        origem: "planning", origemTipo: "study", prioridade: "urgente",
+        mensagem: "Esta categoria não recebe sessões há 10 dias.",
+        dadosUtilizados: { categoria: "Anatomia" },
+        acaoSugerida: { tempoSugerido: "45 minutos", dataSugerida: "2099-01-01" },
+      })],
+      planning: [], unavailable: [],
+    }),
   });
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
   destroyWeekView = destroy;
@@ -264,8 +261,8 @@ test("a context with an understudied category shows the 'Hoje seria interessante
   assert.match(tip.textContent, /Hoje seria interessante revisar Anatomia\./);
 });
 
-test("a context with nothing to suggest hides the tip and the plan toggle — never invents anything", async (t) => {
-  mockEventService(t, { events: [] }); // EMPTY_AI_CONTEXT por padrão → plano vazio
+test("no decisions hides the tip and the plan toggle — never invents anything", async (t) => {
+  mockEventService(t, { events: [] }); // getDecisions padrão devolve uma lista vazia
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
   destroyWeekView = destroy;
 
@@ -279,10 +276,11 @@ test("a context with nothing to suggest hides the tip and the plan toggle — ne
 test("'Ver plano da semana' toggles an inline list, without opening the AI panel", async (t) => {
   mockEventService(t, {
     events: [],
-    aiContext: {
-      ...EMPTY_AI_CONTEXT,
-      reviews: { pendingCount: 2, pending: [{ scheduledDate: "2026-06-01", daysOverdue: 5 }], completedCount: 0 },
-    },
+    getDecisions: async () => ({
+      decisions: [],
+      planning: [{ tipo: "review", prioridade: "alta", categoria: null, tempoSugerido: "15 minutos", dataSugerida: "2026-07-06", motivo: "Existem 2 revisões pendentes.", confianca: "alta" }],
+      unavailable: [],
+    }),
   });
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
   destroyWeekView = destroy;
@@ -304,8 +302,8 @@ test("'Ver plano da semana' toggles an inline list, without opening the AI panel
   assert.strictEqual(planList.hidden, true);
 });
 
-test("a failure loading the tip/plan context degrades silently, without breaking the week grid", async (t) => {
-  mockEventService(t, { events: [], getAIContext: async () => { throw new Error("network down"); } });
+test("a failure loading the tip/plan decisions degrades silently, without breaking the week grid", async (t) => {
+  mockEventService(t, { events: [], getDecisions: async () => { throw new Error("network down"); } });
 
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
   destroyWeekView = destroy;
@@ -318,19 +316,19 @@ test("a failure loading the tip/plan context degrades silently, without breaking
   assert.ok(container.querySelector("#wk-label").textContent.length > 0); // grade continua funcionando
 });
 
-test("navigating between weeks does not re-fetch the tip/plan context (no duplicated query)", async (t) => {
-  let aiContextCalls = 0;
-  mockEventService(t, { events: [], getAIContext: async () => { aiContextCalls++; return EMPTY_AI_CONTEXT; } });
+test("navigating between weeks does not re-fetch the tip/plan decisions (no duplicated query)", async (t) => {
+  let decisionCalls = 0;
+  mockEventService(t, { events: [], getDecisions: async () => { decisionCalls++; return EMPTY_DECISIONS; } });
 
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
   destroyWeekView = destroy;
 
   await initWeekView(container, {});
   await flush();
-  const callsAfterInit = aiContextCalls;
+  const callsAfterInit = decisionCalls;
 
   container.querySelector("#wk-next").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await flush();
 
-  assert.strictEqual(aiContextCalls, callsAfterInit, "navigating weeks must not re-fetch the Context Engine");
+  assert.strictEqual(decisionCalls, callsAfterInit, "navigating weeks must not re-fetch the Decision Engine");
 });

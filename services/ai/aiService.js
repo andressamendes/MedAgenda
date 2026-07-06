@@ -18,9 +18,9 @@ import { prepareStudySuggestion }  from './prompts/studySuggestion.js';
 import { prepareScheduleAnalysis } from './prompts/scheduleAnalysis.js';
 import { parseResponse }           from './parsers/responseParser.js';
 import { getAIContext }            from '../../aiContextService.js';
-import { computeRecommendations }  from '../../recommendationEngine.js';
 import { computeWeeklyPlan }       from '../../planningService.js';
 import { getReflectionData }       from '../../reflectionService.js';
+import { getDecisions }            from '../../decisionEngine.js';
 
 /** Map of provider identifiers to their call functions */
 const PROVIDERS = {
@@ -70,21 +70,20 @@ export async function getScheduleAnalysis(controller) {
 }
 
 /**
- * First contextual recommendations (F3.2): interprets the same Context
- * Engine snapshot with recommendationEngine.computeRecommendations() —
- * deterministic, always grounded in real data, never invented. This does
- * NOT call Gemini: the ai-chat Edge Function only accepts the three prompt
- * types above (see VALID_TYPES in supabase/functions/ai-chat/index.ts),
- * and this step must not modify Edge Functions or add a new prompt type.
+ * First contextual recommendations (F3.2), agora servidas pelo Decision
+ * Engine (F3.7 — decisionEngine.getDecisions()): já vêm priorizadas e
+ * deduplicadas entre Recommendation, Planning e Reflection Engine — nenhum
+ * dos três é exposto cru à View. Isto NÃO chama Gemini: a ai-chat Edge
+ * Function só aceita os três tipos de prompt já existentes (ver VALID_TYPES
+ * em supabase/functions/ai-chat/index.ts), e este passo não adiciona um novo.
  * @returns {Promise<string>}
  */
 export async function getContextualRecommendations() {
-  const context = await getAIContext();
-  const recommendations = computeRecommendations(context);
-  if (!recommendations.length) {
+  const { decisions } = await getDecisions();
+  if (!decisions.length) {
     return 'Nenhuma recomendação no momento — está tudo em dia!';
   }
-  return recommendations.map(r => `• ${r.message}`).join('\n');
+  return decisions.map(d => `• ${d.mensagem}`).join('\n');
 }
 
 /**

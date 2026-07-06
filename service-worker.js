@@ -37,6 +37,7 @@ const APP_SHELL = [
   './categoryView.js',
   './config/ai.js',
   './confirmDialog.js',
+  './decisionEngine.js',
   './diagnosticModal.js',
   './diagnosticService.js',
   './errorService.js',

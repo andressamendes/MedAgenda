@@ -56,6 +56,31 @@ export function reflectionInsightToCard(insight) {
   return buildSmartCard(insight.tipo === "positivo" ? "meta" : "atencao", insight.mensagem);
 }
 
+// Mapeia a decisão consolidada (decisionEngine.js, F3.7) para um tipo de card
+// visual — mesma ideia de RECOMMENDATION_CARD_TYPE acima, só que por
+// `origemTipo` (o `type`/`tipo`/`id` original do motor de origem, preservado
+// pelo Decision Engine) em vez de recalcular qualquer regra de exibição.
+const DECISION_CARD_TYPE = {
+  ...RECOMMENDATION_CARD_TYPE,
+  overdue:                 "atencao",
+  review:                  "revisao",
+  goal:                    "meta",
+  study:                   "dica",
+  plan_completion:         "meta",
+  goal_days_met:           "meta",
+  session_completion_rate: "dica",
+  productivity_drop:       "atencao",
+  productivity_up:         "meta",
+  reviews_drop:            "atencao",
+  top_category:            "dica",
+  neglected_category:      "atencao",
+};
+
+/** Converte uma decisão já consolidada (decisionEngine.consolidateDecisions()) num card visual. */
+export function decisionToCard(decision) {
+  return buildSmartCard(DECISION_CARD_TYPE[decision.origemTipo] || "dica", decision.mensagem);
+}
+
 function _cardHTML(card) {
   const meta = CARD_TYPES[card.tipo] || CARD_TYPES.dica;
   return `
