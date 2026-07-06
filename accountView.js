@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { updatePassword, reauthenticate } from './auth.js';
+import { signOut, updatePassword, reauthenticate } from './auth.js';
 import { getProfile, upsertProfile } from './profileService.js';
 import { uploadAvatar, removeAvatar } from './avatarService.js';
 import { toast } from './toastService.js';
@@ -305,8 +305,12 @@ async function _handleSaveProfile() {
     });
     toast.success('Perfil atualizado com sucesso.');
   } catch (err) {
-    handleError(err, { context: 'accountView.saveProfile', silent: true });
-    errEl.textContent = err.message || 'Não foi possível salvar o perfil.';
+    const { friendly } = handleError(err, {
+      context: 'accountView.saveProfile',
+      silent: true,
+      fallbackMessage: 'Não foi possível salvar o perfil.',
+    });
+    errEl.textContent = friendly;
   } finally {
     _setLoading(btn, 'Salvar perfil', false);
   }
@@ -339,8 +343,12 @@ async function _handleSaveGoals() {
     });
     toast.success('Metas atualizadas com sucesso.');
   } catch (err) {
-    handleError(err, { context: 'accountView.saveGoals', silent: true });
-    errEl.textContent = err.message || 'Não foi possível salvar as metas.';
+    const { friendly } = handleError(err, {
+      context: 'accountView.saveGoals',
+      silent: true,
+      fallbackMessage: 'Não foi possível salvar as metas.',
+    });
+    errEl.textContent = friendly;
   } finally {
     _setLoading(btn, 'Salvar metas', false);
   }
@@ -447,12 +455,16 @@ async function _handleDeleteAccount() {
   try {
     const { error } = await supabase.functions.invoke('delete-account');
     if (error) throw error;
-    await supabase.auth.signOut();
+    await signOut();
     toast.info('Conta excluída. Até logo!');
   } catch (err) {
-    handleError(err, { context: 'accountView.deleteAccount', silent: true });
+    const { friendly } = handleError(err, {
+      context: 'accountView.deleteAccount',
+      silent: true,
+      fallbackMessage: 'Não foi possível excluir a conta. Tente novamente.',
+    });
     _setLoading(btn, 'Excluir minha conta', false);
-    toast.error(err.message || 'Não foi possível excluir a conta. Tente novamente.');
+    toast.error(friendly);
   }
 }
 

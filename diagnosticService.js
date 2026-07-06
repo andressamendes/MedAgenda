@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { getSession } from './auth.js';
 import { getRecentErrors } from './errorService.js';
 
 export const APP_VERSION = '1.0.0-rc1';
@@ -53,8 +54,8 @@ async function checkSupabase() {
 // em list()) reportava "Bucket disponível" mesmo com o upload real falhando.
 async function checkStorage() {
   const t0 = Date.now();
-  const { data } = await supabase.auth.getSession();
-  const userId = data?.session?.user?.id;
+  const session = await getSession();
+  const userId = session?.user?.id;
   if (!userId) return { ok: false, error: 'Sem sessão ativa' };
 
   const path = `${userId}/__diagnostic`;
@@ -73,8 +74,7 @@ async function checkStorage() {
 }
 
 async function checkAuth() {
-  const { data } = await supabase.auth.getSession();
-  const session = data?.session;
+  const session = await getSession();
   if (!session) return { ok: false, status: 'Sem sessão ativa' };
   return {
     ok:        true,
