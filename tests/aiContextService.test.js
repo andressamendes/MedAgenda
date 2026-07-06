@@ -18,6 +18,7 @@ const REVIEW_SPECIFIER     = new URL("../reviewService.js", import.meta.url).hre
 const SESSION_SPECIFIER    = new URL("../activitySessionService.js", import.meta.url).href;
 const CATEGORY_SPECIFIER   = new URL("../categoryService.js", import.meta.url).href;
 const FILTER_SPECIFIER     = new URL("../academicCalendarFilter.js", import.meta.url).href;
+const PROFILE_SPECIFIER    = new URL("../profileService.js", import.meta.url).href;
 const ERROR_SPECIFIER      = new URL("../errorService.js", import.meta.url).href;
 
 const NOW = new Date("2026-07-08T18:00:00.000Z"); // uma quarta-feira
@@ -32,7 +33,15 @@ const EMPTY_DASHBOARD = {
 
 function loadAiContextService(t, overrides = {}) {
   t.mock.module(EVENT_SPECIFIER, {
-    namedExports: { getEventsByRange: overrides.getEventsByRange ?? (async () => []) },
+    namedExports: {
+      getEventsByRange: overrides.getEventsByRange ?? (async () => []),
+      // getEvents() nunca é chamado por aiContextService.js — é um import de
+      // nível de módulo do User Memory Engine (F3.6, userMemoryService.js),
+      // carregado porque aiContextService.js importa suas funções puras
+      // (buildUserMemory/emptyUserMemoryPreferences). Precisa existir no mock
+      // para o módulo carregar, mesmo sem ser invocado neste teste.
+      getEvents: overrides.getEvents ?? (async () => []),
+    },
   });
   t.mock.module(DASHBOARD_SPECIFIER, {
     namedExports: { getDashboardData: overrides.getDashboardData ?? (async () => EMPTY_DASHBOARD) },
@@ -54,6 +63,11 @@ function loadAiContextService(t, overrides = {}) {
   });
   t.mock.module(FILTER_SPECIFIER, {
     namedExports: { isPersonalVisible: overrides.isPersonalVisible ?? (() => true) },
+  });
+  // profileService.js: mesmo motivo do getEvents acima — import de nível de
+  // módulo do User Memory Engine, nunca chamado diretamente por aiContextService.js.
+  t.mock.module(PROFILE_SPECIFIER, {
+    namedExports: { getProfile: overrides.getProfile ?? (async () => null) },
   });
   t.mock.module(ERROR_SPECIFIER, {
     namedExports: { handleError: overrides.handleError ?? (() => ({ category: "unknown", friendly: "erro" })) },
@@ -172,6 +186,65 @@ test("with no data anywhere (new user), the context resolves to its empty shape"
   assert.strictEqual(context.hasStudyHistory, false);
   assert.strictEqual(context.daysSinceLastSession, null);
   assert.deepStrictEqual(context.overdueEvents, []);
+
+  // Memória do Usuário (F3.6) — usuário novo nunca produz preferência inventada.
+  assert.strictEqual(context.memory.status, "insufficient_data");
+  assert.strictEqual(context.memory.preferences.horarioPreferido, null);
+});
+
+// ── Memória do Usuário (F3.6, ETAPA 4) ───────────────────────────────────────
+// getAIContext() é o único consumidor do User Memory Engine — reaproveita
+// exatamente os dados que já buscou (sessions/events/categories/
+// categoryBreakdown/completedReviews), nunca uma nova consulta.
+
+test("getAIContext() derives memory preferences from the exact sessions/events/categories it already fetched — zero extra queries", async (t) => {
+  let sessionCalls = 0, eventCalls = 0, categoryCalls = 0;
+  const sessions = Array.from({ length: 5 }, (_, i) => ({
+    status: "finished", duration_minutes: 45, started_at: `2026-07-0${i + 1}T20:00:00.000Z`,
+  }));
+
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionCalls++; return sessions; },
+    getEventsByRange: async () => { eventCalls++; return []; },
+    getCategories:    async () => { categoryCalls++; return []; },
+  });
+
+  const context = await getAIContext(NOW);
+
+  assert.strictEqual(sessionCalls, 1);
+  assert.strictEqual(eventCalls, 1);
+  assert.strictEqual(categoryCalls, 1);
+  assert.strictEqual(context.memory.status, "ok");
+  assert.strictEqual(context.memory.preferences.horarioPreferido.valor, "noite");
+});
+
+test("getAIContext() reuses the already-loaded dailyGoal for the memory's goal-achievement pattern (no profile re-fetch)", async (t) => {
+  const sessions = [{ status: "finished", duration_minutes: 60, started_at: "2026-07-06T20:00:00.000Z" }];
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => sessions,
+    getDashboardData: async () => ({
+      ...EMPTY_DASHBOARD,
+      dailyGoal: { configured: true, goalMinutes: 30, actualMinutes: 60, percentage: 200, remainingMinutes: 0, state: "exceeded" },
+    }),
+  });
+
+  const context = await getAIContext(NOW);
+
+  assert.ok(context.memory.preferences.metasAtingidas);
+  assert.match(context.memory.preferences.metasAtingidas.motivo, /meta diária/);
+});
+
+test("when both sessions and reviews are unavailable, memory falls back to 'insufficient_data' instead of breaking the context", async (t) => {
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { throw new Error("network down"); },
+    listCompleted:   async () => { throw new Error("network down"); },
+  });
+
+  await assert.doesNotReject(() => getAIContext(NOW));
+  const context = await getAIContext(NOW);
+  assert.strictEqual(context.memory.status, "insufficient_data");
+  // O restante do contexto continua disponível mesmo com a memória vazia.
+  assert.strictEqual(context.hasAnyEvents, false);
 });
 
 test("an active user's context reflects goals, reviews, categories and overdue events together", async (t) => {

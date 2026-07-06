@@ -140,6 +140,25 @@ export function findExecutionRecommendation(context) {
   return null;
 }
 
+/**
+ * Horário preferido do usuário (F3.6 — User Memory Engine), quando a
+ * evidência é forte. Peso, não regra absoluta: é a única recomendação desta
+ * lista que nunca sinaliza um problema — só reflete de volta um hábito já
+ * observado, sempre citando a evidência (ETAPA 6 do Memory Engine). Nunca
+ * substitui nem impede as demais recomendações; some silenciosamente sem o
+ * Memory Engine ou sem confiança "alta" (ver aiContextService.memory).
+ */
+export function findPreferredScheduleRecommendation(context) {
+  const time = context.memory?.preferences?.horarioPreferido;
+  if (!time || time.confianca !== "alta") return null;
+
+  return {
+    type: "preferred_schedule",
+    message: `Você costuma estudar mais no período da ${time.valor}, com base em ${time.baseadoEm}.`,
+    evidence: { horarioPreferido: time.valor, baseadoEm: time.baseadoEm },
+  };
+}
+
 const RULES = [
   findOverdueEventsRecommendation,
   findPendingReviewsRecommendation,
@@ -147,6 +166,7 @@ const RULES = [
   findUnderstudiedCategoriesRecommendation,
   findWeekLoadRecommendation,
   findExecutionRecommendation,
+  findPreferredScheduleRecommendation,
 ];
 
 /**

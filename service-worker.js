@@ -73,6 +73,7 @@ const APP_SHELL = [
   './telemetryService.js',
   './timeGoals.js',
   './toastService.js',
+  './userMemoryService.js',
   './utils.js',
   './weekView.js',
   // AUTO-GENERATED:END

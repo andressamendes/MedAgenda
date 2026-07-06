@@ -15,6 +15,7 @@ import {
   findUnderstudiedCategoriesRecommendation,
   findWeekLoadRecommendation,
   findExecutionRecommendation,
+  findPreferredScheduleRecommendation,
 } from "../recommendationEngine.js";
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
@@ -231,4 +232,38 @@ test("computeRecommendations() combines every applicable rule, in evidence, for 
   const types = result.map(r => r.type);
 
   assert.deepStrictEqual(types, ["overdue_events", "pending_reviews"]);
+});
+
+// ── horário preferido (F3.6 — User Memory Engine) ───────────────────────────
+// Peso, não regra absoluta: nunca sinaliza um problema, só reflete um hábito
+// observado — e some silenciosamente sem evidência forte.
+
+test("findPreferredScheduleRecommendation() cites the observed time of day and its evidence when confidence is 'alta'", () => {
+  const context = emptyContext({
+    memory: { status: "ok", preferences: { horarioPreferido: { valor: "noite", baseadoEm: "12 sessões concluídas", confianca: "alta" } } },
+  });
+  const rec = findPreferredScheduleRecommendation(context);
+  assert.strictEqual(rec.type, "preferred_schedule");
+  assert.match(rec.message, /noite/);
+  assert.match(rec.message, /12 sessões concluídas/);
+  assert.strictEqual(rec.evidence.horarioPreferido, "noite");
+});
+
+test("findPreferredScheduleRecommendation() stays silent below 'alta' confidence, without memory, or for a brand-new user", () => {
+  assert.strictEqual(findPreferredScheduleRecommendation(emptyContext()), null); // sem memory (usuário novo, ou versão antiga do contexto)
+  assert.strictEqual(findPreferredScheduleRecommendation(emptyContext({
+    memory: { status: "ok", preferences: { horarioPreferido: { valor: "noite", baseadoEm: "4 sessões", confianca: "média" } } },
+  })), null);
+  assert.strictEqual(findPreferredScheduleRecommendation(emptyContext({
+    memory: { status: "insufficient_data", preferences: { horarioPreferido: null } },
+  })), null);
+});
+
+test("computeRecommendations() appends the preferred-schedule note without ever replacing or blocking other recommendations", () => {
+  const context = emptyContext({
+    overdueEvents: [{ title: "Prova", category: null, date: "2026-07-01", daysOverdue: 7 }],
+    memory: { status: "ok", preferences: { horarioPreferido: { valor: "noite", baseadoEm: "12 sessões concluídas", confianca: "alta" } } },
+  });
+  const types = computeRecommendations(context).map(r => r.type);
+  assert.deepStrictEqual(types, ["overdue_events", "preferred_schedule"]);
 });

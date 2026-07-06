@@ -28,6 +28,15 @@
  * fallback vazio — então uma falha isolada nunca derruba o Promise.all
  * inteiro nem o contexto: o bloco correspondente cai para seu valor vazio, e
  * o restante segue disponível ("contexto incompleto", ETAPA 7).
+ *
+ * Memória do Usuário (F3.6, ETAPA 4): o Context Engine é o único consumidor
+ * do User Memory Engine (userMemoryService.js) — nenhuma View o consulta
+ * diretamente. Para não duplicar nenhuma das consultas acima, getAIContext()
+ * nunca chama userMemoryService.getUserMemory() (que faria sua própria busca
+ * de sessões/categorias/eventos/revisões); em vez disso, importa a função
+ * pura buildUserMemory() e reaproveita exatamente os dados que este módulo
+ * já buscou (sessions/events/categories/categoryBreakdown/completedReviews) —
+ * zero I/O adicional.
  */
 
 import { getEventsByRange } from "./eventService.js";
@@ -40,6 +49,7 @@ import { isPersonalVisible } from "./academicCalendarFilter.js";
 import { expandEvents } from "./recurrence.js";
 import { isoDate, localDate, mondayOf } from "./utils.js";
 import { handleError } from "./errorService.js";
+import { buildUserMemory, emptyUserMemoryPreferences } from "./userMemoryService.js";
 
 // Superset de janela para os compromissos: cobre os três recortes já usados
 // pelos prompts existentes (7/14/30 dias à frente) e ainda alcança o
@@ -200,6 +210,27 @@ export async function getAIContext(now = new Date()) {
   const weeklyGoal  = dashboard?.weeklyGoal  ?? dailyGoal;
   const monthlyGoal = dashboard?.monthlyGoal ?? dailyGoal;
 
+  // Memória do Usuário (F3.6) — ver nota de performance no cabeçalho: reusa
+  // exatamente os dados já buscados acima, nunca uma nova consulta.
+  const hasMemoryHistory = sessions.length > 0 || completedReviews.length > 0;
+  let memory;
+  try {
+    memory = hasMemoryHistory
+      ? {
+          status: "ok",
+          preferences: buildUserMemory({
+            sessions, events, categories, categoryBreakdown, completedReviews,
+            dailyGoalMinutes: dailyGoal.goalMinutes,
+            windowDays: SESSIONS_LOOKBACK_DAYS,
+          }, now),
+          generatedAt: now.toISOString(),
+        }
+      : { status: "insufficient_data", preferences: emptyUserMemoryPreferences(), generatedAt: now.toISOString() };
+  } catch (err) {
+    handleError(err, { context: "aiContextService.memory", silent: true });
+    memory = { status: "insufficient_data", preferences: emptyUserMemoryPreferences(), generatedAt: now.toISOString() };
+  }
+
   return {
     events, // contrato preservado para os prompts existentes — ver cabeçalho do módulo
     hasAnyEvents:    events.length > 0,
@@ -226,5 +257,7 @@ export async function getAIContext(now = new Date()) {
     daysSinceLastSession: lastSession ? _daysBetween(now, new Date(lastSession.started_at)) : null,
 
     overdueEvents: computeOverdueEvents(events, executionSummaries, now),
+
+    memory, // preferências observadas (F3.6) — ver userMemoryService.js
   };
 }
