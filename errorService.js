@@ -2,15 +2,16 @@ import { showToast } from './toastService.js';
 import { track, EVENTS } from './telemetryService.js';
 
 const CATEGORIES = {
-  AUTH:     'auth',
-  NETWORK:  'network',
-  DATABASE: 'database',
-  AI:       'ai',
-  STORAGE:  'storage',
-  PUSH:     'push',
-  SW:       'service_worker',
-  UI:       'ui',
-  UNKNOWN:  'unknown',
+  AUTH:       'auth',
+  NETWORK:    'network',
+  DATABASE:   'database',
+  AI:         'ai',
+  STORAGE:    'storage',
+  PUSH:       'push',
+  SW:         'service_worker',
+  UI:         'ui',
+  RATE_LIMIT: 'rate_limit',
+  UNKNOWN:    'unknown',
 };
 
 const _logs = [];
@@ -53,6 +54,19 @@ function categorize(err) {
   // (ex.: "temporariamente indisponível") caia num balde genérico por acidente.
   if (err?.name === 'AIError') return CATEGORIES.AI;
 
+  // Rate limiting do Supabase (auth-js e demais APIs) chega com status 429 e/
+  // ou um `code` dedicado (ex.: over_email_send_rate_limit,
+  // over_request_rate_limit), mesmo quando também carrega `__isAuthError` —
+  // por isso este check roda antes dele, para não virar uma mensagem de
+  // "sessão expirada" quando na verdade é só "aguarde e tente de novo".
+  const rlMsg  = String(err?.message || err).toLowerCase();
+  const rlCode = String(err?.code || '');
+  if (
+    err?.status === 429 || rlCode === 'over_email_send_rate_limit' ||
+    rlCode === 'over_request_rate_limit' ||
+    rlMsg.includes('rate limit') || rlMsg.includes('security purposes')
+  ) return CATEGORIES.RATE_LIMIT;
+
   // F4.2 (causa raiz): todo erro lançado pelo auth-js do Supabase (GoTrueClient)
   // — token de acesso expirado, refresh token inválido/ausente/já usado, sessão
   // ausente, JWT malformado, etc. — carrega a flag interna `__isAuthError`,
@@ -73,6 +87,7 @@ function categorize(err) {
     msg.includes('jwt') || msg.includes('não autenticado') ||
     msg.includes('invalid login') || msg.includes('invalid_credentials') ||
     msg.includes('email not confirmed') || msg.includes('session') ||
+    msg.includes('already registered') || msg.includes('already exists') ||
     code === 'PGRST301'
   ) return CATEGORIES.AUTH;
 
@@ -110,19 +125,30 @@ const FRIENDLY = {
     default:      'Sua sessão expirou. Faça login novamente.',
     invalid:      'E-mail ou senha incorretos. Verifique suas credenciais.',
     unconfirmed:  'Confirme seu e-mail antes de fazer login.',
+    duplicate:    'Este e-mail já está cadastrado. Faça login.',
   },
   [CATEGORIES.NETWORK]:  'Sem conexão com a internet. Verifique sua rede e tente novamente.',
   [CATEGORIES.DATABASE]: {
     default:  'Erro ao comunicar com o servidor. Tente novamente em instantes.',
     duplicate:'Já existe um registro com essas informações.',
   },
-  [CATEGORIES.STORAGE]: 'Serviço de armazenamento indisponível. Tente novamente mais tarde.',
-  [CATEGORIES.PUSH]:  'Erro ao configurar notificações. Verifique as permissões do navegador.',
-  [CATEGORIES.SW]:    'Erro no serviço em segundo plano. Recarregue a página.',
-  [CATEGORIES.UNKNOWN]:'Algo deu errado. Tente novamente.',
+  [CATEGORIES.STORAGE]:    'Serviço de armazenamento indisponível. Tente novamente mais tarde.',
+  [CATEGORIES.PUSH]:      'Erro ao configurar notificações. Verifique as permissões do navegador.',
+  [CATEGORIES.SW]:        'Erro no serviço em segundo plano. Recarregue a página.',
+  [CATEGORIES.RATE_LIMIT]:'Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.',
+  [CATEGORIES.UNKNOWN]:   'Algo deu errado. Tente novamente.',
 };
 
-function friendlyMessage(category, err) {
+/**
+ * `fallbackMessage` (opcional, vindo de handleError) é texto puro, nunca
+ * lógica de classificação — cada tela pode indicar qual frase genérica faz
+ * mais sentido no seu contexto ("não foi possível fazer login" vs. "não foi
+ * possível enviar o link", etc.) para os casos em que a categoria não chega
+ * a um sub-caso específico (invalid/unconfirmed/duplicate...). A
+ * classificação em si (qual categoria, qual sub-caso) continua inteiramente
+ * decidida aqui, nunca na view.
+ */
+function friendlyMessage(category, err, fallbackMessage) {
   const msg = String(err?.message || '').toLowerCase();
 
   if (category === CATEGORIES.AUTH) {
@@ -135,6 +161,9 @@ function friendlyMessage(category, err) {
     // para decidir isto), nunca a qualquer variação de token/sessão inválidos.
     if (msg.includes('invalid login') || msg.includes('invalid_credentials') || msg.includes('invalid login credentials')) {
       return FRIENDLY.auth.invalid;
+    }
+    if (msg.includes('already registered') || msg.includes('already exists')) {
+      return FRIENDLY.auth.duplicate;
     }
     if (msg.includes('confirmed')) return FRIENDLY.auth.unconfirmed;
     return FRIENDLY.auth.default;
@@ -153,7 +182,14 @@ function friendlyMessage(category, err) {
   }
 
   const mapped = FRIENDLY[category];
-  if (typeof mapped === 'string') return mapped;
+  if (typeof mapped === 'string') {
+    // UNKNOWN is the true catch-all: let the caller supply a
+    // context-appropriate generic phrase instead of the app-wide default.
+    if (category === CATEGORIES.UNKNOWN && fallbackMessage) return fallbackMessage;
+    return mapped;
+  }
+
+  if (fallbackMessage) return fallbackMessage;
 
   // Use original message if it looks user-friendly (short, Portuguese, no stack noise)
   const original = err?.message || '';
@@ -170,7 +206,7 @@ function friendlyMessage(category, err) {
 
 export function handleError(err, context = {}) {
   const category  = categorize(err);
-  const friendly  = friendlyMessage(category, err);
+  const friendly  = friendlyMessage(category, err, context.fallbackMessage);
 
   const entry = {
     ts:        new Date().toISOString(),
