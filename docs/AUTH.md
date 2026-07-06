@@ -72,15 +72,61 @@ Nunca use `http://localhost:3000` (ou qualquer URL local) como `APP_URL` quando 
 8. Usuário define nova senha → `supabase.auth.updateUser({ password })`.
 9. App redireciona para login com mensagem de sucesso.
 
+### Links que não chegam a disparar PASSWORD_RECOVERY (A1.4)
+
+O Supabase só dispara `PASSWORD_RECOVERY` quando o token do link é aceito. Em
+qualquer outro caso, ele nunca dispara o evento — e sem tratamento explícito o
+app cairia silenciosamente na tela de login comum, sem explicar nada ao
+usuário. `authView.js` cobre isso no carregamento, antes de qualquer outro
+fluxo de sessão:
+
+| Cenário | Como é detectado | Tela / mensagem |
+|---|---|---|
+| Link expirado ou já utilizado | O Supabase devolve `#error=access_denied&error_code=otp_expired&...` na própria URL de retorno (`auth.js#parseAuthRedirectError`). O código é o mesmo nos dois casos — o Supabase não distingue "expirou" de "já foi usado". | Tela "Link inválido" — explica que o link não é mais válido (por ter expirado ou já sido utilizado) e oferece "Solicitar novo link". |
+| Token inválido/corrompido, com erro explícito | Mesmo mecanismo acima, com um `error`/`error_code` diferente de `otp_expired`. | Tela "Link inválido" com a mensagem genérica de link inválido. |
+| Token ausente/corrompido, sem erro explícito | A URL carrega `type=recovery` (`auth.js#hasRecoveryIntent`) mas nem `PASSWORD_RECOVERY` nem um erro explícito aparecem em 4s — o SDK não conseguiu processar o link de forma alguma. | Mesma tela "Link inválido", após o prazo de tolerância. |
+
+Em todos os casos a URL é limpa (`auth.js#clearAuthRedirectParams`) para que
+um F5 não reprocesse o mesmo link, e o erro é sempre construído como
+`AuthError` (ver `authError.js`) e passado por `errorService.handleError()` —
+nunca uma mensagem crua do Supabase chega à tela.
+
+Se uma sessão válida (de outra aba, por exemplo) já levou o usuário para
+dentro do app enquanto o prazo de tolerância corria, o fallback de token
+corrompido é descartado silenciosamente: um link de recuperação paralelo que
+nunca se resolveu não deve arrancar o usuário do app.
+
 ---
 
 ## Alteração de Senha (usuário autenticado)
 
-Disponível em **Minha Conta → Alterar Senha**:
+Disponível em **Minha Conta → Alterar Senha**. Uma sessão já aberta não é
+suficiente para provar que quem está no teclado é o dono da conta (achado P2
+da auditoria — sessão aberta sozinha permitia troca de senha) — por isso a
+alteração exige reautenticação antes de qualquer chamada a `updateUser()`:
 
-1. Usuário informa nova senha (mín. 8 caracteres) e confirmação.
-2. Frontend chama `supabase.auth.updateUser({ password })` (sem necessidade da senha atual — o JWT já autentica).
-3. Supabase atualiza a senha e emite novo JWT.
+1. Usuário informa senha atual, nova senha (mín. 8 caracteres) e confirmação.
+2. Frontend chama `auth.js#reauthenticate(senhaAtual)`, que reconfirma a senha
+   atual via `supabase.auth.signInWithPassword({ email, password })` — a
+   mesma API oficial usada no login. Não existe endpoint dedicado de
+   "reautenticação por senha" no auth-js; este é o mecanismo recomendado pelo
+   Supabase e por outros provedores de identidade para esse tipo de
+   verificação. Não cria sessão paralela nem token próprio: para o mesmo
+   usuário, o auth-js apenas reconfirma/renova a sessão já existente.
+3. Senha atual incorreta → mensagem amigável (`current_password_incorrect`,
+   ver `errorService.js`), a sessão continua ativa e a nova senha/confirmação
+   já digitadas não são perdidas — só o campo de senha atual é limpo.
+4. Reautenticação bem-sucedida → `supabase.auth.updateUser({ password })`
+   troca a senha e emite novo JWT.
+5. Sessão expirada em qualquer etapa → segue o pipeline central
+   (`errorService` → `stateView` → `authView.forceReauth()`), nunca uma
+   mensagem inline nesta tela.
+
+A senha atual nunca é persistida em variável de módulo — vive só no
+parâmetro local de `reauthenticate()` — e os três campos são limpos após
+sucesso e também no logout (`accountView.js#resetAccountView()`, que
+substitui todo o conteúdo do modal), para nunca deixar texto de senha
+retido no DOM entre uma sessão de usuário e outra.
 
 ---
 

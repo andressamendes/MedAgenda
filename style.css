@@ -2109,6 +2109,13 @@ textarea { resize: vertical; }
   color: var(--blue);
 }
 
+.auth-error-icon {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: .75rem;
+  color: var(--red);
+}
+
 .auth-email-display {
   font-size: .9rem;
   font-weight: 700;

@@ -152,6 +152,20 @@
         </div>
         <p id="new-pwd-error" class="error" role="alert" aria-live="assertive"></p>
         <button id="btn-set-password" class="btn btn-primary">Definir senha</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-request-new-link-from-new-password">Solicitar novo link</button>
+        </div>
+      </div>
+
+      <!-- ── View: Link de redefinição inválido/expirado ── -->
+      <div id="view-link-invalid" class="auth-view" hidden>
+        <div class="auth-error-icon" aria-hidden="true">⚠</div>
+        <h1>Link inválido</h1>
+        <p id="link-invalid-msg" class="slogan"></p>
+        <button type="button" class="btn btn-primary" id="btn-request-new-link">Solicitar novo link</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="btn-back-to-login-from-invalid">Voltar ao login</button>
+        </div>
       </div>
 
     </div>
