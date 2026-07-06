@@ -20,6 +20,7 @@ import { parseResponse }           from './parsers/responseParser.js';
 import { getAIContext }            from '../../aiContextService.js';
 import { computeRecommendations }  from '../../recommendationEngine.js';
 import { computeWeeklyPlan }       from '../../planningService.js';
+import { getReflectionData }       from '../../reflectionService.js';
 
 /** Map of provider identifiers to their call functions */
 const PROVIDERS = {
@@ -97,4 +98,18 @@ export async function getContextualRecommendations() {
 export async function getWeeklyPlan() {
   const context = await getAIContext();
   return computeWeeklyPlan(context);
+}
+
+/**
+ * Coach Inteligente (F3.4): reflete sobre como o usuário executou o
+ * planejamento, com reflectionService.getReflectionData() — motor separado
+ * do Context Engine (getAIContext()), pois analisa uma janela histórica
+ * própria (7/30 dias) em vez do instantâneo atual. Determinístico sobre os
+ * dados carregados, sem I/O adicional e sem chamada a Gemini (mesma
+ * justificativa de getWeeklyPlan()/getContextualRecommendations()).
+ * @returns {Promise<object>} relatório de reflexão (resumo, pontos
+ * positivos/atenção, evolução recente, insights explicáveis)
+ */
+export async function getMyEvolution() {
+  return getReflectionData();
 }

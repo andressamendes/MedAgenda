@@ -2906,6 +2906,57 @@ textarea { resize: vertical; }
   margin: 0;
 }
 
+/* ── Minha Evolução (F3.4) — lista simples, sem gráficos, sem animações ── */
+.ai-evolution-section + .ai-evolution-section {
+  margin-top: 1rem;
+}
+
+.ai-evolution-heading {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--gray-600);
+  margin: 0 0 .5rem;
+}
+
+.ai-evolution-summary {
+  font-size: .88rem;
+  line-height: 1.6;
+  color: var(--gray-800);
+  margin: 0;
+}
+
+.ai-evolution-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.ai-evolution-item {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .65rem .85rem;
+}
+
+.ai-evolution-message {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin: 0 0 .25rem;
+}
+
+.ai-evolution-detail {
+  font-size: .74rem;
+  line-height: 1.4;
+  color: var(--gray-500);
+  margin: 0;
+}
+
 /* ── Loading ── */
 .ai-panel-loading {
   display: flex;

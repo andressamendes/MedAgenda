@@ -56,6 +56,7 @@ const APP_SHELL = [
   './quickAdd.js',
   './recommendationEngine.js',
   './recurrence.js',
+  './reflectionService.js',
   './reviewService.js',
   './script.js',
   './services/ai/aiService.js',
