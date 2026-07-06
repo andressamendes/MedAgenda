@@ -146,3 +146,40 @@ test("without a registered reauth handler, the default fallback safely calls win
   // reaches the call without throwing, instead of silently doing nothing.
   assert.doesNotThrow(() => triggerReauth());
 });
+
+// ── P0 — Proteção contra Divergência de Schema ──────────────────────────────
+
+test("errorToState maps the 'schema_mismatch' category to its own dedicated state, never to session_expired/network/server", async () => {
+  const { errorToState, STATES } = await importStateView();
+  const result = errorToState({
+    category: "schema_mismatch",
+    friendly: "Esta versão do sistema requer uma atualização do banco de dados antes de poder ser utilizada.",
+  });
+  assert.strictEqual(result.state, STATES.SCHEMA_MISMATCH);
+  assert.notStrictEqual(result.state, STATES.SESSION_EXPIRED);
+  assert.notStrictEqual(result.state, STATES.NETWORK);
+  assert.notStrictEqual(result.state, STATES.SERVER);
+});
+
+test("renderStateBlock renders the dedicated title/action for schema_mismatch and its action calls onRetry (reload), never reauth", async () => {
+  const { renderStateBlock, setReauthHandler, STATES } = await importStateView();
+  const container = document.createElement("div");
+
+  let reauthCalls = 0;
+  setReauthHandler(() => { reauthCalls++; });
+
+  let reloaded = false;
+  renderStateBlock(container, {
+    state: STATES.SCHEMA_MISMATCH,
+    message: "Esta versão do sistema requer uma atualização do banco de dados antes de poder ser utilizada.",
+    onRetry: () => { reloaded = true; },
+  });
+
+  assert.strictEqual(container.querySelector(".state-block-title").textContent, "Banco de dados desatualizado");
+  const btn = container.querySelector(".state-block-action");
+  assert.strictEqual(btn.textContent, "Recarregar");
+
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(reloaded, true);
+  assert.strictEqual(reauthCalls, 0);
+});

@@ -57,6 +57,16 @@
     <div class="app-loading-spinner" aria-hidden="true"></div>
   </div>
 
+  <!-- ── Banco de dados desatualizado (P0 — Proteção contra Divergência de
+       Schema). Exibida no lugar do app-screen quando schemaService.js
+       detecta, no bootstrap, que o banco ainda não recebeu as migrations que
+       este build do frontend exige — nunca inicializa Dashboard, Insights,
+       Histórico, IA ou Sessões nesse caso. Ver script.js/schemaService.js. -->
+  <div id="schema-mismatch-screen" class="app-loading-screen" role="alert" aria-live="assertive" hidden>
+    <div class="app-loading-logo">MedAgenda</div>
+    <div id="schema-mismatch-block" class="schema-mismatch-block"></div>
+  </div>
+
   <!-- ── Tela de autenticação (multi-view) ── -->
   <div id="login-screen" class="login-wrap" hidden>
     <div class="card">

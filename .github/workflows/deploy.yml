@@ -38,6 +38,43 @@ jobs:
             echo "export const VAPID_PUBLIC_KEY  = \"${VAPID_PUBLIC_KEY}\";"
           } > config.js
 
+      - name: Validate database schema version
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          EXPECTED=$(grep -oP '(?<=EXPECTED_SCHEMA_VERSION = )\d+' schemaService.js)
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::Não foi possível ler EXPECTED_SCHEMA_VERSION de schemaService.js"
+            exit 1
+          fi
+          echo "Versão de schema esperada pelo frontend: $EXPECTED"
+
+          HTTP_STATUS=$(curl -sS -o /tmp/schema_version.json -w '%{http_code}' \
+            "${SUPABASE_URL}/rest/v1/schema_version?select=version&id=eq.1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Não foi possível consultar schema_version no Supabase (HTTP $HTTP_STATUS). Verifique se sql/14_schema_version.sql foi aplicado."
+            cat /tmp/schema_version.json
+            exit 1
+          fi
+
+          DB_VERSION=$(jq -r '.[0].version // empty' /tmp/schema_version.json)
+
+          if [ -z "$DB_VERSION" ]; then
+            echo "::error::schema_version está vazio ou ausente. Aplique todas as migrations pendentes em /sql antes de publicar o frontend."
+            exit 1
+          fi
+
+          if [ "$DB_VERSION" -lt "$EXPECTED" ]; then
+            echo "::error::Banco de dados desatualizado: versão atual=$DB_VERSION, versão mínima exigida pelo frontend=$EXPECTED. Aplique as migrations pendentes em /sql (SQL Editor do Supabase) antes de publicar."
+            exit 1
+          fi
+
+          echo "Schema compatível (banco=$DB_VERSION, esperado=$EXPECTED). Prosseguindo com o deploy."
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 

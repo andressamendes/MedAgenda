@@ -355,6 +355,48 @@ test("ETAPA 3 — the seven scenarios never collapse into each other: each maps 
   assert.strictEqual(uniqueMessages.size, Object.keys(scenarios).length, JSON.stringify(scenarios, null, 2));
 });
 
+// ── P0 — Proteção contra Divergência de Schema ──────────────────────────────
+// SchemaMismatchError (ver schemaService.js) carrega a flag `__schemaMismatch`,
+// no mesmo contrato de AuthError/AIError — reconhecida por categorize() antes
+// de qualquer heurística de banco/rede, para nunca virar "Erro ao comunicar
+// com o servidor" (categoria database).
+
+function schemaMismatchError(message, extra = {}) {
+  return Object.assign(new Error(message), {
+    name: "SchemaMismatchError",
+    __schemaMismatch: true,
+    ...extra,
+  });
+}
+
+test("a SchemaMismatchError is categorized as schema_mismatch, with its own dedicated friendly message", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = schemaMismatchError("O banco de dados está em uma versão de schema anterior à exigida por este build do frontend.", {
+    code: "schema_outdated", dbVersion: 10, expectedVersion: 14,
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "schema_mismatch");
+  assert.strictEqual(friendly, "Esta versão do sistema requer uma atualização do banco de dados antes de poder ser utilizada.");
+});
+
+test("a SchemaMismatchError is never categorized as database, network, server or auth, even if its message/code could otherwise match one of them", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = schemaMismatchError('relation "public.schema_version" does not exist', { code: "42P01" });
+
+  const { category } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "schema_mismatch");
+});
+
+test("a genuine database error (code 42P01, no __schemaMismatch flag) is still categorized as database, not schema_mismatch", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = Object.assign(new Error('relation "public.events" does not exist'), { code: "42P01" });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "database");
+  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+});
+
 test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
   const { mod } = await loadErrorService(t);
 

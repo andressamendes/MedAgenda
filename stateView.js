@@ -34,6 +34,12 @@ export const STATES = {
   SESSION_EXPIRED: "session_expired",
   NETWORK:         "network",
   SERVER:          "server",
+  // P0 — Proteção contra Divergência de Schema. Estado dedicado: nunca
+  // reaproveita SERVER (que oferece "Tentar novamente" — repetir a mesma
+  // consulta contra um schema desatualizado só repete o mesmo erro; a única
+  // ação real é recarregar depois que o administrador aplicar as migrations
+  // pendentes, ou contatá-lo).
+  SCHEMA_MISMATCH: "schema_mismatch",
 };
 
 // icon/título/descrição/ação — ETAPA 3: cada estado tem exatamente estes
@@ -57,6 +63,12 @@ const STATE_DEFS = {
     actionLabel: "Tentar novamente",
     retryable:   true,
   },
+  [STATES.SCHEMA_MISMATCH]: {
+    icon:        "🗄️",
+    title:       "Banco de dados desatualizado",
+    actionLabel: "Recarregar",
+    retryable:   false,
+  },
 };
 
 // errorService.categorize() já resolve exatamente qual categoria um erro
@@ -66,8 +78,9 @@ const STATE_DEFS = {
 // qualquer outra falha do lado do servidor/infra) exigem apenas nova
 // tentativa.
 export function categoryToState(category) {
-  if (category === "auth")    return STATES.SESSION_EXPIRED;
-  if (category === "network") return STATES.NETWORK;
+  if (category === "auth")            return STATES.SESSION_EXPIRED;
+  if (category === "network")         return STATES.NETWORK;
+  if (category === "schema_mismatch") return STATES.SCHEMA_MISMATCH;
   return STATES.SERVER;
 }
 
