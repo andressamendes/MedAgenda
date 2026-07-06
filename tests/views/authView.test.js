@@ -185,6 +185,93 @@ test("login: a plain (non-auth-flagged, non-categorized) error falls back to the
   );
 });
 
+function authRetryableFetchError(message, extra = {}) {
+  return Object.assign(new Error(message), {
+    name: "AuthRetryableFetchError",
+    __isAuthError: true,
+    ...extra,
+  });
+}
+
+// ── A1.6 — Hardening do Login (Rate Limit + Classificação de Erros) ────────
+
+test("login: HTTP 429 (rate limit) shows the friendly rate-limit message telling the user to wait, not a generic/technical error", async (t) => {
+  const mod = await loadAuthView(t, {
+    signIn: async () => { throw authApiError("For security purposes, you can only request this after 42 seconds.", { status: 429, code: "over_request_rate_limit" }); },
+  });
+  initView(mod);
+
+  document.getElementById("email").value = "aluna@example.com";
+  document.getElementById("password").value = "senha-correta";
+  await clickAndWait(document.getElementById("btn-login"));
+
+  assert.strictEqual(
+    document.getElementById("error-msg").textContent,
+    "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente."
+  );
+});
+
+test("login: offline/no-network (AuthRetryableFetchError, no HTTP status) shows the shared network message, never 'sessão expirada'", async (t) => {
+  const mod = await loadAuthView(t, {
+    signIn: async () => { throw authRetryableFetchError("Failed to fetch"); },
+  });
+  initView(mod);
+
+  document.getElementById("email").value = "aluna@example.com";
+  document.getElementById("password").value = "senha-correta";
+  await clickAndWait(document.getElementById("btn-login"));
+
+  assert.match(document.getElementById("error-msg").textContent, /Sem conexão/);
+});
+
+test("login: a request timeout shows a timeout-specific message, distinct from both the offline and the session-expired messages", async (t) => {
+  const mod = await loadAuthView(t, {
+    signIn: async () => { throw authRetryableFetchError("The operation timed out"); },
+  });
+  initView(mod);
+
+  document.getElementById("email").value = "aluna@example.com";
+  document.getElementById("password").value = "senha-correta";
+  await clickAndWait(document.getElementById("btn-login"));
+
+  assert.strictEqual(
+    document.getElementById("error-msg").textContent,
+    "A conexão demorou mais que o esperado. Verifique sua internet e tente novamente."
+  );
+});
+
+test("login: the Supabase Auth server itself unavailable (503) shows a server-unavailable message, never masked as 'sessão expirada'", async (t) => {
+  const mod = await loadAuthView(t, {
+    signIn: async () => { throw authRetryableFetchError("Service Unavailable", { status: 503 }); },
+  });
+  initView(mod);
+
+  document.getElementById("email").value = "aluna@example.com";
+  document.getElementById("password").value = "senha-correta";
+  await clickAndWait(document.getElementById("btn-login"));
+
+  assert.strictEqual(
+    document.getElementById("error-msg").textContent,
+    "Servidor indisponível no momento. Tente novamente em instantes."
+  );
+});
+
+test("login: the database being unavailable (Postgres error surfaced during login, e.g. a profile lookup) shows the shared database message, distinct from server_unavailable", async (t) => {
+  const mod = await loadAuthView(t, {
+    signIn: async () => { throw Object.assign(new Error("could not connect to database"), { code: "57P03" }); },
+  });
+  initView(mod);
+
+  document.getElementById("email").value = "aluna@example.com";
+  document.getElementById("password").value = "senha-correta";
+  await clickAndWait(document.getElementById("btn-login"));
+
+  assert.strictEqual(
+    document.getElementById("error-msg").textContent,
+    "Erro ao comunicar com o servidor. Tente novamente em instantes."
+  );
+});
+
 test("signup: 'already registered' error is classified centrally and shown as duplicate-account message", async (t) => {
   const mod = await loadAuthView(t, {
     signUp: async () => { throw authApiError("User already registered"); },

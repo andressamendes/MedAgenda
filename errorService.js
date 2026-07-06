@@ -11,6 +11,7 @@ const CATEGORIES = {
   SW:         'service_worker',
   UI:         'ui',
   RATE_LIMIT: 'rate_limit',
+  SERVER_UNAVAILABLE: 'server_unavailable',
   UNKNOWN:    'unknown',
 };
 
@@ -67,6 +68,20 @@ function categorize(err) {
     rlMsg.includes('rate limit') || rlMsg.includes('security purposes')
   ) return CATEGORIES.RATE_LIMIT;
 
+  // A1.6 (rate limit + classificação de erros): AuthRetryableFetchError é a
+  // classe que o auth-js do Supabase usa para falha de rede/timeout/abort E
+  // para 5xx do próprio servidor de autenticação — em ambos os casos as
+  // credenciais/sessão nunca chegaram a ser avaliadas. Mesmo carregando
+  // `__isAuthError`, este erro nunca pode virar "sessão expirada" (checado
+  // antes do bloco genérico de __isAuthError, logo abaixo). Decidido só pelo
+  // `status` HTTP, nunca por texto: sem status (rede/timeout/abort) -> network;
+  // 5xx -> servidor indisponível.
+  if (err?.name === 'AuthRetryableFetchError') {
+    const status = err?.status;
+    if (typeof status === 'number' && status >= 500) return CATEGORIES.SERVER_UNAVAILABLE;
+    return CATEGORIES.NETWORK;
+  }
+
   // F4.2/A1.2 (contrato estruturado): qualquer erro de autenticação — do
   // auth-js do Supabase (AuthApiError, AuthSessionMissingError,
   // AuthRetryableFetchError... independentemente da subclasse ou do
@@ -88,8 +103,19 @@ function categorize(err) {
   if (
     msg.includes('failed to fetch') || msg.includes('networkerror') ||
     msg.includes('load failed') || msg.includes('offline') ||
-    msg.includes('network request') || msg.includes('net::')
+    msg.includes('network request') || msg.includes('net::') ||
+    msg.includes('timeout') || msg.includes('timed out') ||
+    err?.name === 'AbortError'
   ) return CATEGORIES.NETWORK;
+
+  // Erro genérico com status HTTP 5xx (sem código de banco/PostgREST) —
+  // servidor fora do ar, sem passar pelo auth-js. Nunca mostrar como erro de
+  // banco/genérico: o usuário precisa saber que é temporário, não um bug.
+  if (
+    typeof (err?.status ?? err?.statusCode) === 'number' &&
+    (err.status ?? err.statusCode) >= 500 && (err.status ?? err.statusCode) < 600 &&
+    !code.startsWith('PGRST') && !code.startsWith('23') && !code.startsWith('42')
+  ) return CATEGORIES.SERVER_UNAVAILABLE;
 
   if (
     msg.includes('bucket') || msg.includes('storage/object') ||
@@ -132,7 +158,13 @@ const FRIENDLY = {
     // ("E-mail ou senha incorretos"): esta tela só tem um campo de senha.
     currentPasswordIncorrect: 'Senha atual incorreta. Verifique e tente novamente.',
   },
-  [CATEGORIES.NETWORK]:  'Sem conexão com a internet. Verifique sua rede e tente novamente.',
+  [CATEGORIES.NETWORK]: {
+    default: 'Sem conexão com a internet. Verifique sua rede e tente novamente.',
+    // A1.6 — timeout/abort ainda são um problema de conectividade (mesma
+    // ação do usuário: tentar de novo), mas "sem conexão" seria impreciso
+    // quando a rede está de pé e só a resposta demorou demais.
+    timeout: 'A conexão demorou mais que o esperado. Verifique sua internet e tente novamente.',
+  },
   [CATEGORIES.DATABASE]: {
     default:  'Erro ao comunicar com o servidor. Tente novamente em instantes.',
     duplicate:'Já existe um registro com essas informações.',
@@ -141,6 +173,10 @@ const FRIENDLY = {
   [CATEGORIES.PUSH]:      'Erro ao configurar notificações. Verifique as permissões do navegador.',
   [CATEGORIES.SW]:        'Erro no serviço em segundo plano. Recarregue a página.',
   [CATEGORIES.RATE_LIMIT]:'Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.',
+  // A1.6 — distinto de DATABASE: aqui o problema é o servidor/serviço em si
+  // (5xx), não uma falha específica de consulta ao banco; nunca mostrar como
+  // "sessão expirada" (categoria auth) nem misturar com a mensagem de rede.
+  [CATEGORIES.SERVER_UNAVAILABLE]: 'Servidor indisponível no momento. Tente novamente em instantes.',
   [CATEGORIES.UNKNOWN]:   'Algo deu errado. Tente novamente.',
 };
 
@@ -195,6 +231,13 @@ function friendlyMessage(category, err, fallbackMessage) {
   if (category === CATEGORIES.DATABASE) {
     if (msg.includes('23505') || msg.includes('duplicate')) return FRIENDLY.database.duplicate;
     return FRIENDLY.database.default;
+  }
+
+  if (category === CATEGORIES.NETWORK) {
+    if (msg.includes('timeout') || msg.includes('timed out') || err?.name === 'AbortError') {
+      return FRIENDLY.network.timeout;
+    }
+    return FRIENDLY.network.default;
   }
 
   // AIError já traz uma mensagem específica por código (rate limit, timeout,

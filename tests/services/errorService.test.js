@@ -242,6 +242,119 @@ test("current_password_incorrect code (reautenticação para troca de senha) map
   assert.strictEqual(friendly, "Senha atual incorreta. Verifique e tente novamente.");
 });
 
+// ── A1.6 — Hardening do Login (Rate Limit + Classificação de Erros) ────────
+// AuthRetryableFetchError é a classe real do auth-js do Supabase para falha
+// de rede/timeout/abort e para 5xx do próprio servidor de autenticação —
+// nenhum dos dois casos chega a avaliar credenciais/sessão, então nenhum
+// pode virar "sessão expirada", mesmo carregando `__isAuthError: true`.
+function authRetryableFetchError(message, extra = {}) {
+  return Object.assign(new Error(message), {
+    name: "AuthRetryableFetchError",
+    __isAuthError: true,
+    ...extra,
+  });
+}
+
+test("HTTP 429 during login (AuthApiError with status 429) is categorized as rate_limit, never as a generic/auth error, and tells the user to wait", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authApiError("For security purposes, you can only request this after 42 seconds.", {
+    status: 429,
+    code: "over_request_rate_limit",
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "rate_limit");
+  assert.strictEqual(friendly, "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.");
+});
+
+test("offline/no-network during login (AuthRetryableFetchError with no HTTP status) is categorized as network, not auth — the session was never evaluated", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authRetryableFetchError("Failed to fetch");
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "network");
+  assert.match(friendly, /Sem conexão/);
+});
+
+test("a request timeout during login (AuthRetryableFetchError wrapping an aborted/timed-out fetch) is categorized as network with a timeout-specific message, not the generic offline text", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authRetryableFetchError("The operation timed out");
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "network");
+  assert.strictEqual(friendly, "A conexão demorou mais que o esperado. Verifique sua internet e tente novamente.");
+});
+
+test("a native AbortError (fetch aborted by a timeout controller) is categorized as network with the timeout message", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = Object.assign(new Error("The user aborted a request."), { name: "AbortError" });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "network");
+  assert.strictEqual(friendly, "A conexão demorou mais que o esperado. Verifique sua internet e tente novamente.");
+});
+
+test("the Supabase Auth server itself being unavailable (AuthRetryableFetchError with status 503) is categorized as server_unavailable, never masked as 'sessão expirada'", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authRetryableFetchError("Service Unavailable", { status: 503 });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "server_unavailable");
+  assert.strictEqual(friendly, "Servidor indisponível no momento. Tente novamente em instantes.");
+});
+
+test("a generic 5xx error with no auth/database code is categorized as server_unavailable, not database or unknown", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = Object.assign(new Error("Bad Gateway"), { status: 502 });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "server_unavailable");
+  assert.strictEqual(friendly, "Servidor indisponível no momento. Tente novamente em instantes.");
+});
+
+test("invalid login credentials (autenticação inválida) keeps its own dedicated message, distinct from session-expired/rate-limit/network/server-unavailable", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authApiError("Invalid login credentials", { code: "invalid_credentials" });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(friendly, "E-mail ou senha incorretos. Verifique suas credenciais.");
+});
+
+test("an expired/dead session (refresh token invalid, no dedicated code) is categorized as auth with the session-expired message, distinct from invalid-credentials", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authApiError("Invalid Refresh Token: Refresh Token Not Found", { code: "refresh_token_not_found" });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(friendly, "Sua sessão expirou. Faça login novamente.");
+});
+
+test("the database being unavailable (PostgREST/Postgres error, no __isAuthError) is categorized as database, distinct from server_unavailable and never shown as a login/session error", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = Object.assign(new Error("could not connect to database"), { code: "57P03" });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "database");
+  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+});
+
+test("ETAPA 3 — the seven scenarios never collapse into each other: each maps to its own distinct friendly message", async (t) => {
+  const { mod } = await loadErrorService(t);
+
+  const scenarios = {
+    rate_limit: mod.handleError(authApiError("rate limited", { status: 429 }), { silent: true }).friendly,
+    network: mod.handleError(authRetryableFetchError("Failed to fetch"), { silent: true }).friendly,
+    server_unavailable: mod.handleError(authRetryableFetchError("down", { status: 503 }), { silent: true }).friendly,
+    auth_invalid: mod.handleError(authApiError("Invalid login credentials", { code: "invalid_credentials" }), { silent: true }).friendly,
+    session_expired: mod.handleError(authApiError("Invalid Refresh Token: Refresh Token Not Found"), { silent: true }).friendly,
+    database: mod.handleError(Object.assign(new Error("db down"), { code: "57P03" }), { silent: true }).friendly,
+  };
+
+  const uniqueMessages = new Set(Object.values(scenarios));
+  assert.strictEqual(uniqueMessages.size, Object.keys(scenarios).length, JSON.stringify(scenarios, null, 2));
+});
+
 test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
   const { mod } = await loadErrorService(t);
 
