@@ -6,6 +6,7 @@
 
 import {
   getWeeklySummary, getStudySuggestion, getScheduleAnalysis, getContextualRecommendations, getWeeklyPlan,
+  getMyEvolution,
 } from "./services/ai/aiService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { handleError } from "./errorService.js";
@@ -143,6 +144,51 @@ export function initAIPanel() {
     `).join('');
   }
 
+  // Minha Evolução (F3.4): reflectionService já devolve tudo estruturado
+  // (resumo/pontosPositivos/pontosAtencao/evolucaoRecente, cada item com
+  // dadosUtilizados/periodoAnalisado/motivo/nivelConfianca) — a View só
+  // renderiza como lista simples, sem gráficos e sem animações.
+  function _evolutionSection(title, items) {
+    if (!items || !items.length) return '';
+    const rows = items.map(i => `
+      <li class="ai-evolution-item">
+        <p class="ai-evolution-message">${escapeHtml(i.mensagem)}</p>
+        <p class="ai-evolution-detail">${escapeHtml(i.motivo)} — ${escapeHtml(i.periodoAnalisado)} · confiança: ${escapeHtml(i.nivelConfianca)}</p>
+      </li>
+    `).join('');
+    return `
+      <div class="ai-evolution-section">
+        <h4 class="ai-evolution-heading">${escapeHtml(title)}</h4>
+        <ul class="ai-evolution-list">${rows}</ul>
+      </div>
+    `;
+  }
+
+  function showEvolutionResult(report) {
+    resultTitle.textContent = 'Minha Evolução';
+    resultBody.textContent = '';
+    resultBody.classList.add('ai-result-body--plan');
+    actionsDiv.hidden = true;
+    loadingDiv.hidden = true;
+    resultDiv.hidden  = false;
+    if (retryBtn) retryBtn.hidden = true;
+
+    if (!report || report.status === 'insufficient_data' || !report.insights?.length) {
+      resultBody.innerHTML = `<p class="ai-plan-empty">${escapeHtml(report?.resumo || 'Ainda não há dados suficientes para refletir sobre seu histórico.')}</p>`;
+      return;
+    }
+
+    resultBody.innerHTML = `
+      <div class="ai-evolution-section">
+        <h4 class="ai-evolution-heading">Resumo</h4>
+        <p class="ai-evolution-summary">${escapeHtml(report.resumo)}</p>
+      </div>
+      ${_evolutionSection('Pontos positivos', report.pontosPositivos)}
+      ${_evolutionSection('Pontos de atenção', report.pontosAtencao)}
+      ${_evolutionSection('Evolução recente', report.evolucaoRecente)}
+    `;
+  }
+
   function setActionBtnsDisabled(disabled) {
     document.querySelectorAll('.ai-action-btn').forEach(b => { b.disabled = disabled; });
   }
@@ -191,6 +237,24 @@ export function initAIPanel() {
     }
   }
 
+  async function runEvolutionAction() {
+    lastAction = { kind: 'evolution' };
+    showLoading();
+    setActionBtnsDisabled(true);
+    currentController = new AbortController();
+    try {
+      const report = await getMyEvolution();
+      showEvolutionResult(report);
+    } catch (err) {
+      handleError(err, { context: 'aiPanel.runEvolutionAction', silent: true });
+      showResult('Minha Evolução', err.message || 'Ocorreu um erro ao gerar sua reflexão. Verifique sua conexão e tente novamente.', true);
+    } finally {
+      stopLoadingStages();
+      setActionBtnsDisabled(false);
+      currentController = null;
+    }
+  }
+
   openBtn.addEventListener('click', openPanel);
   closeBtn.addEventListener('click', closePanel);
   backBtn?.addEventListener('click', showActions);
@@ -198,6 +262,7 @@ export function initAIPanel() {
   retryBtn?.addEventListener('click', () => {
     if (!lastAction) return;
     if (lastAction.kind === 'plan') runPlanAction();
+    else if (lastAction.kind === 'evolution') runEvolutionAction();
     else runAIAction(lastAction.label, lastAction.fn);
   });
 
@@ -219,4 +284,5 @@ export function initAIPanel() {
     runAIAction('Recomendações', getContextualRecommendations)
   );
   document.getElementById('btn-ai-plan')?.addEventListener('click', runPlanAction);
+  document.getElementById('btn-ai-evolution')?.addEventListener('click', runEvolutionAction);
 }

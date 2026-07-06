@@ -113,6 +113,23 @@ export async function listCompleted(eventId) {
   return data;
 }
 
+// Revisões puladas, globais (sem filtro) ou de um compromisso específico.
+// Mesmo formato de listCompleted() — usado pelo Reflection Engine (F3.4) para
+// o indicador "Revisões ignoradas", sem introduzir nenhuma tabela ou cálculo novo.
+export async function listSkipped(eventId) {
+  const user_id = await currentUserId();
+  let query = supabase
+    .from("reviews")
+    .select("*")
+    .eq("user_id", user_id)
+    .eq("status", "skipped");
+  if (eventId) query = query.eq("event_id", eventId);
+
+  const { data, error } = await query.order("updated_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 async function _updateStatus(id, statusFields) {
   const review = await getById(id);
   if (!review) {
