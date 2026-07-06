@@ -100,11 +100,33 @@ nunca se resolveu não deve arrancar o usuário do app.
 
 ## Alteração de Senha (usuário autenticado)
 
-Disponível em **Minha Conta → Alterar Senha**:
+Disponível em **Minha Conta → Alterar Senha**. Uma sessão já aberta não é
+suficiente para provar que quem está no teclado é o dono da conta (achado P2
+da auditoria — sessão aberta sozinha permitia troca de senha) — por isso a
+alteração exige reautenticação antes de qualquer chamada a `updateUser()`:
 
-1. Usuário informa nova senha (mín. 8 caracteres) e confirmação.
-2. Frontend chama `supabase.auth.updateUser({ password })` (sem necessidade da senha atual — o JWT já autentica).
-3. Supabase atualiza a senha e emite novo JWT.
+1. Usuário informa senha atual, nova senha (mín. 8 caracteres) e confirmação.
+2. Frontend chama `auth.js#reauthenticate(senhaAtual)`, que reconfirma a senha
+   atual via `supabase.auth.signInWithPassword({ email, password })` — a
+   mesma API oficial usada no login. Não existe endpoint dedicado de
+   "reautenticação por senha" no auth-js; este é o mecanismo recomendado pelo
+   Supabase e por outros provedores de identidade para esse tipo de
+   verificação. Não cria sessão paralela nem token próprio: para o mesmo
+   usuário, o auth-js apenas reconfirma/renova a sessão já existente.
+3. Senha atual incorreta → mensagem amigável (`current_password_incorrect`,
+   ver `errorService.js`), a sessão continua ativa e a nova senha/confirmação
+   já digitadas não são perdidas — só o campo de senha atual é limpo.
+4. Reautenticação bem-sucedida → `supabase.auth.updateUser({ password })`
+   troca a senha e emite novo JWT.
+5. Sessão expirada em qualquer etapa → segue o pipeline central
+   (`errorService` → `stateView` → `authView.forceReauth()`), nunca uma
+   mensagem inline nesta tela.
+
+A senha atual nunca é persistida em variável de módulo — vive só no
+parâmetro local de `reauthenticate()` — e os três campos são limpos após
+sucesso e também no logout (`accountView.js#resetAccountView()`, que
+substitui todo o conteúdo do modal), para nunca deixar texto de senha
+retido no DOM entre uma sessão de usuário e outra.
 
 ---
 

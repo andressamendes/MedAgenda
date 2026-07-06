@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { updatePassword } from './auth.js';
+import { updatePassword, reauthenticate } from './auth.js';
 import { getProfile, upsertProfile } from './profileService.js';
 import { uploadAvatar, removeAvatar } from './avatarService.js';
 import { toast } from './toastService.js';
@@ -8,6 +8,7 @@ import { escapeHtml } from './utils.js';
 import { confirmDialog } from './confirmDialog.js';
 import { initModal } from './modalController.js';
 import { handleError } from './errorService.js';
+import { categoryToState, STATES, triggerReauth } from './stateView.js';
 import { GOAL_LIMITS, validateGoalMinutes } from './timeGoals.js';
 
 const TIMEZONES = [
@@ -50,6 +51,13 @@ export function resetAccountView() {
   _profile = null;
   _userId  = null;
   _modal?.close();
+  // A1.5 (ETAPA 5) — sem isso, a senha atual/nova senha digitadas pelo
+  // usuário anterior ficariam retidas nos campos (ainda montados no DOM, só
+  // ocultos pelo modal fechado) até o próximo open() os substituir. O
+  // logout precisa limpá-los imediatamente, nunca deixando texto de senha
+  // sobrevivendo entre uma sessão de usuário e outra.
+  const body = document.getElementById('account-body');
+  if (body) body.innerHTML = '';
 }
 
 export async function open() {
@@ -174,6 +182,10 @@ function _renderProfile(p) {
     <!-- Change password -->
     <div class="account-section">
       <h3 class="account-section-title">Alterar Senha</h3>
+      <div class="field">
+        <label for="acc-current-pwd">Senha atual</label>
+        <input type="password" id="acc-current-pwd" placeholder="Digite sua senha atual" autocomplete="current-password" maxlength="128" />
+      </div>
       <div class="field">
         <label for="acc-new-pwd">Nova senha</label>
         <input type="password" id="acc-new-pwd" placeholder="Mínimo 8 caracteres" autocomplete="new-password" maxlength="128" />
@@ -334,29 +346,81 @@ async function _handleSaveGoals() {
   }
 }
 
-// ── Change password ────────────────────────────────────────────────────────
+// ── Change password (A1.5 — reautenticação obrigatória, achado P2) ─────────
+// Fluxo: senha atual → nova senha → confirmação → reautenticação
+// (auth.js#reauthenticate, via signInWithPassword — a mesma API oficial do
+// login) → só então updatePassword(). Uma sessão já aberta nunca basta por
+// si só para trocar a senha.
 async function _handleChangePassword() {
   const errEl  = document.getElementById('pwd-error');
   errEl.textContent = '';
 
-  const newPwd     = document.getElementById('acc-new-pwd').value;
-  const confirmPwd = document.getElementById('acc-confirm-pwd').value;
+  const currentPwdInput = document.getElementById('acc-current-pwd');
+  const newPwdInput     = document.getElementById('acc-new-pwd');
+  const confirmPwdInput = document.getElementById('acc-confirm-pwd');
 
-  if (!newPwd)                   { errEl.textContent = 'Digite a nova senha.'; return; }
-  if (newPwd.length < 8)         { errEl.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
-  if (newPwd !== confirmPwd)     { errEl.textContent = 'As senhas não coincidem.'; return; }
+  const currentPwd = currentPwdInput.value;
+  const newPwd     = newPwdInput.value;
+  const confirmPwd = confirmPwdInput.value;
+
+  if (!currentPwd)            { errEl.textContent = 'Digite sua senha atual.'; return; }
+  if (!newPwd)                { errEl.textContent = 'Digite a nova senha.'; return; }
+  if (newPwd.length < 8)      { errEl.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
+  if (newPwd !== confirmPwd)  { errEl.textContent = 'As senhas não coincidem.'; return; }
 
   const btn = document.getElementById('btn-change-pwd');
-  _setLoading(btn, 'Alterando…', true);
+  _setLoading(btn, 'Verificando senha atual…', true);
 
   try {
+    await reauthenticate(currentPwd);
+  } catch (err) {
+    const { category, friendly } = handleError(err, {
+      context: 'accountView.reauthenticate',
+      silent:  true,
+      fallbackMessage: 'Não foi possível confirmar sua senha atual.',
+    });
+    _setLoading(btn, 'Alterar senha', false);
+
+    // categoryToState() sempre traduz a categoria 'auth' inteira para
+    // SESSION_EXPIRED — correto para uma sessão de fato morta, mas não para
+    // este code específico: 'current_password_incorrect' (ver
+    // auth.js#reauthenticate) significa que a sessão continua válida e só a
+    // senha atual informada estava errada. Só os demais casos de 'auth'
+    // (refresh/JWT/sessão realmente inválidos) seguem o pipeline central
+    // (errorService → stateView → forceReauth) — igual a qualquer outra
+    // tela do app. showAuthView() (acionado por forceReauth) já fecha este
+    // modal.
+    if (err?.code !== 'current_password_incorrect' && categoryToState(category) === STATES.SESSION_EXPIRED) {
+      triggerReauth();
+      return;
+    }
+
+    // Senha atual errada: a sessão continua ativa (signInWithPassword() não
+    // a encerra) e a nova senha/confirmação já digitadas não são perdidas —
+    // só o campo de senha atual é limpo, para a próxima tentativa.
+    currentPwdInput.value = '';
+    errEl.textContent = friendly;
+    return;
+  }
+
+  _setLoading(btn, 'Alterando…', true);
+  try {
     await updatePassword(newPwd);
-    document.getElementById('acc-new-pwd').value     = '';
-    document.getElementById('acc-confirm-pwd').value = '';
+    currentPwdInput.value = '';
+    newPwdInput.value     = '';
+    confirmPwdInput.value = '';
     toast.success('Senha alterada com sucesso.');
   } catch (err) {
-    handleError(err, { context: 'accountView.changePassword', silent: true });
-    errEl.textContent = err.message || 'Não foi possível alterar a senha.';
+    const { category, friendly } = handleError(err, {
+      context: 'accountView.changePassword',
+      silent:  true,
+      fallbackMessage: 'Não foi possível alterar a senha.',
+    });
+    if (categoryToState(category) === STATES.SESSION_EXPIRED) {
+      triggerReauth();
+      return;
+    }
+    errEl.textContent = friendly;
   } finally {
     _setLoading(btn, 'Alterar senha', false);
   }

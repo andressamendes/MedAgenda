@@ -127,6 +127,10 @@ const FRIENDLY = {
     // nunca "entrar novamente".
     linkExpired:  'Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar.',
     linkInvalid:  'Este link de redefinição de senha é inválido. Solicite um novo link para continuar.',
+    // A1.5 — reautenticação obrigatória para alterar a senha (ver
+    // auth.js#reauthenticate). Mensagem própria, nunca a de login
+    // ("E-mail ou senha incorretos"): esta tela só tem um campo de senha.
+    currentPasswordIncorrect: 'Senha atual incorreta. Verifique e tente novamente.',
   },
   [CATEGORIES.NETWORK]:  'Sem conexão com a internet. Verifique sua rede e tente novamente.',
   [CATEGORIES.DATABASE]: {
@@ -169,6 +173,7 @@ function friendlyMessage(category, err, fallbackMessage) {
     // link de e-mail (ver auth.js#parseAuthRedirectError).
     if (code === 'recovery_link_expired') return FRIENDLY.auth.linkExpired;
     if (code === 'recovery_link_invalid') return FRIENDLY.auth.linkInvalid;
+    if (code === 'current_password_incorrect') return FRIENDLY.auth.currentPasswordIncorrect;
 
     // F4.2 (causa raiz): checar só "invalid" era amplo demais — "Invalid
     // Refresh Token: Refresh Token Not Found" (sessão morta, ver

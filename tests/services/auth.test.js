@@ -134,3 +134,69 @@ test("hasRecoveryIntent() — true only when the URL (hash or query) carries typ
   assert.strictEqual(mod.hasRecoveryIntent("http://localhost/"), false);
   assert.strictEqual(mod.hasRecoveryIntent("http://localhost/#access_token=abc&type=signup"), false);
 });
+
+// ── A1.5 — Reautenticação Obrigatória para Alteração de Senha ──────────────
+// reauthenticate() usa a mesma API oficial do login (signInWithPassword)
+// para reconfirmar a senha atual — nunca cria sessão paralela nem token
+// próprio, e nunca persiste a senha em nenhuma variável do módulo.
+
+test("reauthenticate() — golden path: resolves without error when the current password is correct", async (t) => {
+  const { mod } = await loadAuth(t, {
+    getSession: async () => ({ data: { session: { user: { email: "aluna@example.com" } } }, error: null }),
+    signInWithPassword: async ({ email, password }) => {
+      assert.strictEqual(email, "aluna@example.com");
+      assert.strictEqual(password, "senha-correta");
+      return { data: { user: { id: "user-123" } }, error: null };
+    },
+  });
+
+  await assert.doesNotReject(() => mod.reauthenticate("senha-correta"));
+});
+
+test("reauthenticate() — wrong current password (code invalid_credentials) throws a dedicated AuthError, not the raw Supabase error", async (t) => {
+  const { mod } = await loadAuth(t, {
+    getSession: async () => ({ data: { session: { user: { email: "aluna@example.com" } } }, error: null }),
+    signInWithPassword: async () => ({
+      data: null,
+      error: Object.assign(new Error("Invalid login credentials"), { code: "invalid_credentials" }),
+    }),
+  });
+
+  await assert.rejects(
+    () => mod.reauthenticate("senha-errada"),
+    (err) => {
+      assert.strictEqual(err.__isAuthError, true);
+      assert.strictEqual(err.code, "current_password_incorrect");
+      return true;
+    }
+  );
+});
+
+test("reauthenticate() — any other Supabase auth error (e.g. rate limit) is propagated as-is, not reclassified as a wrong password", async (t) => {
+  const { mod } = await loadAuth(t, {
+    getSession: async () => ({ data: { session: { user: { email: "aluna@example.com" } } }, error: null }),
+    signInWithPassword: async () => ({
+      data: null,
+      error: Object.assign(new Error("For security purposes, you can only request this after 30 seconds."), {
+        code: "over_request_rate_limit",
+        status: 429,
+      }),
+    }),
+  });
+
+  await assert.rejects(
+    () => mod.reauthenticate("qualquer-senha"),
+    (err) => err.code === "over_request_rate_limit"
+  );
+});
+
+test("reauthenticate() — no active session throws a structured AuthError (no_session), never a plain/technical error", async (t) => {
+  const { mod } = await loadAuth(t, {
+    getSession: async () => ({ data: { session: null }, error: null }),
+  });
+
+  await assert.rejects(
+    () => mod.reauthenticate("qualquer-senha"),
+    (err) => err.__isAuthError === true && err.code === "session_not_found"
+  );
+});

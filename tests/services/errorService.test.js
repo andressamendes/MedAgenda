@@ -228,6 +228,20 @@ test("recovery_link_invalid code (token ausente/corrompido) maps to its own mess
   );
 });
 
+// ── A1.5 — Reautenticação Obrigatória para Alteração de Senha ──────────────
+
+test("current_password_incorrect code (reautenticação para troca de senha) maps to its own message, never the login-style 'e-mail ou senha' one", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = new AuthError("Senha atual incorreta.", {
+    code: "current_password_incorrect",
+    reason: AUTH_REASONS.CURRENT_PASSWORD_INCORRECT,
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(friendly, "Senha atual incorreta. Verifique e tente novamente.");
+});
+
 test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
   const { mod } = await loadErrorService(t);
 

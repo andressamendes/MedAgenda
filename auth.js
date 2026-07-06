@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import { APP_URL } from "./config.js";
+import { AuthError, AUTH_REASONS } from "./authError.js";
 
 export async function signIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -42,6 +43,49 @@ export async function updatePassword(newPassword) {
   const { data, error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
   return data;
+}
+
+/**
+ * A1.5 — reautenticação obrigatória antes de qualquer troca de senha (achado
+ * P2 da auditoria): uma sessão já aberta nunca é suficiente para provar que
+ * quem está no teclado é o dono da conta. O auth-js do Supabase não tem um
+ * endpoint dedicado de "reautenticação por senha" — o mecanismo oficial
+ * recomendado (Supabase e demais provedores de identidade) é reconfirmar a
+ * senha atual chamando a mesma API de login (signInWithPassword). Isso nunca
+ * cria uma sessão paralela: para o mesmo usuário, o auth-js apenas
+ * reconfirma/renova a sessão já existente. A senha em si nunca é persistida
+ * em nenhuma variável deste módulo — ela só existe no parâmetro local
+ * `currentPassword`, usado uma única vez.
+ */
+export async function reauthenticate(currentPassword) {
+  const session = await getSession();
+  const email = session?.user?.email;
+  if (!email) {
+    throw new AuthError("Sessão ausente para reautenticação.", {
+      code:   "session_not_found",
+      reason: AUTH_REASONS.NO_SESSION,
+    });
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+  if (!error) return;
+
+  // auth-js devolve o mesmo `code` ('invalid_credentials') que usa para login
+  // malsucedido — sem isso, errorService mostraria "E-mail ou senha
+  // incorretos", uma mensagem que menciona um campo que não existe nesta
+  // tela. AuthError com um code próprio garante uma mensagem amigável
+  // dedicada (ver errorService.js), sem nenhuma classificação manual na view.
+  const isWrongPassword =
+    error.code === "invalid_credentials" ||
+    /invalid login credentials/i.test(error.message || "");
+  if (isWrongPassword) {
+    throw new AuthError("Senha atual incorreta.", {
+      code:          "current_password_incorrect",
+      reason:        AUTH_REASONS.CURRENT_PASSWORD_INCORRECT,
+      originalError: error,
+    });
+  }
+  throw error;
 }
 
 /**

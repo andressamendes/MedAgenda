@@ -30,6 +30,12 @@ export const AUTH_REASONS = {
   // qualificou como expiração.
   LINK_EXPIRED:    'link_expired',
   LINK_INVALID:    'link_invalid',
+  // A1.5 — senha atual informada na reautenticação obrigatória (ver
+  // auth.js#reauthenticate) não confere com a da conta. auth-js devolve o
+  // mesmo `code` ('invalid_credentials') que usa para login malsucedido;
+  // este reason/code próprio evita reusar, sem querer, a mensagem de login
+  // ("E-mail ou senha incorretos") numa tela que só tem um campo de senha.
+  CURRENT_PASSWORD_INCORRECT: 'current_password_incorrect',
 };
 
 export class AuthError extends Error {
