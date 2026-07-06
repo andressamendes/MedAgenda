@@ -214,6 +214,58 @@ test("a block in 'partial' state still renders its cards, plus a partial-data no
   assert.match(notice.textContent, /Você não tem permissão para acessar este recurso\./);
 });
 
+// ── F4.2 — sessão expirada nunca pode ser mascarada como "dados parciais" ───
+// (causa raiz do bloco de Revisões: ele combina duas fontes — pendentes e
+// concluídas — e, se só uma falhar, virava um aviso passivo sem nenhuma ação,
+// mesmo quando a causa era a sessão ter caído).
+
+test("Revisões: when only one of its two sources fails with a session-expired error, the whole block escalates to the unified session-expired state — not a silent partial notice", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      execucao: OK_EXECUCAO,
+      metas: OK_METAS,
+      revisoes: { status: "partial", data: { pendingCount: null, completedCount: 5 }, error: new Error("Invalid Refresh Token: Refresh Token Not Found") },
+      produtividade: OK_PRODUTIVIDADE,
+    }),
+    category: "auth",
+    friendlyMessage: "Sua sessão expirou. Faça login novamente.",
+  });
+
+  await mod.initInsightsView();
+
+  assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, true);
+  assert.strictEqual(document.getElementById("insights-revisoes-notice").hidden, true);
+
+  const errorEl = document.getElementById("insights-revisoes-error");
+  assert.strictEqual(errorEl.hidden, false);
+  assert.match(errorEl.textContent, /Sessão expirada/);
+  const actionBtn = errorEl.querySelector(".state-block-action");
+  assert.strictEqual(actionBtn.textContent, "Entrar novamente");
+
+  // Os outros blocos continuam intactos — a falha de uma fonte de Revisões
+  // não derruba o resto da tela.
+  assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, false);
+});
+
+test("a 'partial' block whose failing source is NOT a session issue (e.g. real RLS/permission error) keeps the passive notice, unchanged", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      execucao: OK_EXECUCAO,
+      metas: OK_METAS,
+      revisoes: { status: "partial", data: { pendingCount: 2, completedCount: null }, error: new Error("permission denied for table reviews") },
+      produtividade: OK_PRODUTIVIDADE,
+    }),
+    category: "database",
+    friendlyMessage: "Erro ao comunicar com o servidor. Tente novamente em instantes.",
+  });
+
+  await mod.initInsightsView();
+
+  assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-revisoes-error").hidden, true);
+  assert.strictEqual(document.getElementById("insights-revisoes-notice").hidden, false);
+});
+
 test("retrying after a block error clears the error state on success", async (t) => {
   let attempt = 0;
   const { mod } = await loadView(t, {

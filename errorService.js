@@ -53,6 +53,19 @@ function categorize(err) {
   // (ex.: "temporariamente indisponível") caia num balde genérico por acidente.
   if (err?.name === 'AIError') return CATEGORIES.AI;
 
+  // F4.2 (causa raiz): todo erro lançado pelo auth-js do Supabase (GoTrueClient)
+  // — token de acesso expirado, refresh token inválido/ausente/já usado, sessão
+  // ausente, JWT malformado, etc. — carrega a flag interna `__isAuthError`,
+  // independentemente da subclasse (AuthApiError, AuthSessionMissingError,
+  // AuthRetryableFetchError...) e do texto/idioma da mensagem. Depender apenas
+  // de substrings em inglês na mensagem (abaixo) não cobre mensagens reais como
+  // "Auth session missing!" ou "Invalid Refresh Token: Refresh Token Not Found"
+  // — exatamente o cenário de sessão expirada por inatividade, que por isso
+  // caía em UNKNOWN/DATABASE e virava "Erro ao comunicar com o servidor" em vez
+  // de "Sessão expirada" (Revisões, e às vezes Dashboard/Insights, dependendo
+  // de qual chamada tocasse esse formato de erro).
+  if (err?.__isAuthError === true) return CATEGORIES.AUTH;
+
   const msg = String(err?.message || err).toLowerCase();
   const code = String(err?.code || '');
 
@@ -113,8 +126,17 @@ function friendlyMessage(category, err) {
   const msg = String(err?.message || '').toLowerCase();
 
   if (category === CATEGORIES.AUTH) {
-    if (msg.includes('invalid') || msg.includes('credentials')) return FRIENDLY.auth.invalid;
-    if (msg.includes('confirmed'))                               return FRIENDLY.auth.unconfirmed;
+    // F4.2 (causa raiz): checar só "invalid" era amplo demais — "Invalid
+    // Refresh Token: Refresh Token Not Found" (sessão morta, ver
+    // supabase.currentUserId()) também contém "invalid" e virava, por
+    // engano, "E-mail ou senha incorretos." — a mesma mensagem de uma tentativa
+    // de login malsucedida. Restrito ao texto que realmente indica
+    // credenciais de login erradas (o mesmo critério que categorize() já usa
+    // para decidir isto), nunca a qualquer variação de token/sessão inválidos.
+    if (msg.includes('invalid login') || msg.includes('invalid_credentials') || msg.includes('invalid login credentials')) {
+      return FRIENDLY.auth.invalid;
+    }
+    if (msg.includes('confirmed')) return FRIENDLY.auth.unconfirmed;
     return FRIENDLY.auth.default;
   }
 
