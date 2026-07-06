@@ -11,6 +11,7 @@ import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { handleError } from "./errorService.js";
+import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad, escapeHtml } from "./utils.js";
 
 const PAGE_SIZE = 20;
@@ -105,21 +106,10 @@ function _renderSessions(sessions) {
   }
 }
 
-function _renderLoadError(friendly) {
+function _renderLoadError({ state, message }) {
   emptyEl.hidden = false;
   emptyEl.classList.add("list-error");
-  emptyEl.innerHTML = "";
-
-  const msg = document.createElement("span");
-  msg.textContent = friendly;
-  emptyEl.appendChild(msg);
-
-  const retryBtn = document.createElement("button");
-  retryBtn.type      = "button";
-  retryBtn.className = "btn btn-sm btn-ghost list-error-retry";
-  retryBtn.textContent = "Tentar novamente";
-  retryBtn.addEventListener("click", () => _loadPage(true));
-  emptyEl.appendChild(retryBtn);
+  renderStateBlock(emptyEl, { state, message, onRetry: () => _loadPage(true) });
 }
 
 async function _loadPage(reset) {
@@ -131,6 +121,7 @@ async function _loadPage(reset) {
     listEl.innerHTML = "";
     emptyEl.hidden = true;
     emptyEl.classList.remove("list-error");
+    clearStateBlock(emptyEl);
     loadMoreBtn.hidden = true;
   }
 
@@ -146,9 +137,9 @@ async function _loadPage(reset) {
     }
     loadMoreBtn.hidden = !hasMore;
   } catch (err) {
-    const { friendly } = handleError(err, { context: "activityHistoryView.load", silent: true });
+    const errorState = errorToState(handleError(err, { context: "activityHistoryView.load", silent: true }));
     if (reset) {
-      _renderLoadError(friendly);
+      _renderLoadError(errorState);
     } else {
       // Falha ao carregar mais: preserva a lista já renderizada e deixa o
       // botão visível para o usuário tentar novamente.

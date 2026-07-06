@@ -50,7 +50,8 @@ import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, restoreLastPage, restoreSidebarState } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
-import { initAuthView } from "./authView.js";
+import { initAuthView, forceReauth } from "./authView.js";
+import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
@@ -63,6 +64,11 @@ import { initInsightsView } from "./insightsView.js";
 // Inicializa serviços de observabilidade imediatamente
 initErrorService(_isDevMode());
 initTelemetry(_isDevMode());
+
+// F4.1: único ponto de reautenticação — todo estado "sessão expirada" (ver
+// stateView.js), em qualquer tela, executa o mesmo fluxo oficial de logout +
+// tela de login já existente em authView.js.
+setReauthHandler(forceReauth);
 
 // ── Modo Desenvolvedor ─────────────────────────────────────────────────────
 const DEV_MODE_KEY = 'medagenda_devmode';
@@ -242,8 +248,7 @@ async function loadEvents() {
     // agenda vazia — a mensagem exibida é a mesma categorizada pelo
     // errorService, para que o usuário distinga os casos (ex.: "Sua sessão
     // expirou" vs. "Sem conexão com a internet").
-    const { friendly } = handleError(err, { context: "loadEvents", silent: true });
-    renderListError(friendly);
+    renderListError(errorToState(handleError(err, { context: "loadEvents", silent: true })));
   }
 }
 
@@ -312,6 +317,7 @@ function renderList(events) {
   eventList.innerHTML = "";
   listEmpty.hidden    = events.length > 0;
   listEmpty.classList.remove("list-error");
+  clearStateBlock(listEmpty);
   listEmpty.textContent = LIST_EMPTY_TEXT;
 
   events.forEach((ev) => {
@@ -354,24 +360,14 @@ function renderList(events) {
 
 // Estado de erro da lista — distinto de "sem compromissos" para que uma
 // falha ao carregar (rede, banco, sessão, etc.) nunca seja confundida com
-// uma agenda genuinamente vazia. Inclui um botão "Tentar novamente" para que
-// o usuário possa se recuperar sem precisar recarregar a página inteira.
-function renderListError(message) {
+// uma agenda genuinamente vazia. Usa o componente único de estados (F4.1):
+// sessão expirada leva à reautenticação, os demais casos oferecem "Tentar
+// novamente".
+function renderListError({ state, message }) {
   eventList.innerHTML = "";
   listEmpty.hidden     = false;
   listEmpty.classList.add("list-error");
-  listEmpty.innerHTML  = "";
-
-  const msg = document.createElement("span");
-  msg.textContent = message;
-  listEmpty.appendChild(msg);
-
-  const retryBtn = document.createElement("button");
-  retryBtn.type      = "button";
-  retryBtn.className = "btn btn-sm btn-ghost list-error-retry";
-  retryBtn.textContent = "Tentar novamente";
-  retryBtn.addEventListener("click", loadEvents);
-  listEmpty.appendChild(retryBtn);
+  renderStateBlock(listEmpty, { state, message, onRetry: loadEvents });
 }
 
 async function handleDelete(id, card) {

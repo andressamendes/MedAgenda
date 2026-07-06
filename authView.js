@@ -48,6 +48,22 @@ export function showLogin() {
   showAuthView('login');
 }
 
+/**
+ * Fluxo oficial de reautenticação (F4.1, ETAPA 4) — único ponto que qualquer
+ * tela deve chamar quando a sessão expira. Nunca deixa o usuário preso numa
+ * tela de erro: mesmo que signOut() falhe (sessão já morta no servidor, sem
+ * rede, etc.), a tela de login é exibida de qualquer forma, sem depender de
+ * um refresh manual.
+ */
+export async function forceReauth() {
+  try {
+    await signOut();
+  } catch (err) {
+    handleError(err, { context: 'authView.forceReauth', silent: true });
+  }
+  showLogin();
+}
+
 // Manages screen transition and guards against double-initialization.
 // The actual app initialization is delegated to the onSignedIn callback
 // supplied via initAuthView().

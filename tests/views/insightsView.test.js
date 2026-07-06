@@ -41,7 +41,7 @@ function loadView(t, overrides = {}) {
     namedExports: {
       handleError: (err, context) => {
         handleErrorCalls.push({ err, context });
-        return { category: "unknown", friendly: overrides.friendlyMessage ?? err.message };
+        return { category: overrides.category ?? "unknown", friendly: overrides.friendlyMessage ?? err.message };
       },
     },
   });
@@ -134,6 +134,63 @@ test("a block in 'error' state hides its cards and shows the friendly message wi
   assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
   assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
   assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
+});
+
+// ── F4.1 — Fluxo Unificado de Sessão Expirada ───────────────────────────────
+
+test("a block failing with a session-expired (auth) error shows 'Sessão expirada' and 'Entrar novamente', never a retry button", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      execucao: { status: "error", data: null, error: new Error("JWT expired") },
+      metas: OK_METAS,
+      revisoes: OK_REVISOES,
+      produtividade: OK_PRODUTIVIDADE,
+    }),
+    category: "auth",
+    friendlyMessage: "Sua sessão expirou. Faça login novamente.",
+  });
+
+  await mod.initInsightsView();
+
+  const errorEl = document.getElementById("insights-execucao-error");
+  assert.strictEqual(errorEl.hidden, false);
+  assert.match(errorEl.textContent, /Sessão expirada/);
+  assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
+  const actionBtn = errorEl.querySelector(".state-block-action");
+  assert.strictEqual(actionBtn.textContent, "Entrar novamente");
+
+  // Every other block keeps using the exact same component — no divergent
+  // messages for the same kind of failure (ETAPA 6).
+  assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
+});
+
+test("clicking 'Entrar novamente' on a session-expired insights block runs the official reauth flow, not a data retry", async (t) => {
+  const stateViewSpecifier = new URL("../../stateView.js", import.meta.url).href;
+  const { setReauthHandler } = await import(stateViewSpecifier);
+  let reauthCalls = 0;
+  setReauthHandler(() => { reauthCalls++; });
+
+  let loadCalls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => {
+      loadCalls++;
+      return {
+        execucao: { status: "error", data: null, error: new Error("JWT expired") },
+        metas: OK_METAS, revisoes: OK_REVISOES, produtividade: OK_PRODUTIVIDADE,
+      };
+    },
+    category: "auth",
+  });
+
+  await mod.initInsightsView();
+  const callsAfterLoad = loadCalls;
+
+  document.getElementById("insights-execucao-error").querySelector(".state-block-action")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.strictEqual(reauthCalls, 1);
+  assert.strictEqual(loadCalls, callsAfterLoad);
 });
 
 test("a block in 'partial' state still renders its cards, plus a partial-data notice", async (t) => {

@@ -40,7 +40,7 @@ function _buildWidget() {
   widget.setAttribute("aria-label", "Cronômetro de sessão de atividade");
   widget.innerHTML = `
     <div class="as-widget-body">
-      <span class="as-widget-status" id="as-status">Nenhuma sessão em andamento</span>
+      <span class="as-widget-status" id="as-status">Nenhuma sessão de estudo em andamento</span>
       <span class="as-widget-event" id="as-event" hidden></span>
       <span class="as-widget-time" id="as-time" aria-hidden="true"></span>
       <p class="as-widget-note" id="as-note" hidden></p>
@@ -109,7 +109,7 @@ function _render() {
   statusEl.textContent =
     status === "running" ? "Em andamento" :
     status === "paused"  ? "Pausada" :
-    "Nenhuma sessão em andamento";
+    "Nenhuma sessão de estudo em andamento";
 
   btnStart.hidden  = !!_session;
   btnPause.hidden  = status !== "running";

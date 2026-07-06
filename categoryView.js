@@ -8,6 +8,7 @@ import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
 
 let categoriesCache = [];
 
@@ -106,13 +107,11 @@ async function _renderCatList() {
     cats = await getCategories();
   } catch (err) {
     // Erro ao carregar não pode aparecer como "nenhuma categoria cadastrada" —
-    // exibe um estado distinto, com opção de tentar novamente.
-    const { friendly } = handleError(err, { context: 'categoryView.load', silent: true });
-    catList.innerHTML = `
-      <p class="cat-empty cat-error">${escapeHtml(friendly)}</p>
-      <button type="button" class="btn btn-sm btn-ghost" id="cat-retry">Tentar novamente</button>
-    `;
-    catList.querySelector("#cat-retry")?.addEventListener("click", _renderCatList);
+    // exibe o estado único de erro (F4.1), com a ação adequada (reautenticar
+    // ou tentar novamente).
+    const errorState = errorToState(handleError(err, { context: 'categoryView.load', silent: true }));
+    catList.innerHTML = stateBlockMarkup(errorState);
+    wireStateBlock(catList, _renderCatList);
     return;
   }
 

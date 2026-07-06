@@ -645,6 +645,30 @@ restoreSidebarState()
 
 ---
 
+### stateView.js
+
+**Objetivo:** componente único de estado de carregamento — sessão expirada / erro de rede / servidor indisponível (F4.1).
+
+**Responsabilidade:** traduz o `{ category, friendly }` já produzido por `errorService.handleError()` num dos três estados de UI acionáveis (`session_expired` / `network` / `server`) e renderiza sempre o mesmo layout — ícone, título, descrição e ação — nas telas de carregamento/listagem: lista de compromissos (`script.js`), calendário, agenda semanal, Central de Insights (todos os quatro blocos), Dashboard de Execução, categorias, calendário acadêmico (calendários e eventos), histórico de sessões e Painel de IA. Nenhuma dessas telas decide mensagem, ícone ou ação por conta própria; todas chamam `errorToState(handleError(err, {...}))` e passam o resultado para este módulo. `session_expired` nunca oferece "Tentar novamente" — a única ação é "Entrar novamente", que aciona o fluxo oficial de reautenticação (`authView.forceReauth()`) registrado uma única vez no bootstrap via `setReauthHandler()` (ver `script.js`). Isso resolve a divergência histórica em que cada tela tratava sessão expirada, erro de rede e "servidor indisponível" com mensagens e comportamentos próprios (algumas sem nenhuma ação de recuperação).
+
+**Quem utiliza:** script.js, calendar.js, weekView.js, insightsView.js, activityDashboardView.js, activityHistoryView.js, categoryView.js, academicCalendarView.js, academicCalendarEventsView.js, aiPanelView.js.
+
+**Quem ele utiliza:** utils.js (`escapeHtml`, só na variante em string). Nunca importa `errorService.js` diretamente — cada tela chama `handleError()` ela mesma e repassa o resultado, mantendo a classificação num único lugar sem acoplar este módulo a ele.
+
+**Estado interno:**
+- `_reauthHandler` — função registrada via `setReauthHandler()`; por padrão (antes do bootstrap registrar o handler real), recarrega a página.
+
+**Principais funções exportadas:**
+- `STATES` — `{ SESSION_EXPIRED, NETWORK, SERVER }`.
+- `errorToState({ category, friendly })` — mapeia a categoria de `errorService` para um dos três estados.
+- `categoryToState(category)` — mesma tradução, para telas que só têm a categoria (ex.: `aiPanelView.js`).
+- `renderStateBlock(container, { state, message, onRetry })` — substitui o conteúdo de `container` pelo bloco de estado completo.
+- `stateBlockMarkup({ state, message })` / `wireStateBlock(root, onRetry)` — mesma coisa em duas etapas, para telas que montam um template maior de uma vez (categorias, calendário acadêmico).
+- `clearStateBlock(container)` — remove as classes do bloco de estado quando a tela volta ao conteúdo normal.
+- `setReauthHandler(fn)` / `triggerReauth()` — registra e aciona o fluxo oficial de reautenticação.
+
+---
+
 ### diagnosticService.js
 
 **Objetivo:** verificar a saúde dos serviços da aplicação.
