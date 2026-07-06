@@ -14,7 +14,7 @@ import { onSessionFinished } from "./activitySessionService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
-import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
 
 function _formatDuration(minutes) {
   const total = Math.max(0, Math.round(minutes || 0));
@@ -100,12 +100,30 @@ function _renderBlock(blockDef, block) {
   const errorEl  = document.getElementById(blockDef.errorId);
   const noticeEl = document.getElementById(blockDef.noticeId);
 
-  if (block.status === "error") {
+  // F4.2 (causa raiz — ETAPA 4): sessão expirada nunca pode ser mascarada
+  // como "dados parciais". O bloco de Revisões combina duas fontes
+  // independentes (pendentes/concluídas — ver insightsService._reviewsBlock())
+  // e, se só uma delas falhar, o bloco antes caía direto no aviso passivo de
+  // "partial" (sem botão de ação nenhum) mesmo quando a causa da falha era a
+  // sessão ter caído — que compromete o bloco inteiro, não só a fonte que
+  // falhou. Calculamos o estado do erro uma única vez aqui (chamando
+  // handleError uma só vez, nunca duas, para não duplicar telemetria) e, se a
+  // categoria for "sessão expirada", promovemos o bloco a "error" para usar o
+  // mesmo componente único com "Entrar novamente" (F4.1) em vez do aviso mudo.
+  let status = block.status;
+  let errorState = null;
+  if (block.error) {
+    errorState = errorToState(handleError(block.error, { context: "insightsView.load", silent: true }));
+    if (status === "partial" && errorState.state === STATES.SESSION_EXPIRED) {
+      status = "error";
+    }
+  }
+
+  if (status === "error") {
     cardsEl.hidden = true;
     cardsEl.innerHTML = "";
     if (noticeEl) noticeEl.hidden = true;
     errorEl.hidden = false;
-    const errorState = errorToState(handleError(block.error, { context: "insightsView.load", silent: true }));
     renderStateBlock(errorEl, { ...errorState, onRetry: () => _load() });
     return;
   }
@@ -123,10 +141,9 @@ function _renderBlock(blockDef, block) {
   `).join("");
 
   if (noticeEl) {
-    noticeEl.hidden = block.status !== "partial";
-    if (block.status === "partial" && block.error) {
-      const { friendly } = handleError(block.error, { context: "insightsView.load", silent: true });
-      noticeEl.textContent = `Alguns dados deste bloco não puderam ser carregados: ${friendly}`;
+    noticeEl.hidden = status !== "partial";
+    if (status === "partial" && errorState) {
+      noticeEl.textContent = `Alguns dados deste bloco não puderam ser carregados: ${errorState.message}`;
     }
   }
 }
