@@ -28,7 +28,17 @@ function mockAuth(t, { failLoginMessage } = {}) {
     namedExports: {
       signIn: async (email, password) => {
         calls.push({ fn: "signIn", email, password });
-        if (failLoginMessage) throw new Error(failLoginMessage);
+        // A1.2: erros reais do auth-js do Supabase sempre carregam
+        // `__isAuthError: true` (ver authError.js) — é esse sinal estruturado,
+        // nunca a mensagem, que errorService.categorize() usa para
+        // classificar como 'auth'.
+        if (failLoginMessage) {
+          throw Object.assign(new Error(failLoginMessage), {
+            name: "AuthApiError",
+            __isAuthError: true,
+            status: 400,
+          });
+        }
         const session = { user: { id: "user-123", email } };
         authStateCallback?.(session, "SIGNED_IN");
         return session;

@@ -1,5 +1,6 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/+esm";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { AuthError, AUTH_REASONS } from "./authError.js";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -15,6 +16,17 @@ export async function currentUserId() {
   // errorService.categorize() usa para classificar de forma confiável.
   if (error) throw error;
   const id = data.session?.user?.id;
-  if (!id) throw new Error("Usuário não autenticado.");
+  // A1.2: nenhuma sessão e nenhum erro do SDK significa que o usuário nunca
+  // autenticou (ou já fez signOut) — um caso estruturalmente diferente de um
+  // erro do auth-js, mas ainda assim um erro de autenticação. Usa o mesmo
+  // contrato (AuthError) em vez de um Error genérico, para que
+  // errorService.categorize() o reconheça pela flag `__isAuthError`, nunca
+  // pelo texto da mensagem.
+  if (!id) {
+    throw new AuthError("Usuário não autenticado.", {
+      code: "session_not_found",
+      reason: AUTH_REASONS.NO_SESSION,
+    });
+  }
   return id;
 }

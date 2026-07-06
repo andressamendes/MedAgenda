@@ -1,9 +1,10 @@
 /**
  * Tests for errorService.js — categorize()/friendlyMessage()/handleError()
- * (F4.2 — Auditoria e Correção do Fluxo de Estados).
+ * (F4.2 — Auditoria e Correção do Fluxo de Estados; A1.2 — Contrato
+ * Estruturado para Erros de Autenticação).
  *
- * Causa raiz encontrada na auditoria: categorize() classificava erros de
- * autenticação só por substrings em inglês na mensagem ('jwt', 'session',
+ * Causa raiz encontrada na auditoria (F4.2): categorize() classificava erros
+ * de autenticação só por substrings em inglês na mensagem ('jwt', 'session',
  * 'invalid login'...). Erros reais do auth-js do Supabase (GoTrueClient) —
  * refresh token inválido/ausente/já usado, sessão ausente, JWT malformado —
  * têm mensagens que não batem com nenhuma dessas substrings (ex.: "Auth
@@ -12,12 +13,24 @@
  * "Sessão expirada" — exatamente o comportamento relatado para o bloco de
  * Revisões (e potencialmente qualquer outra tela, dependendo de qual chamada
  * tocasse esse formato de erro). Todo erro do auth-js carrega a flag interna
- * `__isAuthError`, independentemente da subclasse ou do idioma da mensagem —
- * esse é o sinal usado agora, sem duplicar a lógica de classificação em
- * nenhum outro lugar (stateView.js continua sem conhecer errorService.js).
+ * `__isAuthError`, independentemente da subclasse ou do idioma da mensagem.
+ *
+ * A1.2 foi além: o último ponto que ainda dependia de mensagem era
+ * supabase.currentUserId() lançando um Error comum ("Usuário não
+ * autenticado.") para "sem sessão", reconhecido aqui por
+ * `msg.includes('não autenticado')` — e os sub-casos de mensagem amigável
+ * (credenciais inválidas/e-mail duplicado/não confirmado) também liam a
+ * mensagem do SDK em inglês. Ambos foram substituídos por sinais
+ * estruturados: supabase.js agora lança AuthError (ver authError.js, mesmo
+ * contrato `__isAuthError`) e friendlyMessage() usa `err.code` (o código
+ * dedicado que o auth-js já devolve, ex.: 'invalid_credentials',
+ * 'user_already_exists', 'email_not_confirmed') em vez de substring de
+ * mensagem. categorize()/friendlyMessage() não chamam mais includes()/
+ * startsWith() sobre texto de erro para nenhum caso de autenticação.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
+import { AuthError, AUTH_REASONS } from "../../authError.js";
 
 const TOAST_SPECIFIER     = new URL("../../toastService.js", import.meta.url).href;
 const TELEMETRY_SPECIFIER = new URL("../../telemetryService.js", import.meta.url).href;
@@ -73,15 +86,32 @@ test("AuthSessionMissingError ('Auth session missing!') is categorized as auth d
   assert.strictEqual(category, "auth");
 });
 
-test("still recognizes the legacy Portuguese/English keyword paths (JWT expired, código PGRST301) for plain (non auth-js) errors", async (t) => {
+test("a PostgREST error with code PGRST301 (JWT expired on a database query, no __isAuthError) is still categorized as auth, by code — never by message", async (t) => {
   const { mod } = await loadErrorService(t);
 
-  assert.strictEqual(mod.handleError(new Error("JWT expired"), { silent: true }).category, "auth");
   assert.strictEqual(
     mod.handleError(Object.assign(new Error("token error"), { code: "PGRST301" }), { silent: true }).category,
     "auth"
   );
-  assert.strictEqual(mod.handleError(new Error("Usuário não autenticado."), { silent: true }).category, "auth");
+});
+
+test("supabase.currentUserId()'s no-session case (AuthError, see authError.js) is categorized as auth via __isAuthError, not via its Portuguese message text", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = new AuthError("Usuário não autenticado.", {
+    code: "session_not_found",
+    reason: AUTH_REASONS.NO_SESSION,
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(friendly, "Sua sessão expirou. Faça login novamente.");
+});
+
+test("a plain Error with an auth-sounding message but no __isAuthError/code contract is NOT classified as auth (proves message text alone no longer drives auth classification)", async (t) => {
+  const { mod } = await loadErrorService(t);
+
+  assert.strictEqual(mod.handleError(new Error("JWT expired"), { silent: true }).category, "unknown");
+  assert.strictEqual(mod.handleError(new Error("Usuário não autenticado."), { silent: true }).category, "unknown");
 });
 
 test("a genuine database/RLS error (no __isAuthError, code 42501) is still categorized as database, not auth", async (t) => {
@@ -134,13 +164,32 @@ test("a plain error whose message mentions 'rate limit' is also categorized as r
   assert.strictEqual(category, "rate_limit");
 });
 
-test("'User already registered' (Supabase signUp duplicate email) is categorized as auth with a dedicated duplicate-account message", async (t) => {
+test("'User already registered' (Supabase signUp duplicate email, code user_already_exists) is categorized as auth with a dedicated duplicate-account message, decided by code — not by the English message", async (t) => {
   const { mod } = await loadErrorService(t);
-  const err = authApiError("User already registered");
+  const err = authApiError("User already registered", { code: "user_already_exists" });
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "auth");
   assert.strictEqual(friendly, "Este e-mail já está cadastrado. Faça login.");
+});
+
+test("email_not_confirmed code maps to the unconfirmed-email message, decided by code — not by the message", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authApiError("Email not confirmed", { code: "email_not_confirmed" });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(friendly, "Confirme seu e-mail antes de fazer login.");
+});
+
+test("invalid_credentials code maps to the invalid-credentials message, decided by code — not by the message text ('Invalid Refresh Token...' also contains 'invalid' but must not match)", async (t) => {
+  const { mod } = await loadErrorService(t);
+
+  const invalidLogin = authApiError("Invalid login credentials", { code: "invalid_credentials" });
+  assert.strictEqual(mod.handleError(invalidLogin, { silent: true }).friendly, "E-mail ou senha incorretos. Verifique suas credenciais.");
+
+  const refreshInvalid = authApiError("Invalid Refresh Token: Refresh Token Not Found", { code: "refresh_token_not_found" });
+  assert.strictEqual(mod.handleError(refreshInvalid, { silent: true }).friendly, "Sua sessão expirou. Faça login novamente.");
 });
 
 test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
@@ -149,7 +198,7 @@ test("handleError()'s fallbackMessage option only replaces the true catch-all (u
   const unknown = mod.handleError(new Error("boom"), { silent: true, fallbackMessage: "tela X: algo falhou." });
   assert.strictEqual(unknown.friendly, "tela X: algo falhou.");
 
-  const invalidLogin = mod.handleError(authApiError("Invalid login credentials"), {
+  const invalidLogin = mod.handleError(authApiError("Invalid login credentials", { code: "invalid_credentials" }), {
     silent: true,
     fallbackMessage: "tela X: algo falhou.",
   });
