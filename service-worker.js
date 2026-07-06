@@ -49,6 +49,7 @@ const APP_SHELL = [
   './modalController.js',
   './navigationView.js',
   './notificationService.js',
+  './planningService.js',
   './profileService.js',
   './pushService.js',
   './pwa.js',

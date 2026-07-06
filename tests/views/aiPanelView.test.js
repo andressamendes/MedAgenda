@@ -86,6 +86,57 @@ test("a failing AI call shows a friendly error instead of throwing", async (t) =
   assert.strictEqual(document.getElementById("ai-result-body").textContent, "Serviço de IA indisponível.");
 });
 
+test("running the plan action renders the structured plan, not plain text, and creates no events", async (t) => {
+  const plan = [
+    { tipo: "overdue", prioridade: "alta", categoria: "Farmacologia", tempoSugerido: "40 minutos", dataSugerida: "2026-07-06", motivo: "Você tem 2 compromissos atrasados sem execução registrada.", confianca: "alta" },
+    { tipo: "study", prioridade: "baixa", categoria: null, tempoSugerido: "60 minutos", dataSugerida: "2026-07-07", motivo: "Sua semana está vazia: nenhum compromisso agendado.", confianca: "média" },
+  ];
+  const { initAIPanel } = await loadAiPanel(t, { weeklyPlan: plan });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-plan").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
+  assert.strictEqual(document.getElementById("ai-result-title").textContent, "Plano da Semana");
+  const items = document.querySelectorAll("#ai-result-body .ai-plan-item");
+  assert.strictEqual(items.length, 2);
+  assert.match(items[0].textContent, /Farmacologia/);
+  assert.match(items[0].textContent, /40 minutos/);
+  assert.match(items[0].textContent, /compromissos atrasados/);
+  // Nenhum botão de ação (criar evento/gravar) dentro do plano — só leitura.
+  assert.strictEqual(document.querySelectorAll("#ai-result-body button").length, 0);
+});
+
+test("the plan action shows an empty-state message when there is nothing to suggest", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, { weeklyPlan: [] });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-plan").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.match(document.getElementById("ai-result-body").textContent, /Nenhuma sugestão/);
+});
+
+test("a failing plan action shows a friendly error and a working retry button", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, { fail: true, failMessage: "Falha ao gerar o plano." });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-plan").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ai-result-body").textContent, "Falha ao gerar o plano.");
+  const retryBtn = document.getElementById("btn-ai-retry");
+  assert.strictEqual(retryBtn.hidden, false);
+
+  retryBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ai-result-body").textContent, "Falha ao gerar o plano.");
+});
+
 test("the back button returns from the result view to the actions view", async (t) => {
   const { initAIPanel } = await loadAiPanel(t);
   initAIPanel();

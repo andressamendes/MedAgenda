@@ -19,6 +19,7 @@ import { prepareScheduleAnalysis } from './prompts/scheduleAnalysis.js';
 import { parseResponse }           from './parsers/responseParser.js';
 import { getAIContext }            from '../../aiContextService.js';
 import { computeRecommendations }  from '../../recommendationEngine.js';
+import { computeWeeklyPlan }       from '../../planningService.js';
 
 /** Map of provider identifiers to their call functions */
 const PROVIDERS = {
@@ -83,4 +84,17 @@ export async function getContextualRecommendations() {
     return 'Nenhuma recomendação no momento — está tudo em dia!';
   }
   return recommendations.map(r => `• ${r.message}`).join('\n');
+}
+
+/**
+ * Planejamento Assistido (F3.3): gera o plano estruturado da semana a partir
+ * do mesmo Context Engine, com planningService.computeWeeklyPlan() —
+ * determinístico, sem I/O e sem chamada a Gemini (mesma justificativa de
+ * getContextualRecommendations(): a Edge Function ai-chat só aceita os três
+ * tipos de prompt já existentes, e este passo não adiciona um novo).
+ * @returns {Promise<Array<object>>} lista de sugestões (pode ser vazia)
+ */
+export async function getWeeklyPlan() {
+  const context = await getAIContext();
+  return computeWeeklyPlan(context);
 }

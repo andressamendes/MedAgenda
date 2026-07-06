@@ -348,6 +348,36 @@ Nenhuma alteração de código foi feita a partir destas observações — elas 
 
 ---
 
+## Planejamento Assistido (F3.3)
+
+Quarta ação do Painel IA — "Gerar Plano da Semana" — mas, diferente das três
+anteriores e das Recomendações (F3.2), **não chama o Gemini**. `planningService.js`
+interpreta o mesmo contexto de `aiContextService.getAIContext()` (Context
+Engine, F3.1/F3.2) e produz uma lista estruturada de sugestões, cada uma com:
+
+`tipo` · `prioridade` (alta/média/baixa) · `categoria` · `tempoSugerido` ·
+`dataSugerida` · `motivo` · `confiança`.
+
+| Origem do dado (já existente) | Regra em `planningService.js` |
+|---|---|
+| `overdueEvents` (compromissos atrasados) | `findOverduePlanItem()` |
+| `reviews.pending` (F2.3) | `findPendingReviewsPlanItem()` |
+| `categories` (tempo estudado por categoria) | `findUnderstudiedPlanItems()` |
+| `execution.weeklyGoal` (F2.2) | `findGoalCatchUpPlanItem()` |
+| `weekEventsCount` / `hasAnyEvents` | `findEmptyWeekPlanItem()` |
+
+Nenhum indicador é recalculado: todo dado já vem pronto do Context Engine.
+`computeWeeklyPlan()` é função pura (sem I/O, sem DOM, sem Gemini), determinística
+— o mesmo contexto sempre produz o mesmo plano, na mesma ordem — e nunca lança:
+um contexto vazio ou parcial produz um plano vazio ou parcial (quem trata falhas
+de rede/fonte indisponível é o próprio `aiContextService`, via `_safe()`).
+
+`aiService.getWeeklyPlan()` é o único ponto de acesso (`context → computeWeeklyPlan()`),
+e `aiPanelView.js` apenas lista o resultado — nenhum item do plano cria evento,
+grava dado no banco ou dispara notificação; o usuário decide tudo.
+
+---
+
 ## Estado Atual
 
 - **Provider atual:** `gemini` (único provedor implementado em `services/ai/providers/`).

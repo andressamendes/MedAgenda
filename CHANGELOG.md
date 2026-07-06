@@ -2,6 +2,27 @@
 
 ---
 
+## [Unreleased] — F3.3: Planejamento Assistido (Planning Engine)
+
+Nova ação no Painel IA, "Gerar Plano da Semana": `planningService.js` interpreta
+o Context Engine já existente (`aiContextService.js`, F3.1/F3.2) e produz uma
+lista estruturada de sugestões (tipo, prioridade, categoria, tempo sugerido,
+data sugerida, motivo e confiança), sem chamar o Gemini, sem consultar o
+Supabase diretamente e sem recalcular nenhum indicador — tudo já vem pronto de
+`eventService`, `activityDashboardService`, `reviewService` e
+`activitySessionService`/`activitySessionStats`, do mesmo jeito que
+`recommendationEngine.js` (F3.2) já faz para as Recomendações.
+
+Nenhuma ação do plano cria evento, grava dado no banco ou dispara notificação —
+o usuário decide tudo. Nenhuma alteração no Context Engine, no Recommendation
+Engine, nas Edge Functions ou nos prompts já existentes. 21 novos testes em
+`tests/planningService.test.js` (usuário novo, agenda vazia/cheia, metas
+atingidas/atrasadas, muitas revisões/sessões, categorias negligenciadas,
+contexto parcial, sanitização e estabilidade do planejamento) + 3 novos em
+`tests/views/aiPanelView.test.js` para o painel.
+
+---
+
 ## [Unreleased] — F2.7: UX, Responsividade e Manutenibilidade (A5 + M7 + M8 + M9 + B1–B9)
 
 ### Validado em 2026-07-03

@@ -9,6 +9,9 @@ export function createAiServiceMock({
   studySuggestion = "Sugestão de estudo de teste.",
   scheduleAnalysis = "Análise de agenda de teste.",
   recommendations = "• Recomendação de teste.",
+  weeklyPlan = [
+    { tipo: "review", prioridade: "alta", categoria: null, tempoSugerido: "30 minutos", dataSugerida: "2026-07-07", motivo: "Existem 2 revisões pendentes.", confianca: "alta" },
+  ],
   fail = false,
   failMessage = "Erro simulado do assistente de IA.",
   // Nunca resolve por si só — simula uma chamada real em andamento, para
@@ -58,6 +61,12 @@ export function createAiServiceMock({
       if (hang) return maybeHang(controller);
       maybeFail();
       return recommendations;
+    },
+    getWeeklyPlan: async (controller) => {
+      calls.push({ fn: "getWeeklyPlan", controller });
+      if (hang) return maybeHang(controller);
+      maybeFail();
+      return weeklyPlan;
     },
   };
 }
