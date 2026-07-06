@@ -4,9 +4,8 @@ import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
-import { getAIContext } from "./aiContextService.js";
-import { computeWeeklyPlan } from "./planningService.js";
-import { renderSmartCards, planItemToCard } from "./smartCardView.js";
+import { getDecisions } from "./decisionEngine.js";
+import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { renderPlanList } from "./planListView.js";
 
 let _academicProvider  = null;
@@ -212,38 +211,44 @@ function hideWeekError() {
   if (banner) banner.hidden = true;
 }
 
-// ── Dica contextual e plano rápido (F3.5, ETAPA 4/6) ────────────────────────
-// Reaproveita integralmente o Context Engine (aiContextService.getAIContext())
-// e o Planning Engine (planningService.computeWeeklyPlan()) já existentes —
-// nenhuma consulta ou cálculo novo. A dica é só o primeiro item do plano cuja
-// data sugerida é hoje (ou o item de maior prioridade, na ausência de um item
-// para hoje); o plano completo fica disponível por trás do botão "Ver plano
-// da semana", sem precisar abrir o painel de IA. Nunca cria, altera ou agenda
-// nada — é só leitura.
+// ── Dica contextual e plano rápido (F3.5, ETAPA 4/6; consumindo o Decision
+// Engine — F3.7) ─────────────────────────────────────────────────────────────
+// decisionEngine.getDecisions() já roda Recommendation/Planning/
+// Reflection Engine uma única vez e devolve, via decisionEngine.js, a lista
+// final priorizada e sem duplicidade — junto com o plano bruto do Planning
+// Engine (mesma rodada, sem recalcular nada), usado só pela lista completa
+// por trás do botão "Ver plano da semana". A dica é a decisão de origem
+// "planning" cuja data sugerida é hoje (mais concreta: já tem tempo e data);
+// na ausência de uma para hoje, cai para a decisão de maior prioridade geral
+// (já ordenada pelo Decision Engine). Nunca cria, altera ou agenda nada — é
+// só leitura.
 async function loadTip() {
   const tipEl = _el?.querySelector("#wk-tip");
   const toggleBtn = _el?.querySelector("#wk-plan-toggle");
   const planListEl = _el?.querySelector("#wk-plan-list");
   if (!tipEl || !toggleBtn || !planListEl) return;
 
+  let decisions = [];
   try {
-    const context = await getAIContext();
-    _weeklyPlan = computeWeeklyPlan(context);
+    const result = await getDecisions();
+    decisions = result.decisions;
+    _weeklyPlan = result.planning;
   } catch (err) {
     handleError(err, { context: "weekView.loadTip", silent: true });
     _weeklyPlan = [];
   }
 
   const todayISO = isoToday();
-  const todayItem = _weeklyPlan.find(p => p.dataSugerida === todayISO) || _weeklyPlan[0] || null;
+  const todayDecision = decisions.find(d => d.origem === "planning" && d.acaoSugerida?.dataSugerida === todayISO);
+  const decision = todayDecision || decisions[0] || null;
   let tip = null;
-  if (todayItem) {
-    tip = planItemToCard(todayItem);
+  if (decision) {
+    tip = decisionToCard(decision);
     // "study" com categoria conhecida vira a frase de exemplo do enunciado
     // ("Hoje seria interessante revisar Anatomia."); os demais tipos mantêm
-    // o próprio motivo já redigido pelo Planning Engine.
-    if (todayItem.tipo === "study" && todayItem.categoria) {
-      tip = { ...tip, mensagem: `Hoje seria interessante revisar ${todayItem.categoria}.` };
+    // a própria mensagem já redigida pelo motor de origem.
+    if (decision.origemTipo === "study" && decision.dadosUtilizados?.categoria) {
+      tip = { ...tip, mensagem: `Hoje seria interessante revisar ${decision.dadosUtilizados.categoria}.` };
     }
   }
   renderSmartCards(tipEl, tip ? [tip] : []);

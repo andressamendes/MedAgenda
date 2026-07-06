@@ -11,7 +11,7 @@ import assert from "node:assert";
 import { installDom, uninstallDom } from "./mocks/domFixture.js";
 import {
   CARD_TYPES, buildSmartCard, recommendationToCard, planItemToCard,
-  reflectionInsightToCard, renderSmartCards,
+  reflectionInsightToCard, decisionToCard, renderSmartCards,
 } from "../smartCardView.js";
 
 beforeEach(() => installDom());
@@ -48,6 +48,14 @@ test("planItemToCard() maps each planningService item type to a sensible display
 test("reflectionInsightToCard() maps a positive insight to 'meta' and an attention insight to 'atencao'", () => {
   assert.strictEqual(reflectionInsightToCard({ tipo: "positivo", mensagem: "m" }).tipo, "meta");
   assert.strictEqual(reflectionInsightToCard({ tipo: "atencao", mensagem: "m" }).tipo, "atencao");
+});
+
+test("decisionToCard() maps a consolidated decision (decisionEngine.js, F3.7) to a sensible display type", () => {
+  assert.strictEqual(decisionToCard({ origemTipo: "overdue_events", mensagem: "m" }).tipo, "atencao");
+  assert.strictEqual(decisionToCard({ origemTipo: "review", mensagem: "m" }).tipo, "revisao");
+  assert.strictEqual(decisionToCard({ origemTipo: "goal", mensagem: "m" }).tipo, "meta");
+  assert.strictEqual(decisionToCard({ origemTipo: "neglected_category", mensagem: "m" }).tipo, "atencao");
+  assert.strictEqual(decisionToCard({ origemTipo: "unknown_origin_type", mensagem: "m" }).tipo, "dica");
 });
 
 test("renderSmartCards() hides the container and clears it when there are no cards", () => {

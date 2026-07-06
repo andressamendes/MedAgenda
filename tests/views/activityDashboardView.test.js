@@ -13,8 +13,7 @@ const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js"
 const SESSION_SERVICE_SPECIFIER    = new URL("../../activitySessionService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER     = new URL("../../reviewService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
-const AICONTEXT_SPECIFIER          = new URL("../../aiContextService.js", import.meta.url).href;
-const REFLECTION_SERVICE_SPECIFIER = new URL("../../reflectionService.js", import.meta.url).href;
+const DECISION_ENGINE_SPECIFIER    = new URL("../../decisionEngine.js", import.meta.url).href;
 const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
@@ -26,21 +25,12 @@ const EMPTY_DATA = {
   dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
 };
 
-// Contexto/reflexão vazios (F3.5): cards inteligentes reaproveitam o Context
-// Engine + Recommendation Engine (pura, não mockada) e o Reflection Engine —
-// mockados aqui por padrão para não produzir nenhum card, mantendo o foco
-// destes testes nos cards de execução em si (F2.1/F2.2).
-const EMPTY_AI_CONTEXT = {
-  events: [], hasAnyEvents: false, weekEventsCount: 0,
-  execution: {
-    todayMinutes: 0, weekMinutes: 0, monthMinutes: 0,
-    todaySessionsCount: 0, weekSessionsCount: 0, monthSessionsCount: 0,
-    dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
-  },
-  reviews: { pendingCount: 0, pending: [], completedCount: 0 },
-  categories: [], hasStudyHistory: false, daysSinceLastSession: null, overdueEvents: [],
-};
-const EMPTY_REFLECTION = { status: "insufficient_data", resumo: "", pontosPositivos: [], pontosAtencao: [], evolucaoRecente: [], insights: [] };
+// Cards inteligentes (F3.5, consumindo o Decision Engine — F3.7):
+// decisionEngine.js é mockado por inteiro aqui — a consolidação em si (multi-
+// motor, deduplicação, prioridade) já é coberta isoladamente em
+// tests/decisionEngine.test.js; estes testes só verificam que a view chama
+// getDecisions() uma vez e renderiza exatamente o que ele devolve.
+const EMPTY_DECISIONS = { decisions: [], planning: [], unavailable: [] };
 
 function loadView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -80,12 +70,8 @@ function loadView(t, overrides = {}) {
     },
   });
 
-  t.mock.module(AICONTEXT_SPECIFIER, {
-    namedExports: { getAIContext: overrides.getAIContext ?? (async () => EMPTY_AI_CONTEXT) },
-  });
-
-  t.mock.module(REFLECTION_SERVICE_SPECIFIER, {
-    namedExports: { getReflectionData: overrides.getReflectionData ?? (async () => EMPTY_REFLECTION) },
+  t.mock.module(DECISION_ENGINE_SPECIFIER, {
+    namedExports: { getDecisions: overrides.getDecisions ?? (async () => EMPTY_DECISIONS) },
   });
 
   return import(`../../activityDashboardView.js?t=${Math.random()}`)
@@ -95,6 +81,14 @@ function loadView(t, overrides = {}) {
       triggerReviewStatusChanged: (review) => reviewChangedCallback?.(review),
       triggerProfileUpdated: (profile) => profileUpdatedCallback?.(profile),
     }));
+}
+
+function decision({ origem = "recommendation", origemTipo = "empty_week", prioridade = "informativo", mensagem, assunto }) {
+  return {
+    origem, origemTipo, prioridade, mensagem,
+    assunto: assunto ?? `${origem}:${origemTipo}`,
+    confianca: "alta", dadosUtilizados: {}, acaoSugerida: null,
+  };
 }
 
 beforeEach(() => {
@@ -302,17 +296,17 @@ test("indicators refresh automatically when a session finishes, without reloadin
   assert.match(document.getElementById("dash-cards").textContent, /25min/);
 });
 
-// ── Cards inteligentes (F3.5, ETAPA 3/7) ────────────────────────────────────
-// Reaproveita o Context Engine + Recommendation Engine (mensagens reais, sem
-// mock — pura) e o Reflection Engine (resumo). Isolado do carregamento
-// principal: nunca esconde os cards de execução.
+// ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7)
+// A view só chama decisionEngine.getDecisions() uma vez e renderiza o que
+// vier — nenhum cálculo, priorização ou deduplicação mora aqui (isso já é
+// coberto isoladamente em tests/decisionEngine.test.js). Isolado do
+// carregamento principal: nunca esconde os cards de execução.
 
-test("a recommendation from the Recommendation Engine renders as a smart card, sourced from the same context", async (t) => {
+test("a decision from the Decision Engine renders as a smart card", async (t) => {
   const { mod } = await loadView(t, {
-    getAIContext: async () => ({
-      ...EMPTY_AI_CONTEXT,
-      hasAnyEvents: true,
-      weekEventsCount: 0, // "semana vazia" — recommendationEngine.findWeekLoadRecommendation()
+    getDecisions: async () => ({
+      decisions: [decision({ origemTipo: "empty_week", mensagem: "Sua semana está vazia." })],
+      planning: [], unavailable: [],
     }),
   });
 
@@ -324,9 +318,12 @@ test("a recommendation from the Recommendation Engine renders as a smart card, s
   assert.match(tips.textContent, /Sua semana está vazia/);
 });
 
-test("the reflection summary ('Você concluiu X% do planejamento') renders as a smart card", async (t) => {
+test("a reflection-origin decision ('Você concluiu X% do planejamento') renders as a smart card", async (t) => {
   const { mod } = await loadView(t, {
-    getReflectionData: async () => ({ ...EMPTY_REFLECTION, status: "ok", resumo: "Você concluiu 82% do planejamento nos últimos 7 dias." }),
+    getDecisions: async () => ({
+      decisions: [decision({ origem: "reflection", origemTipo: "plan_completion", prioridade: "importante", mensagem: "Você concluiu 82% do planejamento nos últimos 7 dias." })],
+      planning: [], unavailable: [],
+    }),
   });
 
   await mod.initActivityDashboardView();
@@ -336,10 +333,8 @@ test("the reflection summary ('Você concluiu X% do planejamento') renders as a 
   assert.match(tips.textContent, /Você concluiu 82% do planejamento/);
 });
 
-test("an 'insufficient_data' reflection never produces an invented summary card", async (t) => {
-  const { mod } = await loadView(t, {
-    getReflectionData: async () => EMPTY_REFLECTION, // status: "insufficient_data"
-  });
+test("an empty decision list never produces an invented card", async (t) => {
+  const { mod } = await loadView(t); // getDecisions padrão devolve uma lista vazia
 
   await mod.initActivityDashboardView();
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -347,20 +342,18 @@ test("an 'insufficient_data' reflection never produces an invented summary card"
   assert.strictEqual(document.getElementById("dash-smart-tips").hidden, true);
 });
 
-test("smart tips stay discreet: at most 3 cards even with several recommendations and a reflection summary", async (t) => {
+test("smart tips stay discreet: at most 3 cards even with several decisions", async (t) => {
   const { mod } = await loadView(t, {
-    getAIContext: async () => ({
-      ...EMPTY_AI_CONTEXT,
-      hasAnyEvents: true,
-      weekEventsCount: 20, // "semana muito carregada"
-      reviews: { pendingCount: 3, pending: [{ scheduledDate: "2026-06-01", daysOverdue: 10 }], completedCount: 0 },
-      execution: {
-        ...EMPTY_AI_CONTEXT.execution,
-        weeklyGoal: { configured: true, goalMinutes: 600, actualMinutes: 570, percentage: 95, remainingMinutes: 30, state: "partial" },
-      },
-      overdueEvents: [{ title: "Prova", category: null, date: "2026-07-01", daysOverdue: 5 }],
+    getDecisions: async () => ({
+      decisions: [
+        decision({ origemTipo: "overdue_events", prioridade: "urgente", mensagem: "Você tem 1 compromisso atrasado." }),
+        decision({ origemTipo: "pending_reviews", prioridade: "urgente", mensagem: "Você possui 3 revisões pendentes." }),
+        decision({ origemTipo: "heavy_week", prioridade: "importante", mensagem: "Sua semana está muito carregada." }),
+        decision({ origemTipo: "goals_nearly_met", prioridade: "recomendado", mensagem: "Você está perto de bater sua meta." }),
+        decision({ origem: "reflection", origemTipo: "plan_completion", prioridade: "importante", mensagem: "Você concluiu 82% do planejamento." }),
+      ],
+      planning: [], unavailable: [],
     }),
-    getReflectionData: async () => ({ ...EMPTY_REFLECTION, status: "ok", resumo: "Você concluiu 82% do planejamento." }),
   });
 
   await mod.initActivityDashboardView();
@@ -370,9 +363,9 @@ test("smart tips stay discreet: at most 3 cards even with several recommendation
   assert.ok(cards.length <= 3);
 });
 
-test("smart tips never break the dashboard when their own sources fail (partial error)", async (t) => {
+test("smart tips never break the dashboard when the Decision Engine fails", async (t) => {
   const { mod, handleErrorCalls } = await loadView(t, {
-    getAIContext: async () => { throw new Error("network down"); },
+    getDecisions: async () => { throw new Error("network down"); },
   });
 
   await assert.doesNotReject(() => mod.initActivityDashboardView());
@@ -385,23 +378,23 @@ test("smart tips never break the dashboard when their own sources fail (partial 
 });
 
 test("smart tips refresh automatically when a review is completed/skipped or a goal (profile) is updated", async (t) => {
-  let recCalls = 0;
+  let decisionCalls = 0;
   const { mod, triggerReviewStatusChanged, triggerProfileUpdated } = await loadView(t, {
-    getAIContext: async () => {
-      recCalls += 1;
-      return { ...EMPTY_AI_CONTEXT, hasAnyEvents: true, weekEventsCount: recCalls > 1 ? 0 : 5 };
+    getDecisions: async () => {
+      decisionCalls += 1;
+      return { decisions: [], planning: [], unavailable: [] };
     },
   });
 
   await mod.initActivityDashboardView();
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.strictEqual(recCalls, 1);
+  assert.strictEqual(decisionCalls, 1);
 
   triggerReviewStatusChanged({ id: "r1", status: "completed" });
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.strictEqual(recCalls, 2);
+  assert.strictEqual(decisionCalls, 2);
 
   triggerProfileUpdated({ weekly_goal_minutes: 300 });
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.strictEqual(recCalls, 3);
+  assert.strictEqual(decisionCalls, 3);
 });

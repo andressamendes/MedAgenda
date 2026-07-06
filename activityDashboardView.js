@@ -10,10 +10,8 @@ import { getDashboardData } from "./activityDashboardService.js";
 import { onSessionFinished } from "./activitySessionService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
-import { getAIContext } from "./aiContextService.js";
-import { computeRecommendations } from "./recommendationEngine.js";
-import { getReflectionData } from "./reflectionService.js";
-import { renderSmartCards, recommendationToCard, buildSmartCard } from "./smartCardView.js";
+import { getDecisions } from "./decisionEngine.js";
+import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { handleError } from "./errorService.js";
 import { pad } from "./utils.js";
 
@@ -159,27 +157,17 @@ function _renderError(friendly) {
   errorEl.appendChild(retryBtn);
 }
 
-// ── Cards inteligentes (F3.5, ETAPA 3/7) ────────────────────────────────────
-// Reaproveita integralmente o Context Engine + Recommendation Engine (para
-// "próximo da meta"/"revisões atrasadas"/"semana carregada"/"hoje livre") e o
-// Reflection Engine (para o resumo "Você concluiu X% do planejamento") — sem
-// nenhuma consulta ou cálculo novo, e isolado do carregamento principal:
-// uma falha aqui nunca esconde os cards de execução (ETAPA 9).
+// ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7) ─
+// Nenhuma decisão é tomada aqui: decisionEngine.getDecisions() já roda
+// Recommendation/Planning/Reflection Engine uma única vez e devolve a lista
+// final, priorizada e sem duplicidade, via decisionEngine.js. Esta view só
+// converte as primeiras decisões em cards visuais — isolado do carregamento
+// principal: uma falha aqui nunca esconde os cards de execução (ETAPA 9).
 async function _loadSmartTips() {
   if (!smartTipsEl) return;
   try {
-    const [context, reflection] = await Promise.all([
-      getAIContext(),
-      getReflectionData(),
-    ]);
-
-    const cards = [];
-    if (reflection && reflection.status !== "insufficient_data" && reflection.resumo) {
-      cards.push(buildSmartCard("meta", reflection.resumo));
-    }
-    computeRecommendations(context).forEach(r => cards.push(recommendationToCard(r)));
-
-    renderSmartCards(smartTipsEl, cards.slice(0, MAX_SMART_TIPS));
+    const { decisions } = await getDecisions();
+    renderSmartCards(smartTipsEl, decisions.slice(0, MAX_SMART_TIPS).map(decisionToCard));
   } catch (err) {
     handleError(err, { context: "activityDashboardView.smartTips", silent: true });
     renderSmartCards(smartTipsEl, []);
