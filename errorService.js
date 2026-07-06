@@ -67,29 +67,23 @@ function categorize(err) {
     rlMsg.includes('rate limit') || rlMsg.includes('security purposes')
   ) return CATEGORIES.RATE_LIMIT;
 
-  // F4.2 (causa raiz): todo erro lançado pelo auth-js do Supabase (GoTrueClient)
-  // — token de acesso expirado, refresh token inválido/ausente/já usado, sessão
-  // ausente, JWT malformado, etc. — carrega a flag interna `__isAuthError`,
-  // independentemente da subclasse (AuthApiError, AuthSessionMissingError,
-  // AuthRetryableFetchError...) e do texto/idioma da mensagem. Depender apenas
-  // de substrings em inglês na mensagem (abaixo) não cobre mensagens reais como
-  // "Auth session missing!" ou "Invalid Refresh Token: Refresh Token Not Found"
-  // — exatamente o cenário de sessão expirada por inatividade, que por isso
-  // caía em UNKNOWN/DATABASE e virava "Erro ao comunicar com o servidor" em vez
-  // de "Sessão expirada" (Revisões, e às vezes Dashboard/Insights, dependendo
-  // de qual chamada tocasse esse formato de erro).
+  // F4.2/A1.2 (contrato estruturado): qualquer erro de autenticação — do
+  // auth-js do Supabase (AuthApiError, AuthSessionMissingError,
+  // AuthRetryableFetchError... independentemente da subclasse ou do
+  // texto/idioma da mensagem) ou gerado por este app (AuthError, ver
+  // authError.js) — carrega a flag `__isAuthError: true`. Este é o único
+  // sinal usado para classificar como 'auth': nenhuma substring de mensagem
+  // entra nessa decisão.
   if (err?.__isAuthError === true) return CATEGORIES.AUTH;
 
   const msg = String(err?.message || err).toLowerCase();
   const code = String(err?.code || '');
 
-  if (
-    msg.includes('jwt') || msg.includes('não autenticado') ||
-    msg.includes('invalid login') || msg.includes('invalid_credentials') ||
-    msg.includes('email not confirmed') || msg.includes('session') ||
-    msg.includes('already registered') || msg.includes('already exists') ||
-    code === 'PGRST301'
-  ) return CATEGORIES.AUTH;
+  // PGRST301: o PostgREST recusa a consulta por JWT expirado/inválido — não
+  // passa pelo auth-js (não carrega `__isAuthError`), mas o `code` numérico
+  // devolvido já identifica a causa de forma estruturada, sem precisar
+  // inspecionar a mensagem.
+  if (code === 'PGRST301') return CATEGORIES.AUTH;
 
   if (
     msg.includes('failed to fetch') || msg.includes('networkerror') ||
@@ -152,13 +146,25 @@ function friendlyMessage(category, err, fallbackMessage) {
   const msg = String(err?.message || '').toLowerCase();
 
   if (category === CATEGORIES.AUTH) {
+    // A1.2 (contrato estruturado): o `code` dedicado do auth-js (ex.:
+    // 'invalid_credentials', 'user_already_exists', 'email_not_confirmed') é
+    // o sinal preferido quando presente — mas nem toda versão/caminho do SDK
+    // garante esse campo, então a mensagem continua como sinal de apoio para
+    // não regredir os sub-casos de login/cadastro (fora do escopo desta
+    // etapa, que trata apenas da classificação de categoria em categorize(),
+    // nunca decidida por mensagem desde F4.2/A1.2).
+    const code = String(err?.code || '');
+    if (code === 'invalid_credentials') return FRIENDLY.auth.invalid;
+    if (code === 'user_already_exists') return FRIENDLY.auth.duplicate;
+    if (code === 'email_not_confirmed') return FRIENDLY.auth.unconfirmed;
+
     // F4.2 (causa raiz): checar só "invalid" era amplo demais — "Invalid
     // Refresh Token: Refresh Token Not Found" (sessão morta, ver
     // supabase.currentUserId()) também contém "invalid" e virava, por
     // engano, "E-mail ou senha incorretos." — a mesma mensagem de uma tentativa
     // de login malsucedida. Restrito ao texto que realmente indica
-    // credenciais de login erradas (o mesmo critério que categorize() já usa
-    // para decidir isto), nunca a qualquer variação de token/sessão inválidos.
+    // credenciais de login erradas, nunca a qualquer variação de token/sessão
+    // inválidos.
     if (msg.includes('invalid login') || msg.includes('invalid_credentials') || msg.includes('invalid login credentials')) {
       return FRIENDLY.auth.invalid;
     }
