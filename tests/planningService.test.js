@@ -272,3 +272,57 @@ test("plan items never leak ids or raw technical fields — only tipo/prioridade
     assert.deepStrictEqual(Object.keys(item).sort(), [...allowedKeys].sort());
   });
 });
+
+// ── preferência de horário/dia (F3.6 — User Memory Engine) ──────────────────
+// Peso, não regra absoluta: só itens "study" são deslocados para o dia
+// preferido, e só com confiança "alta" — nunca muda prioridade, categoria ou
+// motivo, e nunca aparece sem o Memory Engine (contextos existentes, sem
+// `memory`, continuam produzindo exatamente o mesmo plano de antes).
+
+test("computeWeeklyPlan() nudges a 'study' item to the user's preferred weekday when the Memory Engine has strong evidence", () => {
+  const context = emptyContext({
+    hasStudyHistory: true,
+    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    memory: { status: "ok", preferences: { diaPreferido: { valor: "Quinta-feira", baseadoEm: "12 sessões concluídas", confianca: "alta" } } },
+  });
+  const plan = computeWeeklyPlan(context, NOW); // NOW = segunda-feira, 2026-07-06
+  const studyItem = plan.find(p => p.tipo === "study");
+  assert.strictEqual(studyItem.dataSugerida, "2026-07-09"); // próxima quinta-feira
+  // Nunca muda o que já era grounded em evidência própria do item:
+  assert.strictEqual(studyItem.motivo, "Você ainda não registrou sessões de estudo na categoria Pediatria.");
+  assert.strictEqual(studyItem.confianca, "média");
+});
+
+test("computeWeeklyPlan() ignores the preferred weekday below 'alta' confidence — falls back to the usual spread", () => {
+  const context = emptyContext({
+    hasStudyHistory: true,
+    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    memory: { status: "ok", preferences: { diaPreferido: { valor: "Quinta-feira", baseadoEm: "4 sessões", confianca: "média" } } },
+  });
+  const withMemory = computeWeeklyPlan(context, NOW);
+  const withoutMemory = computeWeeklyPlan({ ...context, memory: undefined }, NOW);
+  assert.deepStrictEqual(withMemory, withoutMemory);
+});
+
+test("computeWeeklyPlan() never nudges 'overdue' or 'goal' items by the preferred weekday — only 'study'", () => {
+  const context = emptyContext({
+    overdueEvents: [{ title: "Prova", category: null, date: "2026-07-01", daysOverdue: 5 }],
+    execution: {
+      ...emptyContext().execution,
+      weeklyGoal: { configured: true, goalMinutes: 600, actualMinutes: 100, percentage: 17, remainingMinutes: 500, state: "partial" },
+    },
+    memory: { status: "ok", preferences: { diaPreferido: { valor: "Quinta-feira", baseadoEm: "12 sessões concluídas", confianca: "alta" } } },
+  });
+  const plan = computeWeeklyPlan(context, NOW);
+  assert.strictEqual(plan.find(p => p.tipo === "overdue").dataSugerida, "2026-07-06"); // hoje, inalterado
+  assert.strictEqual(plan.find(p => p.tipo === "goal").dataSugerida, "2026-07-12");    // domingo, inalterado
+});
+
+test("computeWeeklyPlan() is unaffected by memory when the context predates the Memory Engine (no `memory` field at all)", () => {
+  const context = emptyContext({
+    hasStudyHistory: true,
+    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+  });
+  assert.ok(!("memory" in context));
+  assert.doesNotThrow(() => computeWeeklyPlan(context, NOW));
+});

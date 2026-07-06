@@ -152,10 +152,32 @@ export function findEmptyWeekPlanItem(context) {
   };
 }
 
+const WEEKDAY_NAMES = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+// Dia preferido do usuário (F3.6 — User Memory Engine), só para itens "study"
+// e só com confiança "alta" — um peso na escolha de qual dos próximos dias
+// sugerir, nunca uma regra absoluta: sem Memory Engine, sem confiança alta,
+// ou sem correspondência num dia próximo, cai no espalhamento sequencial de
+// sempre. Nunca altera prioridade, categoria ou motivo do item.
+function _preferredStudyDate(today, memory) {
+  const dia = memory?.preferences?.diaPreferido;
+  if (dia?.confianca !== "alta") return null;
+
+  const targetDow = WEEKDAY_NAMES.indexOf(dia.valor);
+  if (targetDow < 0) return null;
+
+  for (let offset = 1; offset <= 7; offset++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offset);
+    if (d.getDay() === targetDow) return d;
+  }
+  return null;
+}
+
 // Data sugerida: nunca afirma que existe um horário livre — apenas espalha as
 // sugestões ao longo da semana (hoje para o que já está atrasado, o fim da
 // semana para a meta semanal, os demais dias seguintes em sequência).
-function _suggestedDate(item, index, now) {
+function _suggestedDate(item, index, now, memory) {
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
 
@@ -168,6 +190,11 @@ function _suggestedDate(item, index, now) {
     const sunday = new Date(today);
     sunday.setDate(sunday.getDate() + daysUntilSunday);
     return _isoDate(sunday);
+  }
+
+  if (item.tipo === "study") {
+    const preferred = _preferredStudyDate(today, memory);
+    if (preferred) return _isoDate(preferred);
   }
 
   const d = new Date(today);
@@ -205,6 +232,6 @@ export function computeWeeklyPlan(context, now = new Date()) {
 
   return items.map((item, index) => ({
     ...item,
-    dataSugerida: _suggestedDate(item, index, now),
+    dataSugerida: _suggestedDate(item, index, now, context.memory),
   }));
 }
