@@ -39,6 +39,11 @@ function loadAuthView(t, authOverrides = {}) {
       onAuthStateChange:  () => {},
       sendPasswordReset:  async () => { throw new Error("not stubbed: sendPasswordReset"); },
       updatePassword:     async () => { throw new Error("not stubbed: updatePassword"); },
+      // A1.4 — por padrão, nenhum link de e-mail em andamento: testes que
+      // exercitam esse fluxo sobrescrevem via authOverrides.
+      parseAuthRedirectError: () => null,
+      hasRecoveryIntent:      () => false,
+      clearAuthRedirectParams: () => {},
       ...authOverrides,
     },
   });
@@ -319,6 +324,125 @@ test("set new password (troca de senha): server error shows the shared server me
     "Erro ao comunicar com o servidor. Tente novamente em instantes."
   );
 });
+
+// ── A1.4 — Fluxo Completo de Recuperação de Senha ───────────────────────────
+// O Supabase nunca dispara PASSWORD_RECOVERY para um link já rejeitado —
+// devolve o motivo direto na URL de retorno (ver auth.js#parseAuthRedirectError).
+// authView.js precisa detectar isso no carregamento e mostrar a tela de "link
+// inválido" em vez de cair silenciosamente na tela de login comum.
+
+test("recovery link expired or already used (error_code=otp_expired in the URL): shows the link-invalid screen with its own message, not the login screen", async (t) => {
+  const mod = await loadAuthView(t, {
+    parseAuthRedirectError: () => ({
+      error: "access_denied",
+      errorCode: "otp_expired",
+      errorDescription: "Email link is invalid or has expired",
+    }),
+  });
+  initView(mod);
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("view-link-invalid").hidden, false);
+  assert.strictEqual(document.getElementById("view-login").hidden, true);
+  assert.strictEqual(
+    document.getElementById("link-invalid-msg").textContent,
+    "Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar."
+  );
+});
+
+test("recovery link with an unrecognized error (not otp_expired): shows the link-invalid screen with the generic invalid-link message", async (t) => {
+  const mod = await loadAuthView(t, {
+    parseAuthRedirectError: () => ({ error: "access_denied", errorCode: null, errorDescription: null }),
+  });
+  initView(mod);
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("view-link-invalid").hidden, false);
+  assert.strictEqual(
+    document.getElementById("link-invalid-msg").textContent,
+    "Este link de redefinição de senha é inválido. Solicite um novo link para continuar."
+  );
+});
+
+test("recovery link error in the URL clears those params so a page reload doesn't reprocess the same error", async (t) => {
+  let cleared = false;
+  const mod = await loadAuthView(t, {
+    parseAuthRedirectError: () => ({ error: "access_denied", errorCode: "otp_expired", errorDescription: null }),
+    clearAuthRedirectParams: () => { cleared = true; },
+  });
+  initView(mod);
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.strictEqual(cleared, true);
+});
+
+test("recovery link error: 'Solicitar novo link' takes the user to the forgot-password screen", async (t) => {
+  const mod = await loadAuthView(t, {
+    parseAuthRedirectError: () => ({ error: "access_denied", errorCode: "otp_expired", errorDescription: null }),
+  });
+  initView(mod);
+  await new Promise((r) => setTimeout(r, 0));
+
+  document.getElementById("btn-request-new-link").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("view-forgot").hidden, false);
+});
+
+test("recovery link error: getSession()/onAuthStateChange never override the link-invalid screen with the plain login screen", async (t) => {
+  let authStateCallback = null;
+  const mod = await loadAuthView(t, {
+    parseAuthRedirectError: () => ({ error: "access_denied", errorCode: "otp_expired", errorDescription: null }),
+    getSession: async () => null,
+    onAuthStateChange: (cb) => { authStateCallback = cb; return { data: { subscription: { unsubscribe() {} } } }; },
+  });
+  initView(mod);
+  await new Promise((r) => setTimeout(r, 0));
+
+  authStateCallback?.(null, "INITIAL_SESSION");
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("view-link-invalid").hidden, false);
+});
+
+test("recovery link with type=recovery in the URL but no PASSWORD_RECOVERY event and no explicit error (missing/corrupt token): falls back to the link-invalid screen after the grace period", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const mod = await loadAuthView(t, {
+    hasRecoveryIntent: () => true,
+  });
+  initView(mod);
+  await flushMicrotasksFor(t);
+
+  t.mock.timers.tick(4000);
+  await flushMicrotasksFor(t);
+
+  assert.strictEqual(document.getElementById("view-link-invalid").hidden, false);
+  assert.strictEqual(
+    document.getElementById("link-invalid-msg").textContent,
+    "Este link de redefinição de senha é inválido. Solicite um novo link para continuar."
+  );
+});
+
+test("recovery link with type=recovery: a real PASSWORD_RECOVERY event before the grace period cancels the fallback and shows the new-password screen instead", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let authStateCallback = null;
+  const mod = await loadAuthView(t, {
+    hasRecoveryIntent: () => true,
+    onAuthStateChange: (cb) => { authStateCallback = cb; return { data: { subscription: { unsubscribe() {} } } }; },
+  });
+  initView(mod);
+  await flushMicrotasksFor(t);
+
+  authStateCallback?.({ user: { id: "user-1" } }, "PASSWORD_RECOVERY");
+  t.mock.timers.tick(4000);
+  await flushMicrotasksFor(t);
+
+  assert.strictEqual(document.getElementById("view-new-password").hidden, false);
+  assert.strictEqual(document.getElementById("view-link-invalid").hidden, true);
+});
+
+async function flushMicrotasksFor(t, times = 10) {
+  for (let i = 0; i < times; i++) await Promise.resolve();
+}
 
 test("set new password (troca de senha): golden path clears the form and returns to login", async (t) => {
   const mod = await loadAuthView(t, {

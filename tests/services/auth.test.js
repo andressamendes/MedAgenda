@@ -97,3 +97,40 @@ test("getSession() — returns null when there is no active session", async (t) 
 
   assert.strictEqual(result, null);
 });
+
+// ── A1.4 — Fluxo Completo de Recuperação de Senha ───────────────────────────
+// parseAuthRedirectError()/hasRecoveryIntent() só leem a URL (nunca chamam o
+// SDK) — são o meio de authView.js detectar, no carregamento, um link de
+// e-mail que o Supabase já rejeitou (expirado/reutilizado) antes que
+// PASSWORD_RECOVERY jamais tivesse a chance de disparar.
+
+test("parseAuthRedirectError() — returns null when the URL carries no auth error", async (t) => {
+  const { mod } = await loadAuth(t, {});
+  assert.strictEqual(mod.parseAuthRedirectError("http://localhost/"), null);
+  assert.strictEqual(mod.parseAuthRedirectError("http://localhost/#access_token=abc&type=recovery"), null);
+});
+
+test("parseAuthRedirectError() — extracts error/error_code/error_description from an expired-or-reused recovery link", async (t) => {
+  const { mod } = await loadAuth(t, {});
+  const url = "http://localhost/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired";
+
+  assert.deepStrictEqual(mod.parseAuthRedirectError(url), {
+    error: "access_denied",
+    errorCode: "otp_expired",
+    errorDescription: "Email link is invalid or has expired",
+  });
+});
+
+test("parseAuthRedirectError() — also reads the error params from the query string", async (t) => {
+  const { mod } = await loadAuth(t, {});
+  const result = mod.parseAuthRedirectError("http://localhost/?error=access_denied&error_code=otp_expired");
+  assert.strictEqual(result.errorCode, "otp_expired");
+});
+
+test("hasRecoveryIntent() — true only when the URL (hash or query) carries type=recovery", async (t) => {
+  const { mod } = await loadAuth(t, {});
+  assert.strictEqual(mod.hasRecoveryIntent("http://localhost/#access_token=abc&type=recovery"), true);
+  assert.strictEqual(mod.hasRecoveryIntent("http://localhost/?type=recovery"), true);
+  assert.strictEqual(mod.hasRecoveryIntent("http://localhost/"), false);
+  assert.strictEqual(mod.hasRecoveryIntent("http://localhost/#access_token=abc&type=signup"), false);
+});

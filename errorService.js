@@ -120,6 +120,13 @@ const FRIENDLY = {
     invalid:      'E-mail ou senha incorretos. Verifique suas credenciais.',
     unconfirmed:  'Confirme seu e-mail antes de fazer login.',
     duplicate:    'Este e-mail já está cadastrado. Faça login.',
+    // A1.4 — link de recuperação de senha inválido/expirado/reutilizado
+    // (ver authError.js AUTH_REASONS.LINK_EXPIRED/LINK_INVALID). Nunca reusar
+    // a mensagem de "sessão expirada": aqui o problema é o link de e-mail,
+    // não uma sessão que já existia, e a ação correta é pedir um novo link,
+    // nunca "entrar novamente".
+    linkExpired:  'Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar.',
+    linkInvalid:  'Este link de redefinição de senha é inválido. Solicite um novo link para continuar.',
   },
   [CATEGORIES.NETWORK]:  'Sem conexão com a internet. Verifique sua rede e tente novamente.',
   [CATEGORIES.DATABASE]: {
@@ -157,6 +164,11 @@ function friendlyMessage(category, err, fallbackMessage) {
     if (code === 'invalid_credentials') return FRIENDLY.auth.invalid;
     if (code === 'user_already_exists') return FRIENDLY.auth.duplicate;
     if (code === 'email_not_confirmed') return FRIENDLY.auth.unconfirmed;
+    // A1.4 — códigos próprios (não do Supabase), atribuídos por authView.js ao
+    // construir o AuthError a partir dos parâmetros de erro lidos na URL do
+    // link de e-mail (ver auth.js#parseAuthRedirectError).
+    if (code === 'recovery_link_expired') return FRIENDLY.auth.linkExpired;
+    if (code === 'recovery_link_invalid') return FRIENDLY.auth.linkInvalid;
 
     // F4.2 (causa raiz): checar só "invalid" era amplo demais — "Invalid
     // Refresh Token: Refresh Token Not Found" (sessão morta, ver

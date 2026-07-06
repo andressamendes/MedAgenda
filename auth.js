@@ -54,6 +54,44 @@ export function onAuthStateChange(callback) {
   });
 }
 
+/**
+ * A1.4 — Quando o usuário volta ao app a partir de um link de e-mail
+ * (recuperação de senha ou confirmação de cadastro) e o token já não é mais
+ * válido, o Supabase nunca chega a estabelecer sessão nem a disparar
+ * PASSWORD_RECOVERY: em vez disso, ele devolve o motivo diretamente na própria
+ * URL de redirecionamento, como `#error=access_denied&error_code=otp_expired`.
+ * Sem ler esses parâmetros, esse caso passava batido e o usuário só via a
+ * tela de login comum, sem explicação. `errorCode` cobre tanto link expirado
+ * quanto link já utilizado — o Supabase invalida o token nos dois casos com
+ * o mesmo código, então o app não tem como diferenciá-los.
+ */
+export function parseAuthRedirectError(href = window.location.href) {
+  const url = new URL(href);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+  const error = hashParams.get('error') || url.searchParams.get('error');
+  const errorCode = hashParams.get('error_code') || url.searchParams.get('error_code');
+  const errorDescription = hashParams.get('error_description') || url.searchParams.get('error_description');
+  if (!error && !errorCode) return null;
+  return { error, errorCode, errorDescription };
+}
+
+/** True quando a URL atual carrega a intenção de recuperação de senha (`type=recovery`). */
+export function hasRecoveryIntent(href = window.location.href) {
+  const url = new URL(href);
+  return url.hash.includes('type=recovery') || url.search.includes('type=recovery');
+}
+
+/**
+ * Remove os parâmetros de auth (hash/query do link de e-mail) da URL visível,
+ * sem recarregar a página — evita que um F5 reprocesse o mesmo erro/token.
+ */
+export function clearAuthRedirectParams() {
+  const url = new URL(window.location.href);
+  url.hash = '';
+  url.search = '';
+  window.history.replaceState(null, '', url.toString());
+}
+
 // APP_URL vem de config.js e garante que os links de e-mail sempre apontem
 // para o ambiente correto (produção ou local), independentemente de onde o
 // navegador está rodando no momento do envio.

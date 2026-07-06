@@ -192,6 +192,42 @@ test("invalid_credentials code maps to the invalid-credentials message, decided 
   assert.strictEqual(mod.handleError(refreshInvalid, { silent: true }).friendly, "Sua sessão expirou. Faça login novamente.");
 });
 
+// ── A1.4 — Fluxo Completo de Recuperação de Senha ───────────────────────────
+// Link expirado/reutilizado e link inválido/corrompido são construídos por
+// authView.js como AuthError com um `code` próprio (recovery_link_expired /
+// recovery_link_invalid) — nunca a mensagem crua do Supabase. Cada código tem
+// sua própria mensagem amigável, distinta da mensagem de "sessão expirada".
+
+test("recovery_link_expired code (link de reset expirado ou já utilizado) maps to its own message, never the generic 'session expired' one", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = new AuthError("Email link is invalid or has expired", {
+    code: "recovery_link_expired",
+    reason: AUTH_REASONS.LINK_EXPIRED,
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(
+    friendly,
+    "Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar."
+  );
+});
+
+test("recovery_link_invalid code (token ausente/corrompido) maps to its own message, distinct from recovery_link_expired", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = new AuthError("Recovery link missing/corrupt token", {
+    code: "recovery_link_invalid",
+    reason: AUTH_REASONS.LINK_INVALID,
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(
+    friendly,
+    "Este link de redefinição de senha é inválido. Solicite um novo link para continuar."
+  );
+});
+
 test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
   const { mod } = await loadErrorService(t);
 

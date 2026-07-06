@@ -55,6 +55,9 @@ function mockAuth(t, { failLoginMessage } = {}) {
       signUp: async () => ({ user: {} }),
       sendPasswordReset: async () => {},
       updatePassword: async () => ({}),
+      parseAuthRedirectError: () => null,
+      hasRecoveryIntent: () => false,
+      clearAuthRedirectParams: () => {},
     },
   });
 
@@ -160,6 +163,9 @@ test("forceReauth() still shows the login screen even if signOut() itself fails 
       signUp: async () => ({ user: {} }),
       sendPasswordReset: async () => {},
       updatePassword: async () => ({}),
+      parseAuthRedirectError: () => null,
+      hasRecoveryIntent: () => false,
+      clearAuthRedirectParams: () => {},
     },
   });
   t.mock.module(WEEK_VIEW_SPECIFIER, { namedExports: { destroyWeekView: () => {} } });

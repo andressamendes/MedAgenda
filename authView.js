@@ -1,13 +1,24 @@
 // ── authView.js — Autenticação: login, cadastro, recuperação/redefinição de senha,
 //    controle de sessão e alternância entre telas de auth.
 
-import { signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword } from "./auth.js";
+import {
+  signIn, signUp, signOut, getSession, onAuthStateChange, sendPasswordReset, updatePassword,
+  parseAuthRedirectError, hasRecoveryIntent, clearAuthRedirectParams,
+} from "./auth.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { destroyWeekView } from "./weekView.js";
 import { handleError } from "./errorService.js";
+import { AuthError, AUTH_REASONS } from "./authError.js";
 
-const AUTH_VIEWS = ['login', 'register', 'email-sent', 'forgot', 'reset-sent', 'new-password'];
+const AUTH_VIEWS = ['login', 'register', 'email-sent', 'forgot', 'reset-sent', 'new-password', 'link-invalid'];
+
+// A1.4 — quando a URL carrega `type=recovery` mas nem PASSWORD_RECOVERY nem
+// um erro explícito (parseAuthRedirectError) chegam a aparecer, o token do
+// link estava ausente/corrompido de um jeito que o próprio Supabase não
+// qualificou como erro. Esse prazo é só a margem para o SDK terminar de
+// processar a URL antes de assumirmos que o link nunca vai se resolver.
+const RECOVERY_FALLBACK_MS = 4000;
 
 const MODAL_IDS = [
   'event-modal', 'cat-overlay', 'settings-overlay',
@@ -46,6 +57,72 @@ export function showAuthView(name) {
 
 export function showLogin() {
   showAuthView('login');
+}
+
+/**
+ * Exibe a tela de "link inválido" (ETAPA 3) a partir de um erro estruturado
+ * — nunca de uma mensagem crua do Supabase. `err` chega já classificado como
+ * AuthError (ver _handleAuthRedirect / _armRecoveryFallback abaixo); o texto
+ * exibido é sempre o `friendly` devolvido por errorService.handleError().
+ */
+function _showLinkInvalid(err, fallbackMessage) {
+  const { friendly } = handleError(err, {
+    context: 'authView.recoveryLink',
+    silent: true,
+    fallbackMessage,
+  });
+  const msgEl = document.getElementById('link-invalid-msg');
+  if (msgEl) msgEl.textContent = friendly;
+  showAuthView('link-invalid');
+}
+
+/**
+ * Lê a URL uma única vez, no carregamento, para os dois cenários de link de
+ * e-mail que o Supabase nunca comunica via onAuthStateChange:
+ *
+ * 1. O Supabase já rejeitou o token e devolveu o motivo na própria URL
+ *    (link expirado ou já utilizado) — parseAuthRedirectError() cobre isso.
+ * 2. A URL pede recuperação (`type=recovery`) mas nem sessão nem erro
+ *    explícito aparecem dentro do prazo — token ausente/corrompido de um
+ *    jeito que o Supabase não chegou a qualificar como erro.
+ *
+ * Em ambos os casos a URL é limpa (clearAuthRedirectParams) para que um F5
+ * não reprocesse o mesmo link. Retorna `true` se um erro explícito já foi
+ * tratado (caso 1), para o chamador saber que não precisa armar o fallback
+ * do caso 2.
+ */
+function _handleAuthRedirectError() {
+  const redirectError = parseAuthRedirectError();
+  if (!redirectError) return false;
+
+  clearAuthRedirectParams();
+  const isExpiredOrReused = redirectError.errorCode === 'otp_expired';
+  const err = new AuthError(
+    redirectError.errorDescription || redirectError.error || 'Recovery link error',
+    {
+      code:   isExpiredOrReused ? 'recovery_link_expired' : 'recovery_link_invalid',
+      reason: isExpiredOrReused ? AUTH_REASONS.LINK_EXPIRED : AUTH_REASONS.LINK_INVALID,
+    }
+  );
+  _showLinkInvalid(err);
+  return true;
+}
+
+function _armRecoveryFallback() {
+  if (!hasRecoveryIntent()) return () => {};
+  const timer = setTimeout(() => {
+    // ETAPA 4 — se, enquanto esperávamos, uma sessão válida (de outra aba ou
+    // já persistida) levou o usuário para dentro do app, não o arranca de lá
+    // por causa de um link de recuperação paralelo que nunca se resolveu.
+    if (_appScreen && !_appScreen.hidden) return;
+    const err = new AuthError('Recovery link missing/corrupt token', {
+      code:   'recovery_link_invalid',
+      reason: AUTH_REASONS.LINK_INVALID,
+    });
+    clearAuthRedirectParams();
+    _showLinkInvalid(err);
+  }, RECOVERY_FALLBACK_MS);
+  return () => clearTimeout(timer);
 }
 
 /**
@@ -152,6 +229,9 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
   document.getElementById('btn-to-login-from-forgot')?.addEventListener('click', showLogin);
   document.getElementById('btn-back-to-login-from-sent')?.addEventListener('click', showLogin);
   document.getElementById('btn-back-to-login-from-reset')?.addEventListener('click', showLogin);
+  document.getElementById('btn-back-to-login-from-invalid')?.addEventListener('click', showLogin);
+  document.getElementById('btn-request-new-link')?.addEventListener('click', () => showAuthView('forgot'));
+  document.getElementById('btn-request-new-link-from-new-password')?.addEventListener('click', () => showAuthView('forgot'));
 
   // ── Cadastro ──────────────────────────────────────────────────────────────
   const registerBtn   = document.getElementById('btn-register');
@@ -270,6 +350,15 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
   });
 
   // ── Controle de sessão ────────────────────────────────────────────────────
+  // A1.4 — resolvido de forma síncrona, antes de qualquer outro fluxo: se o
+  // link de e-mail já voltou com um erro explícito na URL, nem
+  // onAuthStateChange nem getSession() devem decidir a tela (ambos veriam
+  // "sem sessão" e mostrariam o login comum, apagando a explicação que
+  // acabamos de exibir). `_clearRecoveryFallback` cancela o prazo do caso
+  // "token ausente/corrompido" assim que PASSWORD_RECOVERY chega a disparar.
+  const _redirectErrorHandled = _handleAuthRedirectError();
+  const _clearRecoveryFallback = _redirectErrorHandled ? () => {} : _armRecoveryFallback();
+
   // If neither onAuthStateChange nor getSession() resolves within 10s (e.g.
   // Supabase unreachable, token refresh hanging), force the login screen so
   // the user is never stuck on the splash forever.
@@ -280,14 +369,17 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
   onAuthStateChange((session, event) => {
     clearTimeout(_authSafetyTimer);
     if (event === 'PASSWORD_RECOVERY') {
+      _clearRecoveryFallback();
       showAuthView('new-password');
       return;
     }
+    if (_redirectErrorHandled) return;
     if (session) showApp(session);
     else showLogin();
   });
 
   (async () => {
+    if (_redirectErrorHandled) { clearTimeout(_authSafetyTimer); return; }
     const session = await getSession();
     if (session) showApp(session);
     else showLogin();
@@ -297,6 +389,6 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
     // in case it also hangs or never fires.
     handleError(err, { context: 'authView.getSession', silent: true });
     clearTimeout(_authSafetyTimer);
-    showLogin();
+    if (!_redirectErrorHandled) showLogin();
   });
 }
