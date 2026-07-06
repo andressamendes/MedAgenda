@@ -2836,6 +2836,76 @@ textarea { resize: vertical; }
   border: 1px solid var(--gray-200);
 }
 
+/* ── Plano da Semana (F3.3) — lista estruturada, sem ações que criem dados ── */
+.ai-result-body--plan {
+  white-space: normal;
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+.ai-plan-empty {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.ai-plan-item {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-left: 3px solid var(--gray-300);
+  border-radius: var(--radius);
+  padding: .75rem .9rem;
+}
+
+.ai-plan-item--alta   { border-left-color: #ef4444; }
+.ai-plan-item--média  { border-left-color: #f59e0b; }
+.ai-plan-item--baixa  { border-left-color: #6b7280; }
+
+.ai-plan-item-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem .6rem;
+  margin-bottom: .35rem;
+}
+
+.ai-plan-priority {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+}
+
+.ai-plan-priority--alta   { color: #b91c1c; background: rgba(239,68,68,.12); }
+.ai-plan-priority--média  { color: #92400e; background: rgba(245,158,11,.12); }
+.ai-plan-priority--baixa  { color: var(--gray-600); background: var(--gray-200); }
+
+.ai-plan-category {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.ai-plan-time {
+  font-size: .78rem;
+  color: var(--gray-500);
+  margin-left: auto;
+}
+
+.ai-plan-reason {
+  font-size: .85rem;
+  line-height: 1.5;
+  color: var(--gray-800);
+  margin: 0;
+}
+
 /* ── Loading ── */
 .ai-panel-loading {
   display: flex;
