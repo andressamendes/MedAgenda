@@ -10,7 +10,9 @@
     "test:views": "node --experimental-vm-modules --experimental-test-module-mocks --test tests/views/*.test.js",
     "test:integration": "node --experimental-vm-modules --experimental-test-module-mocks --test tests/integration/*.test.js",
     "build:app-shell": "node scripts/generate-app-shell.js",
-    "check:app-shell": "node scripts/generate-app-shell.js --check"
+    "check:app-shell": "node scripts/generate-app-shell.js --check",
+    "check:schema": "node scripts/check-schema.js",
+    "verify": "npm run check:app-shell && npm test && npm run check:schema"
   },
   "engines": {
     "node": ">=20.18.0"

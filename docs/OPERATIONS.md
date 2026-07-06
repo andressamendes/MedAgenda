@@ -109,11 +109,11 @@ Mecanismo permanente para impedir que o frontend rode contra um banco cujo schem
 1. **Versão do banco** — a tabela `public.schema_version` (migration `14_schema_version.sql`) guarda uma única linha (`id = 1`) com o número da migration mais recente aplicada. Leitura liberada para `anon` e `authenticated` (é só um inteiro público, sem dado de usuário); escrita só pelo SQL Editor (fora de RLS), como qualquer outra migration.
 2. **Versão esperada pelo frontend** — `EXPECTED_SCHEMA_VERSION`, uma constante em `schemaService.js`, versionada junto com o código. Deve ser incrementada no mesmo commit/PR que introduz uma migration da qual o frontend passe a depender.
 3. **Verificação no bootstrap** — `_initApp()` (`script.js`) chama `schemaService.assertSchemaCompatible()` como primeiro passo, antes de inicializar qualquer subsistema. Se o banco estiver desatualizado (ou a tabela `schema_version` não existir/estiver vazia, ou a consulta falhar), a exceção resultante (`SchemaMismatchError`) é tratada por `errorService.js` (categoria própria `schema_mismatch`, nunca reaproveitando `database`/`network`/`server_unavailable`/`auth`) e `stateView.js` (estado dedicado `SCHEMA_MISMATCH`: título "Banco de dados desatualizado", ação "Recarregar"). **Dashboard, Central de Insights, Histórico de Sessões, IA e Sessões nunca chegam a inicializar** nesse caminho — a tela do app permanece oculta e a tela dedicada assume o lugar dela.
-4. **Verificação no deploy** — o workflow `deploy.yml` tem um passo ("Validate database schema version") que consulta `schema_version` via REST (usando a `SUPABASE_ANON_KEY` já configurada como secret do repositório, sem credencial nova) e falha o job **antes de publicar o frontend** se a versão do banco for menor que `EXPECTED_SCHEMA_VERSION` lida de `schemaService.js`, ou se a tabela/linha não existir.
+4. **Verificação no deploy** — o workflow `deploy.yml` roda `npm run check:schema` (ver "Guard Rails de Desenvolvimento e Deploy" abaixo), que consulta `schema_version` **e** a estrutura completa das tabelas/colunas obrigatórias via REST (usando a `SUPABASE_ANON_KEY` já configurada como secret do repositório, sem credencial nova) e falha o job **antes de publicar o frontend** se algo estiver incompatível.
 
 ### Limite conhecido da verificação em CI
 
-O passo em `deploy.yml` só consegue validar o projeto Supabase apontado pelos secrets `SUPABASE_URL`/`SUPABASE_ANON_KEY` do repositório — o mesmo projeto único usado em produção (ver "Visão Geral": não há ambientes separados). Ele **não** aplica migrations automaticamente, não faz rollback e não impede que alguém dispare `workflow_dispatch` manualmente ignorando o resultado de uma execução anterior falha — apenas garante que o pipeline automático (`push` em `main`) nunca publica um frontend cuja versão mínima de schema não esteja presente no banco no momento do deploy. A aplicação das migrations em si continua inteiramente manual (ver "Deploy Banco" acima) — este mecanismo é uma trava de saída, não uma trava de entrada.
+A validação de schema só consegue rodar de verdade onde há credenciais do Supabase disponíveis — hoje, apenas em `deploy.yml` (secrets do repositório, mesmo projeto único usado em produção; ver "Visão Geral": não há ambientes separados). Em `ci.yml` (que roda em todo push/PR, sem esses secrets) o mesmo script é executado de forma apenas informativa (`continue-on-error: true`) — ele falha explicitamente reportando que não tem credenciais, mas essa falha não bloqueia o PR, para não travar todo PR não relacionado a schema. Nenhum dos dois workflows aplica migrations automaticamente, faz rollback, ou impede que alguém dispare `workflow_dispatch` manualmente ignorando uma execução anterior falha — a aplicação das migrations em si continua inteiramente manual (ver "Deploy Banco" acima); este mecanismo é uma trava de saída, não uma trava de entrada.
 
 ### Checklist obrigatório — publicar código que depende de schema novo
 
@@ -131,6 +131,53 @@ Não existe rollback automatizado de schema (ver "Banco → Rollback" acima) —
 1. Se o rollback do banco reduzir o schema para um estado anterior a uma versão já anunciada em `schema_version`, **atualize a linha manualmente** para refletir a realidade: `UPDATE public.schema_version SET version = <versão real após o rollback>, applied_at = now() WHERE id = 1;` — nunca deixe `schema_version` "adiantada" em relação ao schema de fato presente, ou o frontend seguirá em frente acreditando que tabelas/colunas já removidas ainda existem.
 2. Se o rollback for do **frontend** (reverter um commit que dependia de schema novo), nenhuma ação em `schema_version` é necessária — `EXPECTED_SCHEMA_VERSION` volta com o commit revertido, e um banco mais novo continua compatível (a verificação é `dbVersion >= expectedVersion`, nunca igualdade estrita).
 3. Sempre repetir a "Validação (pós-deploy)" abaixo após qualquer rollback, incluindo login e uma tela que dependa de schema recente (ex.: Dashboard de Execução).
+
+---
+
+# Guard Rails de Desenvolvimento e Deploy (P1)
+
+Complemento da seção "Proteção contra Divergência de Schema" acima: em vez de descobrir uma migration esquecida só no bootstrap do usuário final (P0) ou já dentro do job de deploy, este mecanismo existe para que o problema seja detectável o mais cedo possível — idealmente na máquina do desenvolvedor, antes até de abrir um PR. Nenhuma regra de negócio foi alterada — é só instrumentação de desenvolvimento/deploy.
+
+### `scripts/check-schema.js`
+
+Script Node único, sem dependências externas, com uma responsabilidade só: verificar (nunca alterar) o schema do Supabase configurado. Concretamente:
+
+1. Lê `EXPECTED_SCHEMA_VERSION` do código-fonte de `schemaService.js` (não importa o módulo — ele depende do SDK do Supabase via CDN, que não roda em Node puro).
+2. Resolve credenciais: `SUPABASE_URL`/`SUPABASE_ANON_KEY` do ambiente (prioridade — usado em CI) ou, na ausência delas, de um `config.js` local (mesmo arquivo que o frontend usa em desenvolvimento). Sem nenhuma das duas fontes, **falha explicitamente** dizendo que a validação depende do ambiente — nunca finge sucesso.
+3. Consulta `public.schema_version` via REST e compara com `EXPECTED_SCHEMA_VERSION`.
+4. Consulta a introspecção OpenAPI que o PostgREST expõe em `GET {SUPABASE_URL}/rest/v1/` (sem service role, sem sessão de usuário) e confere que todas as tabelas obrigatórias (`REQUIRED_TABLES`) existem, e que colunas críticas introduzidas por migrations recentes (`REQUIRED_COLUMNS` — hoje, `profiles.daily_goal_minutes`/`weekly_goal_minutes`/`monthly_goal_minutes`, de `12_time_goals.sql`) também existem.
+5. Imprime um relatório item a item (`✓ tabela` / `✕ tabela ausente: x` / `✕ coluna ausente: tabela.coluna`) — nunca um "schema inválido" genérico — e sai com código `1` se qualquer item falhar.
+
+### Comandos npm
+
+| Comando | O que faz |
+|---|---|
+| `npm run check:schema` | Roda `scripts/check-schema.js` isoladamente |
+| `npm run verify` | `check:app-shell` → `test` → `check:schema`, em sequência — a mesma composição que `deploy.yml` roda antes de publicar; use antes de abrir um PR que toque schema ou App Shell |
+
+### Integração com CI
+
+- **`ci.yml`** (todo push/PR, sem acesso ao banco de produção): roda `npm run check:schema` com `continue-on-error: true` — reporta a limitação (sem credenciais) de forma visível no log, sem bloquear PRs que não tenham relação com schema. Isso nunca é mascarado como "verificado e OK".
+- **`deploy.yml`** (push em `main`/`workflow_dispatch`, com secrets do Supabase de produção): roda, nesta ordem, `npm ci` → `check:app-shell` → `npm test` → gera `config.js` → `check:schema` → só então publica (`configure-pages`/`upload-pages-artifact`/`deploy-pages`). Qualquer uma dessas etapas falhando impede a publicação.
+
+### Checklist de recuperação — ambiente inconsistente
+
+Quando `check:schema` (local ou em CI) reporta uma falha, siga nesta ordem:
+
+1. Leia o relatório item a item — ele já diz exatamente o que falta (`✕ tabela ausente: <tabela>` ou `✕ coluna ausente: <tabela>.<coluna>` ou a versão de schema atual vs. exigida). Nunca tente adivinhar a causa a partir de um erro genérico do frontend.
+2. Confirme qual(is) migration(s) em `/sql` introduzem o que está faltando (o nome do arquivo geralmente entrega isso — ex.: tabela `reviews` ausente → `13_reviews.sql`).
+3. Aplique a(s) migration(s) faltante(s), em ordem numérica, no SQL Editor do Supabase do ambiente afetado.
+4. Rode `npm run check:schema` de novo (localmente, com `config.js` apontando para esse projeto, ou disparando `workflow_dispatch` de `deploy.yml`) até o relatório mostrar tudo `✓`.
+5. Só então prossiga com o deploy/PR que motivou a checagem.
+
+Fluxo oficial completo, do código à publicação:
+
+```
+1. Executar migrations pendentes (SQL Editor do Supabase)
+2. Validar schema (npm run check:schema — local ou deploy.yml)
+3. Executar testes (npm test — local, ci.yml e deploy.yml)
+4. Publicar frontend (deploy.yml, só depois dos três passos acima passarem)
+```
 
 ### Deploy PWA
 
@@ -156,28 +203,34 @@ O repositório define **3 workflows**, todos em `.github/workflows/`.
 
 ## `ci.yml` — CI — Tests
 
-- **Objetivo:** garantir que a lógica de domínio pura (recorrência, notificações, assistente, analytics, utils) continua correta antes de qualquer merge.
+- **Objetivo:** garantir que a lógica de domínio pura (recorrência, notificações, assistente, analytics, utils) continua correta antes de qualquer merge, mais os dois guard rails de sincronia (App Shell) e schema (informativo).
 - **Gatilho:** `push` para `main` e `pull_request` contra `main`.
 - **Etapas executadas:**
   1. `actions/checkout@v4`
   2. `actions/setup-node@v4` (Node.js 20)
-  3. `npm test`
-- **Artefatos produzidos:** nenhum. Apenas o resultado (sucesso/falha) do `npm test`, visível na aba **Actions** e no status check do Pull Request.
-- **Efeito de falha:** bloqueia visualmente o PR (status check vermelho); não há branch protection documentada no repositório impedindo o merge por si só além do status check.
+  3. `npm ci`
+  4. `npm run check:app-shell`
+  5. `npm test`
+  6. `npm run check:schema` (P1 — `continue-on-error: true`): este workflow não tem secrets do Supabase, então o script sempre reporta essa limitação explicitamente; a etapa nunca bloqueia o PR por isso.
+- **Artefatos produzidos:** nenhum. Apenas o resultado (sucesso/falha) de cada etapa, visível na aba **Actions** e no status check do Pull Request.
+- **Efeito de falha:** `check:app-shell` ou `npm test` falhando bloqueia visualmente o PR (status check vermelho); `check:schema` falhando não bloqueia (etapa informativa). Não há branch protection documentada no repositório impedindo o merge por si só além dos status checks.
 
 ## `deploy.yml` — Deploy — GitHub Pages
 
-- **Objetivo:** publicar o frontend estático no GitHub Pages.
+- **Objetivo:** publicar o frontend estático no GitHub Pages, só depois de confirmar App Shell sincronizado, testes passando e schema do banco compatível.
 - **Gatilho:** `push` para `main` e `workflow_dispatch` (disparo manual).
 - **Permissões declaradas:** `contents: read`, `pages: write`, `id-token: write`.
 - **Concorrência:** grupo `pages`, sem cancelamento de execuções em andamento (`cancel-in-progress: false`) — deploys enfileiram em vez de se cancelarem.
 - **Etapas executadas:**
   1. `actions/checkout@v4`
-  2. Gera `config.js` a partir dos Secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`, com `APP_URL` fixo (`https://andressamendes.github.io/MedAgenda/`) escrito diretamente no workflow
-  3. **Valida a versão do schema do banco** (P0 — ver "Proteção contra Divergência de Schema" acima): consulta `public.schema_version` via REST com a `SUPABASE_ANON_KEY`, compara com `EXPECTED_SCHEMA_VERSION` lida de `schemaService.js`, e falha o job (`exit 1`) — antes de qualquer etapa de publicação — se o banco estiver desatualizado ou a tabela/linha não existir
-  4. `actions/configure-pages@v5`
-  5. `actions/upload-pages-artifact@v3`, empacotando todo o diretório raiz (`path: '.'`)
-  6. `actions/deploy-pages@v4`, publicando o artefato
+  2. `actions/setup-node@v4` (Node.js 20) + `npm ci`
+  3. `npm run check:app-shell` (P1 — guard rail)
+  4. `npm test` (P1 — guard rail)
+  5. Gera `config.js` a partir dos Secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`, com `APP_URL` fixo (`https://andressamendes.github.io/MedAgenda/`) escrito diretamente no workflow
+  6. **Valida o schema do banco** (`npm run check:schema` — P0/P1, ver seções acima): versão mínima **e** presença de tabelas/colunas obrigatórias, via REST com a `SUPABASE_ANON_KEY`; falha o job (`exit 1`) — antes de qualquer etapa de publicação — se algo estiver incompatível
+  7. `actions/configure-pages@v5`
+  8. `actions/upload-pages-artifact@v3`, empacotando todo o diretório raiz (`path: '.'`)
+  9. `actions/deploy-pages@v4`, publicando o artefato
 - **Artefatos produzidos:** o artefato de páginas (site estático completo, incluindo o `config.js` gerado) enviado ao GitHub Pages; URL de deploy exposta em `steps.deployment.outputs.page_url` e no ambiente `github-pages` do repositório.
 
 ## `deploy-functions.yml` — Deploy — Supabase Edge Functions
