@@ -52,7 +52,8 @@ import { initNavigation, restoreLastPage, restoreSidebarState } from "./navigati
 import { initCategoryView, initCategories, categoryColor, resetCategories } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
-import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
+import { assertSchemaCompatible } from "./schemaService.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
@@ -149,6 +150,32 @@ async function safeInit(label, fn) {
   }
 }
 
+// ── P0 — Proteção contra Divergência de Schema ────────────────────────────
+// Primeiro passo de todo _initApp: confirma que o banco já recebeu as
+// migrations que este build do frontend exige (ver schemaService.js) antes
+// de inicializar qualquer subsistema — em especial Dashboard, Central de
+// Insights, Histórico de Sessões e IA, os três que quebraram no incidente
+// das migrations 11–13 por consultarem tabelas ainda inexistentes. Schema
+// incompatível nunca chega a rodar nenhum safeInit() abaixo: a tela de app
+// permanece oculta e schema-mismatch-screen assume o lugar dela.
+async function _checkSchemaGate() {
+  try {
+    await assertSchemaCompatible();
+    return true;
+  } catch (err) {
+    const { friendly } = handleError(err, { context: "initApp.schemaCheck", silent: true });
+    document.getElementById("app-screen").hidden = true;
+    const screen = document.getElementById("schema-mismatch-screen");
+    screen.hidden = false;
+    renderStateBlock(document.getElementById("schema-mismatch-block"), {
+      state: STATES.SCHEMA_MISMATCH,
+      message: friendly,
+      onRetry: () => window.location.reload(),
+    });
+    return false;
+  }
+}
+
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
 // Inicialização do app após autenticação bem-sucedida.
 // Esta função é passada como callback onSignedIn ao initAuthView() e é chamada
@@ -156,6 +183,8 @@ async function safeInit(label, fn) {
 // authView.js (showApp).
 async function _initApp(session) {
   try {
+    if (!(await _checkSchemaGate())) return;
+
     restoreSidebarState();
 
     headerEmail.textContent = session.user.email;

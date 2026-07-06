@@ -86,11 +86,51 @@ Existem quatro superfícies de deploy no projeto, com automação e frequência 
 08_ai_metrics.sql
 09_notification_logs_integrity.sql
 10_ai_metrics_observability.sql
+11_activity_sessions.sql
+12_time_goals.sql
+13_reviews.sql
+14_schema_version.sql
 ```
 
-`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql` e `08_ai_metrics.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. Ver detalhamento completo em [`DATABASE.md`](DATABASE.md).
+`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql`, `08_ai_metrics.sql` e `14_schema_version.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. Ver detalhamento completo em [`DATABASE.md`](DATABASE.md).
 
 **Quando deve ser aplicado:** sempre **antes** de mesclar/publicar código (frontend ou Edge Function) que dependa das novas tabelas/colunas — caso contrário, o código em produção pode referenciar schema inexistente.
+
+**Incidente histórico (motivo da seção "Proteção contra Divergência de Schema" abaixo):** o frontend chegou a ser publicado no GitHub Pages com as migrations `11_activity_sessions.sql`, `12_time_goals.sql` e `13_reviews.sql` ainda não aplicadas em produção — Dashboard, Central de Insights e Histórico de Sessões passaram a consultar tabelas inexistentes, produzindo "Erro ao comunicar com o servidor" para o usuário final, sem qualquer sinal de que a causa era uma migration pendente. `14_schema_version.sql` e o mecanismo descrito abaixo existem para que isso nunca mais aconteça de forma silenciosa.
+
+---
+
+# Proteção contra Divergência de Schema (P0)
+
+Mecanismo permanente para impedir que o frontend rode contra um banco cujo schema ainda não recebeu as migrations que aquele build exige — a causa raiz do incidente das migrations 11–13 (ver acima).
+
+### Como funciona
+
+1. **Versão do banco** — a tabela `public.schema_version` (migration `14_schema_version.sql`) guarda uma única linha (`id = 1`) com o número da migration mais recente aplicada. Leitura liberada para `anon` e `authenticated` (é só um inteiro público, sem dado de usuário); escrita só pelo SQL Editor (fora de RLS), como qualquer outra migration.
+2. **Versão esperada pelo frontend** — `EXPECTED_SCHEMA_VERSION`, uma constante em `schemaService.js`, versionada junto com o código. Deve ser incrementada no mesmo commit/PR que introduz uma migration da qual o frontend passe a depender.
+3. **Verificação no bootstrap** — `_initApp()` (`script.js`) chama `schemaService.assertSchemaCompatible()` como primeiro passo, antes de inicializar qualquer subsistema. Se o banco estiver desatualizado (ou a tabela `schema_version` não existir/estiver vazia, ou a consulta falhar), a exceção resultante (`SchemaMismatchError`) é tratada por `errorService.js` (categoria própria `schema_mismatch`, nunca reaproveitando `database`/`network`/`server_unavailable`/`auth`) e `stateView.js` (estado dedicado `SCHEMA_MISMATCH`: título "Banco de dados desatualizado", ação "Recarregar"). **Dashboard, Central de Insights, Histórico de Sessões, IA e Sessões nunca chegam a inicializar** nesse caminho — a tela do app permanece oculta e a tela dedicada assume o lugar dela.
+4. **Verificação no deploy** — o workflow `deploy.yml` tem um passo ("Validate database schema version") que consulta `schema_version` via REST (usando a `SUPABASE_ANON_KEY` já configurada como secret do repositório, sem credencial nova) e falha o job **antes de publicar o frontend** se a versão do banco for menor que `EXPECTED_SCHEMA_VERSION` lida de `schemaService.js`, ou se a tabela/linha não existir.
+
+### Limite conhecido da verificação em CI
+
+O passo em `deploy.yml` só consegue validar o projeto Supabase apontado pelos secrets `SUPABASE_URL`/`SUPABASE_ANON_KEY` do repositório — o mesmo projeto único usado em produção (ver "Visão Geral": não há ambientes separados). Ele **não** aplica migrations automaticamente, não faz rollback e não impede que alguém dispare `workflow_dispatch` manualmente ignorando o resultado de uma execução anterior falha — apenas garante que o pipeline automático (`push` em `main`) nunca publica um frontend cuja versão mínima de schema não esteja presente no banco no momento do deploy. A aplicação das migrations em si continua inteiramente manual (ver "Deploy Banco" acima) — este mecanismo é uma trava de saída, não uma trava de entrada.
+
+### Checklist obrigatório — publicar código que depende de schema novo
+
+- [ ] Migration nova criada em `/sql`, numerada sequencialmente, terminando com `UPDATE public.schema_version SET version = <N>, applied_at = now() WHERE id = 1;`
+- [ ] `EXPECTED_SCHEMA_VERSION` incrementado em `schemaService.js` para `<N>`, no mesmo commit
+- [ ] Migration aplicada manualmente no SQL Editor do Supabase (produção) — **antes** do merge/deploy do código que depende dela
+- [ ] Validar schema: `SELECT version FROM public.schema_version;` confirma `<N>` (ou consultar via REST: `GET {SUPABASE_URL}/rest/v1/schema_version?select=version&id=eq.1` com a anon key)
+- [ ] Confirmar versão: o valor lido no passo acima é `>= EXPECTED_SCHEMA_VERSION` do commit a publicar
+- [ ] Publicar frontend: merge em `main` — o passo "Validate database schema version" de `deploy.yml` roda automaticamente e bloqueia o job se algo acima foi pulado
+
+### Rollback
+
+Não existe rollback automatizado de schema (ver "Banco → Rollback" acima) — reverter uma migration continua exigindo SQL manual escrito e revisado caso a caso. O que muda com este mecanismo:
+
+1. Se o rollback do banco reduzir o schema para um estado anterior a uma versão já anunciada em `schema_version`, **atualize a linha manualmente** para refletir a realidade: `UPDATE public.schema_version SET version = <versão real após o rollback>, applied_at = now() WHERE id = 1;` — nunca deixe `schema_version` "adiantada" em relação ao schema de fato presente, ou o frontend seguirá em frente acreditando que tabelas/colunas já removidas ainda existem.
+2. Se o rollback for do **frontend** (reverter um commit que dependia de schema novo), nenhuma ação em `schema_version` é necessária — `EXPECTED_SCHEMA_VERSION` volta com o commit revertido, e um banco mais novo continua compatível (a verificação é `dbVersion >= expectedVersion`, nunca igualdade estrita).
+3. Sempre repetir a "Validação (pós-deploy)" abaixo após qualquer rollback, incluindo login e uma tela que dependa de schema recente (ex.: Dashboard de Execução).
 
 ### Deploy PWA
 
@@ -104,7 +144,7 @@ Não existe um "deploy" separado para a PWA — o manifest (`manifest.webmanifes
 | Edge Function `ai-chat` | Push em `main` alterando `supabase/functions/**`, ou `workflow_dispatch` | Total |
 | Edge Function `send-push-notifications` | Nenhum — decisão do mantenedor | Manual via CLI |
 | Edge Function `delete-account` | Nenhum — decisão do mantenedor | Manual via CLI |
-| Migrations SQL | Nenhum — decisão do mantenedor | Manual via SQL Editor |
+| Migrations SQL | Nenhum — decisão do mantenedor | Manual via SQL Editor (aplicação); versão validada automaticamente antes do deploy do frontend, ver P0 |
 | PWA (manifest/Service Worker) | Empacotado junto ao deploy do Frontend | Total (como parte do frontend) |
 | Projeto Supabase em si (criação/configuração) | Nenhum — feito uma única vez | Manual via Dashboard |
 
@@ -134,9 +174,10 @@ O repositório define **3 workflows**, todos em `.github/workflows/`.
 - **Etapas executadas:**
   1. `actions/checkout@v4`
   2. Gera `config.js` a partir dos Secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VAPID_PUBLIC_KEY`, com `APP_URL` fixo (`https://andressamendes.github.io/MedAgenda/`) escrito diretamente no workflow
-  3. `actions/configure-pages@v5`
-  4. `actions/upload-pages-artifact@v3`, empacotando todo o diretório raiz (`path: '.'`)
-  5. `actions/deploy-pages@v4`, publicando o artefato
+  3. **Valida a versão do schema do banco** (P0 — ver "Proteção contra Divergência de Schema" acima): consulta `public.schema_version` via REST com a `SUPABASE_ANON_KEY`, compara com `EXPECTED_SCHEMA_VERSION` lida de `schemaService.js`, e falha o job (`exit 1`) — antes de qualquer etapa de publicação — se o banco estiver desatualizado ou a tabela/linha não existir
+  4. `actions/configure-pages@v5`
+  5. `actions/upload-pages-artifact@v3`, empacotando todo o diretório raiz (`path: '.'`)
+  6. `actions/deploy-pages@v4`, publicando o artefato
 - **Artefatos produzidos:** o artefato de páginas (site estático completo, incluindo o `config.js` gerado) enviado ao GitHub Pages; URL de deploy exposta em `steps.deployment.outputs.page_url` e no ambiente `github-pages` do repositório.
 
 ## `deploy-functions.yml` — Deploy — Supabase Edge Functions
@@ -468,6 +509,8 @@ Não há branch de staging/homologação: o merge em `main` é o evento que disp
 - [ ] Nova migration numerada sequencialmente em `/sql`, nunca uma migration já aplicada em produção editada
 - [ ] RLS habilitado e políticas cobrindo SELECT/INSERT/UPDATE/DELETE conforme necessário, declaradas na própria migration
 - [ ] Dependências de outras migrations documentadas no cabeçalho do arquivo
+- [ ] Migration termina com `UPDATE public.schema_version SET version = <N>, applied_at = now() WHERE id = 1;` (P0 — ver "Proteção contra Divergência de Schema")
+- [ ] `EXPECTED_SCHEMA_VERSION` incrementado em `schemaService.js` para `<N>`, no mesmo commit
 - [ ] Migration aplicada manualmente no SQL Editor do Supabase **antes** de publicar código que dependa dela
 - [ ] Se a mudança afeta recorrência: `recurrence.js` (frontend) e `_shared/recurrence-core.js` (Edge Function) revisados e mantidos sincronizados
 
@@ -505,7 +548,7 @@ Verificação de cobertura da documentação operacional e do pipeline real, sem
 | Todos os workflows documentados | Consistente | 3 workflows no repositório (`ci.yml`, `deploy.yml`, `deploy-functions.yml`); todos documentados acima com objetivo, gatilho, etapas e artefatos. |
 | Todas as Edge Functions documentadas | Consistente | 3 funções (`ai-chat`, `send-push-notifications`, `delete-account`); todas cobertas nesta e em outras docs (`BACKEND.md`, `SECURITY.md`). |
 | Deploy automatizado cobre todas as Edge Functions | **Inconsistência confirmada** | `deploy-functions.yml` só publica `ai-chat`. `send-push-notifications` e `delete-account` dependem de deploy manual — risco real de divergência entre o código no repositório e o que está de fato em produção, já apontado em `BACKEND.md`, `SECURITY.md` e `DEVELOPMENT.md`. |
-| Migrations cobertas por CI/CD | **Lacuna confirmada** | Nenhum workflow aplica migrations SQL. A aplicação em produção depende inteiramente de disciplina manual, sem registro automático de quais migrations já foram aplicadas ao projeto Supabase de produção. |
+| Migrations cobertas por CI/CD | **Lacuna parcialmente resolvida (P0)** | Nenhum workflow *aplica* migrations SQL — isso continua manual. Mas, desde `14_schema_version.sql` + o passo "Validate database schema version" em `deploy.yml`, o pipeline **valida automaticamente** que a versão mínima de schema exigida pelo frontend já foi aplicada, e bloqueia a publicação caso não tenha sido — o registro de quais migrations foram aplicadas agora existe (`public.schema_version`), mesmo que a aplicação em si continue manual. |
 | Monitoramento documentado | Consistente, porém limitado | `diagnosticService.js`, `telemetryService.js`, `errorService.js`, `ai_metrics` e os logs nativos de Edge Functions/GitHub Actions são os únicos mecanismos existentes — todos documentados acima. Desde a Auditoria A2.6, `errorService.js` é o ponto único de categorização de erros do frontend e `diagnosticService.js` também expõe o buffer de erros recentes. Ainda não há agregador central entre frontend e backend nem alerta automatizado; isso não é uma omissão da documentação, é o estado real do projeto. |
 | Backup documentado ou existente | **Ausência confirmada** | Nenhum backup de banco, Storage ou configuração é realizado, agendado ou documentado por este repositório. Registrado explicitamente na seção "Backup". |
 | Ambientes separados (dev/staging/prod) | **Ausência confirmada** | Um único projeto Supabase é referenciado via `SUPABASE_PROJECT_REF` nos workflows; não há evidência de projetos distintos por ambiente. |

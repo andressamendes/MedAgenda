@@ -71,6 +71,14 @@ body {
   animation: spin .7s linear infinite;
 }
 
+/* ── Banco de dados desatualizado (P0) — reusa .state-block (ver bloco de
+   Estado unificado abaixo), só restringe a largura para leitura confortável
+   em tela cheia. */
+.schema-mismatch-block {
+  max-width: 420px;
+  padding: 0 1rem;
+}
+
 /* ── Login ── */
 .login-wrap {
   min-height: 100vh;

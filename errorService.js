@@ -12,6 +12,13 @@ const CATEGORIES = {
   UI:         'ui',
   RATE_LIMIT: 'rate_limit',
   SERVER_UNAVAILABLE: 'server_unavailable',
+  // P0 — Proteção contra Divergência de Schema. Categoria própria: nunca
+  // reaproveita DATABASE/NETWORK/SERVER_UNAVAILABLE/AUTH, mesmo que a causa
+  // raiz (tabela/coluna ausente) produza um erro que também "pareça" um erro
+  // de banco — a diferença importa porque a ação correta aqui não é "tentar
+  // de novo" nem "fazer login de novo", é aguardar o administrador aplicar
+  // as migrations pendentes.
+  SCHEMA_MISMATCH: 'schema_mismatch',
   UNKNOWN:    'unknown',
 };
 
@@ -54,6 +61,14 @@ function categorize(err) {
   // e mensagem específica por caso — classificar por nome evita que o texto
   // (ex.: "temporariamente indisponível") caia num balde genérico por acidente.
   if (err?.name === 'AIError') return CATEGORIES.AI;
+
+  // P0 (ver schemaService.js) — reconhecido pela mesma convenção de flag
+  // estrutural usada por AuthError/AIError, nunca por texto de mensagem.
+  // Checado cedo, antes de qualquer heurística de banco/rede, para que uma
+  // tabela ausente por schema desatualizado nunca vire "erro ao comunicar
+  // com o servidor" (categoria DATABASE) nem qualquer outra categoria
+  // genérica.
+  if (err?.__schemaMismatch === true) return CATEGORIES.SCHEMA_MISMATCH;
 
   // Rate limiting do Supabase (auth-js e demais APIs) chega com status 429 e/
   // ou um `code` dedicado (ex.: over_email_send_rate_limit,
@@ -177,6 +192,7 @@ const FRIENDLY = {
   // (5xx), não uma falha específica de consulta ao banco; nunca mostrar como
   // "sessão expirada" (categoria auth) nem misturar com a mensagem de rede.
   [CATEGORIES.SERVER_UNAVAILABLE]: 'Servidor indisponível no momento. Tente novamente em instantes.',
+  [CATEGORIES.SCHEMA_MISMATCH]: 'Esta versão do sistema requer uma atualização do banco de dados antes de poder ser utilizada.',
   [CATEGORIES.UNKNOWN]:   'Algo deu errado. Tente novamente.',
 };
 
