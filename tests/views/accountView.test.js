@@ -19,11 +19,28 @@ const AUTH_SPECIFIER     = new URL("../../auth.js", import.meta.url).href;
 const PROFILE_SPECIFIER  = new URL("../../profileService.js", import.meta.url).href;
 const AVATAR_SPECIFIER   = new URL("../../avatarService.js", import.meta.url).href;
 const TOAST_SPECIFIER    = new URL("../../toastService.js", import.meta.url).href;
+const CONFIRM_SPECIFIER  = new URL("../../confirmDialog.js", import.meta.url).href;
 
-function loadAccountView(t, { profile, onGetProfile, authOverrides = {} } = {}) {
-  t.mock.module(SUPABASE_SPECIFIER, { namedExports: { supabase: createSupabaseMock() } });
+// confirmDialog.js keeps its overlay in module-level state and only builds it
+// once — that state would otherwise leak across the fresh jsdom document each
+// test installs (see tests/views/eventFormView.test.js), so it's mocked here
+// instead of relying on the real DOM side effects.
+function mockConfirmDialog(t, resolveTo = true) {
+  t.mock.module(CONFIRM_SPECIFIER, {
+    namedExports: { confirmDialog: async () => resolveTo },
+  });
+}
+
+function loadAccountView(t, {
+  profile, onGetProfile, authOverrides = {}, functionResponses = {},
+  onUpsertProfile, toastSpy,
+} = {}) {
+  t.mock.module(SUPABASE_SPECIFIER, {
+    namedExports: { supabase: createSupabaseMock({ functionResponses }) },
+  });
   t.mock.module(AUTH_SPECIFIER, {
     namedExports: {
+      signOut: async () => {},
       updatePassword: async () => ({}),
       reauthenticate: async () => {},
       ...authOverrides,
@@ -35,7 +52,10 @@ function loadAccountView(t, { profile, onGetProfile, authOverrides = {} } = {}) 
         onGetProfile?.();
         return profile ?? { full_name: "Aluna Teste", timezone: "America/Sao_Paulo" };
       },
-      upsertProfile: async (fields) => fields,
+      upsertProfile: async (fields) => {
+        if (onUpsertProfile) return onUpsertProfile(fields);
+        return fields;
+      },
     },
   });
   t.mock.module(AVATAR_SPECIFIER, {
@@ -45,7 +65,14 @@ function loadAccountView(t, { profile, onGetProfile, authOverrides = {} } = {}) 
     },
   });
   t.mock.module(TOAST_SPECIFIER, {
-    namedExports: { showToast: () => {}, toast: { success: () => {}, error: () => {}, info: () => {} } },
+    namedExports: {
+      showToast: () => {},
+      toast: {
+        success: (...args) => toastSpy?.success?.(...args),
+        error:   (...args) => toastSpy?.error?.(...args),
+        info:    (...args) => toastSpy?.info?.(...args),
+      },
+    },
   });
   return import(`../../accountView.js?t=${Math.random()}`);
 }
@@ -318,4 +345,87 @@ test("after logout and a new login, opening the account modal shows the new user
   // getProfile() ran exactly twice: once per login/open, never duplicated.
   assert.strictEqual(getProfileCalls, 2);
   assert.strictEqual(document.getElementById("account-overlay").hidden, false);
+});
+
+// ── A1.7 — Consolidação: erros de perfil/metas/exclusão de conta passam pelo
+// pipeline central (errorService.handleError → friendly), nunca err.message
+// bruto exibido diretamente na view. ──────────────────────────────────────
+
+test("saving the profile shows the pipeline's friendly message instead of a raw technical error", async (t) => {
+  const view = await loadAccountView(t, {
+    onUpsertProfile: async () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'x')");
+    },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("acc-name").value = "Nome Válido";
+  document.getElementById("btn-save-profile").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(
+    document.getElementById("profile-error").textContent,
+    "Não foi possível salvar o perfil."
+  );
+});
+
+test("saving time goals shows the pipeline's friendly message instead of a raw technical error", async (t) => {
+  const view = await loadAccountView(t, {
+    onUpsertProfile: async () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'x')");
+    },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("btn-save-goals").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(
+    document.getElementById("goals-error").textContent,
+    "Não foi possível salvar as metas."
+  );
+});
+
+async function openAccountAndConfirmDelete() {
+  document.getElementById("btn-delete-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  await new Promise(r => setTimeout(r, 0));
+}
+
+test("deleting the account signs out through auth.js's official signOut() wrapper, never the raw SDK call", async (t) => {
+  let signOutCalled = false;
+  mockConfirmDialog(t, true);
+  const view = await loadAccountView(t, {
+    authOverrides: { signOut: async () => { signOutCalled = true; } },
+    functionResponses: { "delete-account": async () => ({ data: {}, error: null }) },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  await openAccountAndConfirmDelete();
+
+  assert.strictEqual(signOutCalled, true);
+});
+
+test("a failed account deletion shows the pipeline's friendly message, never the raw Edge Function error", async (t) => {
+  let toastErrorMsg = null;
+  mockConfirmDialog(t, true);
+  const view = await loadAccountView(t, {
+    functionResponses: {
+      "delete-account": async () => ({ data: null, error: new Error("Failed to fetch") }),
+    },
+    toastSpy: { error: (msg) => { toastErrorMsg = msg; } },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  await openAccountAndConfirmDelete();
+
+  assert.strictEqual(toastErrorMsg, "Sem conexão com a internet. Verifique sua rede e tente novamente.");
 });

@@ -46,7 +46,7 @@ function createQueryBuilder(table, result, calls) {
  *   authResponses:  { signInWithPassword: async () => ({ data: {...}, error: null }) },
  * })
  */
-export function createSupabaseMock({ tableResponses = {}, authResponses = {} } = {}) {
+export function createSupabaseMock({ tableResponses = {}, authResponses = {}, functionResponses = {} } = {}) {
   const calls = [];
   const queues = {};
 
@@ -57,6 +57,13 @@ export function createSupabaseMock({ tableResponses = {}, authResponses = {} } =
       const queue = queues[table];
       const result = queue.length > 1 ? queue.shift() : queue[0];
       return createQueryBuilder(table, result, calls);
+    },
+    functions: {
+      invoke: (name, ...args) => {
+        calls.push({ table: null, method: `functions.invoke:${name}`, args });
+        const responder = functionResponses[name] ?? (async () => ({ data: {}, error: null }));
+        return responder(...args);
+      },
     },
     auth: {
       signInWithPassword: authResponses.signInWithPassword

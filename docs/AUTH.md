@@ -246,11 +246,52 @@ supabase functions deploy delete-account
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `auth.js` | signIn, signUp, signOut, sendPasswordReset, updatePassword, onAuthStateChange |
+| `auth.js` | Única API oficial de acesso à sessão/SDK de auth: signIn, signUp, signOut, getSession, sendPasswordReset, updatePassword, reauthenticate, onAuthStateChange, parseAuthRedirectError, hasRecoveryIntent, clearAuthRedirectParams |
+| `authError.js` | Contrato estruturado (`AuthError`, `AUTH_REASONS`) usado por qualquer erro de autenticação, do SDK ou gerado pelo app |
+| `errorService.js` | Pipeline central de classificação de erros (`categorize`/`friendlyMessage`) — nenhuma tela decide categoria ou mensagem por conta própria |
+| `stateView.js` | Tradução de `{ category, friendly }` para os três estados de UI de tela de listagem (sessão expirada / rede / servidor) |
 | `profileService.js` | getProfile, upsertProfile |
 | `avatarService.js` | uploadAvatar, removeAvatar |
 | `accountView.js` | Modal "Minha Conta": perfil, avatar, senha, exclusão de conta |
 | `supabase.js` | Client singleton, currentUserId() |
+| `diagnosticService.js` | Diagnóstico de conectividade/sessão para suporte — lê a sessão via `auth.js#getSession()`, nunca via SDK direto |
+
+### A1.7 — Consolidação final (auditoria encerrada)
+
+Última etapa da auditoria de autenticação: eliminou os últimos acessos diretos
+ao SDK do Supabase quando já existia wrapper equivalente em `auth.js`, e as
+últimas mensagens de erro exibidas fora do pipeline central
+(`errorService.handleError()`).
+
+- **`accountView.js`** chamava `supabase.auth.signOut()` diretamente na
+  exclusão de conta, em vez de `auth.js#signOut()` (o mesmo wrapper já usado
+  pelo botão "Sair" em `authView.js`). Corrigido para usar `signOut()`. A
+  única chamada direta ao SDK remanescente em `accountView.js` é
+  `supabase.functions.invoke('delete-account')` — legítima, pois não existe
+  (nem deveria existir) um wrapper de sessão para invocar uma Edge Function.
+- **`accountView.js`** exibia `err.message` bruto (texto técnico do
+  Supabase/SDK) em três pontos — salvar perfil, salvar metas de tempo e
+  excluir conta — em vez da mensagem amigável já calculada por
+  `errorService.handleError()`. Corrigido para usar sempre `friendly`, com
+  `fallbackMessage` contextual por tela, no mesmo padrão já usado por login,
+  cadastro, recuperação de senha e troca de senha.
+- **`diagnosticService.js`** lia `supabase.auth.getSession()` diretamente em
+  dois pontos (checagem de sessão e checagem de Storage). Migrado para
+  `auth.js#getSession()` — mesmo dado, mas centralizado no único ponto que
+  sabe lidar com falha de refresh/sessão.
+
+Exceções documentadas (não alteradas nesta etapa, por estarem fora do escopo
+de sessão/autenticação ou por mudarem UX de um módulo não coberto pela
+auditoria):
+
+- `services/ai/providers/geminiProvider.js` lê `supabase.auth.getSession()`
+  diretamente para obter o `access_token` do header `Authorization` da
+  Edge Function `ai-chat`, e trata "sem sessão" como uma condição esperada,
+  não um erro (`AIError('Usuário não autenticado.', 'AUTH')`). Trocar pelo
+  wrapper de `auth.js#getSession()` mudaria esse comportamento — `getSession()`
+  lança quando o refresh falha, em vez de devolver `null` — o que alteraria a
+  UX do painel de IA. Fora do escopo desta auditoria (que cobre a camada de
+  autenticação em si, não os consumidores de sessão de outros módulos).
 
 ---
 

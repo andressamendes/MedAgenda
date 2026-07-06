@@ -38,7 +38,7 @@ Fluxo de uma chamada típica (ex.: listar eventos):
 
 | Camada | Responsabilidade |
 |---|---|
-| **Views** | Renderizam a UI, capturam eventos do usuário, chamam funções dos Services e reagem ao resultado (sucesso ou erro). Nunca importam `supabase.js` diretamente para acesso a dados de domínio — exceção: `accountView.js`, que chama `supabase.functions.invoke('delete-account')` e `supabase.auth.signOut()` diretamente. |
+| **Views** | Renderizam a UI, capturam eventos do usuário, chamam funções dos Services e reagem ao resultado (sucesso ou erro). Nunca importam `supabase.js` diretamente para acesso a dados de domínio — exceção legítima: `accountView.js`, que chama `supabase.functions.invoke('delete-account')` diretamente (não há wrapper em `auth.js` para Edge Functions; a exclusão de conta não é acesso à sessão). Sinalização de sessão (login/logout) sempre passa pelos wrappers de `auth.js` (A1.7 — `signOut()`, nunca `supabase.auth.signOut()` diretamente). |
 | **Services** | Módulos ES puros (`*.js` na raiz do projeto e `services/ai/`). Cada um encapsula o acesso a uma tabela ou a um domínio específico (eventos, categorias, perfil, avatar, calendário acadêmico, notificações locais, push, IA). Resolvem o `user_id` da sessão atual, montam a query Supabase, tratam erros e devolvem dados já no formato usado pela UI. |
 | **Supabase Client** | Instância única (`supabase.js`) criada com `createClient(SUPABASE_URL, SUPABASE_ANON_KEY)`. Gerencia sessão (localStorage), renovação de token e serve de base para `.from()`, `.storage`, `.auth` e `.functions.invoke()`. |
 | **REST API (Supabase)** | PostgREST expõe cada tabela como um recurso REST; GoTrue expõe autenticação; Storage expõe upload/download de arquivos; Edge Functions expõem endpoints HTTP customizados. Todas exigem o header `Authorization: Bearer <jwt>` (exceto rotas públicas de auth, como login/signup). |
@@ -320,7 +320,7 @@ Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em
 | **Resposta** | `200 { success: true }` |
 | **Erros** | `401 { error: 'Não autorizado.' }` sem header ou token inválido · `500 { error: <mensagem> }` se `deleteUser` falhar ou qualquer exceção não tratada ocorrer (capturada pelo `try/catch` externo, que serializa o erro com `String(err)`). |
 | **Segredos usados** | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. |
-| **Pós-chamada no frontend** | Em caso de sucesso, `accountView.js` chama `supabase.auth.signOut()` e exibe um toast de confirmação; em caso de erro, exibe `err.message` (ou mensagem genérica) em um toast de erro. |
+| **Pós-chamada no frontend** | Em caso de sucesso, `accountView.js` chama `signOut()` (wrapper oficial de `auth.js`, A1.7 — nunca `supabase.auth.signOut()` diretamente) e exibe um toast de confirmação; em caso de erro, passa por `errorService.handleError()` e exibe a mensagem amigável resultante em um toast de erro (nunca `err.message` bruto). |
 
 ---
 
