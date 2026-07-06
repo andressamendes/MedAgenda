@@ -12,6 +12,13 @@ export function initPushService(userId, vapidPublicKey) {
   _vapidPubKey = vapidPublicKey || null;
 }
 
+/** Chamado no logout (ver script.js) — a próxima sessão não deve herdar o
+ *  usuário/VAPID key da sessão anterior mesmo antes do próximo initPushService(). */
+export function resetPushService() {
+  _userId      = null;
+  _vapidPubKey = null;
+}
+
 export function isPushSupported() {
   return (
     "serviceWorker" in navigator &&

@@ -31,24 +31,25 @@ import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendar
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import { initNotifications, scheduleReminders, resetNotifications } from "./notificationService.js";
-import { initPushService, syncPushSubscription } from "./pushService.js";
+import { initPushService, syncPushSubscription, resetPushService } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { escapeHtml } from "./utils.js";
 import { toast } from "./toastService.js";
 import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
 import { initErrorService, setErrorDevMode, handleError } from "./errorService.js";
 import { updateLastSync } from "./diagnosticService.js";
-import { initAccountView } from "./accountView.js";
+import { initAccountView, resetAccountView } from "./accountView.js";
 import {
   initAcademicCalendarView, initAcademicModal,
   openAcademicCalendarModal, renderFilterBar,
   getAcademicEventProvider, isPersonalVisible,
+  resetAcademicCalendarView,
 } from "./academicCalendarView.js";
 import { initAssistantView, renderAssistant, resetAssistant } from "./assistantView.js";
-import { initAIPanel } from "./aiPanelView.js";
+import { initAIPanel, resetAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, restoreLastPage, restoreSidebarState } from "./navigationView.js";
-import { initCategoryView, initCategories, categoryColor } from "./categoryView.js";
+import { initCategoryView, initCategories, categoryColor, resetCategories } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
 import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
@@ -106,6 +107,24 @@ const sortSelect           = document.getElementById("sort-appointments");
 // allEvents precisará de uma estratégia de compartilhamento quando os domínios
 // dependentes forem extraídos. editingId → interno ao: formulário (eventFormView.js)
 let allEvents = [];    // compartilhado: lista → assistente, painelIA
+
+// Chamado no logout (ver initAuthView() abaixo) — allEvents e a lista
+// renderizada são estado compartilhado entre domínios (lista → assistente,
+// painelIA); sem este reset, a lista do usuário anterior continuaria em
+// memória e na tela (mesmo escondida) até o próximo loadEvents() da nova
+// sessão, e um filtro/busca digitado pelo usuário anterior sobreviveria à
+// troca de conta.
+function _resetEventList() {
+  allEvents = [];
+  eventList.innerHTML = "";
+  listEmpty.hidden = true;
+  listEmpty.classList.remove("list-error");
+  clearStateBlock(listEmpty);
+  listEmpty.textContent = LIST_EMPTY_TEXT;
+  if (searchInput) searchInput.value = "";
+  if (filterCategorySelect) filterCategorySelect.innerHTML = '<option value="">Todas as categorias</option>';
+  if (sortSelect) sortSelect.value = "date-asc";
+}
 
 async function refreshAll() {
   if (syncIndicator) syncIndicator.hidden = false;
@@ -415,9 +434,24 @@ safeInit("painel de IA", initAIPanel);
 // Única etapa crítica do bootstrap (ver auditoria A2.3): sem ela nenhuma outra
 // parte da aplicação pode funcionar, então — ao contrário das demais — uma
 // falha aqui não é isolada por safeInit().
+// Simetria com _initApp (ver auditoria A1.3): cada subsistema inicializado
+// ali possui exatamente um reset aqui, chamado sempre que o usuário sai
+// (logout manual, sessão expirada/forceReauth, ou troca de usuário) — nenhum
+// estado, listener, timer, subscription ou cache pode sobreviver à troca de
+// sessão nesta SPA (sem reload de página).
 initAuthView({
   onSignedIn:      _initApp,
-  onBeforeSignOut: () => { resetAssistant(); resetNotifications(); resetActivitySessionView(); },
+  onBeforeSignOut: () => {
+    resetAssistant();
+    resetNotifications();
+    resetActivitySessionView();
+    resetAccountView();
+    resetAcademicCalendarView();
+    resetCategories();
+    resetPushService();
+    resetAIPanel();
+    _resetEventList();
+  },
 });
 
 // ── [DOMAIN: pwa] — registro do Service Worker e prompts de instalação ───────

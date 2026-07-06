@@ -207,6 +207,45 @@ test("a successful AI call keeps the retry button hidden", async (t) => {
   assert.strictEqual(document.getElementById("btn-ai-retry").hidden, true);
 });
 
+test("resetAIPanel() (logout, A1.3) aborts an in-flight AI call and hides the panel", async (t) => {
+  const aiMock = createAiServiceMock({ hang: true });
+  t.mock.module(AI_SERVICE_SPECIFIER, { namedExports: aiMock });
+  const { initAIPanel, resetAIPanel } = await import(`../../aiPanelView.js?t=${Math.random()}`);
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+
+  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flushMicrotasks();
+  assert.strictEqual(document.getElementById("ai-panel-loading").hidden, false);
+
+  resetAIPanel();
+
+  // The AbortController handed to the in-flight call was aborted — the
+  // response, if it ever arrives, will be treated as cancelled instead of
+  // rendering into the (now hidden) panel for the next user.
+  assert.strictEqual(aiMock._calls[0].controller.signal.aborted, true);
+  assert.strictEqual(document.getElementById("ai-panel").hidden, true);
+});
+
+test("resetAIPanel() clears the previous result, so the next login never sees the last user's AI answer", async (t) => {
+  const { initAIPanel, resetAIPanel } = await loadAiPanel(t, { weeklySummary: "Dados do usuário anterior." });
+  initAIPanel();
+  document.getElementById("nav-ai-assistant").click();
+  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
+
+  resetAIPanel();
+
+  assert.strictEqual(document.getElementById("ai-panel").hidden, true);
+
+  // Next login reopens the panel — it must show the actions view, not the
+  // previous user's cached result.
+  document.getElementById("nav-ai-assistant").click();
+  assert.strictEqual(document.querySelector(".ai-panel-actions").hidden, false);
+  assert.strictEqual(document.getElementById("ai-panel-result").hidden, true);
+});
+
 test("clicking cancel while an AI call is in flight returns to the actions view", async (t) => {
   const { initAIPanel } = await loadAiPanel(t, { hang: true });
   initAIPanel();

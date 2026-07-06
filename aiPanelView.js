@@ -26,6 +26,13 @@ const LOADING_STAGES = [
   { at: 12000, text: 'Esta resposta está demorando mais que o normal…' },
 ];
 
+// Preenchido dentro de initAIPanel() (fechamento sobre o estado do painel,
+// que é local à função). Chamado no logout via resetAIPanel() — sem isto,
+// uma chamada de IA em andamento no momento do logout continuaria rodando em
+// segundo plano e poderia renderizar a resposta do usuário anterior quando o
+// próximo usuário abrisse o painel.
+let _resetPanel = () => {};
+
 export function initAIPanel() {
   const overlay     = document.getElementById('ai-panel-overlay');
   const panel       = document.getElementById('ai-panel');
@@ -285,4 +292,25 @@ export function initAIPanel() {
   );
   document.getElementById('btn-ai-plan')?.addEventListener('click', runPlanAction);
   document.getElementById('btn-ai-evolution')?.addEventListener('click', runEvolutionAction);
+
+  _resetPanel = () => {
+    currentController?.abort('signout');
+    stopLoadingStages();
+    lastAction   = null;
+    _resultState = null;
+    panel.hidden   = true;
+    overlay.hidden = true;
+    panel.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('aria-hidden', 'true');
+    showActions();
+  };
+}
+
+/**
+ * Chamado no logout (ver script.js) — cancela qualquer chamada de IA em
+ * andamento, fecha o painel e limpa o resultado exibido, para que o próximo
+ * usuário nunca veja a análise de IA de outra sessão.
+ */
+export function resetAIPanel() {
+  _resetPanel();
 }

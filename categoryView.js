@@ -64,6 +64,15 @@ export async function initCategories() {
   _populateCategorySelect();
 }
 
+/**
+ * Chamado no logout (ver script.js) — a próxima sessão de usuário não deve
+ * herdar as categorias em cache do usuário anterior, mesmo que initCategories()
+ * ainda não tenha rodado de novo (ex.: uma tela ainda aberta lendo categoryColor()).
+ */
+export function resetCategories() {
+  categoriesCache = [];
+}
+
 export function categoryColor(name) {
   const cat = categoriesCache.find(c => c.name === name);
   return cat?.color || "#6b7280";
