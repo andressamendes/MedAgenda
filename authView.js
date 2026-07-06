@@ -122,15 +122,12 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       passwordInput.value = '';
       track(EVENTS.LOGIN, { email });
     } catch (err) {
-      handleError(err, { context: 'authView.login', silent: true });
-      const msg = err.message || '';
-      if (msg.includes('Invalid login') || msg.includes('invalid_credentials')) {
-        errorMsg.textContent = 'E-mail ou senha incorretos. Verifique suas credenciais.';
-      } else if (msg.includes('Email not confirmed')) {
-        errorMsg.textContent = 'Confirme seu e-mail antes de fazer login.';
-      } else {
-        errorMsg.textContent = 'Não foi possível fazer login. Tente novamente.';
-      }
+      const { friendly } = handleError(err, {
+        context: 'authView.login',
+        silent: true,
+        fallbackMessage: 'Não foi possível fazer login. Tente novamente.',
+      });
+      errorMsg.textContent = friendly;
     } finally {
       loginBtn.disabled    = false;
       loginBtn.textContent = 'Entrar';
@@ -198,13 +195,12 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       document.getElementById('email-sent-addr').textContent = email;
       showAuthView('email-sent');
     } catch (err) {
-      handleError(err, { context: 'authView.signup', silent: true });
-      const msg = err.message || '';
-      if (msg.includes('already registered') || msg.includes('already exists')) {
-        registerError.textContent = 'Este e-mail já está cadastrado. Faça login.';
-      } else {
-        registerError.textContent = msg || 'Não foi possível criar a conta. Tente novamente.';
-      }
+      const { friendly } = handleError(err, {
+        context: 'authView.signup',
+        silent: true,
+        fallbackMessage: 'Não foi possível criar a conta. Tente novamente.',
+      });
+      registerError.textContent = friendly;
     } finally {
       registerBtn.disabled    = false;
       registerBtn.textContent = 'Criar Conta';
@@ -228,8 +224,12 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       await sendPasswordReset(email);
       showAuthView('reset-sent');
     } catch (err) {
-      handleError(err, { context: 'authView.forgotPassword', silent: true });
-      forgotError.textContent = err.message || 'Não foi possível enviar o link. Tente novamente.';
+      const { friendly } = handleError(err, {
+        context: 'authView.forgotPassword',
+        silent: true,
+        fallbackMessage: 'Não foi possível enviar o link. Tente novamente.',
+      });
+      forgotError.textContent = friendly;
     } finally {
       sendResetBtn.disabled    = false;
       sendResetBtn.textContent = 'Enviar link';
@@ -257,8 +257,12 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       toast.success('Senha definida com sucesso. Você já pode fazer login.');
       showLogin();
     } catch (err) {
-      handleError(err, { context: 'authView.setPassword', silent: true });
-      newPwdError.textContent = err.message || 'Não foi possível definir a senha.';
+      const { friendly } = handleError(err, {
+        context: 'authView.setPassword',
+        silent: true,
+        fallbackMessage: 'Não foi possível definir a senha.',
+      });
+      newPwdError.textContent = friendly;
     } finally {
       setPasswordBtn.disabled    = false;
       setPasswordBtn.textContent = 'Definir senha';

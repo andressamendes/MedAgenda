@@ -115,3 +115,49 @@ test("__isAuthError takes precedence over the AIError check ordering (AIError is
 
   assert.strictEqual(mod.handleError(aiErr, { silent: true }).category, "ai");
 });
+
+test("a rate-limited Supabase auth request (status 429) is categorized as rate_limit, not auth, even though it also carries __isAuthError", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authApiError("For security purposes, you can only request this after 57 seconds.", {
+    status: 429,
+    code: "over_email_send_rate_limit",
+  });
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "rate_limit");
+  assert.strictEqual(friendly, "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.");
+});
+
+test("a plain error whose message mentions 'rate limit' is also categorized as rate_limit", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const { category } = mod.handleError(new Error("Email rate limit exceeded"), { silent: true });
+  assert.strictEqual(category, "rate_limit");
+});
+
+test("'User already registered' (Supabase signUp duplicate email) is categorized as auth with a dedicated duplicate-account message", async (t) => {
+  const { mod } = await loadErrorService(t);
+  const err = authApiError("User already registered");
+
+  const { category, friendly } = mod.handleError(err, { silent: true });
+  assert.strictEqual(category, "auth");
+  assert.strictEqual(friendly, "Este e-mail já está cadastrado. Faça login.");
+});
+
+test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
+  const { mod } = await loadErrorService(t);
+
+  const unknown = mod.handleError(new Error("boom"), { silent: true, fallbackMessage: "tela X: algo falhou." });
+  assert.strictEqual(unknown.friendly, "tela X: algo falhou.");
+
+  const invalidLogin = mod.handleError(authApiError("Invalid login credentials"), {
+    silent: true,
+    fallbackMessage: "tela X: algo falhou.",
+  });
+  assert.strictEqual(invalidLogin.friendly, "E-mail ou senha incorretos. Verifique suas credenciais.");
+
+  const network = mod.handleError(new Error("Failed to fetch"), {
+    silent: true,
+    fallbackMessage: "tela X: algo falhou.",
+  });
+  assert.match(network.friendly, /Sem conexão/);
+});
