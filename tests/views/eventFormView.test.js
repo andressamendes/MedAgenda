@@ -13,11 +13,24 @@ const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", impor
 const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../activitySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER         = new URL("../../reviewService.js", import.meta.url).href;
+const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
+
+const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
+const EMPTY_AI_CONTEXT = {
+  events: [], hasAnyEvents: false, weekEventsCount: 0,
+  execution: {
+    todayMinutes: 0, weekMinutes: 0, monthMinutes: 0,
+    todaySessionsCount: 0, weekSessionsCount: 0, monthSessionsCount: 0,
+    dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
+  },
+  reviews: { pendingCount: 0, pending: [], completedCount: 0 },
+  categories: [], hasStudyHistory: false, daysSinceLastSession: null, overdueEvents: [],
+};
 
 let serviceCalls;
 let startSessionForEventCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, reviews = [] } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, reviews = [], aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -69,6 +82,13 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
       complete:        async () => {},
       skip:            async () => {},
     },
+  });
+
+  // Cards inteligentes do compromisso (F3.5) reaproveitam o Context Engine
+  // (aiContextService.getAIContext()) — mockado aqui como qualquer outra
+  // dependência, com um contexto vazio por padrão (nenhum card exibido).
+  t.mock.module(AICONTEXT_SPECIFIER, {
+    namedExports: { getAIContext: getAIContext ?? (async () => aiContext) },
   });
 }
 
@@ -480,4 +500,88 @@ test("cancelling the recurring-event confirmation leaves the form closed", async
   await handleEventClick(recurring);
 
   assert.strictEqual(document.getElementById("event-modal").hidden, true);
+});
+
+// ── Cards inteligentes do compromisso (F3.5, ETAPA 5) ───────────────────────
+// Reaproveita o Context Engine (aiContextService.getAIContext(), mockado
+// acima) para exibir insights sobre o compromisso aberto — nunca altera o
+// compromisso automaticamente.
+
+test("a new event never loads or shows insight cards", async (t) => {
+  mockEventService(t);
+  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  document.getElementById("btn-new-event").click();
+  await flush();
+
+  assert.strictEqual(document.getElementById("event-insights").hidden, true);
+});
+
+test("editing an event in a category without a session for a while shows an 'atenção' insight", async (t) => {
+  mockEventService(t, {
+    aiContext: {
+      ...EMPTY_AI_CONTEXT,
+      categories: [{ name: "Farmacologia", minutes: 120, lastStudiedDate: "2026-06-01T00:00:00.000Z", daysSinceLastStudy: 12 }],
+    },
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Revisão", event_date: "2026-08-12", start_time: "08:00:00", category: "Farmacologia", recurrence_type: "none" });
+  await flush();
+
+  const insights = document.getElementById("event-insights");
+  assert.strictEqual(insights.hidden, false);
+  assert.match(insights.textContent, /Última sessão desta categoria há 12 dias\./);
+});
+
+test("editing an event in a never-studied category shows a 'dica' insight instead of an invented number", async (t) => {
+  mockEventService(t, {
+    aiContext: {
+      ...EMPTY_AI_CONTEXT,
+      categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    },
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-2", title: "Aula", event_date: "2026-08-12", start_time: "08:00:00", category: "Pediatria", recurrence_type: "none" });
+  await flush();
+
+  assert.match(document.getElementById("event-insights").textContent, /ainda sem sessões registradas/);
+});
+
+test("editing an event while the weekly goal is nearly met shows a 'meta' insight", async (t) => {
+  mockEventService(t, {
+    aiContext: {
+      ...EMPTY_AI_CONTEXT,
+      execution: {
+        ...EMPTY_AI_CONTEXT.execution,
+        weeklyGoal: { configured: true, goalMinutes: 600, actualMinutes: 570, percentage: 95, remainingMinutes: 30, state: "partial" },
+      },
+    },
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-3", title: "Aula", event_date: "2026-08-12", start_time: "08:00:00", category: null, recurrence_type: "none" });
+  await flush();
+
+  assert.match(document.getElementById("event-insights").textContent, /Meta semanal quase atingida: 95%\./);
+});
+
+test("closing the form clears any insight cards, and a failure loading them degrades silently", async (t) => {
+  mockEventService(t, { aiContext: null, getAIContext: async () => { throw new Error("network down"); } });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  await assert.doesNotReject(async () => {
+    openEventForm({ id: "evt-4", title: "Aula", event_date: "2026-08-12", start_time: "08:00:00", category: "Farmacologia", recurrence_type: "none" });
+    await flush();
+  });
+
+  assert.strictEqual(document.getElementById("event-insights").hidden, true);
+  document.getElementById("btn-cancel").click();
+  assert.strictEqual(document.getElementById("event-insights").hidden, true);
 });

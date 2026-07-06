@@ -8,8 +8,18 @@
 
 import { getDashboardData } from "./activityDashboardService.js";
 import { onSessionFinished } from "./activitySessionService.js";
+import { onReviewStatusChanged } from "./reviewService.js";
+import { onProfileUpdated } from "./profileService.js";
+import { getAIContext } from "./aiContextService.js";
+import { computeRecommendations } from "./recommendationEngine.js";
+import { getReflectionData } from "./reflectionService.js";
+import { renderSmartCards, recommendationToCard, buildSmartCard } from "./smartCardView.js";
 import { handleError } from "./errorService.js";
 import { pad } from "./utils.js";
+
+// Discreto: no máximo 3 sugestões contextuais por vez (ETAPA 3), mesma ideia
+// de "sempre discreta" do enunciado — não é uma segunda central de insights.
+const MAX_SMART_TIPS = 3;
 
 function _formatDuration(minutes) {
   const total = Math.max(0, Math.round(minutes || 0));
@@ -112,8 +122,10 @@ const CARD_DEFS = [
   },
 ];
 
-let cardsEl, errorEl;
-let _unsubscribe = null;
+let cardsEl, errorEl, smartTipsEl;
+let _unsubscribeSession = null;
+let _unsubscribeReview  = null;
+let _unsubscribeProfile = null;
 let _loading = false;
 
 function _renderCards(data) {
@@ -147,6 +159,33 @@ function _renderError(friendly) {
   errorEl.appendChild(retryBtn);
 }
 
+// ── Cards inteligentes (F3.5, ETAPA 3/7) ────────────────────────────────────
+// Reaproveita integralmente o Context Engine + Recommendation Engine (para
+// "próximo da meta"/"revisões atrasadas"/"semana carregada"/"hoje livre") e o
+// Reflection Engine (para o resumo "Você concluiu X% do planejamento") — sem
+// nenhuma consulta ou cálculo novo, e isolado do carregamento principal:
+// uma falha aqui nunca esconde os cards de execução (ETAPA 9).
+async function _loadSmartTips() {
+  if (!smartTipsEl) return;
+  try {
+    const [context, reflection] = await Promise.all([
+      getAIContext(),
+      getReflectionData(),
+    ]);
+
+    const cards = [];
+    if (reflection && reflection.status !== "insufficient_data" && reflection.resumo) {
+      cards.push(buildSmartCard("meta", reflection.resumo));
+    }
+    computeRecommendations(context).forEach(r => cards.push(recommendationToCard(r)));
+
+    renderSmartCards(smartTipsEl, cards.slice(0, MAX_SMART_TIPS));
+  } catch (err) {
+    handleError(err, { context: "activityDashboardView.smartTips", silent: true });
+    renderSmartCards(smartTipsEl, []);
+  }
+}
+
 async function _load() {
   if (_loading) return;
   _loading = true;
@@ -159,20 +198,24 @@ async function _load() {
   } finally {
     _loading = false;
   }
+  await _loadSmartTips();
 }
 
 /**
  * Monta o dashboard (uma única vez) e carrega os indicadores. Assina
- * onSessionFinished() para recalcular automaticamente quando uma sessão for
- * finalizada, sem exigir reload da página nem polling.
+ * onSessionFinished()/onReviewStatusChanged()/onProfileUpdated() para
+ * recalcular automaticamente — cards de execução e cards inteligentes —
+ * sempre que uma sessão, revisão ou meta mudar, sem exigir reload da página
+ * nem polling.
  */
 export async function initActivityDashboardView() {
   if (!cardsEl) {
-    cardsEl = document.getElementById("dash-cards");
-    errorEl = document.getElementById("dash-error");
+    cardsEl     = document.getElementById("dash-cards");
+    errorEl     = document.getElementById("dash-error");
+    smartTipsEl = document.getElementById("dash-smart-tips");
   }
-  if (!_unsubscribe) {
-    _unsubscribe = onSessionFinished(() => _load());
-  }
+  if (!_unsubscribeSession) _unsubscribeSession = onSessionFinished(() => _load());
+  if (!_unsubscribeReview)  _unsubscribeReview  = onReviewStatusChanged(() => _loadSmartTips());
+  if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
   await _load();
 }
