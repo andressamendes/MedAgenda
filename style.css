@@ -1097,6 +1097,40 @@ textarea { resize: vertical; }
   margin-bottom: .5rem;
 }
 
+/* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
+   Único componente de estado reutilizado por lista, calendário, semana,
+   Central de Insights, Dashboard, categorias, calendário acadêmico e
+   histórico de sessões (ver stateView.js). Sempre um estado de erro (nunca
+   usado para "sem dados"), por isso a cor de erro é fixa aqui — os
+   containers de cada tela continuam responsáveis só pela "moldura" (fundo,
+   borda, espaçamento). */
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .3rem;
+  text-align: center;
+  color: var(--red);
+}
+
+.state-block-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.state-block-title {
+  font-weight: 600;
+  font-size: .95rem;
+}
+
+.state-block-desc {
+  font-size: .85rem;
+}
+
+.state-block-action {
+  margin-top: .4rem;
+}
+
 /* ── Cards de eventos ── */
 .list-empty {
   font-size: .9rem;
@@ -1567,10 +1601,6 @@ textarea { resize: vertical; }
   padding: 1rem 0;
 }
 
-.cat-empty.cat-error {
-  color: var(--red);
-}
-
 .badge {
   display: inline-block;
   padding: .15rem .6rem;
@@ -1605,20 +1635,12 @@ textarea { resize: vertical; }
 }
 
 .wk-error {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  color: var(--red);
   font-size: .85rem;
   padding: .5rem .75rem;
   margin-bottom: .75rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: var(--radius);
-}
-
-.wk-error span {
-  flex: 1;
 }
 
 /* scroll container — always show scrollbar to keep head/body aligned */
@@ -2533,10 +2555,6 @@ textarea { resize: vertical; }
   color: var(--gray-500);
   padding: 1rem 0;
   font-size: .9rem;
-}
-
-.acal-empty.acal-error {
-  color: var(--red);
 }
 
 .acal-row {

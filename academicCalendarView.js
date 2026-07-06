@@ -13,6 +13,7 @@ import { initEventsView, showEventList } from "./academicCalendarEventsView.js";
 import { initICSView, triggerICSImport, handleICSExport } from "./academicCalendarICSView.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -114,17 +115,16 @@ async function showCalendarList() {
   try {
     _calendarsCache = await getCalendars();
   } catch (err) {
-    const { friendly } = handleError(err, { context: 'academicCalendarView.loadCalendars', silent: true });
+    const errorState = errorToState(handleError(err, { context: 'academicCalendarView.loadCalendars', silent: true }));
     // Se já havia uma lista carregada (ex.: atualização após criar/editar),
     // degrada mostrando os dados anteriores + um aviso; sem dados anteriores,
     // a falha não pode ser mascarada como "nenhum calendário cadastrado".
-    if (_calendarsCache.length === 0) loadError = friendly;
-    else toast.error(friendly);
+    if (_calendarsCache.length === 0) loadError = errorState;
+    else toast.error(errorState.message);
   }
 
   const listHTML = loadError
-    ? `<p class="acal-empty acal-error">${escapeHtml(loadError)}</p>
-       <button type="button" class="btn btn-sm btn-ghost" id="acal-retry">Tentar novamente</button>`
+    ? stateBlockMarkup(loadError)
     : _calendarsCache.length === 0
     ? `<p class="acal-empty">Nenhum calendário acadêmico cadastrado.</p>`
     : _calendarsCache.map(c => `
@@ -192,7 +192,7 @@ async function showCalendarList() {
   });
 
   document.getElementById("acal-add")?.addEventListener("click", handleCalendarCreate);
-  document.getElementById("acal-retry")?.addEventListener("click", showCalendarList);
+  wireStateBlock(_modalBody, showCalendarList);
 }
 
 // ── Calendar CRUD ──────────────────────────────────────────────────────────

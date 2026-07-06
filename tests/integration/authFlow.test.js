@@ -116,6 +116,54 @@ test("submitting the login form with empty fields shows a validation error witho
   assert.strictEqual(calls.some(c => c.fn === "signIn"), false);
 });
 
+// ── F4.1 — Fluxo Unificado de Sessão Expirada ───────────────────────────────
+// forceReauth() é o fluxo oficial que stateView.js aciona (via
+// setReauthHandler, ver script.js) sempre que qualquer tela detecta uma
+// sessão expirada — nunca uma tela de erro específica por página.
+
+test("forceReauth() signs out and shows the login screen", async (t) => {
+  const calls = mockAuth(t);
+  const { initAuthView, forceReauth } = await import(`../../authView.js?t=${Math.random()}`);
+  initAuthView({ onSignedIn: async () => {} });
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("email").value = "aluna@example.com";
+  document.getElementById("password").value = "senha-correta";
+  document.getElementById("btn-login").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("app-screen").hidden, false);
+
+  await forceReauth();
+
+  assert.strictEqual(document.getElementById("login-screen").hidden, false);
+  assert.strictEqual(document.getElementById("app-screen").hidden, true);
+  assert.ok(calls.some(c => c.fn === "signOut"));
+});
+
+test("forceReauth() still shows the login screen even if signOut() itself fails (never leaves the user stuck)", async (t) => {
+  t.mock.module(AUTH_SPECIFIER, {
+    namedExports: {
+      signIn: async () => ({ user: { id: "user-123" } }),
+      signOut: async () => { throw new Error("network down"); },
+      getSession: async () => null,
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      signUp: async () => ({ user: {} }),
+      sendPasswordReset: async () => {},
+      updatePassword: async () => ({}),
+    },
+  });
+  t.mock.module(WEEK_VIEW_SPECIFIER, { namedExports: { destroyWeekView: () => {} } });
+
+  const { initAuthView, forceReauth } = await import(`../../authView.js?t=${Math.random()}`);
+  initAuthView({});
+  await new Promise(r => setTimeout(r, 0));
+
+  await forceReauth();
+
+  assert.strictEqual(document.getElementById("login-screen").hidden, false);
+  assert.strictEqual(document.getElementById("app-screen").hidden, true);
+});
+
 test("golden path: logout returns to the login screen and runs onBeforeSignOut", async (t) => {
   mockAuth(t);
   const { initAuthView } = await import(`../../authView.js?t=${Math.random()}`);

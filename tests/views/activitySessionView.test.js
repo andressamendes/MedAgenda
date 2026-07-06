@@ -73,7 +73,7 @@ test("with no running session, the widget starts idle showing only the Iniciar b
   const { mod } = await loadActivitySessionView(t);
   await mod.initActivitySessionView();
 
-  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão em andamento");
+  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão de estudo em andamento");
   assert.strictEqual(document.getElementById("as-btn-start").hidden, false);
   assert.strictEqual(document.getElementById("as-btn-pause").hidden, true);
   assert.strictEqual(document.getElementById("as-btn-resume").hidden, true);
@@ -133,7 +133,7 @@ test("a domain error (e.g. session already running) is reported via errorService
   assert.strictEqual(handleErrorCalls.length, 1);
   assert.strictEqual(handleErrorCalls[0].err, domainError);
   // Widget stays idle — never gets stuck showing a session that doesn't exist.
-  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão em andamento");
+  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão de estudo em andamento");
   assert.strictEqual(document.getElementById("as-btn-start").hidden, false);
 });
 
@@ -174,7 +174,7 @@ test("finishing a session returns the widget to idle", async (t) => {
   document.getElementById("as-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão em andamento");
+  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão de estudo em andamento");
   assert.strictEqual(document.getElementById("as-btn-start").hidden, false);
   assert.strictEqual(document.getElementById("as-btn-finish").hidden, true);
 });
@@ -279,7 +279,7 @@ test("confirming the conflict finishes the current session but still requires a 
 
   assert.strictEqual(started, false);
   // A sessão antiga foi finalizada, mas a nova NÃO foi iniciada automaticamente.
-  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão em andamento");
+  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão de estudo em andamento");
   assert.strictEqual(document.getElementById("as-btn-start").hidden, false);
 });
 
@@ -297,7 +297,7 @@ test("finishing an event-linked session clears its title/category from the widge
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("as-event").hidden, true);
-  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão em andamento");
+  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão de estudo em andamento");
 });
 
 test("resetActivitySessionView() clears the widget back to idle (used on sign-out)", async (t) => {
@@ -309,6 +309,6 @@ test("resetActivitySessionView() clears the widget back to idle (used on sign-ou
 
   mod.resetActivitySessionView();
 
-  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão em andamento");
+  assert.strictEqual(document.getElementById("as-status").textContent, "Nenhuma sessão de estudo em andamento");
   assert.strictEqual(document.getElementById("as-btn-start").hidden, false);
 });

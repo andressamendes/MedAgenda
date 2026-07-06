@@ -13,6 +13,7 @@ import { onProfileUpdated } from "./profileService.js";
 import { getDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { handleError } from "./errorService.js";
+import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad } from "./utils.js";
 
 // Discreto: no máximo 3 sugestões contextuais por vez (ETAPA 3), mesma ideia
@@ -129,6 +130,7 @@ let _loading = false;
 function _renderCards(data) {
   errorEl.hidden = true;
   errorEl.innerHTML = "";
+  clearStateBlock(errorEl);
   cardsEl.hidden = false;
   cardsEl.innerHTML = CARD_DEFS.map(def => `
     <div class="dashboard-card">
@@ -139,22 +141,11 @@ function _renderCards(data) {
   `).join("");
 }
 
-function _renderError(friendly) {
+function _renderError({ state, message }) {
   cardsEl.hidden = true;
   cardsEl.innerHTML = "";
   errorEl.hidden = false;
-  errorEl.innerHTML = "";
-
-  const msg = document.createElement("span");
-  msg.textContent = friendly;
-  errorEl.appendChild(msg);
-
-  const retryBtn = document.createElement("button");
-  retryBtn.type = "button";
-  retryBtn.className = "btn btn-sm btn-ghost list-error-retry";
-  retryBtn.textContent = "Tentar novamente";
-  retryBtn.addEventListener("click", () => _load());
-  errorEl.appendChild(retryBtn);
+  renderStateBlock(errorEl, { state, message, onRetry: () => _load() });
 }
 
 // ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7) ─
@@ -181,8 +172,7 @@ async function _load() {
     const data = await getDashboardData();
     _renderCards(data);
   } catch (err) {
-    const { friendly } = handleError(err, { context: "activityDashboardView.load", silent: true });
-    _renderError(friendly);
+    _renderError(errorToState(handleError(err, { context: "activityDashboardView.load", silent: true })));
   } finally {
     _loading = false;
   }

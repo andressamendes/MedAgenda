@@ -4,6 +4,7 @@ import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
+import { errorToState, renderStateBlock } from "./stateView.js";
 import { getDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { renderPlanList } from "./planListView.js";
@@ -71,10 +72,7 @@ function buildShell() {
       <button class="btn btn-sm btn-ghost" id="wk-today">Hoje</button>
       <button class="btn btn-sm btn-ghost" id="wk-next" aria-label="Próxima semana">›</button>
     </div>
-    <div class="wk-error" id="wk-error" hidden>
-      <span id="wk-error-msg"></span>
-      <button type="button" class="btn btn-sm btn-ghost" id="wk-retry">Tentar novamente</button>
-    </div>
+    <div class="wk-error" id="wk-error" hidden></div>
     <div id="wk-tip" class="smart-cards" hidden></div>
     <div class="wk-plan-toggle-row">
       <button type="button" class="btn btn-sm btn-ghost" id="wk-plan-toggle" hidden>Ver plano da semana</button>
@@ -110,7 +108,6 @@ function buildShell() {
   _el.querySelector("#wk-prev").addEventListener("click",  () => navigate(-1));
   _el.querySelector("#wk-next").addEventListener("click",  () => navigate(1));
   _el.querySelector("#wk-today").addEventListener("click", goToday);
-  _el.querySelector("#wk-retry").addEventListener("click", fetchAndRender);
   _el.querySelector("#wk-plan-toggle").addEventListener("click", togglePlan);
 
   buildTimeCol();
@@ -191,18 +188,17 @@ async function fetchAndRender() {
     // Erro (rede/banco/sessão) não deve ser tratado como "semana sem eventos" —
     // exibe um banner de erro distinto, com opção de tentar novamente, em vez
     // de deixar a grade silenciosamente vazia.
-    const { friendly } = handleError(err, { context: "weekView.fetchAndRender", silent: true });
-    showWeekError(friendly);
+    showWeekError(errorToState(handleError(err, { context: "weekView.fetchAndRender", silent: true })));
   }
 
   updateNowLine();
   scrollToTime();
 }
 
-function showWeekError(message) {
+function showWeekError({ state, message }) {
   const banner = _el.querySelector("#wk-error");
   if (!banner) return;
-  banner.querySelector("#wk-error-msg").textContent = message;
+  renderStateBlock(banner, { state, message, onRetry: fetchAndRender });
   banner.hidden = false;
 }
 

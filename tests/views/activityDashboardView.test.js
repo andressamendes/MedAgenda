@@ -38,7 +38,7 @@ function loadView(t, overrides = {}) {
     namedExports: {
       handleError: (err, context) => {
         handleErrorCalls.push({ err, context });
-        return { category: "unknown", friendly: overrides.friendlyMessage ?? err.message };
+        return { category: overrides.category ?? "unknown", friendly: overrides.friendlyMessage ?? err.message };
       },
     },
   });
@@ -253,6 +253,49 @@ test("a load error shows the friendly message with a retry button", async (t) =>
   assert.match(errorEl.textContent, /Sem conexão com a internet\./);
   assert.ok(errorEl.querySelector(".list-error-retry"));
   assert.strictEqual(document.getElementById("dash-cards").hidden, true);
+});
+
+// ── F4.1 — Fluxo Unificado de Sessão Expirada ───────────────────────────────
+
+test("a session-expired error (auth category) shows 'Sessão expirada' with an 'Entrar novamente' action, never a retry button", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { throw new Error("JWT expired"); },
+    category: "auth",
+    friendlyMessage: "Sua sessão expirou. Faça login novamente.",
+  });
+
+  await mod.initActivityDashboardView();
+
+  const errorEl = document.getElementById("dash-error");
+  assert.strictEqual(errorEl.hidden, false);
+  assert.match(errorEl.textContent, /Sessão expirada/);
+  assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
+  const actionBtn = errorEl.querySelector(".state-block-action");
+  assert.strictEqual(actionBtn.textContent, "Entrar novamente");
+  assert.strictEqual(document.getElementById("dash-cards").hidden, true);
+});
+
+test("clicking 'Entrar novamente' on a session-expired dashboard error runs the official reauth flow, not a data retry", async (t) => {
+  const stateViewSpecifier = new URL("../../stateView.js", import.meta.url).href;
+  const { setReauthHandler } = await import(stateViewSpecifier);
+  let reauthCalls = 0;
+  setReauthHandler(() => { reauthCalls++; });
+
+  let loadCalls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { loadCalls++; throw new Error("JWT expired"); },
+    category: "auth",
+  });
+
+  await mod.initActivityDashboardView();
+  const callsAfterLoad = loadCalls;
+
+  document.getElementById("dash-error").querySelector(".state-block-action")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.strictEqual(reauthCalls, 1);
+  assert.strictEqual(loadCalls, callsAfterLoad); // never re-fetched — reauth handles it
 });
 
 test("retrying after a load error clears the error state on success", async (t) => {

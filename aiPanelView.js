@@ -10,6 +10,7 @@ import {
 } from "./services/ai/aiService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { categoryToState, STATES, triggerReauth } from "./stateView.js";
 import { AI_CONFIG } from "./config/ai.js";
 import { escapeHtml } from "./utils.js";
 import { renderPlanList } from "./planListView.js";
@@ -46,6 +47,7 @@ export function initAIPanel() {
   let stageTimers = [];
   let currentController = null;
   let lastAction = null;
+  let _resultState = null; // estado do último erro exibido (F4.1) — decide o que o botão de ação faz
 
   function openPanel() {
     _prevFocus = captureFocus();
@@ -102,14 +104,22 @@ export function initAIPanel() {
     startLoadingStages();
   }
 
-  function showResult(title, text, isError = false) {
+  // `state` é um dos STATES de stateView.js (ou null quando não é erro) —
+  // decide se o botão aparece como "Tentar novamente" (rede/servidor) ou
+  // "Entrar novamente" (sessão expirada), nunca os dois ao mesmo tempo
+  // (ETAPA 5: sessão expirada nunca oferece retry).
+  function showResult(title, text, state = null) {
     resultTitle.textContent = title;
     resultBody.textContent  = text;
     resultBody.classList.remove('ai-result-body--plan');
     actionsDiv.hidden = true;
     loadingDiv.hidden = true;
     resultDiv.hidden  = false;
-    if (retryBtn) retryBtn.hidden = !isError;
+    _resultState = state;
+    if (retryBtn) {
+      retryBtn.hidden = !state;
+      retryBtn.textContent = state === STATES.SESSION_EXPIRED ? 'Entrar novamente' : 'Tentar novamente';
+    }
   }
 
   // Plano da Semana (F3.3): planningService já devolve uma lista estruturada
@@ -124,6 +134,7 @@ export function initAIPanel() {
     actionsDiv.hidden = true;
     loadingDiv.hidden = true;
     resultDiv.hidden  = false;
+    _resultState = null;
     if (retryBtn) retryBtn.hidden = true;
 
     renderPlanList(resultBody, plan);
@@ -156,6 +167,7 @@ export function initAIPanel() {
     actionsDiv.hidden = true;
     loadingDiv.hidden = true;
     resultDiv.hidden  = false;
+    _resultState = null;
     if (retryBtn) retryBtn.hidden = true;
 
     if (!report || report.status === 'insufficient_data' || !report.insights?.length) {
@@ -185,14 +197,14 @@ export function initAIPanel() {
     currentController = new AbortController();
     try {
       const result = await fn(currentController);
-      showResult(label, result || 'O assistente não retornou resposta. Tente novamente.', !result);
+      showResult(label, result || 'O assistente não retornou resposta. Tente novamente.', result ? null : STATES.SERVER);
     } catch (err) {
       if (err?.code === 'CANCELLED') {
         showActions();
         return;
       }
-      handleError(err, { context: 'aiPanel.runAIAction', silent: true });
-      showResult(label, err.message || 'Ocorreu um erro ao contatar o assistente de IA. Verifique sua conexão e tente novamente.', true);
+      const { category } = handleError(err, { context: 'aiPanel.runAIAction', silent: true });
+      showResult(label, err.message || 'Ocorreu um erro ao contatar o assistente de IA. Verifique sua conexão e tente novamente.', categoryToState(category));
     } finally {
       stopLoadingStages();
       setActionBtnsDisabled(false);
@@ -213,8 +225,8 @@ export function initAIPanel() {
         showActions();
         return;
       }
-      handleError(err, { context: 'aiPanel.runPlanAction', silent: true });
-      showResult('Plano da Semana', err.message || 'Ocorreu um erro ao gerar o plano da semana. Verifique sua conexão e tente novamente.', true);
+      const { category } = handleError(err, { context: 'aiPanel.runPlanAction', silent: true });
+      showResult('Plano da Semana', err.message || 'Ocorreu um erro ao gerar o plano da semana. Verifique sua conexão e tente novamente.', categoryToState(category));
     } finally {
       stopLoadingStages();
       setActionBtnsDisabled(false);
@@ -231,8 +243,8 @@ export function initAIPanel() {
       const report = await getMyEvolution();
       showEvolutionResult(report);
     } catch (err) {
-      handleError(err, { context: 'aiPanel.runEvolutionAction', silent: true });
-      showResult('Minha Evolução', err.message || 'Ocorreu um erro ao gerar sua reflexão. Verifique sua conexão e tente novamente.', true);
+      const { category } = handleError(err, { context: 'aiPanel.runEvolutionAction', silent: true });
+      showResult('Minha Evolução', err.message || 'Ocorreu um erro ao gerar sua reflexão. Verifique sua conexão e tente novamente.', categoryToState(category));
     } finally {
       stopLoadingStages();
       setActionBtnsDisabled(false);
@@ -245,6 +257,9 @@ export function initAIPanel() {
   backBtn?.addEventListener('click', showActions);
   cancelBtn?.addEventListener('click', () => currentController?.abort('user'));
   retryBtn?.addEventListener('click', () => {
+    // Sessão expirada nunca repete a mesma chamada (ETAPA 5) — leva direto
+    // ao fluxo oficial de reautenticação.
+    if (_resultState === STATES.SESSION_EXPIRED) { triggerReauth(); return; }
     if (!lastAction) return;
     if (lastAction.kind === 'plan') runPlanAction();
     else if (lastAction.kind === 'evolution') runEvolutionAction();

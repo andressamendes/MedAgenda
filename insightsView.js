@@ -14,6 +14,7 @@ import { onSessionFinished } from "./activitySessionService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
+import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 
 function _formatDuration(minutes) {
   const total = Math.max(0, Math.round(minutes || 0));
@@ -89,25 +90,11 @@ const BLOCK_DEFS = [
 let _unsubscribers = [];
 let _loading = false;
 
-function _renderBlockError(errorEl, friendly) {
-  errorEl.hidden = false;
-  errorEl.innerHTML = "";
-
-  const msg = document.createElement("span");
-  msg.textContent = friendly;
-  errorEl.appendChild(msg);
-
-  const retryBtn = document.createElement("button");
-  retryBtn.type = "button";
-  retryBtn.className = "btn btn-sm btn-ghost list-error-retry";
-  retryBtn.textContent = "Tentar novamente";
-  retryBtn.addEventListener("click", () => _load());
-  errorEl.appendChild(retryBtn);
-}
-
 // Renderiza um único bloco a partir do seu estado ("ok" | "partial" | "error").
 // Uma falha aqui nunca deve impedir os outros três blocos de renderizar
 // (ETAPA 7: "a tela nunca deve quebrar completamente caso apenas um bloco falhe").
+// Usa sempre o mesmo componente único de estados (F4.1, ETAPA 6): nenhum
+// bloco decide mensagem, ícone ou ação por conta própria.
 function _renderBlock(blockDef, block) {
   const cardsEl  = document.getElementById(blockDef.cardsId);
   const errorEl  = document.getElementById(blockDef.errorId);
@@ -117,13 +104,15 @@ function _renderBlock(blockDef, block) {
     cardsEl.hidden = true;
     cardsEl.innerHTML = "";
     if (noticeEl) noticeEl.hidden = true;
-    const { friendly } = handleError(block.error, { context: "insightsView.load", silent: true });
-    _renderBlockError(errorEl, friendly);
+    errorEl.hidden = false;
+    const errorState = errorToState(handleError(block.error, { context: "insightsView.load", silent: true }));
+    renderStateBlock(errorEl, { ...errorState, onRetry: () => _load() });
     return;
   }
 
   errorEl.hidden = true;
   errorEl.innerHTML = "";
+  clearStateBlock(errorEl);
   cardsEl.hidden = false;
   cardsEl.innerHTML = blockDef.cardDefs.map(def => `
     <div class="dashboard-card">

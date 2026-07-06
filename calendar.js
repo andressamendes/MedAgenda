@@ -2,8 +2,9 @@ import { getEventsByRange } from "./eventService.js";
 import { getEventExecutionSummaries } from "./activitySessionService.js";
 import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
-import { pad, isoDate, isoToday, escapeHtml } from "./utils.js";
+import { pad, isoDate, isoToday } from "./utils.js";
 import { handleError } from "./errorService.js";
+import { errorToState, renderStateBlock } from "./stateView.js";
 
 let _showPersonal = () => true;
 
@@ -96,8 +97,7 @@ async function fetchAndRender() {
     // Erro (rede/banco/sessão) não deve ser tratado como "mês sem eventos" —
     // renderiza um estado de erro distinto, com opção de tentar novamente,
     // em vez de uma grade vazia indistinguível de um mês sem compromissos.
-    const { friendly } = handleError(err, { context: "calendar.fetchAndRender", silent: true });
-    renderCalError(friendly);
+    renderCalError(errorToState(handleError(err, { context: "calendar.fetchAndRender", silent: true })));
   }
 }
 
@@ -111,16 +111,11 @@ function showLoading() {
   if (body) body.innerHTML = `<div class="cal-loading">Carregando…</div>`;
 }
 
-function renderCalError(message) {
+function renderCalError({ state, message }) {
   const body = container.querySelector("#cal-body");
   if (!body) return;
-  body.innerHTML = `
-    <div class="cal-error">
-      <p>${escapeHtml(message)}</p>
-      <button type="button" class="btn btn-sm btn-ghost" id="cal-retry">Tentar novamente</button>
-    </div>
-  `;
-  body.querySelector("#cal-retry")?.addEventListener("click", fetchAndRender);
+  body.innerHTML = `<div class="cal-error"></div>`;
+  renderStateBlock(body.querySelector(".cal-error"), { state, message, onRetry: fetchAndRender });
 }
 
 // Busca os resumos de execução de todos os compromissos exibidos em uma

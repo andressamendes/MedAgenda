@@ -5,6 +5,7 @@ import { toast } from "./toastService.js";
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { handleError } from "./errorService.js";
+import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -49,13 +50,11 @@ export async function showEventList(calId) {
   try {
     events = await getAcademicEvents(calId);
   } catch (err) {
-    const { friendly } = handleError(err, { context: 'academicCalendarEventsView.load', silent: true });
-    loadError = friendly;
+    loadError = errorToState(handleError(err, { context: 'academicCalendarEventsView.load', silent: true }));
   }
 
   const listHTML = loadError
-    ? `<p class="acal-empty acal-error">${escapeHtml(loadError)}</p>
-       <button type="button" class="btn btn-sm btn-ghost" id="acev-retry">Tentar novamente</button>`
+    ? stateBlockMarkup(loadError)
     : events.length === 0
     ? `<p class="acal-empty">Nenhum evento neste calendário.</p>`
     : events.map(ev => `
@@ -123,7 +122,7 @@ export async function showEventList(calId) {
 
   document.getElementById("acev-add")?.addEventListener("click", () => handleEventCreate(calId));
   document.getElementById("acev-back")?.addEventListener("click", _onBack);
-  document.getElementById("acev-retry")?.addEventListener("click", () => showEventList(calId));
+  wireStateBlock(modalBody, () => showEventList(calId));
 }
 
 // ── Event form helpers ─────────────────────────────────────────────────────
