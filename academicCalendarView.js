@@ -78,12 +78,31 @@ let _modalBody    = null;
 let _modal        = null;
 
 export function initAcademicModal() {
+  // Chamada a cada login (ver script.js/_initApp) — sem esta guarda, um
+  // segundo login na mesma sessão de página (após logout, sem reload)
+  // registraria um novo modalController (novo listener de Escape/clique-fora
+  // em document) e um novo listener em academic-close a cada vez, empilhando
+  // handlers indefinidamente.
+  if (_modalOverlay) return;
+
   _modalOverlay = document.getElementById("academic-overlay");
   _modalTitle   = document.getElementById("academic-modal-title");
   _modalBody    = document.getElementById("academic-modal-body");
 
   document.getElementById("academic-close")?.addEventListener("click", closeModal);
   if (_modalOverlay) _modal = initModal(_modalOverlay, closeModal);
+}
+
+/**
+ * Chamado no logout (ver script.js) — a próxima sessão de usuário não deve
+ * herdar os calendários acadêmicos em cache nem encontrar o modal aberto do
+ * usuário anterior.
+ */
+export function resetAcademicCalendarView() {
+  _calendarsCache = [];
+  _activeCalendar = null;
+  _onChange       = null;
+  _modal?.close();
 }
 
 // openModal() é reutilizada tanto para a abertura inicial quanto para navegar

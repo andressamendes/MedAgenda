@@ -113,3 +113,21 @@ test("closing the modal via the close button hides the overlay and restores focu
   assert.strictEqual(document.getElementById("cat-overlay").hidden, true);
   assert.strictEqual(document.activeElement, trigger);
 });
+
+test("resetCategories() clears the cached category list (logout symmetry, A1.3)", async (t) => {
+  mockCategoryService(t, {
+    categories: [{ id: "cat-1", name: "Aula", color: "#3b82f6" }],
+  });
+  view = await import(`../../categoryView.js?t=${Math.random()}`);
+  view.initCategoryView();
+  await view.initCategories();
+
+  // Before reset: categoryColor() still resolves the cached category.
+  assert.strictEqual(view.categoryColor("Aula"), "#3b82f6");
+
+  view.resetCategories();
+
+  // After reset: no cached data survives the logout — an unknown/previous
+  // category falls back to the default color instead of leaking stale data.
+  assert.strictEqual(view.categoryColor("Aula"), "#6b7280");
+});

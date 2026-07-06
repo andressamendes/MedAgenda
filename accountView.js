@@ -25,7 +25,14 @@ let _userId   = null;
 let _modal    = null;
 
 export function initAccountView(userId) {
-  _userId  = userId;
+  _userId = userId;
+  // Chamada a cada login (ver script.js/_initApp) — sem esta guarda, um
+  // segundo login na mesma sessão de página (após logout, sem reload)
+  // registraria um novo modalController (novo listener de Escape/clique-fora
+  // em document) e um novo listener em account-close/btn-my-account a cada
+  // vez, empilhando handlers indefinidamente.
+  if (_overlay) return;
+
   _overlay = document.getElementById('account-overlay');
   if (!_overlay) return;
 
@@ -33,6 +40,16 @@ export function initAccountView(userId) {
   _modal = initModal(_overlay, close);
 
   document.getElementById('btn-my-account')?.addEventListener('click', open);
+}
+
+/**
+ * Chamado no logout (ver script.js) — a próxima sessão de usuário não deve
+ * herdar o perfil carregado nem encontrar o modal aberto do usuário anterior.
+ */
+export function resetAccountView() {
+  _profile = null;
+  _userId  = null;
+  _modal?.close();
 }
 
 export async function open() {

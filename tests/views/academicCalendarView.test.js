@@ -121,3 +121,35 @@ test("closing the modal hides the overlay and restores focus to the trigger", as
   assert.strictEqual(document.getElementById("academic-overlay").hidden, true);
   assert.strictEqual(document.activeElement, trigger);
 });
+
+test("calling initAcademicModal again (second login, no page reload) does not register a duplicate close listener", async (t) => {
+  mockService(t, { calendars: [] });
+  view = await import(`../../academicCalendarView.js?t=${Math.random()}`);
+  view.initAcademicModal();
+  view.initAcademicModal(); // simulates logout + a new login in the same page session
+  view.initAcademicModal();
+
+  await view.openAcademicCalendarModal();
+  assert.strictEqual(document.getElementById("academic-overlay").hidden, false);
+
+  // A single click must close the modal exactly once, not toggle it back
+  // open — the symptom of a duplicated closeModal() listener.
+  document.getElementById("academic-close").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("academic-overlay").hidden, true);
+});
+
+test("resetAcademicCalendarView() clears the cached calendars and closes the modal", async (t) => {
+  mockService(t, { calendars: [{ id: "cal-1", name: "Medicina 2026", color: "#7c3aed" }] });
+  view = await import(`../../academicCalendarView.js?t=${Math.random()}`);
+  view.initAcademicModal();
+  await view.openAcademicCalendarModal();
+  assert.strictEqual(document.getElementById("academic-overlay").hidden, false);
+
+  view.resetAcademicCalendarView();
+
+  assert.strictEqual(document.getElementById("academic-overlay").hidden, true);
+  // The cache is empty again — the event provider short-circuits to no
+  // events instead of returning the previous user's academic calendar data.
+  const events = await view.getAcademicEventProvider()("2026-01-01", "2026-01-31");
+  assert.deepStrictEqual(events, []);
+});
