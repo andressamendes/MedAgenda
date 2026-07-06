@@ -4,8 +4,13 @@
  * tabela ausente, coluna ausente, versão incompatível e a mensagem de erro
  * (nunca um "schema inválido" genérico — sempre item a item).
  *
- * `fetchImpl` é injetado em runCheck(), então nenhum destes testes faz rede
- * de verdade nem depende de um projeto Supabase real.
+ * A checagem de tabelas/colunas consulta um recurso por vez
+ * (`select=<coluna>&limit=1`), o mesmo formato já usado para schema_version —
+ * nunca a introspecção OpenAPI da raiz da API (`GET /rest/v1/`), que em
+ * produção retorna HTTP 401 pelo gateway do Supabase (rota não exposta na
+ * raiz). `fetchImpl` é injetado em runCheck()/evaluateSchemaStructure(),
+ * então nenhum destes testes faz rede de verdade nem depende de um projeto
+ * Supabase real.
  */
 import { test } from "node:test";
 import assert from "node:assert";
@@ -14,7 +19,9 @@ import {
   parseConfigCredentials,
   resolveCredentials,
   evaluateSchemaVersion,
-  evaluateTablesAndColumns,
+  interpretTableCheck,
+  interpretColumnCheck,
+  evaluateSchemaStructure,
   formatReport,
   runCheck,
   REQUIRED_TABLES,
@@ -22,38 +29,47 @@ import {
 } from "../../scripts/check-schema.js";
 
 const SCHEMA_SERVICE_SOURCE = 'export const EXPECTED_SCHEMA_VERSION = 14;\n';
+const URL = "https://proj.supabase.co";
+const ANON_KEY = "anon-key";
 
-function openApiFor(tables) {
-  const definitions = {};
-  for (const [table, columns] of Object.entries(tables)) {
-    definitions[table] = { properties: Object.fromEntries(columns.map(c => [c, {}])) };
-  }
-  return { definitions };
-}
-
-function fullOpenApi() {
-  const tables = {};
-  for (const table of REQUIRED_TABLES) {
-    tables[table] = ["id", ...(REQUIRED_COLUMNS[table] ?? [])];
-  }
-  return openApiFor(tables);
-}
-
-function fakeFetch({ version, openapi, versionStatus = 200, openapiStatus = 200 }) {
+/**
+ * Simula o Supabase real: `tables` mapeia nome da tabela para o conjunto de
+ * colunas que ela de fato tem (ou `undefined` para uma tabela ausente).
+ * Reproduz os mesmos formatos de erro do PostgREST observados na prática:
+ * PGRST205 (relation not found) e 42703 (undefined_column).
+ */
+function fakeFetch({ version, tables }) {
   return async (url) => {
     if (url.includes('/schema_version')) {
+      return { ok: true, status: 200, json: async () => (version === undefined ? [] : [{ version }]) };
+    }
+
+    const match = url.match(/\/rest\/v1\/([^?]+)\?select=([^&]+)/);
+    const [, table, column] = match;
+    const columns = tables[table];
+
+    if (!columns) {
       return {
-        ok: versionStatus === 200,
-        status: versionStatus,
-        json: async () => (version === undefined ? [] : [{ version }]),
+        ok: false, status: 404,
+        json: async () => ({ code: "PGRST205", message: `Could not find the table 'public.${table}' in the schema cache` }),
       };
     }
-    return {
-      ok: openapiStatus === 200,
-      status: openapiStatus,
-      json: async () => openapi,
-    };
+    if (!columns.has(column)) {
+      return {
+        ok: false, status: 400,
+        json: async () => ({ code: "42703", message: `column ${table}.${column} does not exist` }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => [] };
   };
+}
+
+function fullTables() {
+  const tables = {};
+  for (const table of REQUIRED_TABLES) {
+    tables[table] = new Set(["id", ...(REQUIRED_COLUMNS[table] ?? [])]);
+  }
+  return tables;
 }
 
 // ── readExpectedVersion ──────────────────────────────────────────────────
@@ -128,33 +144,70 @@ test("evaluateSchemaVersion() — erro de consulta nunca é confundido com suces
   assert.match(result.label, /não foi possível consultar/);
 });
 
-// ── evaluateTablesAndColumns ─────────────────────────────────────────────
+// ── interpretTableCheck / interpretColumnCheck ──────────────────────────
 
-test("evaluateTablesAndColumns() — todas as tabelas e colunas presentes: tudo ok, um item por tabela/coluna", () => {
-  const openapi = fullOpenApi();
-  const results = evaluateTablesAndColumns(openapi.definitions);
+test("interpretTableCheck() — tabela existente (200) é ok", () => {
+  const result = interpretTableCheck("events", { ok: true, status: 200, body: [] });
+  assert.deepStrictEqual(result, { ok: true, label: "events" });
+});
+
+test("interpretTableCheck() — PGRST205 (relation not found) é reportado nominalmente, nunca genérico", () => {
+  const result = interpretTableCheck("reviews", {
+    ok: false, status: 404, body: { code: "PGRST205", message: "Could not find the table 'public.reviews'" },
+  });
+  assert.deepStrictEqual(result, { ok: false, label: "tabela ausente: reviews" });
+});
+
+test("interpretTableCheck() — outro erro HTTP (ex.: 401 do gateway) não é confundido com tabela ausente", () => {
+  const result = interpretTableCheck("events", { ok: false, status: 401, body: { message: "Invalid API key" } });
+  assert.strictEqual(result.ok, false);
+  assert.doesNotMatch(result.label, /tabela ausente/);
+  assert.match(result.label, /HTTP 401/);
+});
+
+test("interpretColumnCheck() — coluna existente é ok", () => {
+  const result = interpretColumnCheck("profiles", "daily_goal_minutes", { ok: true, status: 200, body: [] });
+  assert.deepStrictEqual(result, { ok: true, label: "profiles.daily_goal_minutes" });
+});
+
+test("interpretColumnCheck() — 42703 (undefined_column) é reportado nominalmente (reproduz o caso de 12_time_goals.sql)", () => {
+  const result = interpretColumnCheck("profiles", "daily_goal_minutes", {
+    ok: false, status: 400, body: { code: "42703", message: "column profiles.daily_goal_minutes does not exist" },
+  });
+  assert.deepStrictEqual(result, { ok: false, label: "coluna ausente: profiles.daily_goal_minutes" });
+});
+
+// ── evaluateSchemaStructure ──────────────────────────────────────────────
+
+test("evaluateSchemaStructure() — todas as tabelas e colunas presentes: tudo ok", async () => {
+  const results = await evaluateSchemaStructure({
+    fetchImpl: fakeFetch({ tables: fullTables() }), url: URL, anonKey: ANON_KEY,
+  });
   assert.ok(results.every(r => r.ok));
   assert.ok(results.some(r => r.label === "profiles"));
   assert.ok(results.some(r => r.label === "profiles.daily_goal_minutes"));
 });
 
-test("evaluateTablesAndColumns() — tabela ausente é reportada nominalmente, nunca como falha genérica", () => {
-  const openapi = fullOpenApi();
-  delete openapi.definitions.activity_sessions;
+test("evaluateSchemaStructure() — tabela ausente é reportada nominalmente, e suas colunas críticas não são checadas (ruído redundante)", async () => {
+  const tables = fullTables();
+  delete tables.profiles;
 
-  const results = evaluateTablesAndColumns(openapi.definitions);
-  const failure = results.find(r => !r.ok);
-  assert.ok(failure);
-  assert.strictEqual(failure.label, "tabela ausente: activity_sessions");
-});
-
-test("evaluateTablesAndColumns() — coluna crítica ausente é reportada mesmo com a tabela existindo (reproduz o caso de 12_time_goals.sql)", () => {
-  const openapi = openApiFor({
-    ...Object.fromEntries(REQUIRED_TABLES.map(t => [t, ["id"]])),
-    profiles: ["id"], // profiles existe, mas sem as colunas de meta de tempo
+  const results = await evaluateSchemaStructure({
+    fetchImpl: fakeFetch({ tables }), url: URL, anonKey: ANON_KEY,
   });
 
-  const results = evaluateTablesAndColumns(openapi.definitions);
+  assert.ok(results.some(r => r.label === "tabela ausente: profiles"));
+  assert.ok(!results.some(r => r.label.includes("profiles.daily_goal_minutes")));
+});
+
+test("evaluateSchemaStructure() — coluna crítica ausente é reportada mesmo com a tabela existindo", async () => {
+  const tables = fullTables();
+  tables.profiles = new Set(["id"]); // profiles existe, sem as colunas de meta de tempo
+
+  const results = await evaluateSchemaStructure({
+    fetchImpl: fakeFetch({ tables }), url: URL, anonKey: ANON_KEY,
+  });
+
   const tableResult = results.find(r => r.label === "profiles");
   const columnFailure = results.find(r => r.label === "coluna ausente: profiles.daily_goal_minutes");
 
@@ -178,10 +231,10 @@ test("formatReport() nunca colapsa os resultados em uma única linha genérica �
 
 test("runCheck() — schema totalmente válido: ok=true, nenhum item de resultado falho", async () => {
   const outcome = await runCheck({
-    env: { SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "key" },
+    env: { SUPABASE_URL: URL, SUPABASE_ANON_KEY: ANON_KEY },
     configSource: null,
     schemaServiceSource: SCHEMA_SERVICE_SOURCE,
-    fetchImpl: fakeFetch({ version: 14, openapi: fullOpenApi() }),
+    fetchImpl: fakeFetch({ version: 14, tables: fullTables() }),
   });
 
   assert.strictEqual(outcome.ok, true);
@@ -190,14 +243,14 @@ test("runCheck() — schema totalmente válido: ok=true, nenhum item de resultad
 });
 
 test("runCheck() — tabela ausente: ok=false, e o item específico identifica a tabela", async () => {
-  const openapi = fullOpenApi();
-  delete openapi.definitions.reviews;
+  const tables = fullTables();
+  delete tables.reviews;
 
   const outcome = await runCheck({
-    env: { SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "key" },
+    env: { SUPABASE_URL: URL, SUPABASE_ANON_KEY: ANON_KEY },
     configSource: null,
     schemaServiceSource: SCHEMA_SERVICE_SOURCE,
-    fetchImpl: fakeFetch({ version: 14, openapi }),
+    fetchImpl: fakeFetch({ version: 14, tables }),
   });
 
   assert.strictEqual(outcome.ok, false);
@@ -205,13 +258,14 @@ test("runCheck() — tabela ausente: ok=false, e o item específico identifica a
 });
 
 test("runCheck() — coluna crítica ausente: ok=false, e o item aponta tabela.coluna", async () => {
-  const openapi = openApiFor(Object.fromEntries(REQUIRED_TABLES.map(t => [t, t === "profiles" ? ["id"] : ["id"]])));
+  const tables = fullTables();
+  tables.profiles = new Set(["id"]);
 
   const outcome = await runCheck({
-    env: { SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "key" },
+    env: { SUPABASE_URL: URL, SUPABASE_ANON_KEY: ANON_KEY },
     configSource: null,
     schemaServiceSource: SCHEMA_SERVICE_SOURCE,
-    fetchImpl: fakeFetch({ version: 14, openapi }),
+    fetchImpl: fakeFetch({ version: 14, tables }),
   });
 
   assert.strictEqual(outcome.ok, false);
@@ -220,10 +274,10 @@ test("runCheck() — coluna crítica ausente: ok=false, e o item aponta tabela.c
 
 test("runCheck() — versão de schema incompatível: ok=false mesmo que todas as tabelas/colunas existam", async () => {
   const outcome = await runCheck({
-    env: { SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "key" },
+    env: { SUPABASE_URL: URL, SUPABASE_ANON_KEY: ANON_KEY },
     configSource: null,
     schemaServiceSource: SCHEMA_SERVICE_SOURCE,
-    fetchImpl: fakeFetch({ version: 10, openapi: fullOpenApi() }),
+    fetchImpl: fakeFetch({ version: 10, tables: fullTables() }),
   });
 
   assert.strictEqual(outcome.ok, false);
@@ -245,15 +299,32 @@ test("runCheck() — sem credenciais (nem env, nem config.js): falha explicitame
 
 test("runCheck() — falha de rede/consulta ao schema_version nunca é relatada como schema compatível", async () => {
   const outcome = await runCheck({
-    env: { SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "key" },
+    env: { SUPABASE_URL: URL, SUPABASE_ANON_KEY: ANON_KEY },
     configSource: null,
     schemaServiceSource: SCHEMA_SERVICE_SOURCE,
     fetchImpl: async (url) => {
       if (url.includes('/schema_version')) throw new Error("network down");
-      return { ok: true, json: async () => fullOpenApi() };
+      return fakeFetch({ tables: fullTables() })(url);
     },
   });
 
   assert.strictEqual(outcome.ok, false);
   assert.ok(outcome.results.some(r => !r.ok && /network down/.test(r.label)));
+});
+
+test("runCheck() — um erro inesperado (ex.: HTTP 401 do gateway, não PGRST205) numa tabela nunca é confundido com 'tabela ausente'", async () => {
+  const outcome = await runCheck({
+    env: { SUPABASE_URL: URL, SUPABASE_ANON_KEY: ANON_KEY },
+    configSource: null,
+    schemaServiceSource: SCHEMA_SERVICE_SOURCE,
+    fetchImpl: async (url) => {
+      if (url.includes('/schema_version')) return { ok: true, status: 200, json: async () => [{ version: 14 }] };
+      return { ok: false, status: 401, json: async () => ({ message: "Invalid API key" }) };
+    },
+  });
+
+  assert.strictEqual(outcome.ok, false);
+  const eventsResult = outcome.results.find(r => r.label.startsWith("events"));
+  assert.doesNotMatch(eventsResult.label, /tabela ausente/);
+  assert.match(eventsResult.label, /HTTP 401/);
 });

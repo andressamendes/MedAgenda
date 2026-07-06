@@ -89,28 +89,77 @@ export function evaluateSchemaVersion(versionQuery, expectedVersion) {
 }
 
 /**
- * Avalia a presença de cada tabela obrigatória e das colunas críticas
- * declaradas em REQUIRED_COLUMNS, a partir das `definitions` do documento
- * OpenAPI que o PostgREST expõe em GET {SUPABASE_URL}/rest/v1/ (introspecção
- * de schema, sem precisar de service role nem sessão de usuário). Produz uma
- * entrada por item verificado — nunca um único "schema inválido" genérico.
+ * Consulta uma única coluna de uma tabela (`select=<column>&limit=1`) — o
+ * mesmo formato de requisição já usado para schema_version, que sabidamente
+ * funciona com a anon key. Nunca lança: falhas de rede viram `{ ok: false,
+ * error }` para o chamador decidir.
+ *
+ * Deliberadamente NÃO usa a introspecção OpenAPI (`GET {url}/rest/v1/`): em
+ * produção esse caminho raiz retorna HTTP 401 através do gateway do
+ * Supabase (a rota exposta é por recurso, não a raiz da API) — descoberto
+ * rodando este script contra o projeto real. Consultar recurso por recurso,
+ * como o restante do frontend já faz, evita depender desse endpoint.
  */
-export function evaluateTablesAndColumns(openapiDefinitions, requiredTables = REQUIRED_TABLES, requiredColumns = REQUIRED_COLUMNS) {
+async function queryColumn(fetchImpl, url, anonKey, table, column) {
+  try {
+    const res = await fetchImpl(`${url}/rest/v1/${table}?select=${column}&limit=1`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+    });
+    const body = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, body };
+  } catch (err) {
+    return { ok: false, status: null, body: null, error: err.message };
+  }
+}
+
+/**
+ * Interpreta a resposta de queryColumn() para a checagem de existência de
+ * uma TABELA (sempre consultando a coluna `id`, presente em todas as
+ * REQUIRED_TABLES). PGRST205 é o código que o PostgREST devolve para
+ * "relation not found" — exatamente o erro reproduzido no incidente
+ * original das migrations 11-13.
+ */
+export function interpretTableCheck(table, response) {
+  if (response.ok) return { ok: true, label: table };
+  if (response.body?.code === 'PGRST205') return { ok: false, label: `tabela ausente: ${table}` };
+  if (response.error) return { ok: false, label: `${table}: não foi possível consultar (${response.error})` };
+  const detail = response.body?.message ? ` — ${response.body.message}` : '';
+  return { ok: false, label: `${table}: não foi possível consultar (HTTP ${response.status}${detail})` };
+}
+
+/**
+ * Interpreta a resposta de queryColumn() para a checagem de existência de
+ * uma COLUNA crítica. 42703 é o código do Postgres para "undefined_column" —
+ * o caso concreto de 12_time_goals.sql (tabela `profiles` já existente, só
+ * faltando as colunas de meta de tempo).
+ */
+export function interpretColumnCheck(table, column, response) {
+  const label = `${table}.${column}`;
+  if (response.ok) return { ok: true, label };
+  if (response.body?.code === '42703') return { ok: false, label: `coluna ausente: ${label}` };
+  if (response.error) return { ok: false, label: `${label}: não foi possível consultar (${response.error})` };
+  const detail = response.body?.message ? ` — ${response.body.message}` : '';
+  return { ok: false, label: `${label}: não foi possível consultar (HTTP ${response.status}${detail})` };
+}
+
+/**
+ * Avalia a presença de cada tabela obrigatória e das colunas críticas
+ * declaradas em REQUIRED_COLUMNS, uma consulta REST por item (nunca uma
+ * introspecção única) — produz uma entrada por item verificado, nunca um
+ * único "schema inválido" genérico. Colunas de uma tabela ausente não são
+ * verificadas (já reportado como ruído redundante).
+ */
+export async function evaluateSchemaStructure({ fetchImpl, url, anonKey, requiredTables = REQUIRED_TABLES, requiredColumns = REQUIRED_COLUMNS }) {
   const results = [];
   for (const table of requiredTables) {
-    const def = openapiDefinitions?.[table];
-    if (!def) {
-      results.push({ ok: false, label: `tabela ausente: ${table}` });
-      continue;
-    }
-    results.push({ ok: true, label: table });
+    const tableResponse = await queryColumn(fetchImpl, url, anonKey, table, 'id');
+    const tableResult = interpretTableCheck(table, tableResponse);
+    results.push(tableResult);
+    if (!tableResult.ok) continue;
 
     for (const column of requiredColumns[table] ?? []) {
-      if (def.properties && Object.prototype.hasOwnProperty.call(def.properties, column)) {
-        results.push({ ok: true, label: `${table}.${column}` });
-      } else {
-        results.push({ ok: false, label: `coluna ausente: ${table}.${column}` });
-      }
+      const columnResponse = await queryColumn(fetchImpl, url, anonKey, table, column);
+      results.push(interpretColumnCheck(table, column, columnResponse));
     }
   }
   return results;
@@ -159,19 +208,9 @@ export async function runCheck({ env, configSource, schemaServiceSource, fetchIm
   }
   results.push(evaluateSchemaVersion(versionQuery, expectedVersion));
 
-  try {
-    const res = await fetchImpl(`${credentials.url}/rest/v1/`, {
-      headers: { apikey: credentials.anonKey, Authorization: `Bearer ${credentials.anonKey}` },
-    });
-    if (!res.ok) {
-      results.push({ ok: false, label: `não foi possível consultar o schema via REST (HTTP ${res.status})` });
-    } else {
-      const openapi = await res.json();
-      results.push(...evaluateTablesAndColumns(openapi.definitions));
-    }
-  } catch (err) {
-    results.push({ ok: false, label: `não foi possível consultar o schema via REST: ${err.message}` });
-  }
+  results.push(...await evaluateSchemaStructure({
+    fetchImpl, url: credentials.url, anonKey: credentials.anonKey,
+  }));
 
   return {
     ok: results.every(r => r.ok),
