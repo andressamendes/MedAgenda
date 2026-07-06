@@ -28,3 +28,14 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      # P1 — Guard Rail de Schema: este workflow (ci.yml) roda em qualquer
+      # push/PR e não tem acesso ao Supabase de produção (nenhum secret
+      # configurado aqui, de propósito — ver docs/OPERATIONS.md). O script
+      # falha explicitamente informando essa limitação em vez de mascará-la
+      # como sucesso; `continue-on-error` impede que essa limitação conhecida
+      # bloqueie PRs não relacionados a schema. A validação real, com acesso
+      # ao banco, acontece em deploy.yml antes de qualquer publicação.
+      - name: Check database schema (informativo — sem acesso ao banco neste workflow)
+        continue-on-error: true
+        run: npm run check:schema
