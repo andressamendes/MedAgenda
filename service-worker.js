@@ -30,6 +30,7 @@ const APP_SHELL = [
   './analytics.js',
   './assistantView.js',
   './auth.js',
+  './authError.js',
   './authView.js',
   './avatarService.js',
   './calendar.js',
