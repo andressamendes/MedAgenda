@@ -13,10 +13,11 @@ import * as notificationService from "../../notificationService.js";
 const EVENT_SERVICE_SPECIFIER      = new URL("../../eventService.js", import.meta.url).href;
 const PUSH_SERVICE_SPECIFIER       = new URL("../../pushService.js", import.meta.url).href;
 const DIAGNOSTIC_SERVICE_SPECIFIER = new URL("../../diagnosticService.js", import.meta.url).href;
+const HEALTH_SERVICE_SPECIFIER     = new URL("../../healthService.js", import.meta.url).href;
 
 let restoreConfig;
 
-function mockServices(t, { pushSupported = false, diagnostics } = {}) {
+function mockServices(t, { pushSupported = false, diagnostics, health } = {}) {
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: { getEventsByRange: async () => [] },
   });
@@ -41,6 +42,24 @@ function mockServices(t, { pushSupported = false, diagnostics } = {}) {
         version:       "1.0.0-test",
         environment:   "localhost",
         timestamp:     "2026-01-01T00:00:00.000Z",
+      },
+    },
+  });
+  t.mock.module(HEALTH_SERVICE_SPECIFIER, {
+    namedExports: {
+      HEALTH_STATUS: { HEALTHY: "HEALTHY", WARNING: "WARNING", DEGRADED: "DEGRADED", OFFLINE: "OFFLINE" },
+      checkHealth: async () => health ?? {
+        status: "HEALTHY",
+        timestamp: "2026-01-01T00:00:00.000Z",
+        components: {
+          database:      { ok: true, latency: 12, error: null },
+          auth:          { status: "authenticated", email: "user@example.com", expiresAt: "01/01/2030" },
+          schema:        { compatible: true, code: null, dbVersion: 14, expectedVersion: 14 },
+          edgeFunctions: { status: "available" },
+          sync:          { lastSync: "01/01/2026" },
+        },
+        recentErrorCount: 0,
+        lastError: null,
       },
     },
   });
