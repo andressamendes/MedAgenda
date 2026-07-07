@@ -10,7 +10,7 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
 const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import.meta.url).href;
 const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
-const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../activitySessionView.js", import.meta.url).href;
+const STUDY_SESSION_VIEW_SPECIFIER     = new URL("../../studySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER         = new URL("../../reviewService.js", import.meta.url).href;
 const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
@@ -28,9 +28,9 @@ const EMPTY_AI_CONTEXT = {
 };
 
 let serviceCalls;
-let startSessionForEventCalls;
+let openStudySessionCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, reviews = [], aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, sessionHistory = [], sessionHistoryError, reviews = [], aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -47,15 +47,13 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
     },
   });
 
-  // activitySessionView.js (F1.4's "Iniciar Sessão" button) pulls in
-  // categoryService/eventService transitively, which need real Supabase
-  // config — mocked here like any other dependency instead.
-  startSessionForEventCalls = [];
-  t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, {
+  // studySessionView.js (F7.1's "Iniciar Sessão" button) only navigates to
+  // the placeholder page — mocked here like any other dependency.
+  openStudySessionCalls = [];
+  t.mock.module(STUDY_SESSION_VIEW_SPECIFIER, {
     namedExports: {
-      startSessionForEvent: async (event) => {
-        startSessionForEventCalls.push(event);
-        return startSessionResult;
+      openStudySession: (event) => {
+        openStudySessionCalls.push(event);
       },
     },
   });
@@ -427,8 +425,8 @@ test("'Iniciar Sessão' is hidden for a new event and shown when editing an exis
   assert.strictEqual(document.getElementById("btn-start-session").hidden, false);
 });
 
-test("clicking 'Iniciar Sessão' starts a session for the event being edited and closes the modal", async (t) => {
-  mockEventService(t, { startSessionResult: true });
+test("clicking 'Iniciar Sessão' navigates to the Sessão de Estudo placeholder and closes the modal", async (t) => {
+  mockEventService(t);
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
@@ -438,23 +436,9 @@ test("clicking 'Iniciar Sessão' starts a session for the event being edited and
   document.getElementById("btn-start-session").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await flush();
 
-  assert.strictEqual(startSessionForEventCalls.length, 1);
-  assert.strictEqual(startSessionForEventCalls[0].id, "evt-1");
+  assert.strictEqual(openStudySessionCalls.length, 1);
+  assert.strictEqual(openStudySessionCalls[0].id, "evt-1");
   assert.strictEqual(document.getElementById("event-modal").hidden, true);
-});
-
-test("if a session conflict isn't resolved, the form stays open so the user can retry", async (t) => {
-  mockEventService(t, { startSessionResult: false });
-  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
-  initEventForm();
-
-  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", category: "Plantão" });
-
-  document.getElementById("btn-start-session").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await flush();
-
-  assert.strictEqual(startSessionForEventCalls.length, 1);
-  assert.strictEqual(document.getElementById("event-modal").hidden, false);
 });
 
 test("cancelling the form closes the modal without calling the service", async (t) => {

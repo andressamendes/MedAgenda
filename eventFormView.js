@@ -9,7 +9,7 @@ import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
-import { startSessionForEvent } from "./activitySessionView.js";
+import { openStudySession } from "./studySessionView.js";
 import { getAIContext } from "./aiContextService.js";
 import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
@@ -159,15 +159,10 @@ export function initEventForm(onSave) {
 
   cancelBtn?.addEventListener("click", _handleModalClose);
 
-  startSessionBtn?.addEventListener("click", async () => {
+  startSessionBtn?.addEventListener("click", () => {
     if (!_editingEvent) return;
-    startSessionBtn.disabled = true;
-    try {
-      const started = await startSessionForEvent(_editingEvent);
-      if (started) _handleModalClose();
-    } finally {
-      startSessionBtn.disabled = false;
-    }
+    openStudySession(_editingEvent);
+    _handleModalClose();
   });
 
   generateReviewsBtn?.addEventListener("click", async () => {

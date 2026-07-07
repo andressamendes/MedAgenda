@@ -85,7 +85,7 @@ async function _loadLookups() {
 }
 
 // Título/categoria são só para exibição — nunca persistidos na sessão além
-// dos ids que o service já grava (mesmo princípio de activitySessionView.js).
+// dos ids que o service já grava.
 function _resolveMeta(session) {
   if (session.event_id) {
     const ev = _eventsById.get(session.event_id);

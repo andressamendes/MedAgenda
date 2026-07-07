@@ -57,7 +57,7 @@ import { assertSchemaCompatible } from "./schemaService.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
-import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
+import { initStudySessionView } from "./studySessionView.js";
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
@@ -195,7 +195,6 @@ async function _initApp(session) {
     if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
 
     safeInit("conta", () => initAccountView(session.user.id));
-    safeInit("cronômetro de sessão", () => initActivitySessionView());
     safeInit("notificações", () => {
       initNotifications(session.user.id);
       initPushService(session.user.id, VAPID_PUBLIC_KEY);
@@ -453,6 +452,7 @@ safeInit("diagnóstico", initDiagnosticModal);
 
 // ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
 safeInit("formulário de compromisso", () => initEventForm(refreshAll));
+safeInit("sessão de estudo (placeholder)", initStudySessionView);
 
 // ── [DOMAIN: assistente inteligente] — extraído para assistantView.js ────────
 safeInit("assistente", initAssistantView);
@@ -474,7 +474,6 @@ initAuthView({
   onBeforeSignOut: () => {
     resetAssistant();
     resetNotifications();
-    resetActivitySessionView();
     resetActivityHistoryView();
     resetActivityDashboardView();
     resetInsightsView();
