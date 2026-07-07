@@ -37,6 +37,64 @@
  * pura buildUserMemory() e reaproveita exatamente os dados que este módulo
  * já buscou (sessions/events/categories/categoryBreakdown/completedReviews) —
  * zero I/O adicional.
+ *
+ * Barramento de Eventos (F6.6): o Context Engine é o único módulo de domínio
+ * migrado nesta fase — recommendationEngine, planningService, reflectionService,
+ * decisionEngine e userMemoryService continuam chamando exclusivamente
+ * getAIContext(), sem qualquer alteração, e continuam sem conhecer o
+ * barramento (ver RESPONSABILIDADE no ticket F6.6).
+ *
+ * Estratégia — dirty flag + rebuild preguiçoso (nunca eager reload): views já
+ * migradas (Dashboard/Histórico/Insights, F6.3-F6.5) re-renderizam a cada
+ * evento porque têm algo na tela agora. getAIContext() não tem tela: é
+ * chamado sob demanda por vários módulos (aiPanelView, decisionEngine,
+ * eventFormView, services/ai/aiService), às vezes minutos após o último
+ * evento. Recalcular imediatamente a cada SessionFinished/Cancelled/Updated
+ * refaria o Promise.all inteiro para um consumidor que talvez nunca apareça
+ * antes do próximo evento invalidar tudo de novo. Em vez disso, cada evento
+ * apenas marca o snapshot como "sujo" (_dirty = true); getAIContext() só
+ * refaz o Promise.all quando alguém efetivamente chama a função E o snapshot
+ * está sujo — do contrário devolve o último snapshot calculado. Isso também
+ * coalesce de graça qualquer sequência de eventos publicados antes da
+ * próxima chamada (ex.: SessionUpdated seguido de SessionFinished ao
+ * encerrar uma sessão): a flag booleana não acumula, então uma rajada de
+ * eventos ainda dispara um único rebuild.
+ *
+ * Eventos consumidos — SessionFinished, SessionCancelled, SessionUpdated:
+ * todo bloco de getAIContext() que depende de sessões (execution, categories,
+ * daysSinceLastSession, overdueEvents, memory) deriva exclusivamente de
+ * sessões com status "finished" (computeCategoryBreakdown filtra
+ * status === "finished"; calculateLastSession e os totais do dashboard idem;
+ * computeOverdueEvents usa hasFinishedSession). SessionUpdated é o ponto
+ * único de publicação de qualquer updateActivitySession() (edição de
+ * duração/categoria de uma sessão já finalizada, por exemplo) — e por isso
+ * também já é publicado por finishSession()/cancelSession() internamente,
+ * então assiná-lo sozinho já cobriria os outros dois; mesmo assim os três são
+ * assinados explicitamente, mesmo padrão redundante-porém-explícito já usado
+ * pelo Histórico/Dashboard/Insights (F6.3-F6.5).
+ *
+ * Eventos NÃO consumidos — SessionStarted, SessionPaused, SessionResumed:
+ * nenhum campo devolvido por getAIContext() reflete uma sessão em andamento
+ * ou pausada (não há "sessão atual"/"isRunning" no contrato) — apenas
+ * sessões finalizadas, como acima. Publicar qualquer um desses três eventos
+ * não mudaria um único campo do snapshot, então assiná-los só custaria
+ * rebuilds inúteis. Mesma exclusão de SessionPaused/SessionResumed já
+ * justificada nas migrações anteriores.
+ *
+ * Segurança de virada de dia: vários campos do snapshot dependem de `now`
+ * (dailyGoal, daysOverdue, daysSinceLastStudy, weekEventsCount). O cache só é
+ * reaproveitado quando, além de não estar sujo, o `now` da chamada atual cai
+ * no mesmo dia (isoDate) do `now` usado para construir o snapshot — evita
+ * devolver "hoje" com os números de ontem para uma aba deixada aberta
+ * durante a virada da meia-noite, sem exigir nenhum evento extra para isso.
+ *
+ * Reset (logout/troca de usuário): resetAIContextService() cancela as
+ * assinaturas do barramento e descarta o snapshot — chamada em
+ * onBeforeSignOut (script.js), junto dos demais resets. A assinatura é
+ * refeita de forma preguiçosa na próxima chamada a getAIContext() (mesmo
+ * guard idempotente `_unsubscribers.length > 0` do padrão
+ * _subscribeToEventBus() já usado pelas Views migradas) — nenhum módulo
+ * precisa chamar um "init" deste serviço.
  */
 
 import { getEventsByRange } from "./eventService.js";
@@ -50,6 +108,7 @@ import { expandEvents } from "./recurrence.js";
 import { isoDate, localDate, mondayOf } from "./utils.js";
 import { handleError } from "./errorService.js";
 import { buildUserMemory, emptyUserMemoryPreferences } from "./userMemoryService.js";
+import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 // Superset de janela para os compromissos: cobre os três recortes já usados
 // pelos prompts existentes (7/14/30 dias à frente) e ainda alcança o
@@ -167,14 +226,69 @@ export function sanitizePendingReviews(reviews, now = new Date()) {
   }));
 }
 
+// ── Barramento de Eventos (F6.6) — cache + dirty flag ────────────────────────
+// Ver justificativa completa no cabeçalho do módulo.
+
+let _cache      = null; // último snapshot calculado (objeto devolvido por getAIContext())
+let _cachedNow  = null; // `now` usado para construir _cache — ver "segurança de virada de dia"
+let _dirty      = true; // sem snapshot ainda: força o primeiro rebuild
+let _unsubscribers = [];
+
+function _markDirty() {
+  _dirty = true;
+}
+
+function _subscribeToEventBus() {
+  if (_unsubscribers.length > 0) return; // já assinado — chamadas repetidas a getAIContext() são no-op aqui
+  _unsubscribers = [
+    subscribe(SESSION_EVENTS.FINISHED, _markDirty),
+    subscribe(SESSION_EVENTS.CANCELLED, _markDirty),
+    subscribe(SESSION_EVENTS.UPDATED, _markDirty),
+  ];
+}
+
+/**
+ * Cancela a assinatura do barramento e descarta o snapshot em cache. Uso:
+ * logout / reset / troca de usuário (ver script.js onBeforeSignOut) — sem
+ * isso, o cache e os listeners registrados em _subscribeToEventBus()
+ * sobreviveriam à troca de sessão e poderiam devolver o contexto de IA de um
+ * usuário para outro. A próxima chamada a getAIContext() reassina o
+ * barramento e reconstrói o snapshot do zero, de forma preguiçosa.
+ */
+export function resetAIContextService() {
+  _unsubscribers.forEach(off => off());
+  _unsubscribers = [];
+  _cache     = null;
+  _cachedNow = null;
+  _dirty     = true;
+}
+
 // ── Ponto de entrada único ───────────────────────────────────────────────────
 
 /**
  * Busca e consolida, numa única rodada paralela, tudo que uma recomendação
  * (ou um prompt de IA) precisa saber sobre o estado atual do usuário.
  * Nunca rejeita: cada fonte tem seu próprio fallback vazio.
+ *
+ * F6.6: devolve o snapshot em cache sempre que ele ainda não foi invalidado
+ * por um evento do barramento (_dirty === false) e cai no mesmo dia do `now`
+ * atual — só refaz a consolidação completa quando uma dessas condições falha.
  */
 export async function getAIContext(now = new Date()) {
+  _subscribeToEventBus();
+
+  if (!_dirty && _cache && _cachedNow && isoDate(_cachedNow) === isoDate(now)) {
+    return _cache;
+  }
+
+  const context = await _buildAIContext(now);
+  _cache     = context;
+  _cachedNow = now;
+  _dirty     = false;
+  return context;
+}
+
+async function _buildAIContext(now) {
   const eventsStart = new Date(now); eventsStart.setDate(eventsStart.getDate() - EVENTS_LOOKBACK_DAYS);
   const eventsEnd   = new Date(now); eventsEnd.setDate(eventsEnd.getDate() + EVENTS_LOOKAHEAD_DAYS);
   const sessionsStart = new Date(now); sessionsStart.setDate(sessionsStart.getDate() - SESSIONS_LOOKBACK_DAYS);

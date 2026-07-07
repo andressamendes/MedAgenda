@@ -61,6 +61,7 @@ import { initActivitySessionView, resetActivitySessionView } from "./activitySes
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
+import { resetAIContextService } from "./aiContextService.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -482,6 +483,7 @@ initAuthView({
     resetCategories();
     resetPushService();
     resetAIPanel();
+    resetAIContextService();
     _resetEventList();
   },
 });
