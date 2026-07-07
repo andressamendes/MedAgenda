@@ -8,13 +8,18 @@
 //
 // Sem gráficos, sem barras, sem animações: só cards simples, mesmo padrão de
 // activityDashboardView.js.
+//
+// F6.5: a Central assina o barramento de eventos da sessão (sessionEventBus,
+// F6.2) diretamente — nunca activitySessionService, nunca onSessionFinished()
+// (adaptador legado mantido só para módulos ainda não migrados) — mesmo
+// padrão já usado pelo Histórico (F6.3) e pelo Dashboard (F6.4).
 
 import { getInsightsData } from "./insightsService.js";
-import { onSessionFinished } from "./activitySessionService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
+import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 function _formatDuration(minutes) {
   const total = Math.max(0, Math.round(minutes || 0));
@@ -87,8 +92,46 @@ const BLOCK_DEFS = [
   { key: "produtividade", cardDefs: PRODUTIVIDADE_CARD_DEFS, cardsId: "insights-produtividade-cards", errorId: "insights-produtividade-error", noticeId: "insights-produtividade-notice" },
 ];
 
-let _unsubscribers = [];
+let _unsubscribeReview  = null;
+let _unsubscribeProfile = null;
 let _loading = false;
+
+// ── Sincronização com o barramento de eventos (F6.5) ────────────────────────
+// A Central assina SessionFinished/Cancelled/Updated diretamente no
+// barramento (F6.2) — nunca conhece activitySessionService — e recarrega
+// getInsightsData() sempre que uma sessão muda de estado. Os quatro blocos
+// (execução, metas, revisões, produtividade) são todos derivados de sessões
+// *finalizadas* (activityDashboardService.computeDashboardIndicators() e
+// activitySessionStats usam apenas status "finished"; produtividade usa
+// hasFinishedSession) — nenhum deles reflete uma sessão apenas iniciada.
+// Por isso, diferente do Dashboard/Histórico (F6.3/F6.4), SessionStarted NÃO
+// é assinado aqui: publicá-lo não mudaria nenhum indicador exibido. Pelo
+// mesmo motivo, SessionPaused/SessionResumed também ficam de fora — nenhum
+// bloco depende do estado de pausa de uma sessão em andamento.
+let _unsubscribers = [];
+let _reloadTimer   = null;
+
+// Vários eventos podem ser publicados em sequência imediata (ex.: Updated
+// seguido de Finished, ao encerrar uma sessão). Em vez de recarregar a cada
+// evento, agenda-se uma única recarga no próximo tick — se outro evento
+// chegar antes do timer disparar, ele é ignorado (já há uma recarga pendente
+// que vai refletir o estado mais recente de qualquer forma).
+function _scheduleReload() {
+  if (_reloadTimer) return;
+  _reloadTimer = setTimeout(() => {
+    _reloadTimer = null;
+    _load();
+  }, 0);
+}
+
+function _subscribeToEventBus() {
+  if (_unsubscribers.length > 0) return; // já assinado — initInsightsView pode rodar mais de uma vez
+  _unsubscribers = [
+    subscribe(SESSION_EVENTS.FINISHED, _scheduleReload),
+    subscribe(SESSION_EVENTS.CANCELLED, _scheduleReload),
+    subscribe(SESSION_EVENTS.UPDATED, _scheduleReload),
+  ];
+}
 
 // Renderiza um único bloco a partir do seu estado ("ok" | "partial" | "error").
 // Uma falha aqui nunca deve impedir os outros três blocos de renderizar
@@ -170,19 +213,32 @@ async function _load() {
 
 /**
  * Monta a Central de Insights (uma única vez) e carrega os indicadores.
- * Assina os mecanismos de notificação já existentes (ETAPA 5) para
- * recalcular automaticamente sempre que uma sessão terminar
- * (activitySessionService.onSessionFinished), uma revisão for concluída/pulada
- * (reviewService.onReviewStatusChanged) ou o perfil (metas) mudar
- * (profileService.onProfileUpdated) — sem exigir reload da página nem polling.
+ * Assina o barramento de eventos da sessão (F6.5) e
+ * onReviewStatusChanged()/onProfileUpdated() para recalcular automaticamente
+ * sempre que uma sessão, revisão ou meta mudar — sem exigir reload da página
+ * nem polling.
  */
 export async function initInsightsView() {
-  if (_unsubscribers.length === 0) {
-    _unsubscribers = [
-      onSessionFinished(() => _load()),
-      onReviewStatusChanged(() => _load()),
-      onProfileUpdated(() => _load()),
-    ];
-  }
+  _subscribeToEventBus();
+  if (!_unsubscribeReview)  _unsubscribeReview  = onReviewStatusChanged(() => _load());
+  if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
   await _load();
+}
+
+/**
+ * Desfaz a assinatura do barramento de eventos e demais listeners, além de
+ * qualquer recarga pendente. Chamada no logout/troca de usuário (ver
+ * script.js/onBeforeSignOut) — sem isso, os listeners registrados em
+ * _subscribeToEventBus() sobreviveriam à troca de sessão e recarregariam a
+ * Central de Insights com o usuário errado.
+ */
+export function resetInsightsView() {
+  _unsubscribers.forEach(off => off());
+  _unsubscribers = [];
+  if (_reloadTimer) {
+    clearTimeout(_reloadTimer);
+    _reloadTimer = null;
+  }
+  if (_unsubscribeReview)  { _unsubscribeReview();  _unsubscribeReview  = null; }
+  if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
 }

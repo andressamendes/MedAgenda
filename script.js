@@ -60,7 +60,7 @@ import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
-import { initInsightsView } from "./insightsView.js";
+import { initInsightsView, resetInsightsView } from "./insightsView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -476,6 +476,7 @@ initAuthView({
     resetActivitySessionView();
     resetActivityHistoryView();
     resetActivityDashboardView();
+    resetInsightsView();
     resetAccountView();
     resetAcademicCalendarView();
     resetCategories();
