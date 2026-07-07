@@ -2,6 +2,37 @@
 
 ---
 
+## [Unreleased] — F6.10: Integração Sessão ↔ Revisão
+
+Nova migration `sql/16_review_session_link.sql`: `reviews.session_id`
+(nullable) + FK para `activity_sessions(id)` `ON DELETE SET NULL`. FK do
+lado "N" da relação 1:N (uma Sessão pode cobrir várias Revisões; uma
+Revisão aponta para no máximo uma Sessão), nullable porque a associação é
+opcional nos dois sentidos, e `SET NULL` (não `CASCADE`) porque Sessão e
+Revisão são dois ciclos de vida independentes — excluir a Sessão que
+executou uma Revisão não apaga a Revisão, só a referência de "quem a
+executou". Sem bump de `schema_version`, mesmo critério de
+`15_questions.sql`: nenhum consumidor visual foi conectado nesta etapa.
+
+Novo `reviewSessionService.js`: camada de integração mínima entre
+`reviewService` (ciclo de revisão) e `activitySessionService` (ciclo de
+vida da Sessão) — `associateReview()`, `unlinkReview()` e
+`getReviewSession()`. Nenhum CRUD duplicado, nenhuma regra de Dashboard,
+Central de Insights, IA, Recommendation, Planning, Reflection, Decision
+Engine, User Memory, Subject Progress, Questões ou Conquistas. Nenhum
+evento novo — `sessionEventBus.js` não foi alterado. Nenhuma tela
+alterada.
+
+24 novos testes: `tests/services/reviewSessionService.test.js` (15 — mocka
+`reviewService`/`activitySessionService`/`supabase.js` inteiros, isola só a
+orquestração) e `tests/integration/reviewSessionIntegration.test.js` (9 —
+usa os services reais contra `supabase.js` mockado, cobrindo associação,
+desassociação, sessão/revisão inexistente, isolamento entre usuários, leitura
+da associação e o contrato de `ON DELETE SET NULL`). Suíte completa:
+798/798 passam.
+
+---
+
 ## [Unreleased] — F6.9: Agregação por Matéria (Projection)
 
 Novo `subjectProgressService.js`: projeção pura que consolida Sessões
