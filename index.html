@@ -404,6 +404,64 @@
               <button type="button" class="btn btn-primary" id="ss-btn-finish" hidden>Finalizar</button>
             </div>
           </div>
+
+          <!-- Resumo da sessão / confirmação de encerramento (F7.3) -->
+          <div id="ss-finish-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ss-finish-title">
+            <div class="modal-card">
+              <div class="modal-header">
+                <span class="modal-date" id="ss-finish-title">Resumo da sessão</span>
+              </div>
+              <div class="modal-body">
+                <dl class="ss-context">
+                  <div class="ss-context-row">
+                    <dt>Compromisso</dt>
+                    <dd id="ssf-event-title">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Categoria</dt>
+                    <dd id="ssf-category">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Matéria</dt>
+                    <dd id="ssf-subject">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Conteúdo</dt>
+                    <dd id="ssf-content">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Horário de início</dt>
+                    <dd id="ssf-started-at">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Horário de término</dt>
+                    <dd id="ssf-ended-at">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Tempo líquido</dt>
+                    <dd id="ssf-net-time">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Duração total</dt>
+                    <dd id="ssf-total-duration">—</dd>
+                  </div>
+                </dl>
+
+                <label for="ssf-notes" class="ss-notes-label">Observações da sessão</label>
+                <textarea id="ssf-notes" class="ss-notes-textarea" rows="3" placeholder="Dificuldades encontradas, pontos importantes, lembretes…"></textarea>
+
+                <div class="ss-questions-block">
+                  <h3 class="ss-questions-title">Questões Resolvidas</h3>
+                  <p id="ssf-questions-empty" class="ss-questions-empty">Nenhuma questão registrada.</p>
+                  <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-add-questions">Adicionar questões</button>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-ghost"   id="ssf-btn-back">Voltar</button>
+                <button type="button" class="btn btn-primary" id="ssf-btn-confirm">Confirmar encerramento</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Page: Dashboard de Execução (F2.1) -->

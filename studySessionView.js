@@ -23,6 +23,7 @@ import {
 import { getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { pad } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
@@ -34,11 +35,18 @@ let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, categoryEl, subjectEl, contentEl, objectiveEl, startedAtEl, expectedDurationEl;
 let btnPause, btnResume, btnCancel, btnFinish;
 
+// Modal de encerramento (F7.3) — resumo somente leitura + confirmação, entre
+// clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
+let finishModalEl, finishModal;
+let ssfTitleEl, ssfCategoryEl, ssfSubjectEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl;
+let ssfNotesEl, ssfBtnAddQuestions, ssfBtnBack, ssfBtnConfirm;
+
 let _session   = null; // fonte da verdade: a última linha conhecida do banco
 let _eventMeta = null; // { title, category, duration_minutes } — só para exibição
 let _tickId    = null;
 let _busy      = false; // evita cliques duplicados durante uma chamada em andamento
 let _unsubscribers = [];
+let _pendingEndedAt = null; // horário de término congelado ao abrir o resumo, reaproveitado na confirmação
 
 function _queryElements() {
   emptyEl             = document.getElementById("ss-empty");
@@ -62,13 +70,29 @@ function _queryElements() {
   btnResume = document.getElementById("ss-btn-resume");
   btnCancel = document.getElementById("ss-btn-cancel");
   btnFinish = document.getElementById("ss-btn-finish");
+
+  finishModalEl      = document.getElementById("ss-finish-modal");
+  ssfTitleEl          = document.getElementById("ssf-event-title");
+  ssfCategoryEl        = document.getElementById("ssf-category");
+  ssfSubjectEl         = document.getElementById("ssf-subject");
+  ssfContentEl         = document.getElementById("ssf-content");
+  ssfStartedAtEl       = document.getElementById("ssf-started-at");
+  ssfEndedAtEl         = document.getElementById("ssf-ended-at");
+  ssfNetTimeEl         = document.getElementById("ssf-net-time");
+  ssfTotalDurationEl   = document.getElementById("ssf-total-duration");
+  ssfNotesEl           = document.getElementById("ssf-notes");
+  ssfBtnAddQuestions   = document.getElementById("ssf-btn-add-questions");
+  ssfBtnBack           = document.getElementById("ssf-btn-back");
+  ssfBtnConfirm        = document.getElementById("ssf-btn-confirm");
+
+  finishModal = initModal(finishModalEl, _closeFinishModal);
 }
 
 function _bindEvents() {
   btnStartStandalone.addEventListener("click", () => _run(() => startSession({ source: "manual" })));
   btnPause.addEventListener("click",  () => _run(() => pauseSession(_session.id)));
   btnResume.addEventListener("click", () => _run(() => resumeSession(_session.id)));
-  btnFinish.addEventListener("click", () => _run(() => finishSession(_session.id)));
+  btnFinish.addEventListener("click", () => _openFinishModal());
   btnCancel.addEventListener("click", async () => {
     if (_busy || !_session) return;
     const shouldCancel = await confirmDialog({
@@ -80,6 +104,10 @@ function _bindEvents() {
     });
     if (shouldCancel) await _run(() => cancelSession(_session.id));
   });
+
+  ssfBtnBack.addEventListener("click", () => _closeFinishModal());
+  ssfBtnAddQuestions.addEventListener("click", () => {}); // placeholder — cadastro de questões fica para etapa futura
+  ssfBtnConfirm.addEventListener("click", () => _confirmFinish());
 }
 
 function _formatElapsed(ms) {
@@ -221,6 +249,52 @@ async function _run(action) {
   }
 }
 
+// ── Encerramento da sessão (F7.3) ───────────────────────────────────────────
+// "Finalizar" nunca chama activitySessionService.finishSession() direto: antes
+// abre este resumo (somente leitura, sem cálculo novo — os mesmos campos que
+// finishSession() usaria) para o usuário revisar e confirmar. O horário de
+// término é congelado no momento em que o resumo abre e reaproveitado, sem
+// mudanças, na chamada de confirmação — o que a tela mostra é exatamente o
+// que será persistido.
+
+// Espelha a fórmula de duração de activitySessionService.finishSession() só
+// para exibição — não introduz uma regra nova, e o mesmo valor (em minutos) é
+// o que será de fato enviado a finishSession() ao confirmar.
+function _minutesBetween(startIso, endedAtDate) {
+  return Math.max(0, Math.round((endedAtDate - new Date(startIso)) / 60000));
+}
+
+function _openFinishModal() {
+  if (_busy || !_session) return;
+
+  _pendingEndedAt = new Date();
+  const netMinutes = _minutesBetween(_session.started_at, _pendingEndedAt);
+
+  ssfTitleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
+  ssfCategoryEl.textContent = _eventMeta?.category || "—";
+  ssfSubjectEl.textContent  = _eventMeta?.category || "—"; // ver studySessionView.js:_render — domínio ainda não tem campo próprio de matéria
+  ssfContentEl.textContent  = _eventMeta?.description || "—";
+  ssfStartedAtEl.textContent     = _formatClockTime(_session.started_at);
+  ssfEndedAtEl.textContent       = _formatClockTime(_pendingEndedAt.toISOString());
+  ssfNetTimeEl.textContent       = _formatExpectedDuration(netMinutes);
+  ssfTotalDurationEl.textContent = _formatExpectedDuration(netMinutes);
+  ssfNotesEl.value = "";
+
+  finishModal.open(ssfBtnBack);
+}
+
+function _closeFinishModal() {
+  _pendingEndedAt = null;
+  finishModal.close();
+}
+
+async function _confirmFinish() {
+  if (_busy || !_session || !_pendingEndedAt) return;
+  const endedAt = _pendingEndedAt;
+  await _run(() => finishSession(_session.id, endedAt));
+  _closeFinishModal();
+}
+
 // Recarrega a partir de um evento do barramento — nunca assume que o payload
 // já traz tudo que a tela precisa exibir (ex.: SessionStarted disparado pelo
 // formulário de compromisso não conhece o título do evento).
@@ -324,5 +398,7 @@ export function resetStudySessionView() {
   _session   = null;
   _eventMeta = null;
   _busy      = false;
+  _pendingEndedAt = null;
+  if (finishModalEl && !finishModalEl.hidden) finishModal.close();
   if (emptyEl) _render();
 }

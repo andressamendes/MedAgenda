@@ -203,7 +203,49 @@ test("declining the Cancelar confirmation keeps the session paused", async (t) =
   assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Pausada");
 });
 
-test("finishing a session returns the page to the empty state", async (t) => {
+// ── Fluxo de encerramento: resumo + confirmação (F7.3) ──────────────────────
+
+test("clicking Finalizar never finishes immediately — it opens the summary modal instead", async (t) => {
+  const finishCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({
+      id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1",
+    }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60 }),
+    finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(finishCalls.length, 0, "finishSession must not be called before confirmation");
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false);
+  assert.strictEqual(document.getElementById("ss-active").hidden, false, "the running session card stays visible behind the modal");
+});
+
+test("the summary modal shows the session's read-only data, sourced from the existing domain", async (t) => {
+  const startedAt = new Date("2026-07-07T10:00:00.000Z").toISOString();
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: startedAt, event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-event-title").textContent, "Plantão UTI");
+  assert.strictEqual(document.getElementById("ssf-category").textContent, "Plantão");
+  assert.strictEqual(document.getElementById("ssf-subject").textContent, "Plantão");
+  assert.strictEqual(document.getElementById("ssf-content").textContent, "Revisar sepse");
+  assert.notStrictEqual(document.getElementById("ssf-started-at").textContent, "—");
+  assert.notStrictEqual(document.getElementById("ssf-ended-at").textContent, "—");
+  assert.notStrictEqual(document.getElementById("ssf-net-time").textContent, "—");
+  assert.notStrictEqual(document.getElementById("ssf-total-duration").textContent, "—");
+});
+
+test("the summary modal has an Observações field and a Questões Resolvidas placeholder", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
@@ -212,6 +254,48 @@ test("finishing a session returns the page to the empty state", async (t) => {
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
+  assert.ok(document.getElementById("ssf-notes"), "observações textarea must exist");
+  assert.strictEqual(document.getElementById("ssf-questions-empty").textContent, "Nenhuma questão registrada.");
+  assert.ok(document.getElementById("ssf-btn-add-questions"), "Adicionar questões button must exist");
+});
+
+test("clicking Voltar closes the summary modal without finishing the session", async (t) => {
+  const finishCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(finishCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true);
+  assert.strictEqual(document.getElementById("ss-active").hidden, false, "the session stays running");
+});
+
+test("confirming the summary calls activitySessionService.finishSession() and returns to the empty state", async (t) => {
+  const finishCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id, endedAt) => { finishCalls.push({ id, endedAt }); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(finishCalls.length, 1);
+  assert.strictEqual(finishCalls[0].id, "sess-1");
+  assert.ok(finishCalls[0].endedAt instanceof Date);
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true);
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
