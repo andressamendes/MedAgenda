@@ -2518,65 +2518,131 @@ textarea { resize: vertical; }
   to { transform: rotate(360deg); }
 }
 
-/* ── Cronômetro global de Sessão de Atividade (F1.3) ── */
-.as-widget {
-  position: fixed;
-  left: 1rem;
-  bottom: 1rem;
-  z-index: 90;
+/* ── Sessão de Estudo — tela dedicada de execução (F7.2) ──────────────────── */
+/* Substitui o antigo cronômetro global (.as-widget, F1.3): o cronômetro só
+   existe nesta página agora. */
+
+.ss-empty {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.ss-empty-message {
+  color: var(--gray-600);
+  font-size: .95rem;
+  margin: 0;
+}
+
+.ss-card {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: .85rem;
+  gap: 1.25rem;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem;
   background: var(--color-surface);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
-  box-shadow: 0 2px 10px rgba(0,0,0,.1);
-  padding: .6rem .85rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
 }
 
-.as-widget-body {
+.ss-status-badge {
+  align-self: center;
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding: .25rem .7rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.ss-status-badge--running {
+  background: color-mix(in srgb, var(--green, #10b981) 15%, transparent);
+  color: var(--green-d, #047857);
+}
+
+.ss-status-badge--paused {
+  background: color-mix(in srgb, var(--amber, #f59e0b) 18%, transparent);
+  color: #92400e;
+}
+
+/* O cronômetro é o elemento visual principal da tela. */
+.ss-timer {
   display: flex;
   flex-direction: column;
-  gap: .1rem;
-  min-width: 0;
+  align-items: center;
+  gap: .15rem;
 }
 
-.as-widget-status {
-  font-size: .78rem;
-  font-weight: 600;
-  color: var(--gray-600);
-}
-
-.as-widget-event {
-  font-size: .78rem;
-  color: var(--gray-600);
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.as-widget-time {
-  font-size: 1.05rem;
-  font-weight: 700;
+.ss-timer-value {
+  font-size: 3rem;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--gray-800);
+  line-height: 1;
 }
 
-.as-widget-note {
-  margin: 0;
-  font-size: .72rem;
+.ss-timer-label {
+  font-size: .78rem;
   color: var(--gray-500);
-  max-width: 220px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
 
-.as-widget-actions {
+.ss-pause-note {
+  margin: 0;
+  font-size: .82rem;
+  color: var(--gray-500);
+  text-align: center;
+}
+
+.ss-context {
+  width: 100%;
+  margin: 0;
   display: flex;
-  gap: .4rem;
+  flex-direction: column;
+  gap: .5rem;
 }
 
-@media (max-width: 767px) {
-  .as-widget { bottom: calc(var(--bottom-nav-total-h) + 1rem); }
+.ss-context-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: .88rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px dashed var(--gray-200);
+}
+
+.ss-context-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ss-context-row dt {
+  color: var(--gray-500);
+  font-weight: 600;
+}
+
+.ss-context-row dd {
+  margin: 0;
+  color: var(--gray-800);
+  text-align: right;
+  max-width: 60%;
+  overflow-wrap: break-word;
+}
+
+.ss-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .6rem;
+  width: 100%;
 }
 
 /* ── Toast notifications ── */

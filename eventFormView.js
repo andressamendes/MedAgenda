@@ -9,7 +9,8 @@ import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
-import { startSessionForEvent } from "./activitySessionView.js";
+import { startSessionForEvent } from "./studySessionView.js";
+import { showPage } from "./navigationView.js";
 import { getAIContext } from "./aiContextService.js";
 import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
@@ -164,7 +165,10 @@ export function initEventForm(onSave) {
     startSessionBtn.disabled = true;
     try {
       const started = await startSessionForEvent(_editingEvent);
-      if (started) _handleModalClose();
+      if (started) {
+        _handleModalClose();
+        showPage("study-session");
+      }
     } finally {
       startSessionBtn.disabled = false;
     }
