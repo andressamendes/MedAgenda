@@ -2,6 +2,40 @@
 
 ---
 
+## [Unreleased] — F6.11: Domínio de Constância (Study Streak)
+
+Novo `studyStreakService.js`: serviço puro que deriva sequência de dias
+estudados exclusivamente a partir de Sessões (`activitySessionService`) —
+segue a arquitetura da F6.1 (Constância nunca é persistida: não existe
+tabela "streak", nem contador salvo no banco, nem SQL novo). Sem
+persistência, sem eventos, sem cache permanente — cada chamada recalcula a
+partir das sessões correntes. Nenhum consumidor (Dashboard, Central de
+Insights, Histórico, IA, Recommendation, Planning, Reflection, Decision
+Engine, User Memory, Subject Progress, Questões, Revisões, Conquistas) foi
+conectado ou alterado nesta etapa; nenhuma tela mudou.
+
+Regras: só sessões `status = "finished"` contam como dia estudado;
+canceladas e pausadas são ignoradas; múltiplas sessões no mesmo dia contam
+como um único dia. "Dia estudado" é o dia civil local (não UTC) de
+`started_at`, para uma sessão à noite não vazar para o dia seguinte em
+fusos a oeste de UTC.
+
+APIs públicas: `getCurrentStreak()`, `getLongestStreak()`, `getStudyDays()`,
+`getStudyCalendar()` e `getStreakSummary()` (sequência atual, maior
+sequência, total de dias estudados, último dia estudado e dias desde o
+último estudo, em uma única chamada). Não calcula conquistas, níveis, XP
+ou gamificação — pertencem ao domínio Conquistas, etapa futura.
+
+15 novos testes em `tests/services/studyStreakService.test.js` (nenhum
+estudo, um único dia, dias consecutivos, quebra de sequência, múltiplas
+sessões no mesmo dia, sessões canceladas/pausadas/em andamento, isolamento
+por usuário, calendário, resumo consolidado). Suíte completa: 551 testes,
+527 passam (as 24 falhas restantes já existiam antes desta etapa, em
+arquivos não relacionados — confirmado comparando a mesma suíte antes e
+depois desta mudança).
+
+---
+
 ## [Unreleased] — F6.10: Integração Sessão ↔ Revisão
 
 Nova migration `sql/16_review_session_link.sql`: `reviews.session_id`
