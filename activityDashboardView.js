@@ -7,7 +7,6 @@
 // Sem gráficos, sem barras, sem animações: só números para leitura rápida.
 
 import { getDashboardData } from "./activityDashboardService.js";
-import { onSessionFinished } from "./activitySessionService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { getDecisions } from "./decisionEngine.js";
@@ -15,6 +14,7 @@ import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad } from "./utils.js";
+import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 // Discreto: no máximo 3 sugestões contextuais por vez (ETAPA 3), mesma ideia
 // de "sempre discreta" do enunciado — não é uma segunda central de insights.
@@ -122,10 +122,42 @@ const CARD_DEFS = [
 ];
 
 let cardsEl, errorEl, smartTipsEl;
-let _unsubscribeSession = null;
 let _unsubscribeReview  = null;
 let _unsubscribeProfile = null;
 let _loading = false;
+
+// ── Sincronização com o barramento de eventos (F6.4) ────────────────────────
+// O dashboard assina SessionStarted/Finished/Cancelled/Updated diretamente no
+// barramento (F6.2) — nunca conhece activitySessionService — e recarrega seus
+// indicadores via getDashboardData() sempre que uma sessão muda de estado.
+// Pause/Resume não alteram nenhum indicador exibido (tempo, contagem e média
+// só mudam quando a sessão é iniciada, atualizada, cancelada ou finalizada) e
+// por isso não são assinados, mesma leitura já usada no Histórico (F6.3).
+let _unsubscribers = [];
+let _reloadTimer   = null;
+
+// Vários eventos podem ser publicados em sequência imediata (ex.: Updated
+// seguido de Finished, ao encerrar uma sessão). Em vez de recarregar a cada
+// evento, agenda-se uma única recarga no próximo tick — se outro evento
+// chegar antes do timer disparar, ele é ignorado (já há uma recarga pendente
+// que vai refletir o estado mais recente de qualquer forma).
+function _scheduleReload() {
+  if (_reloadTimer) return;
+  _reloadTimer = setTimeout(() => {
+    _reloadTimer = null;
+    _load();
+  }, 0);
+}
+
+function _subscribeToEventBus() {
+  if (_unsubscribers.length > 0) return; // já assinado — initActivityDashboardView pode rodar mais de uma vez
+  _unsubscribers = [
+    subscribe(SESSION_EVENTS.STARTED, _scheduleReload),
+    subscribe(SESSION_EVENTS.FINISHED, _scheduleReload),
+    subscribe(SESSION_EVENTS.CANCELLED, _scheduleReload),
+    subscribe(SESSION_EVENTS.UPDATED, _scheduleReload),
+  ];
+}
 
 function _renderCards(data) {
   errorEl.hidden = true;
@@ -180,11 +212,11 @@ async function _load() {
 }
 
 /**
- * Monta o dashboard (uma única vez) e carrega os indicadores. Assina
- * onSessionFinished()/onReviewStatusChanged()/onProfileUpdated() para
- * recalcular automaticamente — cards de execução e cards inteligentes —
- * sempre que uma sessão, revisão ou meta mudar, sem exigir reload da página
- * nem polling.
+ * Monta o dashboard (uma única vez) e carrega os indicadores. Assina o
+ * barramento de eventos da sessão (F6.4) e onReviewStatusChanged()/
+ * onProfileUpdated() para recalcular automaticamente — cards de execução e
+ * cards inteligentes — sempre que uma sessão, revisão ou meta mudar, sem
+ * exigir reload da página nem polling.
  */
 export async function initActivityDashboardView() {
   if (!cardsEl) {
@@ -192,8 +224,26 @@ export async function initActivityDashboardView() {
     errorEl     = document.getElementById("dash-error");
     smartTipsEl = document.getElementById("dash-smart-tips");
   }
-  if (!_unsubscribeSession) _unsubscribeSession = onSessionFinished(() => _load());
+  _subscribeToEventBus();
   if (!_unsubscribeReview)  _unsubscribeReview  = onReviewStatusChanged(() => _loadSmartTips());
   if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
   await _load();
+}
+
+/**
+ * Desfaz a assinatura do barramento de eventos e demais listeners, além de
+ * qualquer recarga pendente. Chamada no logout/troca de usuário (ver
+ * script.js/onBeforeSignOut) — sem isso, os listeners registrados em
+ * _subscribeToEventBus() sobreviveriam à troca de sessão e recarregariam o
+ * dashboard com o usuário errado.
+ */
+export function resetActivityDashboardView() {
+  _unsubscribers.forEach(off => off());
+  _unsubscribers = [];
+  if (_reloadTimer) {
+    clearTimeout(_reloadTimer);
+    _reloadTimer = null;
+  }
+  if (_unsubscribeReview)  { _unsubscribeReview();  _unsubscribeReview  = null; }
+  if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
 }
