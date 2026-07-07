@@ -452,8 +452,43 @@
 
                 <div class="ss-questions-block">
                   <h3 class="ss-questions-title">Questões Resolvidas</h3>
-                  <p id="ssf-questions-empty" class="ss-questions-empty">Nenhuma questão registrada.</p>
-                  <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-add-questions">Adicionar questões</button>
+
+                  <ul id="ssf-questions-list" class="ss-questions-list"></ul>
+                  <p id="ssf-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
+
+                  <div class="ss-question-form">
+                    <div class="ss-question-form-row">
+                      <label for="ssf-q-type">Tipo</label>
+                      <select id="ssf-q-type">
+                        <option value="multiple_choice">Múltipla escolha</option>
+                        <option value="true_false">Verdadeiro/Falso</option>
+                        <option value="open">Dissertativa</option>
+                        <option value="flashcard">Flashcard</option>
+                      </select>
+
+                      <label for="ssf-q-status">Status</label>
+                      <select id="ssf-q-status">
+                        <option value="pending">Pendente</option>
+                        <option value="answered">Respondida</option>
+                        <option value="skipped">Pulada</option>
+                      </select>
+
+                      <label for="ssf-q-difficulty">Dificuldade</label>
+                      <select id="ssf-q-difficulty">
+                        <option value="easy">Fácil</option>
+                        <option value="medium" selected>Média</option>
+                        <option value="hard">Difícil</option>
+                      </select>
+                    </div>
+                    <div class="ss-question-form-row">
+                      <label for="ssf-q-subject">Matéria</label>
+                      <input type="text" id="ssf-q-subject" placeholder="Ex.: Cardiologia">
+
+                      <label for="ssf-q-topic">Tópico</label>
+                      <input type="text" id="ssf-q-topic" placeholder="Ex.: Insuficiência cardíaca">
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-add-question">Adicionar questão</button>
+                  </div>
                 </div>
               </div>
               <div class="modal-footer">
