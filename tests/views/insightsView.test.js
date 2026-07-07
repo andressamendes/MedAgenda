@@ -8,9 +8,9 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
+import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEventBus.js";
 
 const INSIGHTS_SERVICE_SPECIFIER = new URL("../../insightsService.js", import.meta.url).href;
-const SESSION_SERVICE_SPECIFIER  = new URL("../../activitySessionService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER   = new URL("../../reviewService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER  = new URL("../../profileService.js", import.meta.url).href;
 const ERROR_SPECIFIER            = new URL("../../errorService.js", import.meta.url).href;
@@ -52,28 +52,35 @@ function loadView(t, overrides = {}) {
     },
   });
 
-  let sessionFinishedCb = null, reviewStatusCb = null, profileUpdatedCb = null;
-  t.mock.module(SESSION_SERVICE_SPECIFIER, {
-    namedExports: { onSessionFinished: (cb) => { sessionFinishedCb = cb; return () => {}; } },
-  });
+  let reviewStatusCb = null, profileUpdatedCb = null;
   t.mock.module(REVIEW_SERVICE_SPECIFIER, {
-    namedExports: { onReviewStatusChanged: (cb) => { reviewStatusCb = cb; return () => {}; } },
+    namedExports: { onReviewStatusChanged: (cb) => { reviewStatusCb = cb; return () => { reviewStatusCb = null; }; } },
   });
   t.mock.module(PROFILE_SERVICE_SPECIFIER, {
-    namedExports: { onProfileUpdated: (cb) => { profileUpdatedCb = cb; return () => {}; } },
+    namedExports: { onProfileUpdated: (cb) => { profileUpdatedCb = cb; return () => { profileUpdatedCb = null; }; } },
   });
 
   return import(`../../insightsView.js?t=${Math.random()}`).then(mod => ({
     mod,
     handleErrorCalls,
-    triggerSessionFinished: (s) => sessionFinishedCb?.(s),
     triggerReviewStatusChanged: (r) => reviewStatusCb?.(r),
     triggerProfileUpdated: (p) => profileUpdatedCb?.(p),
   }));
 }
 
+function tick() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 beforeEach(() => { installDom(); });
-afterEach(() => { uninstallDom(); });
+afterEach(() => {
+  uninstallDom();
+  // Each test re-imports insightsView.js with a cache-busting query string
+  // (fresh module state), but sessionEventBus.js is a true singleton shared
+  // across every import — without this, subscriptions from one test's view
+  // instance would leak into the next test's publish() calls.
+  clearEventBus();
+});
 
 test("renders all four blocks with their cards when every source succeeds", async (t) => {
   const { mod } = await loadView(t);
@@ -289,21 +296,240 @@ test("retrying after a block error clears the error state on success", async (t)
   assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, false);
 });
 
-// ── ETAPA 5 — atualização automática ─────────────────────────────────────────
+// ── Sincronização com o barramento de eventos (F6.5) ────────────────────────
+// A Central assina SessionFinished/Cancelled/Updated diretamente no
+// barramento (F6.2) — não usa mais onSessionFinished()/activitySessionService.
+// SessionStarted/Paused/Resumed não são assinados: nenhum indicador da
+// Central (todos derivados de sessões *finalizadas*) muda com eles.
 
-test("reloads automatically when a session finishes", async (t) => {
+test("subscribes to the event bus on init: publishing SessionFinished triggers a reload", async (t) => {
   let calls = 0;
-  const { mod, triggerSessionFinished } = await loadView(t, {
+  const { mod } = await loadView(t, {
     getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
   });
 
   await mod.initInsightsView();
   assert.strictEqual(calls, 1);
 
-  triggerSessionFinished({ id: "s1", status: "finished" });
-  await new Promise(resolve => setTimeout(resolve, 0));
+  publish(SESSION_EVENTS.FINISHED, { id: "s1", status: "finished" });
+  await tick();
 
   assert.strictEqual(calls, 2);
+});
+
+test("publishing SessionCancelled triggers a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.CANCELLED, { id: "s1", status: "cancelled" });
+  await tick();
+
+  assert.strictEqual(calls, 2);
+});
+
+test("publishing SessionUpdated triggers a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.UPDATED, { id: "s1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls, 2);
+});
+
+test("publishing SessionStarted does NOT trigger a reload (no insights indicator depends on a session merely starting — all are based on finished sessions)", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.STARTED, { id: "s1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls, 1);
+});
+
+test("publishing SessionPaused/SessionResumed does NOT trigger a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.PAUSED, { id: "s1", status: "paused" });
+  publish(SESSION_EVENTS.RESUMED, { id: "s1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls, 1);
+});
+
+test("a burst of events in the same tick (Updated -> Finished, as happens when finishSession() runs) coalesces into a single reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.UPDATED, { id: "s1", status: "finished" });
+  publish(SESSION_EVENTS.FINISHED, { id: "s1", status: "finished" });
+  publish(SESSION_EVENTS.UPDATED, { id: "s1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls, 2); // initial load + exactly one coalesced reload
+});
+
+test("multiple consecutive events across separate ticks each trigger their own reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+  assert.strictEqual(calls, 2);
+
+  publish(SESSION_EVENTS.CANCELLED, { id: "s2" });
+  await tick();
+  assert.strictEqual(calls, 3);
+});
+
+test("resetInsightsView() unsubscribes from the event bus: further events no longer trigger a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  mod.resetInsightsView();
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+
+  assert.strictEqual(calls, 1); // no reload after reset
+});
+
+test("resetInsightsView() cancels an already-scheduled-but-not-fired reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" }); // schedules a reload for the next tick
+  mod.resetInsightsView(); // must cancel the pending timer
+  await tick();
+
+  assert.strictEqual(calls, 1); // reload never happened
+});
+
+test("resetInsightsView() also unsubscribes onReviewStatusChanged/onProfileUpdated", async (t) => {
+  let calls = 0;
+  const { mod, triggerReviewStatusChanged, triggerProfileUpdated } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 1);
+
+  mod.resetInsightsView();
+
+  triggerReviewStatusChanged({ id: "r1", status: "completed" });
+  triggerProfileUpdated({ daily_goal_minutes: 60 });
+  await tick();
+
+  assert.strictEqual(calls, 1); // no reload after reset
+});
+
+test("repeated initInsightsView() calls don't double-subscribe (no double reload per event)", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => { calls++; return EMPTY_INSIGHTS; },
+  });
+
+  await mod.initInsightsView();
+  await mod.initInsightsView();
+  assert.strictEqual(calls, 2); // one _load() per init call, no subscription-related extra
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+
+  assert.strictEqual(calls, 3); // exactly one reload, not one per subscription
+
+  // Preservação dos estados parciais/erro (ETAPA 7): mesmo após o reload
+  // automático, cada bloco continua isolado — nenhuma regressão introduzida
+  // pela migração para o barramento.
+});
+
+test("after an automatic reload triggered by the event bus, a block error state still isolates from the others (no regression from the migration)", async (t) => {
+  let attempt = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => {
+      attempt += 1;
+      if (attempt === 1) return EMPTY_INSIGHTS;
+      return { execucao: { status: "error", data: null, error: new Error("boom") }, metas: OK_METAS, revisoes: OK_REVISOES, produtividade: OK_PRODUTIVIDADE };
+    },
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(document.getElementById("insights-execucao-error").hidden, true);
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+
+  assert.strictEqual(document.getElementById("insights-execucao-error").hidden, false);
+  assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
+});
+
+test("after an automatic reload triggered by the event bus, a block partial state (with notice) is preserved", async (t) => {
+  let attempt = 0;
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => {
+      attempt += 1;
+      if (attempt === 1) return EMPTY_INSIGHTS;
+      return {
+        execucao: OK_EXECUCAO,
+        metas: OK_METAS,
+        revisoes: { status: "partial", data: { pendingCount: 2, completedCount: null }, error: new Error("permission denied") },
+        produtividade: OK_PRODUTIVIDADE,
+      };
+    },
+    friendlyMessage: "Você não tem permissão para acessar este recurso.",
+  });
+
+  await mod.initInsightsView();
+  assert.strictEqual(document.getElementById("insights-revisoes-notice").hidden, true);
+
+  publish(SESSION_EVENTS.UPDATED, { id: "s1" });
+  await tick();
+
+  assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-revisoes-notice").hidden, false);
 });
 
 test("reloads automatically when a review is completed or skipped", async (t) => {

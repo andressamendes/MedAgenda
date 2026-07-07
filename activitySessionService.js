@@ -151,8 +151,10 @@ export async function finishSession(id, endedAt = new Date()) {
 // fino sobre o barramento de eventos (F6.2): assina SESSION_EVENTS.FINISHED
 // e repassa só `session` ao callback, preservando exatamente o contrato de
 // antes (assinatura, retorno, e o próprio `session` sem o envelope
-// { session, timestamp, eventType } do barramento). Nenhuma tela existente
-// (activityDashboardView.js, insightsView.js) precisa mudar.
+// { session, timestamp, eventType } do barramento). Mantido apenas para
+// módulos ainda não migrados para o barramento — activityDashboardView.js
+// (F6.4), activityHistoryView.js (F6.3) e insightsView.js (F6.5) já assinam
+// SESSION_EVENTS diretamente e não usam mais este adaptador.
 export function onSessionFinished(callback) {
   return subscribe(SESSION_EVENTS.FINISHED, ({ session }) => callback(session));
 }
