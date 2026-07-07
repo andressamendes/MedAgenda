@@ -58,7 +58,7 @@ import { registerServiceWorker, initInstallButton, initOfflineDetection } from "
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
-import { initActivityHistoryView } from "./activityHistoryView.js";
+import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView } from "./insightsView.js";
 
@@ -474,6 +474,7 @@ initAuthView({
     resetAssistant();
     resetNotifications();
     resetActivitySessionView();
+    resetActivityHistoryView();
     resetAccountView();
     resetAcademicCalendarView();
     resetCategories();
