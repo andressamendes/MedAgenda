@@ -1,5 +1,6 @@
 /**
- * Tests for aiContextService.js — Motor de Contexto para IA (F3.2).
+ * Tests for aiContextService.js — Motor de Contexto para IA (F3.2; F6.6
+ * adiciona a integração com o barramento de eventos da sessão).
  *
  * Pure helpers (computeWeekEventsCount, computeCategoryBreakdown,
  * computeOverdueEvents, sanitizePendingReviews) are exercised directly with
@@ -8,18 +9,31 @@
  * tests/insightsService.test.js — it verifies consolidation, sanitization,
  * a single round of parallel calls, and graceful degradation when one
  * source fails ("contexto incompleto").
+ *
+ * F6.6: sessionEventBus.js NÃO é mockado nos testes de cache/invalidação —
+ * mesmo padrão de tests/views/activityDashboardView.test.js — para exercitar
+ * o pub/sub real (subscribe/publish) ponta a ponta. `afterEach(clearEventBus)`
+ * evita que assinaturas de um teste vazem para o próximo (o barramento é um
+ * singleton em memória, compartilhado entre todos os `import()` desta
+ * suíte). Os testes de "wiring" (quais eventos são assinados, se
+ * resetAIContextService() de fato chama cada unsubscribe) mockam
+ * sessionEventBus.js diretamente para observar as chamadas a subscribe().
  */
-import { test } from "node:test";
+import { test, afterEach } from "node:test";
 import assert from "node:assert";
+import { SESSION_EVENTS, publish, clear as clearEventBus } from "../sessionEventBus.js";
 
-const EVENT_SPECIFIER      = new URL("../eventService.js", import.meta.url).href;
-const DASHBOARD_SPECIFIER  = new URL("../activityDashboardService.js", import.meta.url).href;
-const REVIEW_SPECIFIER     = new URL("../reviewService.js", import.meta.url).href;
-const SESSION_SPECIFIER    = new URL("../activitySessionService.js", import.meta.url).href;
-const CATEGORY_SPECIFIER   = new URL("../categoryService.js", import.meta.url).href;
-const FILTER_SPECIFIER     = new URL("../academicCalendarFilter.js", import.meta.url).href;
-const PROFILE_SPECIFIER    = new URL("../profileService.js", import.meta.url).href;
-const ERROR_SPECIFIER      = new URL("../errorService.js", import.meta.url).href;
+const EVENT_SPECIFIER       = new URL("../eventService.js", import.meta.url).href;
+const DASHBOARD_SPECIFIER   = new URL("../activityDashboardService.js", import.meta.url).href;
+const REVIEW_SPECIFIER      = new URL("../reviewService.js", import.meta.url).href;
+const SESSION_SPECIFIER     = new URL("../activitySessionService.js", import.meta.url).href;
+const CATEGORY_SPECIFIER    = new URL("../categoryService.js", import.meta.url).href;
+const FILTER_SPECIFIER      = new URL("../academicCalendarFilter.js", import.meta.url).href;
+const PROFILE_SPECIFIER     = new URL("../profileService.js", import.meta.url).href;
+const ERROR_SPECIFIER       = new URL("../errorService.js", import.meta.url).href;
+const SESSION_BUS_SPECIFIER = new URL("../sessionEventBus.js", import.meta.url).href;
+
+afterEach(() => clearEventBus());
 
 const NOW = new Date("2026-07-08T18:00:00.000Z"); // uma quarta-feira
 
@@ -332,4 +346,210 @@ test("never calls getEventExecutionSummaries when there are no overdue candidate
   await getAIContext(NOW);
 
   assert.strictEqual(summariesCalls, 0);
+});
+
+// ── Barramento de Eventos (F6.6) — wiring (sessionEventBus mockado) ──────────
+// Estes testes observam diretamente as chamadas a subscribe()/unsubscribe(),
+// sem depender do comportamento real do barramento.
+
+test("getAIContext() subscribes only to SessionFinished, SessionCancelled and SessionUpdated — never Started/Paused/Resumed", async (t) => {
+  const subscribedEvents = [];
+  t.mock.module(SESSION_BUS_SPECIFIER, {
+    namedExports: {
+      SESSION_EVENTS,
+      subscribe: (eventType) => { subscribedEvents.push(eventType); return () => {}; },
+    },
+  });
+  const { getAIContext } = await loadAiContextService(t);
+
+  await getAIContext(NOW);
+
+  assert.deepStrictEqual([...subscribedEvents].sort(), [
+    SESSION_EVENTS.CANCELLED, SESSION_EVENTS.FINISHED, SESSION_EVENTS.UPDATED,
+  ].sort());
+});
+
+test("getAIContext() subscribes exactly once even across multiple calls (idempotent)", async (t) => {
+  let subscribeCalls = 0;
+  t.mock.module(SESSION_BUS_SPECIFIER, {
+    namedExports: { SESSION_EVENTS, subscribe: () => { subscribeCalls++; return () => {}; } },
+  });
+  const { getAIContext } = await loadAiContextService(t);
+
+  await getAIContext(NOW);
+  await getAIContext(NOW);
+  await getAIContext(NOW);
+
+  assert.strictEqual(subscribeCalls, 3); // FINISHED + CANCELLED + UPDATED, uma única vez
+});
+
+test("resetAIContextService() calls the unsubscribe function returned for every subscription", async (t) => {
+  const unsubscribedEvents = [];
+  t.mock.module(SESSION_BUS_SPECIFIER, {
+    namedExports: {
+      SESSION_EVENTS,
+      subscribe: (eventType) => () => unsubscribedEvents.push(eventType),
+    },
+  });
+  const { getAIContext, resetAIContextService } = await loadAiContextService(t);
+  await getAIContext(NOW);
+
+  resetAIContextService();
+
+  assert.deepStrictEqual([...unsubscribedEvents].sort(), [
+    SESSION_EVENTS.CANCELLED, SESSION_EVENTS.FINISHED, SESSION_EVENTS.UPDATED,
+  ].sort());
+});
+
+test("after resetAIContextService(), the next getAIContext() call re-subscribes to the bus", async (t) => {
+  let subscribeCalls = 0;
+  t.mock.module(SESSION_BUS_SPECIFIER, {
+    namedExports: { SESSION_EVENTS, subscribe: () => { subscribeCalls++; return () => {}; } },
+  });
+  const { getAIContext, resetAIContextService } = await loadAiContextService(t);
+
+  await getAIContext(NOW);
+  assert.strictEqual(subscribeCalls, 3);
+
+  resetAIContextService();
+  await getAIContext(NOW);
+
+  assert.strictEqual(subscribeCalls, 6); // reassinado do zero — nenhum listener sobrevive ao reset
+});
+
+// ── Barramento de Eventos (F6.6) — cache/invalidação (barramento real) ───────
+
+test("getAIContext() reuses the cached snapshot when called again with no session event in between", async (t) => {
+  let sessionsCalls = 0;
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionsCalls++; return []; },
+  });
+
+  await getAIContext(NOW);
+  await getAIContext(NOW);
+  await getAIContext(NOW);
+
+  assert.strictEqual(sessionsCalls, 1);
+});
+
+for (const eventName of ["FINISHED", "CANCELLED", "UPDATED"]) {
+  test(`Session${eventName[0]}${eventName.slice(1).toLowerCase()} invalidates the cache and forces a rebuild on the next call`, async (t) => {
+    let sessionsCalls = 0;
+    const { getAIContext } = await loadAiContextService(t, {
+      listByDateRange: async () => { sessionsCalls++; return []; },
+    });
+
+    await getAIContext(NOW);
+    publish(SESSION_EVENTS[eventName], { id: "s1" });
+    await getAIContext(NOW);
+
+    assert.strictEqual(sessionsCalls, 2);
+  });
+}
+
+test("SessionStarted, SessionPaused and SessionResumed do NOT invalidate the cache", async (t) => {
+  let sessionsCalls = 0;
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionsCalls++; return []; },
+  });
+
+  await getAIContext(NOW);
+  publish(SESSION_EVENTS.STARTED, { id: "s1" });
+  publish(SESSION_EVENTS.PAUSED, { id: "s1" });
+  publish(SESSION_EVENTS.RESUMED, { id: "s1" });
+  await getAIContext(NOW);
+
+  assert.strictEqual(sessionsCalls, 1); // nenhum campo do contexto depende de sessão em andamento/pausada
+});
+
+test("multiple consecutive relevant events before the next call still trigger a single rebuild (coalescência)", async (t) => {
+  let sessionsCalls = 0;
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionsCalls++; return []; },
+  });
+
+  await getAIContext(NOW);
+  publish(SESSION_EVENTS.UPDATED, { id: "s1" });
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  publish(SESSION_EVENTS.CANCELLED, { id: "s2" });
+  await getAIContext(NOW);
+
+  assert.strictEqual(sessionsCalls, 2); // uma rajada de 3 eventos ainda é um único rebuild
+});
+
+test("crossing into a new day invalidates the cache even without any session event", async (t) => {
+  let sessionsCalls = 0;
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionsCalls++; return []; },
+  });
+
+  await getAIContext(NOW);
+  const nextDay = new Date(NOW.getTime() + 24 * 3600 * 1000);
+  await getAIContext(nextDay);
+
+  assert.strictEqual(sessionsCalls, 2);
+});
+
+test("staying within the same day across calls keeps reusing the cache", async (t) => {
+  let sessionsCalls = 0;
+  const { getAIContext } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionsCalls++; return []; },
+  });
+
+  await getAIContext(NOW);
+  const laterSameDay = new Date(NOW.getTime() + 3 * 3600 * 1000);
+  await getAIContext(laterSameDay);
+
+  assert.strictEqual(sessionsCalls, 1);
+});
+
+// ── Barramento de Eventos (F6.6) — reset (logout / troca de usuário) ────────
+
+test("resetAIContextService() discards the cached snapshot — the next call always rebuilds", async (t) => {
+  let sessionsCalls = 0;
+  const { getAIContext, resetAIContextService } = await loadAiContextService(t, {
+    listByDateRange: async () => { sessionsCalls++; return []; },
+  });
+
+  await getAIContext(NOW);
+  resetAIContextService();
+  await getAIContext(NOW);
+
+  assert.strictEqual(sessionsCalls, 2);
+});
+
+test("resetAIContextService() (logout/troca de usuário) prevents the previous user's snapshot from leaking into the next getAIContext() call", async (t) => {
+  let categoriesSource = [{ id: "cat-a", name: "Categoria do usuário A" }];
+  const { getAIContext, resetAIContextService } = await loadAiContextService(t, {
+    getCategories: async () => categoriesSource,
+  });
+
+  const first = await getAIContext(NOW);
+  assert.strictEqual(first.categories[0].name, "Categoria do usuário A");
+
+  // Troca de usuário: script.js chama resetAIContextService() em onBeforeSignOut.
+  resetAIContextService();
+  categoriesSource = [{ id: "cat-b", name: "Categoria do usuário B" }];
+
+  const second = await getAIContext(NOW);
+  assert.strictEqual(second.categories[0].name, "Categoria do usuário B");
+});
+
+// ── Barramento de Eventos (F6.6) — consumidores permanecem desacoplados ─────
+// recommendationEngine, planningService, reflectionService, decisionEngine e
+// userMemoryService nunca importam sessionEventBus nem sabem que
+// aiContextService agora reage a eventos — continuam recebendo exatamente o
+// mesmo formato de objeto de getAIContext(), com ou sem cache por trás.
+
+test("getAIContext() keeps returning the exact same contract after a cache rebuild triggered by an event", async (t) => {
+  const { getAIContext } = await loadAiContextService(t, {
+    getDashboardData: async () => ({ ...EMPTY_DASHBOARD, todayMinutes: 40 }),
+  });
+
+  const before = await getAIContext(NOW);
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  const after = await getAIContext(NOW);
+
+  assert.deepStrictEqual(Object.keys(before).sort(), Object.keys(after).sort());
+  assert.strictEqual(after.execution.todayMinutes, 40);
 });
