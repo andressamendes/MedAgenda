@@ -70,6 +70,7 @@ const APP_SHELL = [
   './services/ai/prompts/studySuggestion.js',
   './services/ai/prompts/weeklySummary.js',
   './services/ai/providers/geminiProvider.js',
+  './sessionEventBus.js',
   './settingsModal.js',
   './smartAssistant.js',
   './smartCardView.js',
