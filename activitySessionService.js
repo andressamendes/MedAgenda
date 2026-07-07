@@ -1,5 +1,6 @@
 import { supabase, currentUserId } from "./supabase.js";
 import { summarizeExecution } from "./activitySessionStats.js";
+import { SESSION_EVENTS, publish, subscribe } from "./sessionEventBus.js";
 
 // ── Acesso a dados (CRUD) ───────────────────────────────────────────────────
 // Usado tanto diretamente quanto como base para a camada de domínio abaixo.
@@ -38,6 +39,14 @@ export async function getActivitySessions() {
   return data;
 }
 
+// Toda atualização estrutural da sessão passa por aqui — por isso é o único
+// ponto que publica SessionUpdated (evento genérico, "algo nesta sessão
+// mudou"). As transições de ciclo de vida (pausar/continuar/finalizar/
+// cancelar, abaixo) chamam esta função e, além do SessionUpdated que ela já
+// publica, publicam também seu evento específico — um assinante interessado
+// só na semântica ("a sessão foi pausada") usa o evento específico; um
+// assinante que só quer saber "a sessão mudou, releia o que precisar" usa
+// SessionUpdated sem precisar conhecer cada transição possível.
 export async function updateActivitySession(id, fields) {
   const user_id = await currentUserId();
   const { data, error } = await supabase
@@ -48,6 +57,7 @@ export async function updateActivitySession(id, fields) {
     .select()
     .single();
   if (error) throw error;
+  publish(SESSION_EVENTS.UPDATED, data);
   return data;
 }
 
@@ -97,11 +107,13 @@ export async function startSession(fields = {}) {
       "SESSION_ALREADY_RUNNING"
     );
   }
-  return createActivitySession({
+  const created = await createActivitySession({
     ...fields,
     status: "running",
     started_at: fields.started_at ?? new Date().toISOString(),
   });
+  publish(SESSION_EVENTS.STARTED, created);
+  return created;
 }
 
 export async function finishSession(id, endedAt = new Date()) {
@@ -130,32 +142,19 @@ export async function finishSession(id, endedAt = new Date()) {
     ended_at: endedAtDate.toISOString(),
     duration_minutes: durationMinutes,
   });
-  _notifySessionFinished(finished);
+  publish(SESSION_EVENTS.FINISHED, finished);
   return finished;
 }
 
-// ── Notificação de sessão finalizada ────────────────────────────────────────
-// Pub/sub mínimo em memória: permite que outras views (ex.: dashboard de
-// execução) recalculem seus indicadores assim que uma sessão é finalizada,
-// sem precisar recarregar a página nem fazer polling. Nenhum estado é
-// persistido aqui — apenas repassa o registro já atualizado no banco.
-const _finishListeners = new Set();
-
-/** Assina notificações de sessão finalizada. Retorna uma função para cancelar a assinatura. */
+// ── Notificação de sessão finalizada (compatibilidade, F1.3) ───────────────
+// onSessionFinished() é o pub/sub original desta etapa — hoje um adaptador
+// fino sobre o barramento de eventos (F6.2): assina SESSION_EVENTS.FINISHED
+// e repassa só `session` ao callback, preservando exatamente o contrato de
+// antes (assinatura, retorno, e o próprio `session` sem o envelope
+// { session, timestamp, eventType } do barramento). Nenhuma tela existente
+// (activityDashboardView.js, insightsView.js) precisa mudar.
 export function onSessionFinished(callback) {
-  _finishListeners.add(callback);
-  return () => _finishListeners.delete(callback);
-}
-
-function _notifySessionFinished(session) {
-  for (const callback of _finishListeners) {
-    try {
-      callback(session);
-    } catch (err) {
-      // Um listener quebrado não pode impedir os demais nem a finalização em si.
-      console.error("onSessionFinished listener falhou:", err);
-    }
-  }
+  return subscribe(SESSION_EVENTS.FINISHED, ({ session }) => callback(session));
 }
 
 // Cancelamento não exclui o registro: sessões canceladas continuam existindo
@@ -171,7 +170,9 @@ export async function cancelSession(id) {
       "SESSION_ALREADY_ENDED"
     );
   }
-  return updateActivitySession(id, { status: "cancelled" });
+  const cancelled = await updateActivitySession(id, { status: "cancelled" });
+  publish(SESSION_EVENTS.CANCELLED, cancelled);
+  return cancelled;
 }
 
 // Limitação atual: o modelo (activity_sessions) não tem campo para acumular
@@ -187,7 +188,9 @@ export async function pauseSession(id) {
   if (session.status !== "running") {
     throw _domainError("Somente sessões em andamento podem ser pausadas.", "INVALID_STATE");
   }
-  return updateActivitySession(id, { status: "paused" });
+  const paused = await updateActivitySession(id, { status: "paused" });
+  publish(SESSION_EVENTS.PAUSED, paused);
+  return paused;
 }
 
 export async function resumeSession(id) {
@@ -205,7 +208,9 @@ export async function resumeSession(id) {
       "SESSION_ALREADY_RUNNING"
     );
   }
-  return updateActivitySession(id, { status: "running" });
+  const resumed = await updateActivitySession(id, { status: "running" });
+  publish(SESSION_EVENTS.RESUMED, resumed);
+  return resumed;
 }
 
 export async function listByEvent(eventId) {
