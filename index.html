@@ -247,6 +247,10 @@
             <span class="nav-icon" aria-hidden="true">&#128203;</span>
             <span class="nav-label">Compromissos</span>
           </button>
+          <button class="nav-item" data-page="study-session">
+            <span class="nav-icon" aria-hidden="true">&#9203;</span>
+            <span class="nav-label">Sessão de Estudo</span>
+          </button>
           <button class="nav-item" id="nav-ai-assistant">
             <span class="nav-icon" aria-hidden="true">&#10024;</span>
             <span class="nav-label">Assistente IA</span>
@@ -337,6 +341,69 @@
           </div>
           <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
           <div id="event-list"></div>
+        </div>
+
+        <!-- Page: Sessão de Estudo (F7.2) — único local onde o cronômetro existe -->
+        <div id="page-study-session" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Sessão de Estudo</h1>
+          </div>
+
+          <!-- Estado: nenhuma sessão em andamento -->
+          <div id="ss-empty" class="ss-empty">
+            <p id="ss-empty-message" class="ss-empty-message">Nenhuma sessão de estudo em andamento.</p>
+            <button type="button" id="ss-btn-start-standalone" class="btn btn-primary btn-sm">Iniciar sessão avulsa</button>
+          </div>
+
+          <!-- Estado: sessão executando ou pausada -->
+          <div id="ss-active" class="ss-card" hidden>
+            <span id="ss-status-badge" class="ss-status-badge"></span>
+
+            <div class="ss-timer" aria-live="off">
+              <span id="ss-time" class="ss-timer-value">00:00</span>
+              <span class="ss-timer-label">Tempo líquido</span>
+            </div>
+
+            <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa será contabilizado na duração final.</p>
+
+            <dl class="ss-context">
+              <div class="ss-context-row">
+                <dt>Compromisso</dt>
+                <dd id="ss-event-title">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Categoria</dt>
+                <dd id="ss-category">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Matéria</dt>
+                <dd id="ss-subject">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Conteúdo</dt>
+                <dd id="ss-content">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Objetivo</dt>
+                <dd id="ss-objective">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Horário de início</dt>
+                <dd id="ss-started-at">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Tempo previsto</dt>
+                <dd id="ss-expected-duration">—</dd>
+              </div>
+            </dl>
+
+            <div class="ss-actions">
+              <button type="button" class="btn btn-ghost"   id="ss-btn-pause"  hidden>Pausar</button>
+              <button type="button" class="btn btn-primary" id="ss-btn-resume" hidden>Continuar</button>
+              <button type="button" class="btn btn-danger"  id="ss-btn-cancel" hidden>Cancelar</button>
+              <button type="button" class="btn btn-primary" id="ss-btn-finish" hidden>Finalizar</button>
+            </div>
+          </div>
         </div>
 
         <!-- Page: Dashboard de Execução (F2.1) -->

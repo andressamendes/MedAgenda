@@ -10,7 +10,7 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
 const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import.meta.url).href;
 const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
-const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../activitySessionView.js", import.meta.url).href;
+const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../studySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER         = new URL("../../reviewService.js", import.meta.url).href;
 const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
@@ -47,9 +47,9 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
     },
   });
 
-  // activitySessionView.js (F1.4's "Iniciar Sessão" button) pulls in
-  // categoryService/eventService transitively, which need real Supabase
-  // config — mocked here like any other dependency instead.
+  // studySessionView.js (F1.4's "Iniciar Sessão" button, now F7.2's dedicated
+  // page) pulls in categoryService/eventService transitively, which need
+  // real Supabase config — mocked here like any other dependency instead.
   startSessionForEventCalls = [];
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, {
     namedExports: {
@@ -427,7 +427,7 @@ test("'Iniciar Sessão' is hidden for a new event and shown when editing an exis
   assert.strictEqual(document.getElementById("btn-start-session").hidden, false);
 });
 
-test("clicking 'Iniciar Sessão' starts a session for the event being edited and closes the modal", async (t) => {
+test("clicking 'Iniciar Sessão' starts a session for the event being edited, closes the modal and navigates to Sessão de Estudo", async (t) => {
   mockEventService(t, { startSessionResult: true });
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
@@ -441,6 +441,7 @@ test("clicking 'Iniciar Sessão' starts a session for the event being edited and
   assert.strictEqual(startSessionForEventCalls.length, 1);
   assert.strictEqual(startSessionForEventCalls[0].id, "evt-1");
   assert.strictEqual(document.getElementById("event-modal").hidden, true);
+  assert.strictEqual(document.getElementById("page-study-session").hidden, false);
 });
 
 test("if a session conflict isn't resolved, the form stays open so the user can retry", async (t) => {

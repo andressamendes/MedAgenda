@@ -2,6 +2,50 @@
 
 ---
 
+## [Unreleased] — F7.2: Tela "Sessão de Estudo" (Execução da Sessão)
+
+Transforma a página "Sessão de Estudo" de placeholder na tela oficial de
+execução de sessões — o cronômetro global flutuante (`activitySessionView.js`,
+F1.3) é removido e substituído por `studySessionView.js`, renderizado na nova
+página estática `#page-study-session` (nav lateral, entre Compromissos e
+Assistente IA). Nenhuma regra de negócio foi movida ou duplicada: a tela só
+reflete `activitySessionService.js` (start/pause/resume/finish/cancel) e se
+mantém sincronizada assinando os seis eventos de `sessionEventBus.js`
+(SessionStarted/Paused/Resumed/Finished/Cancelled/Updated, F6.2) — sem
+polling, sem recarga completa, sem evento novo.
+
+Máquina de estados explícita com apenas as ações válidas por estado: **Sem
+sessão** (iniciar sessão avulsa), **Executando** (Pausar, Finalizar) e
+**Pausada** (Continuar, Cancelar, Finalizar) — nunca mistura ações
+incompatíveis. O contexto do compromisso vinculado (título, categoria,
+horário de início, tempo previsto) é resolvido a partir do `event_id` da
+sessão (mesmo princípio de exibição do widget antigo), e o cronômetro
+(tempo líquido) é o elemento visual principal da página. Os campos Matéria/
+Conteúdo/Objetivo citados na especificação ainda não têm campo próprio no
+domínio (`activity_sessions`/`events`); a tela já reserva o layout para eles,
+hoje preenchidos com a categoria/descrição do compromisso ou "—" quando não
+há dado correspondente.
+
+`eventFormView.js` ("Iniciar Sessão" no formulário de compromisso) agora
+importa `startSessionForEvent` de `studySessionView.js` e navega para a nova
+página após iniciar a sessão com sucesso, em vez de apenas fechar o modal.
+Reload/login reconstrói corretamente uma sessão em andamento (mesma garantia
+de compatibilidade do widget antigo) — nenhuma sessão nova é iniciada
+silenciosamente. Dashboard, Histórico, Central de Insights, IA e demais
+consumidores do domínio não foram alterados.
+
+`service-worker.js` (APP_SHELL) regenerado via
+`npm run build:app-shell` e `CACHE_VERSION` incrementada.
+
+`tests/views/activitySessionView.test.js` (widget removido) é substituído por
+`tests/views/studySessionView.test.js`, com os mesmos cenários (idle/
+executando/pausada, erro de domínio, restauração ao reload, conflito de
+sessão simultânea) mais os específicos desta etapa (estados/ações válidas,
+reação a eventos publicados por outro fluxo, `resetStudySessionView()` no
+logout). Suíte completa: 831 testes, todos passam.
+
+---
+
 ## [Unreleased] — F6.11: Domínio de Constância (Study Streak)
 
 Novo `studyStreakService.js`: serviço puro que deriva sequência de dias

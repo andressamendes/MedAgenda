@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const CACHE_NAME = `medagenda-shell-${CACHE_VERSION}`;
 
 // Base URL of the service worker's own location (handles GitHub Pages subdirectories)
@@ -24,7 +24,6 @@ const APP_SHELL = [
   './activityHistoryView.js',
   './activitySessionService.js',
   './activitySessionStats.js',
-  './activitySessionView.js',
   './aiContextService.js',
   './aiPanelView.js',
   './analytics.js',
@@ -75,6 +74,7 @@ const APP_SHELL = [
   './smartAssistant.js',
   './smartCardView.js',
   './stateView.js',
+  './studySessionView.js',
   './supabase.js',
   './telemetryService.js',
   './timeGoals.js',
