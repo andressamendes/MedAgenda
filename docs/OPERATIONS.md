@@ -374,7 +374,6 @@ Apenas três valores chegam ao frontend, via `config.js` gerado no deploy: `SUPA
 - **Instalação (`install`):** pré-cacheia toda a App Shell — HTML, CSS, os 44 módulos JS realmente importados pelo frontend, o manifest e os 8 ícones — e chama `self.skipWaiting()`.
 - **Ativação (`activate`):** apaga qualquer cache cujo nome comece com `medagenda-` e seja diferente do `CACHE_NAME` atual, depois chama `self.clients.claim()`.
 - **Fetch:** requisições não-GET passam direto (sem cache); chamadas para hosts `*.supabase.co` e qualquer origem cross-origin também passam direto para a rede. Para assets same-origin, usa cache-first: retorna do cache se existir, senão busca na rede e grava uma cópia no cache. Se a rede falhar e a requisição for de documento HTML, retorna o `index.html` em cache como fallback offline.
-- **Mensagens:** escuta `{ type: 'SKIP_WAITING' }`, disparado por `pwa.js` para ativar imediatamente um Service Worker em espera.
 - **Push:** escuta o evento `push`, exibe a notificação (título, corpo, ícone, badge, tag, ações "Abrir"/"Dispensar") e trata o clique — foca uma janela existente ou abre uma nova, repassando o `eventId` via `postMessage`.
 
 #### Lista de módulos da App Shell (automatizada)
@@ -401,7 +400,7 @@ Dados e telas já carregadas ficam visíveis offline via cache do Service Worker
 
 ### Update
 
-Quando `CACHE_VERSION` é incrementado em um novo deploy, o navegador detecta o novo Service Worker em segundo plano. O frontend (`pwa.js`) exibe um banner "Nova versão disponível"; ao confirmar, envia `SKIP_WAITING` ao worker em espera, que assume o controle e a página recarrega com os assets atualizados. Limpeza manual, se necessário: DevTools → Application → Storage → Clear site data.
+Quando `CACHE_VERSION` é incrementado em um novo deploy, o navegador detecta o novo Service Worker em segundo plano e o instala; a instalação chama `self.skipWaiting()` automaticamente, então o novo worker assume o controle sem exigir confirmação do usuário. Os assets atualizados passam a ser servidos nas próximas navegações. Limpeza manual, se necessário: DevTools → Application → Storage → Clear site data.
 
 ---
 

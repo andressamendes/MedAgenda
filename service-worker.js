@@ -156,13 +156,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// ── Message handler: allow pwa.js to trigger skipWaiting on waiting SW ──────
-self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
-
 // ── Push Notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;

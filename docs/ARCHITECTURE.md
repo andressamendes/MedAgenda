@@ -416,7 +416,7 @@ O `service-worker.js` implementa a estratégia **App Shell**:
 
 - **Na instalação:** pré-cacheia todos os assets estáticos (HTML, CSS, JS, ícones, manifest)
 - **Em fetch:** retorna do cache para assets do App Shell; passa direto para rede nas chamadas à API Supabase e recursos de terceiros
-- **Atualizações:** detecta nova versão via hash de cache; exibe banner "Atualização disponível"; ao confirmar, envia `SKIP_WAITING` e recarrega a página
+- **Atualizações:** detecta nova versão via hash de cache e ativa o novo Service Worker automaticamente (`self.skipWaiting()` na instalação), sem confirmação do usuário
 
 ### Cache
 

@@ -800,12 +800,12 @@ restoreSidebarState()
 
 **Objetivo:** integração PWA (Service Worker, install prompt, offline detection).
 
-**Responsabilidade:** registra o Service Worker, detecta quando há uma nova versão disponível e exibe o banner de atualização. Gerencia o prompt de instalação nativo do navegador (`beforeinstallprompt`). Detecta mudanças de conectividade e exibe/esconde a barra offline.
+**Responsabilidade:** registra o Service Worker. Gerencia o prompt de instalação nativo do navegador (`beforeinstallprompt`). Detecta mudanças de conectividade e exibe/esconde a barra offline.
 
 **Quem utiliza:** `script.js` (importado junto com os demais módulos e chamado ao final do bootstrap).
 
 **Principais funções exportadas:**
-- `registerServiceWorker()` — registra o SW e lida com atualizações.
+- `registerServiceWorker()` — registra o SW.
 - `initInstallButton()` — conecta o botão de instalação PWA.
 - `initOfflineDetection()` — monitora `online`/`offline`.
 
@@ -1241,7 +1241,6 @@ A aplicação usa exclusivamente `addEventListener` padrão. Não há sistema de
 | `appinstalled` | pwa.js | Ocultar o botão de instalação após instalação |
 | `error` / `unhandledrejection` | errorService.js | Capturar erros globais não tratados |
 | `authStateChange` | authView.js (via supabase) | Reagir a login, logout, password recovery |
-| `controllerchange` (SW) | pwa.js | Recarregar página após atualização do Service Worker |
 
 ### Timers
 

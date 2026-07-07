@@ -1,4 +1,4 @@
-// PWA registration, install prompt management, and offline/update UI
+// PWA registration, install prompt management, and offline UI
 
 import { handleError } from "./errorService.js";
 
@@ -9,25 +9,7 @@ export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
 
   try {
-    const registration = await navigator.serviceWorker.register('./service-worker.js');
-
-    // Detect when a new service worker is waiting to activate
-    registration.addEventListener('updatefound', () => {
-      const incoming = registration.installing;
-      if (!incoming) return;
-
-      incoming.addEventListener('statechange', () => {
-        if (incoming.state === 'installed' && navigator.serviceWorker.controller) {
-          showUpdateBanner(registration);
-        }
-      });
-    });
-
-    // Check for an already-waiting worker on page load (e.g. user refreshed)
-    if (registration.waiting && navigator.serviceWorker.controller) {
-      showUpdateBanner(registration);
-    }
-
+    await navigator.serviceWorker.register('./service-worker.js');
   } catch (err) {
     handleError(err, { context: 'pwa.registerServiceWorker', silent: true });
   }
@@ -68,28 +50,6 @@ export function initInstallButton() {
       hideInstallButton();
     }
   });
-}
-
-// ── Update banner ──────────────────────────────────────────────────────────
-function showUpdateBanner(registration) {
-  const banner = document.getElementById('pwa-update-banner');
-  if (!banner) return;
-  banner.hidden = false;
-
-  const btn = document.getElementById('btn-pwa-update');
-  if (!btn) return;
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload();
-  }, { once: true });
-
-  btn.addEventListener('click', () => {
-    btn.disabled = true;
-    btn.textContent = 'Atualizando…';
-    if (registration.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
-  }, { once: true });
 }
 
 // ── Offline / online detection ─────────────────────────────────────────────
