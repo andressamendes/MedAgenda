@@ -2,6 +2,81 @@
 
 ---
 
+## [Unreleased] — F5.3: Modernização do Layout, Navegação e Responsividade
+
+Mudança puramente visual/estrutural sobre a casca compartilhada do app (header,
+sidebar, bottom nav, container de página) — sem alterar regras de negócio,
+services, banco, Edge Functions, IA ou fluxos existentes. Nenhuma rota, ID ou
+comportamento de navegação foi alterado; `navigationView.js` permanece
+intocado.
+
+**Auditoria (Etapa 1):** o container de página (`.app-page`, `max-width: 960px`)
+e o padrão de cabeçalho (`.page-header` + `.page-title`) já eram únicos e
+reutilizados pelas 6 páginas do app (Agenda, Calendário, Compromissos,
+Dashboard, Histórico, Insights) — nenhuma divergência de largura ou de
+cabeçalho entre páginas foi encontrada. As lacunas reais estavam em três
+pontos: (1) a escala de espaçamento e os tokens do design system (F5.1) nunca
+tinham sido aplicados à própria casca — header, sidebar, conteúdo e página
+usavam valores literais em vez de `var(--space-*)`; (2) não havia nenhum
+tratamento de `env(safe-area-inset-*)`, nem `viewport-fit=cover`, então o
+header, a bottom nav, o drawer da sidebar, o toast e o widget do assistente
+inteligente ficam sob o notch/Dynamic Island/barra de gestos em iPhones e
+Androids recentes; (3) os z-index da casca (header, overlay, sidebar,
+bottom nav, menu do usuário, loading) eram números mágicos duplicados em
+vários pontos do arquivo.
+
+**Container principal e espaçamento (Etapas 2 e 5):** novo token
+`--container-max-width: 960px` substitui o valor fixo em `.app-page`; `header`,
+`sidebar`, `app-content`, `page-header` e `.card`/`.login-wrap` migrados para
+`var(--space-*)` (com um novo degrau `--space-7: 2rem` para casar com o
+padding do `.card`, já usado por login/semana/calendário/assistente/dashboard)
+— zero mudança de valor visual, só substituição de literal por token.
+
+**Safe areas (Etapa 8):** `viewport-fit=cover` adicionado ao `<meta
+viewport>`; quatro novos tokens `--safe-top/right/bottom/left` (com fallback
+`0px`) e dois tokens derivados, `--header-total-h` e `--bottom-nav-total-h`,
+que somam a inset correspondente à altura fixa existente. Aplicados em
+`.app-header` (altura + padding-top), `.bottom-nav` (altura + padding),
+`.app-sidebar` (offset do drawer mobile e padding lateral/inferior),
+`.app-layout` e `.app-content` (cálculos de altura/padding que dependiam de
+`--header-h`/`--bottom-nav-h` passam a usar as versões "-total-h"),
+`.toast-container` e `.as-widget` (que flutuam sobre a bottom nav). Testado
+simulando insets de notch (47px topo / 34px rodapé) via override direto das
+custom properties: header, bottom nav e drawer se ajustam corretamente, sem
+sobreposição de conteúdo.
+
+**Consistência de z-index (Etapa 10):** seis tokens (`--z-header`,
+`--z-bottom-nav`, `--z-sidebar-overlay`, `--z-sidebar`, `--z-dropdown`,
+`--z-loading`) substituem os números mágicos equivalentes já usados pela
+casca — mesmos valores, mesmo empilhamento, agora nomeados. Os z-index de
+componentes de página (modais, widgets, listas) não foram tocados, por estarem
+fora do escopo desta etapa.
+
+**Scroll e navegação (Etapas 3 e 7):** auditados e mantidos como estavam —
+o app já usa o padrão de painéis com scroll independente (`.app-sidebar` e
+`.app-content` cada um com seu próprio `overflow-y: auto`, `.app-layout` sem
+scroll próprio), sem scrolls concorrentes; os estados de hover/focus-visible/
+active de `.nav-item` e `.bottom-nav-item` (herdados do F5.2) já cobriam os
+critérios pedidos. Nenhuma mudança de rota ou de estrutura de navegação foi
+necessária.
+
+**Validação:** `npm test` — 645/645 passam (nenhum teste depende de valor de
+CSS). `npm run check:app-shell` — lista de módulos do service worker
+inalterada. Verificação visual com Playwright/Chromium em três larguras
+(390px mobile, 820px tablet, 1440px desktop) e com insets de notch simulados,
+cobrindo header, sidebar (rail, colapsada e drawer), bottom nav e container de
+página — sem overflow, sem scroll horizontal, sem elementos cortados.
+
+### Arquivos alterados
+- `style.css` — tokens novos (`--container-max-width`, `--space-7`, `--z-*`,
+  `--safe-*`, `--header-total-h`, `--bottom-nav-total-h`) e migração da casca
+  compartilhada (header, sidebar, bottom nav, app-content, app-page,
+  page-header, login/card, toast, widget do assistente) para os tokens do
+  design system.
+- `index.html` — `viewport-fit=cover` no `<meta name="viewport">`.
+
+---
+
 ## [Unreleased] — F3.3: Planejamento Assistido (Planning Engine)
 
 Nova ação no Painel IA, "Gerar Plano da Semana": `planningService.js` interpreta
