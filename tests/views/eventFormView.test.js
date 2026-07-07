@@ -12,7 +12,6 @@ const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import
 const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
 const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../studySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
-const REVIEW_SERVICE_SPECIFIER         = new URL("../../reviewService.js", import.meta.url).href;
 const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
@@ -30,7 +29,7 @@ const EMPTY_AI_CONTEXT = {
 let serviceCalls;
 let startSessionForEventCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, reviews = [], aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -68,19 +67,6 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
         if (sessionHistoryError) throw sessionHistoryError;
         return sessionHistory;
       },
-    },
-  });
-
-  // Revisões (F2.3) — reviewService.js importa supabase.js/config.js
-  // diretamente, então precisa ser mockado aqui como qualquer outra
-  // dependência, do contrário quebra em ambientes sem config.js (CI).
-  t.mock.module(REVIEW_SERVICE_SPECIFIER, {
-    namedExports: {
-      list:            async () => reviews,
-      listPending:     async () => reviews.filter(r => r.status === "pending"),
-      generateForEvent: async () => [],
-      complete:        async () => {},
-      skip:            async () => {},
     },
   });
 

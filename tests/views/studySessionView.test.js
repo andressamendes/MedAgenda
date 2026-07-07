@@ -13,6 +13,8 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 
 const SERVICE_SPECIFIER          = new URL("../../activitySessionService.js", import.meta.url).href;
 const QUESTIONS_SERVICE_SPECIFIER = new URL("../../sessionQuestionsService.js", import.meta.url).href;
+const REVIEW_SERVICE_SPECIFIER            = new URL("../../reviewService.js", import.meta.url).href;
+const REVIEW_SESSION_SERVICE_SPECIFIER    = new URL("../../reviewSessionService.js", import.meta.url).href;
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const EVENT_SERVICE_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
 const CATEGORY_SERVICE_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
@@ -50,6 +52,29 @@ function loadStudySessionView(t, overrides = {}) {
     },
   });
 
+  // Revisões do pós-sessão (F7.5) — reviewService.js/reviewSessionService.js
+  // importam supabase.js/config.js diretamente, então são mockados aqui como
+  // qualquer outra dependência de domínio.
+  const createReviewCalls = [];
+  const associateReviewCalls = [];
+  t.mock.module(REVIEW_SERVICE_SPECIFIER, {
+    namedExports: {
+      create: overrides.createReview ?? (async (fields) => {
+        createReviewCalls.push(fields);
+        return { id: `rev-new-${createReviewCalls.length}`, status: "pending", ...fields };
+      }),
+      listPending: overrides.listPendingReviews ?? (async () => []),
+    },
+  });
+  t.mock.module(REVIEW_SESSION_SERVICE_SPECIFIER, {
+    namedExports: {
+      associateReview: overrides.associateReview ?? (async (reviewId, sessionId) => {
+        associateReviewCalls.push({ reviewId, sessionId });
+        return { id: reviewId, session_id: sessionId };
+      }),
+    },
+  });
+
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: { getEventById: overrides.getEventById ?? (async () => null) },
   });
@@ -68,7 +93,7 @@ function loadStudySessionView(t, overrides = {}) {
   });
 
   return import(`../../studySessionView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls, addQuestionCalls }));
+    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls, addQuestionCalls, createReviewCalls, associateReviewCalls }));
 }
 
 beforeEach(() => {
@@ -445,6 +470,176 @@ test("a domain error (e.g. session already running) is reported via errorService
   assert.strictEqual(handleErrorCalls.length, 1);
   assert.strictEqual(handleErrorCalls[0].err, domainError);
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
+});
+
+// ── Revisões Espaçadas no pós-sessão (F7.5) ─────────────────────────────────
+
+test("the summary modal shows the optional Revisões step, empty by default", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Aula", category: null, description: null, duration_minutes: null }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-reviews-empty").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ssf-review-create-row").hidden, false, "linked session can create a review");
+});
+
+test("a standalone session (no event) hides review creation but can still associate an existing pending review", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    listPendingReviews: async () => [{ id: "rev-1", status: "pending", scheduled_date: "2026-07-10" }],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-review-create-row").hidden, true, "creation requires a linked event");
+  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-r-existing").children.length, 1);
+});
+
+test("when there are no pending reviews, the associate row stays hidden", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    listPendingReviews: async () => [],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, true);
+});
+
+test("scheduling a new review only adds it to the local list — nothing is persisted before confirmation", async (t) => {
+  const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1);
+  assert.strictEqual(document.getElementById("ssf-reviews-empty").hidden, true);
+  assert.strictEqual(createReviewCalls.length, 0, "create must wait for confirmation");
+  assert.strictEqual(associateReviewCalls.length, 0, "associateReview must wait for confirmation");
+});
+
+test("a locally added review can be removed before confirmation", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1);
+
+  document.getElementById("ssf-reviews-list").querySelector("[data-review-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ssf-reviews-empty").hidden, false);
+});
+
+test("confirming persists Questões, then Revisões (create + associateReview), then finishSession — in that order", async (t) => {
+  const callOrder = [];
+  const { mod, associateReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    addQuestion: async (sessionId, data) => { callOrder.push("addQuestion"); return { id: "q-1", session_id: sessionId, ...data }; },
+    createReview: async (fields) => { callOrder.push("createReview"); return { id: "rev-new", status: "pending", ...fields }; },
+    associateReview: async (reviewId, sessionId) => { callOrder.push("associateReview"); associateReviewCalls.push({ reviewId, sessionId }); return { id: reviewId, session_id: sessionId }; },
+    finishSession: async (id) => { callOrder.push("finishSession"); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(callOrder, ["addQuestion", "createReview", "associateReview", "finishSession"]);
+  assert.strictEqual(associateReviewCalls[0].reviewId, "rev-new");
+  assert.strictEqual(associateReviewCalls[0].sessionId, "sess-1");
+});
+
+test("associating an existing pending review uses reviewSessionService.associateReview() on confirmation", async (t) => {
+  const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    listPendingReviews: async () => [{ id: "rev-7", status: "pending", scheduled_date: "2026-07-10" }],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-existing").value = "rev-7";
+  document.getElementById("ssf-btn-associate-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1);
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 0, "associating an existing review never creates a new one");
+  assert.deepStrictEqual(associateReviewCalls, [{ reviewId: "rev-7", sessionId: "sess-1" }]);
+});
+
+test("ignoring the Revisões step is valid — confirming finishes the session without any review call", async (t) => {
+  const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 0);
+  assert.strictEqual(associateReviewCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-empty").hidden, false);
+});
+
+test("cancelling the finish flow (Voltar) discards pending reviews without persisting anything", async (t) => {
+  const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 0);
+  assert.strictEqual(associateReviewCalls.length, 0);
+
+  // Reabrir o resumo começa do zero — nenhuma revisão sobrevive ao cancelamento.
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
 });
 
 // ── Contexto do compromisso vinculado (F1.4 / F7.2) ─────────────────────────

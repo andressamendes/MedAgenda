@@ -490,6 +490,28 @@
                     <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-add-question">Adicionar questão</button>
                   </div>
                 </div>
+
+                <!-- Revisões do pós-sessão (F7.5) — etapa opcional, entre Questões e Confirmar -->
+                <div class="ss-questions-block">
+                  <h3 class="ss-questions-title">Revisões</h3>
+                  <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
+
+                  <ul id="ssf-reviews-list" class="ss-questions-list"></ul>
+                  <p id="ssf-reviews-empty" class="ss-questions-empty">Nenhuma revisão vinculada a esta sessão.</p>
+
+                  <div class="ss-question-form">
+                    <div class="ss-question-form-row" id="ssf-review-associate-row">
+                      <label for="ssf-r-existing">Revisão existente</label>
+                      <select id="ssf-r-existing"></select>
+                      <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-associate-review">Associar revisão</button>
+                    </div>
+                    <div class="ss-question-form-row" id="ssf-review-create-row">
+                      <label for="ssf-r-date">Nova revisão em</label>
+                      <input type="date" id="ssf-r-date">
+                      <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-create-review">Criar revisão</button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-ghost"   id="ssf-btn-back">Voltar</button>
@@ -743,21 +765,6 @@
           <h3 class="session-history-title">Sessões realizadas</h3>
           <p id="session-history-empty" class="session-history-empty" hidden></p>
           <ul id="session-history-list" class="session-history-list"></ul>
-        </div>
-
-        <div id="review-section" class="session-history" hidden>
-          <div class="review-section-header">
-            <h3 class="session-history-title">Revisões</h3>
-            <button type="button" id="btn-generate-reviews" class="btn btn-ghost btn-sm">Gerar revisões (+1, +7, +30 dias)</button>
-          </div>
-
-          <h4 class="session-history-title">Revisões futuras</h4>
-          <p id="review-pending-empty" class="session-history-empty" hidden></p>
-          <ul id="review-pending-list" class="session-history-list"></ul>
-
-          <h4 class="session-history-title">Revisões concluídas</h4>
-          <p id="review-done-empty" class="session-history-empty" hidden></p>
-          <ul id="review-done-list" class="session-history-list"></ul>
         </div>
       </div>
     </div>
