@@ -12,6 +12,7 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEventBus.js";
 
 const SERVICE_SPECIFIER          = new URL("../../activitySessionService.js", import.meta.url).href;
+const QUESTIONS_SERVICE_SPECIFIER = new URL("../../sessionQuestionsService.js", import.meta.url).href;
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const EVENT_SERVICE_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
 const CATEGORY_SERVICE_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
@@ -39,6 +40,16 @@ function loadStudySessionView(t, overrides = {}) {
     },
   });
 
+  const addQuestionCalls = [];
+  t.mock.module(QUESTIONS_SERVICE_SPECIFIER, {
+    namedExports: {
+      addQuestion: overrides.addQuestion ?? (async (sessionId, data) => {
+        addQuestionCalls.push({ sessionId, data });
+        return { id: `q-${addQuestionCalls.length}`, session_id: sessionId, ...data };
+      }),
+    },
+  });
+
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: { getEventById: overrides.getEventById ?? (async () => null) },
   });
@@ -57,7 +68,7 @@ function loadStudySessionView(t, overrides = {}) {
   });
 
   return import(`../../studySessionView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls }));
+    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls, addQuestionCalls }));
 }
 
 beforeEach(() => {
@@ -245,7 +256,7 @@ test("the summary modal shows the session's read-only data, sourced from the exi
   assert.notStrictEqual(document.getElementById("ssf-total-duration").textContent, "—");
 });
 
-test("the summary modal has an Observações field and a Questões Resolvidas placeholder", async (t) => {
+test("the summary modal has an Observações field and starts with no questions registered", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
@@ -255,8 +266,127 @@ test("the summary modal has an Observações field and a Questões Resolvidas pl
   await new Promise(r => setTimeout(r, 0));
 
   assert.ok(document.getElementById("ssf-notes"), "observações textarea must exist");
-  assert.strictEqual(document.getElementById("ssf-questions-empty").textContent, "Nenhuma questão registrada.");
-  assert.ok(document.getElementById("ssf-btn-add-questions"), "Adicionar questões button must exist");
+  assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 0);
+  assert.ok(document.getElementById("ssf-btn-add-question"), "Adicionar questão button must exist");
+});
+
+// ── Cadastro de Questões Resolvidas (F7.4) ──────────────────────────────────
+
+test("adding a question in the summary appends it to the local list, without persisting it yet", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-q-topic").value = "Insuficiência cardíaca";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
+  assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, true);
+  assert.strictEqual(addQuestionCalls.length, 0, "addQuestion must not be called before confirmation");
+});
+
+test("removing a question from the local list drops it before confirmation", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
+
+  document.getElementById("ssf-questions-list").querySelector("[data-question-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, false);
+});
+
+test("editing a question in the local list updates it in place instead of duplicating it", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
+
+  document.getElementById("ssf-questions-list").querySelector("[data-question-edit]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-q-subject").value, "Cardiologia");
+
+  document.getElementById("ssf-q-subject").value = "Nefrologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "editing must not duplicate the item");
+  assert.ok(document.getElementById("ssf-questions-list").textContent.includes("Nefrologia"));
+});
+
+test("cancelling the finish flow (Voltar) never registers pending questions", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 0);
+
+  // Reabrir o resumo começa do zero — nenhuma questão sobrevive ao cancelamento.
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 0);
+});
+
+test("confirming registers every pending question via sessionQuestionsService.addQuestion() before finishSession()", async (t) => {
+  const callOrder = [];
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async (sessionId, data) => {
+      callOrder.push("addQuestion");
+      return { id: "q-1", session_id: sessionId, ...data };
+    },
+    finishSession: async (id, endedAt) => {
+      callOrder.push("finishSession");
+      return { id, status: "finished" };
+    },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-q-topic").value = "IC";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  document.getElementById("ssf-q-subject").value = "Nefrologia";
+  document.getElementById("ssf-q-topic").value = "IRA";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(callOrder, ["addQuestion", "addQuestion", "finishSession"]);
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true);
+  assert.strictEqual(document.getElementById("ss-empty").hidden, false);
 });
 
 test("clicking Voltar closes the summary modal without finishing the session", async (t) => {

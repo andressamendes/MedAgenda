@@ -20,15 +20,35 @@ import {
   finishSession,
   cancelSession,
 } from "./activitySessionService.js";
+import { addQuestion } from "./sessionQuestionsService.js";
 import { getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
-import { pad } from "./utils.js";
+import { pad, escapeHtml } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const TICK_MS = 1000;
+
+// Rótulos de exibição para os campos de Questões (F7.4) — os mesmos valores
+// aceitos pelo CHECK constraint de sql/15_questions.sql, nenhum valor novo.
+const QUESTION_TYPE_LABELS = {
+  multiple_choice: "Múltipla escolha",
+  true_false:      "Verdadeiro/Falso",
+  open:             "Dissertativa",
+  flashcard:        "Flashcard",
+};
+const QUESTION_STATUS_LABELS = {
+  pending:  "Pendente",
+  answered: "Respondida",
+  skipped:  "Pulada",
+};
+const QUESTION_DIFFICULTY_LABELS = {
+  easy:   "Fácil",
+  medium: "Média",
+  hard:   "Difícil",
+};
 
 let emptyEl, emptyMessageEl, btnStartStandalone;
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
@@ -39,7 +59,12 @@ let btnPause, btnResume, btnCancel, btnFinish;
 // clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
 let finishModalEl, finishModal;
 let ssfTitleEl, ssfCategoryEl, ssfSubjectEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl;
-let ssfNotesEl, ssfBtnAddQuestions, ssfBtnBack, ssfBtnConfirm;
+let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
+
+// Cadastro de Questões Resolvidas (F7.4) — lista editável no próprio resumo,
+// só persistida via sessionQuestionsService.addQuestion() na confirmação.
+let ssfQuestionsListEl, ssfQuestionsEmptyEl;
+let ssfQTypeEl, ssfQStatusEl, ssfQDifficultyEl, ssfQSubjectEl, ssfQTopicEl, ssfBtnAddQuestion;
 
 let _session   = null; // fonte da verdade: a última linha conhecida do banco
 let _eventMeta = null; // { title, category, duration_minutes } — só para exibição
@@ -47,6 +72,14 @@ let _tickId    = null;
 let _busy      = false; // evita cliques duplicados durante uma chamada em andamento
 let _unsubscribers = [];
 let _pendingEndedAt = null; // horário de término congelado ao abrir o resumo, reaproveitado na confirmação
+
+// Questões adicionadas no resumo, ainda não persistidas — só viram linhas em
+// public.questions (via sessionQuestionsService.addQuestion()) na confirmação
+// do encerramento. Cancelar o encerramento descarta este array sem gravar
+// nada; nenhum id local aqui é um id de banco.
+let _pendingQuestions = [];
+let _editingQuestionLocalId = null;
+let _nextQuestionLocalId = 1;
 
 function _queryElements() {
   emptyEl             = document.getElementById("ss-empty");
@@ -81,9 +114,17 @@ function _queryElements() {
   ssfNetTimeEl         = document.getElementById("ssf-net-time");
   ssfTotalDurationEl   = document.getElementById("ssf-total-duration");
   ssfNotesEl           = document.getElementById("ssf-notes");
-  ssfBtnAddQuestions   = document.getElementById("ssf-btn-add-questions");
   ssfBtnBack           = document.getElementById("ssf-btn-back");
   ssfBtnConfirm        = document.getElementById("ssf-btn-confirm");
+
+  ssfQuestionsListEl   = document.getElementById("ssf-questions-list");
+  ssfQuestionsEmptyEl  = document.getElementById("ssf-questions-empty");
+  ssfQTypeEl           = document.getElementById("ssf-q-type");
+  ssfQStatusEl         = document.getElementById("ssf-q-status");
+  ssfQDifficultyEl     = document.getElementById("ssf-q-difficulty");
+  ssfQSubjectEl        = document.getElementById("ssf-q-subject");
+  ssfQTopicEl          = document.getElementById("ssf-q-topic");
+  ssfBtnAddQuestion    = document.getElementById("ssf-btn-add-question");
 
   finishModal = initModal(finishModalEl, _closeFinishModal);
 }
@@ -106,7 +147,7 @@ function _bindEvents() {
   });
 
   ssfBtnBack.addEventListener("click", () => _closeFinishModal());
-  ssfBtnAddQuestions.addEventListener("click", () => {}); // placeholder — cadastro de questões fica para etapa futura
+  ssfBtnAddQuestion.addEventListener("click", () => _addOrUpdatePendingQuestion());
   ssfBtnConfirm.addEventListener("click", () => _confirmFinish());
 }
 
@@ -264,6 +305,86 @@ function _minutesBetween(startIso, endedAtDate) {
   return Math.max(0, Math.round((endedAtDate - new Date(startIso)) / 60000));
 }
 
+// ── Questões Resolvidas do resumo (F7.4) ────────────────────────────────────
+// Lista local, editável até a confirmação — nenhuma chamada a
+// sessionQuestionsService.addQuestion() acontece antes de _confirmFinish().
+// Todo acesso ao domínio de Questões passa exclusivamente por
+// sessionQuestionsService.js (nunca questionService.js diretamente aqui).
+
+function _resetQuestionForm() {
+  ssfQTypeEl.value       = "multiple_choice";
+  ssfQStatusEl.value     = "pending";
+  ssfQDifficultyEl.value = "medium";
+  ssfQSubjectEl.value    = "";
+  ssfQTopicEl.value      = "";
+  _editingQuestionLocalId = null;
+  ssfBtnAddQuestion.textContent = "Adicionar questão";
+}
+
+function _renderQuestionsList() {
+  ssfQuestionsListEl.innerHTML = "";
+  ssfQuestionsEmptyEl.hidden = _pendingQuestions.length > 0;
+
+  _pendingQuestions.forEach(q => {
+    const li = document.createElement("li");
+    li.className = "ss-question-item";
+    const subjectTopic = [q.subject, q.topic].filter(Boolean).map(escapeHtml).join(" — ");
+    li.innerHTML = `
+      <div class="ss-question-item-info">
+        <span>${QUESTION_TYPE_LABELS[q.question_type] || q.question_type}</span>
+        <span>${QUESTION_STATUS_LABELS[q.status] || q.status}</span>
+        <span>${QUESTION_DIFFICULTY_LABELS[q.difficulty] || q.difficulty}</span>
+        ${subjectTopic ? `<span>${subjectTopic}</span>` : ""}
+      </div>
+      <div class="ss-question-item-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-question-edit="${q.localId}">Editar</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-question-remove="${q.localId}">Remover</button>
+      </div>
+    `;
+    li.querySelector("[data-question-edit]").addEventListener("click", () => _editPendingQuestion(q.localId));
+    li.querySelector("[data-question-remove]").addEventListener("click", () => _removePendingQuestion(q.localId));
+    ssfQuestionsListEl.appendChild(li);
+  });
+}
+
+function _addOrUpdatePendingQuestion() {
+  const fields = {
+    question_type: ssfQTypeEl.value,
+    status:        ssfQStatusEl.value,
+    difficulty:    ssfQDifficultyEl.value,
+    subject:       ssfQSubjectEl.value.trim() || null,
+    topic:         ssfQTopicEl.value.trim() || null,
+  };
+
+  if (_editingQuestionLocalId !== null) {
+    const idx = _pendingQuestions.findIndex(q => q.localId === _editingQuestionLocalId);
+    if (idx !== -1) _pendingQuestions[idx] = { ..._pendingQuestions[idx], ...fields };
+  } else {
+    _pendingQuestions.push({ localId: _nextQuestionLocalId++, ...fields });
+  }
+
+  _resetQuestionForm();
+  _renderQuestionsList();
+}
+
+function _editPendingQuestion(localId) {
+  const q = _pendingQuestions.find(q => q.localId === localId);
+  if (!q) return;
+  ssfQTypeEl.value       = q.question_type;
+  ssfQStatusEl.value     = q.status;
+  ssfQDifficultyEl.value = q.difficulty;
+  ssfQSubjectEl.value    = q.subject || "";
+  ssfQTopicEl.value      = q.topic || "";
+  _editingQuestionLocalId = localId;
+  ssfBtnAddQuestion.textContent = "Salvar alteração";
+}
+
+function _removePendingQuestion(localId) {
+  _pendingQuestions = _pendingQuestions.filter(q => q.localId !== localId);
+  if (_editingQuestionLocalId === localId) _resetQuestionForm();
+  _renderQuestionsList();
+}
+
 function _openFinishModal() {
   if (_busy || !_session) return;
 
@@ -280,18 +401,41 @@ function _openFinishModal() {
   ssfTotalDurationEl.textContent = _formatExpectedDuration(netMinutes);
   ssfNotesEl.value = "";
 
+  _pendingQuestions = [];
+  _resetQuestionForm();
+  _renderQuestionsList();
+
   finishModal.open(ssfBtnBack);
 }
 
 function _closeFinishModal() {
   _pendingEndedAt = null;
+  _pendingQuestions = [];
+  _editingQuestionLocalId = null;
   finishModal.close();
 }
 
+// Registra as questões pendentes (sessionQuestionsService.addQuestion(), uma
+// por uma) antes de finishSession() — a Sessão continua sendo a entidade
+// raiz: só depois que todas as questões existem é que ela é encerrada.
 async function _confirmFinish() {
   if (_busy || !_session || !_pendingEndedAt) return;
+  const sessionId = _session.id;
   const endedAt = _pendingEndedAt;
-  await _run(() => finishSession(_session.id, endedAt));
+  const questions = _pendingQuestions;
+
+  await _run(async () => {
+    for (const q of questions) {
+      await addQuestion(sessionId, {
+        question_type: q.question_type,
+        status:        q.status,
+        difficulty:    q.difficulty,
+        subject:       q.subject,
+        topic:         q.topic,
+      });
+    }
+    return finishSession(sessionId, endedAt);
+  });
   _closeFinishModal();
 }
 
@@ -399,6 +543,8 @@ export function resetStudySessionView() {
   _eventMeta = null;
   _busy      = false;
   _pendingEndedAt = null;
+  _pendingQuestions = [];
+  _editingQuestionLocalId = null;
   if (finishModalEl && !finishModalEl.hidden) finishModal.close();
   if (emptyEl) _render();
 }

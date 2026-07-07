@@ -2678,6 +2678,59 @@ textarea { resize: vertical; }
   color: var(--gray-500);
 }
 
+.ss-questions-list {
+  list-style: none;
+  margin: 0 0 .8rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.ss-question-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+  padding: .5rem .6rem;
+  border: 1px solid var(--gray-200);
+  border-radius: .5rem;
+  font-size: .82rem;
+}
+
+.ss-question-item-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .6rem;
+  color: var(--gray-700);
+}
+
+.ss-question-item-actions {
+  display: flex;
+  gap: .4rem;
+  flex-shrink: 0;
+}
+
+.ss-question-form {
+  border-top: 1px dashed var(--gray-200);
+  padding-top: .8rem;
+}
+
+.ss-question-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: .5rem .8rem;
+  margin-bottom: .6rem;
+}
+
+.ss-question-form-row label {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: .2rem;
+  display: block;
+}
+
 /* ── Toast notifications ── */
 .toast-container {
   position: fixed;
