@@ -8,9 +8,9 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
+import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEventBus.js";
 
 const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
-const SESSION_SERVICE_SPECIFIER    = new URL("../../activitySessionService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER     = new URL("../../reviewService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
 const DECISION_ENGINE_SPECIFIER    = new URL("../../decisionEngine.js", import.meta.url).href;
@@ -49,13 +49,6 @@ function loadView(t, overrides = {}) {
     },
   });
 
-  let finishedCallback = null;
-  t.mock.module(SESSION_SERVICE_SPECIFIER, {
-    namedExports: {
-      onSessionFinished: (cb) => { finishedCallback = cb; return () => {}; },
-    },
-  });
-
   let reviewChangedCallback = null;
   t.mock.module(REVIEW_SERVICE_SPECIFIER, {
     namedExports: {
@@ -77,10 +70,13 @@ function loadView(t, overrides = {}) {
   return import(`../../activityDashboardView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls,
-      triggerSessionFinished: (session) => finishedCallback?.(session),
       triggerReviewStatusChanged: (review) => reviewChangedCallback?.(review),
       triggerProfileUpdated: (profile) => profileUpdatedCallback?.(profile),
     }));
+}
+
+function tick() {
+  return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 function decision({ origem = "recommendation", origemTipo = "empty_week", prioridade = "informativo", mensagem, assunto }) {
@@ -97,6 +93,11 @@ beforeEach(() => {
 
 afterEach(() => {
   uninstallDom();
+  // Each test re-imports activityDashboardView.js with a cache-busting query
+  // string (fresh module state), but sessionEventBus.js is a true singleton
+  // shared across every import — without this, subscriptions from one
+  // test's view instance would leak into the next test's publish() calls.
+  clearEventBus();
 });
 
 test("with no sessions, all eleven cards render with empty/zero/no-goal values", async (t) => {
@@ -319,9 +320,34 @@ test("retrying after a load error clears the error state on success", async (t) 
   assert.strictEqual(document.getElementById("dash-cards").hidden, false);
 });
 
-test("indicators refresh automatically when a session finishes, without reloading", async (t) => {
+// ── Sincronização com o barramento de eventos (F6.4) ────────────────────────
+// O dashboard não conhece mais onSessionFinished()/activitySessionService:
+// assina SESSION_EVENTS diretamente do barramento (F6.2), igual ao Histórico
+// (F6.3). onSessionFinished() permanece só como adaptador legado para quem
+// ainda não migrou — não é mais usado por esta view.
+
+test("subscribes to the event bus on init: publishing SessionStarted triggers a reload", async (t) => {
   let calls = 0;
-  const { mod, triggerSessionFinished } = await loadView(t, {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => {
+      calls += 1;
+      return calls === 1 ? EMPTY_DATA : { ...EMPTY_DATA, todaySessionsCount: 1, todayMinutes: 25 };
+    },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.STARTED, { id: "s1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls, 2);
+  assert.match(document.getElementById("dash-cards").textContent, /25min/);
+});
+
+test("publishing SessionFinished triggers a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
     getDashboardData: async () => {
       calls += 1;
       return calls === 1 ? EMPTY_DATA : { ...EMPTY_DATA, todaySessionsCount: 1, todayMinutes: 25 };
@@ -332,11 +358,140 @@ test("indicators refresh automatically when a session finishes, without reloadin
   assert.strictEqual(calls, 1);
   assert.doesNotMatch(document.getElementById("dash-cards").textContent, /25min/);
 
-  triggerSessionFinished({ id: "s1", status: "finished" });
-  await new Promise(resolve => setTimeout(resolve, 0));
+  publish(SESSION_EVENTS.FINISHED, { id: "s1", status: "finished" });
+  await tick();
 
   assert.strictEqual(calls, 2);
   assert.match(document.getElementById("dash-cards").textContent, /25min/);
+});
+
+test("publishing SessionCancelled triggers a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.CANCELLED, { id: "s1", status: "cancelled" });
+  await tick();
+
+  assert.strictEqual(calls, 2);
+});
+
+test("publishing SessionUpdated triggers a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.UPDATED, { id: "s1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls, 2);
+});
+
+test("publishing SessionPaused/SessionResumed does NOT trigger a reload (no visible indicator depends on pause state)", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.PAUSED, { id: "s1", status: "paused" });
+  publish(SESSION_EVENTS.RESUMED, { id: "s1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls, 1);
+});
+
+test("a burst of events in the same tick (Updated -> Finished, as happens when finishSession() runs) coalesces into a single reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.UPDATED, { id: "s1", status: "finished" });
+  publish(SESSION_EVENTS.FINISHED, { id: "s1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls, 2); // initial load + exactly one coalesced reload
+});
+
+test("multiple consecutive events across separate ticks each trigger their own reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.STARTED, { id: "s1" });
+  await tick();
+  assert.strictEqual(calls, 2);
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+  assert.strictEqual(calls, 3);
+});
+
+test("resetActivityDashboardView() unsubscribes from the event bus: further events no longer trigger a reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  mod.resetActivityDashboardView();
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+
+  assert.strictEqual(calls, 1); // no reload after reset
+});
+
+test("resetActivityDashboardView() cancels an already-scheduled-but-not-fired reload", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" }); // schedules a reload for the next tick
+  mod.resetActivityDashboardView(); // must cancel the pending timer
+  await tick();
+
+  assert.strictEqual(calls, 1); // reload never happened
+});
+
+test("repeated initActivityDashboardView() calls don't double-subscribe (no double reload per event)", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 2); // one _load() per init call, no subscription-related extra
+
+  publish(SESSION_EVENTS.FINISHED, { id: "s1" });
+  await tick();
+
+  assert.strictEqual(calls, 3); // exactly one reload, not one per subscription
 });
 
 // ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7)

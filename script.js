@@ -59,7 +59,7 @@ import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initActivitySessionView, resetActivitySessionView } from "./activitySessionView.js";
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
-import { initActivityDashboardView } from "./activityDashboardView.js";
+import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView } from "./insightsView.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
@@ -475,6 +475,7 @@ initAuthView({
     resetNotifications();
     resetActivitySessionView();
     resetActivityHistoryView();
+    resetActivityDashboardView();
     resetAccountView();
     resetAcademicCalendarView();
     resetCategories();
