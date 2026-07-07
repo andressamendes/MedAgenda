@@ -21,12 +21,14 @@ import {
   cancelSession,
 } from "./activitySessionService.js";
 import { addQuestion } from "./sessionQuestionsService.js";
+import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
+import { associateReview } from "./reviewSessionService.js";
 import { getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
-import { pad, escapeHtml } from "./utils.js";
+import { pad, escapeHtml, localDate } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const TICK_MS = 1000;
@@ -66,6 +68,14 @@ let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
 let ssfQuestionsListEl, ssfQuestionsEmptyEl;
 let ssfQTypeEl, ssfQStatusEl, ssfQDifficultyEl, ssfQSubjectEl, ssfQTopicEl, ssfBtnAddQuestion;
 
+// Revisões do pós-sessão (F7.5) — etapa opcional entre Questões e Confirmar.
+// Toda persistência passa por reviewService.js (criação) e
+// reviewSessionService.associateReview() (vínculo) — nenhum session_id é
+// manipulado diretamente aqui.
+let ssfReviewsListEl, ssfReviewsEmptyEl;
+let ssfReviewAssociateRowEl, ssfReviewCreateRowEl;
+let ssfRExistingEl, ssfRDateEl, ssfBtnAssociateReview, ssfBtnCreateReview;
+
 let _session   = null; // fonte da verdade: a última linha conhecida do banco
 let _eventMeta = null; // { title, category, duration_minutes } — só para exibição
 let _tickId    = null;
@@ -80,6 +90,14 @@ let _pendingEndedAt = null; // horário de término congelado ao abrir o resumo,
 let _pendingQuestions = [];
 let _editingQuestionLocalId = null;
 let _nextQuestionLocalId = 1;
+
+// Revisões escolhidas no resumo, ainda não persistidas (F7.5) — cada item é
+// { localId, kind: "create"|"associate", scheduled_date?, reviewId?, label }.
+// Só viram chamadas de domínio (reviewService.create() + associateReview())
+// na confirmação; cancelar o encerramento descarta este array sem gravar nada.
+let _pendingReviews = [];
+let _nextReviewLocalId = 1;
+let _reviewOptionsRequestId = 0; // descarta respostas obsoletas se o resumo fechar/reabrir
 
 function _queryElements() {
   emptyEl             = document.getElementById("ss-empty");
@@ -126,6 +144,15 @@ function _queryElements() {
   ssfQTopicEl          = document.getElementById("ssf-q-topic");
   ssfBtnAddQuestion    = document.getElementById("ssf-btn-add-question");
 
+  ssfReviewsListEl        = document.getElementById("ssf-reviews-list");
+  ssfReviewsEmptyEl       = document.getElementById("ssf-reviews-empty");
+  ssfReviewAssociateRowEl = document.getElementById("ssf-review-associate-row");
+  ssfReviewCreateRowEl    = document.getElementById("ssf-review-create-row");
+  ssfRExistingEl          = document.getElementById("ssf-r-existing");
+  ssfRDateEl              = document.getElementById("ssf-r-date");
+  ssfBtnAssociateReview   = document.getElementById("ssf-btn-associate-review");
+  ssfBtnCreateReview      = document.getElementById("ssf-btn-create-review");
+
   finishModal = initModal(finishModalEl, _closeFinishModal);
 }
 
@@ -148,6 +175,8 @@ function _bindEvents() {
 
   ssfBtnBack.addEventListener("click", () => _closeFinishModal());
   ssfBtnAddQuestion.addEventListener("click", () => _addOrUpdatePendingQuestion());
+  ssfBtnAssociateReview.addEventListener("click", () => _addPendingReviewAssociation());
+  ssfBtnCreateReview.addEventListener("click", () => _addPendingReviewCreation());
   ssfBtnConfirm.addEventListener("click", () => _confirmFinish());
 }
 
@@ -385,6 +414,98 @@ function _removePendingQuestion(localId) {
   _renderQuestionsList();
 }
 
+// ── Revisões do pós-sessão (F7.5) ───────────────────────────────────────────
+// Etapa opcional entre Questões e Confirmar: o usuário pode criar uma revisão
+// nova, associar uma revisão pendente existente, ou ignorar a etapa. Nada é
+// persistido antes de _confirmFinish() — mesmo contrato das Questões (F7.4).
+// Criação usa reviewService.create() (revisão pertence a um compromisso, então
+// só está disponível quando a sessão tem event_id); o vínculo Sessão↔Revisão
+// usa exclusivamente reviewSessionService.associateReview().
+
+// scheduled_date é uma DATE pura ("YYYY-MM-DD") — localDate() (utils.js) evita
+// o desvio de fuso de `new Date("YYYY-MM-DD")`, mesmo padrão do restante do app.
+function _formatReviewDate(dateStr) {
+  const d = localDate(dateStr);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function _renderReviewsList() {
+  ssfReviewsListEl.innerHTML = "";
+  ssfReviewsEmptyEl.hidden = _pendingReviews.length > 0;
+
+  _pendingReviews.forEach(r => {
+    const li = document.createElement("li");
+    li.className = "ss-question-item";
+    li.innerHTML = `
+      <div class="ss-question-item-info">
+        <span>${escapeHtml(r.label)}</span>
+      </div>
+      <div class="ss-question-item-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-review-remove="${r.localId}">Remover</button>
+      </div>
+    `;
+    li.querySelector("[data-review-remove]").addEventListener("click", () => _removePendingReview(r.localId));
+    ssfReviewsListEl.appendChild(li);
+  });
+}
+
+function _removePendingReview(localId) {
+  _pendingReviews = _pendingReviews.filter(r => r.localId !== localId);
+  _renderReviewsList();
+}
+
+function _addPendingReviewCreation() {
+  const scheduled_date = ssfRDateEl.value;
+  if (!scheduled_date) return;
+  _pendingReviews.push({
+    localId: _nextReviewLocalId++,
+    kind:    "create",
+    scheduled_date,
+    label:   `Nova revisão em ${_formatReviewDate(scheduled_date)}`,
+  });
+  ssfRDateEl.value = "";
+  _renderReviewsList();
+}
+
+function _addPendingReviewAssociation() {
+  const reviewId = ssfRExistingEl.value;
+  if (!reviewId) return;
+  if (_pendingReviews.some(r => r.kind === "associate" && r.reviewId === reviewId)) return;
+  const label = ssfRExistingEl.selectedOptions[0]?.textContent || "Revisão existente";
+  _pendingReviews.push({
+    localId: _nextReviewLocalId++,
+    kind:    "associate",
+    reviewId,
+    label:   `Associar: ${label}`,
+  });
+  _renderReviewsList();
+}
+
+// Preenche o select de revisões pendentes — do compromisso vinculado quando a
+// sessão tem event_id, ou globais numa sessão avulsa (mesma semântica opcional
+// de reviewService.listPending()). Falha aqui nunca bloqueia o encerramento:
+// a etapa é opcional, então o erro só desabilita a associação.
+async function _loadReviewOptions() {
+  const requestId = ++_reviewOptionsRequestId;
+  ssfRExistingEl.innerHTML = "";
+  try {
+    const pending = await listPendingReviews(_session?.event_id || undefined);
+    if (requestId !== _reviewOptionsRequestId) return;
+    ssfRExistingEl.innerHTML = "";
+    pending.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.id;
+      opt.textContent = `Revisão de ${_formatReviewDate(r.scheduled_date)}`;
+      ssfRExistingEl.appendChild(opt);
+    });
+    ssfReviewAssociateRowEl.hidden = pending.length === 0;
+  } catch (err) {
+    if (requestId !== _reviewOptionsRequestId) return;
+    handleError(err, { context: "studySessionView.loadReviewOptions", silent: true });
+    ssfReviewAssociateRowEl.hidden = true;
+  }
+}
+
 function _openFinishModal() {
   if (_busy || !_session) return;
 
@@ -405,6 +526,15 @@ function _openFinishModal() {
   _resetQuestionForm();
   _renderQuestionsList();
 
+  // Revisões (F7.5): criar exige um compromisso (reviewService.create() valida
+  // event_id), então a linha de criação só aparece em sessões vinculadas.
+  _pendingReviews = [];
+  ssfRDateEl.value = "";
+  ssfReviewCreateRowEl.hidden = !_session.event_id;
+  ssfReviewAssociateRowEl.hidden = true; // reaparece se _loadReviewOptions() encontrar pendentes
+  _renderReviewsList();
+  _loadReviewOptions();
+
   finishModal.open(ssfBtnBack);
 }
 
@@ -412,17 +542,23 @@ function _closeFinishModal() {
   _pendingEndedAt = null;
   _pendingQuestions = [];
   _editingQuestionLocalId = null;
+  _pendingReviews = [];
+  _reviewOptionsRequestId++; // invalida qualquer busca de revisões pendentes em andamento
   finishModal.close();
 }
 
-// Registra as questões pendentes (sessionQuestionsService.addQuestion(), uma
-// por uma) antes de finishSession() — a Sessão continua sendo a entidade
-// raiz: só depois que todas as questões existem é que ela é encerrada.
+// Ordem de persistência do encerramento (F7.4 + F7.5): Questões primeiro,
+// depois Revisões (criação via reviewService.create() + vínculo via
+// reviewSessionService.associateReview()), e só então finishSession() — a
+// Sessão continua sendo a entidade raiz, e SessionFinished continua sendo o
+// único evento emitido ao final (por activitySessionService, intocado).
 async function _confirmFinish() {
   if (_busy || !_session || !_pendingEndedAt) return;
   const sessionId = _session.id;
+  const eventId = _session.event_id;
   const endedAt = _pendingEndedAt;
   const questions = _pendingQuestions;
+  const reviews = _pendingReviews;
 
   await _run(async () => {
     for (const q of questions) {
@@ -433,6 +569,12 @@ async function _confirmFinish() {
         subject:       q.subject,
         topic:         q.topic,
       });
+    }
+    for (const r of reviews) {
+      const reviewId = r.kind === "create"
+        ? (await createReview({ event_id: eventId, scheduled_date: r.scheduled_date })).id
+        : r.reviewId;
+      await associateReview(reviewId, sessionId);
     }
     return finishSession(sessionId, endedAt);
   });
@@ -545,6 +687,8 @@ export function resetStudySessionView() {
   _pendingEndedAt = null;
   _pendingQuestions = [];
   _editingQuestionLocalId = null;
+  _pendingReviews = [];
+  _reviewOptionsRequestId++;
   if (finishModalEl && !finishModalEl.hidden) finishModal.close();
   if (emptyEl) _render();
 }

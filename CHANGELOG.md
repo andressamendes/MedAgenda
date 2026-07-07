@@ -2,6 +2,36 @@
 
 ---
 
+## [Unreleased] — F7.5: Revisões Espaçadas no Pós-Sessão
+
+Move definitivamente o fluxo de Revisões da tela "Editar Compromisso" para o
+pós-sessão, alinhando a interface à arquitetura da F6.1 (Compromisso =
+planejamento, Sessão = execução, Revisão = consequência do estudo realizado).
+
+`eventFormView.js`/`index.html` perdem toda a seção de Revisões (listas de
+pendentes/concluídas, "Gerar revisões", Concluir/Ignorar) — apenas interface:
+nenhuma regra de domínio foi removida (`reviewService.js` intocado).
+
+O resumo de encerramento da Sessão (`studySessionView.js`, F7.3/F7.4) ganha a
+etapa opcional **Revisões**, entre Questões e Confirmar: o usuário pode criar
+uma revisão nova (data livre, disponível quando a sessão tem compromisso
+vinculado — `reviewService.create()` exige `event_id`), associar uma revisão
+pendente existente (`reviewService.listPending()`), ou ignorar a etapa. Nada é
+persistido antes da confirmação — mesmo contrato das Questões. Todo vínculo
+Sessão↔Revisão passa exclusivamente por
+`reviewSessionService.associateReview()`; nenhum `session_id` é manipulado
+diretamente e nenhum CRUD novo foi criado.
+
+Ordem de persistência na confirmação: Questões → Revisões (criação +
+associação) → `finishSession()` — a Sessão continua sendo a entidade raiz e
+`SessionFinished` continua sendo o único evento emitido ao final
+(`activitySessionService.js` e `sessionEventBus.js` intocados). Dashboard,
+Insights, IA, Recommendation, Reflection, Planning, Decision Engine,
+Achievement, Study Streak e Subject Progress não foram alterados.
+
+`service-worker.js` (APP_SHELL) regenerado via `npm run build:app-shell`
+(inclui `reviewSessionService.js`) e `CACHE_VERSION` incrementada.
+
 ## [Unreleased] — F7.2: Tela "Sessão de Estudo" (Execução da Sessão)
 
 Transforma a página "Sessão de Estudo" de placeholder na tela oficial de
