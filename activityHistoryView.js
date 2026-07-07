@@ -13,6 +13,7 @@ import { getCategories } from "./categoryService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad, escapeHtml } from "./utils.js";
+import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const PAGE_SIZE = 20;
 
@@ -38,6 +39,38 @@ let _loading = false;
 // o histórico pode ter centenas de linhas apontando para dezenas de eventos.
 let _eventsById     = new Map();
 let _categoriesById = new Map();
+
+// ── Sincronização com o barramento de eventos (F6.3) ────────────────────────
+// A tela assina SessionStarted/Finished/Cancelled/Updated e recarrega sua
+// própria lista (via listSessions() já existente) sempre que uma sessão muda
+// de estado — nunca lê activitySessionService além dessa API pública. Pause/
+// Resume não afetam o histórico (só sessões encerradas aparecem nele) e por
+// isso não são assinados.
+let _unsubscribers = [];
+let _reloadTimer   = null;
+
+// Vários eventos podem ser publicados em sequência imediata (ex.: Updated
+// seguido de Finished, ao encerrar uma sessão). Em vez de recarregar a cada
+// evento, agenda-se uma única recarga no próximo tick — se outro evento
+// chegar antes do timer disparar, ele é ignorado (já há uma recarga pendente
+// que vai refletir o estado mais recente de qualquer forma).
+function _scheduleReload() {
+  if (_reloadTimer) return;
+  _reloadTimer = setTimeout(() => {
+    _reloadTimer = null;
+    _loadPage(true);
+  }, 0);
+}
+
+function _subscribeToEventBus() {
+  if (_unsubscribers.length > 0) return; // já assinado — initActivityHistoryView pode rodar mais de uma vez
+  _unsubscribers = [
+    subscribe(SESSION_EVENTS.STARTED, _scheduleReload),
+    subscribe(SESSION_EVENTS.FINISHED, _scheduleReload),
+    subscribe(SESSION_EVENTS.CANCELLED, _scheduleReload),
+    subscribe(SESSION_EVENTS.UPDATED, _scheduleReload),
+  ];
+}
 
 async function _loadLookups() {
   try {
@@ -164,7 +197,9 @@ function _setStatus(status) {
 /**
  * Monta a tela (uma única vez) e carrega a primeira página do histórico.
  * Chamada a cada login (ver script.js/_initApp) — sempre recarrega do zero,
- * então nunca mostra dados de uma sessão de usuário anterior.
+ * então nunca mostra dados de uma sessão de usuário anterior. Também assina
+ * o barramento de eventos (F6.3) para manter a lista sincronizada sem exigir
+ * reload da página.
  */
 export async function initActivityHistoryView() {
   if (!listEl) {
@@ -179,7 +214,23 @@ export async function initActivityHistoryView() {
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
   }
 
+  _subscribeToEventBus();
   _status = "all";
   await _loadLookups();
   await _loadPage(true);
+}
+
+/**
+ * Desfaz a assinatura do barramento de eventos e qualquer recarga pendente.
+ * Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut) — sem
+ * isso, os listeners registrados em _subscribeToEventBus() sobreviveriam à
+ * troca de sessão e recarregariam a lista com o usuário errado.
+ */
+export function resetActivityHistoryView() {
+  _unsubscribers.forEach(off => off());
+  _unsubscribers = [];
+  if (_reloadTimer) {
+    clearTimeout(_reloadTimer);
+    _reloadTimer = null;
+  }
 }

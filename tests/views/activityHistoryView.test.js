@@ -8,6 +8,7 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
+import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEventBus.js";
 
 const SERVICE_SPECIFIER  = new URL("../../activitySessionService.js", import.meta.url).href;
 const EVENT_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
@@ -49,7 +50,16 @@ beforeEach(() => {
 
 afterEach(() => {
   uninstallDom();
+  // Each test re-imports activityHistoryView.js with a cache-busting query
+  // string (fresh module state), but sessionEventBus.js is a true singleton
+  // shared across every import — without this, subscriptions from one
+  // test's view instance would leak into the next test's publish() calls.
+  clearEventBus();
 });
+
+function tick() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
 
 test("empty history shows the empty-state message and no items", async (t) => {
   const { mod } = await loadView(t, {
@@ -195,4 +205,207 @@ test("retrying after a load error clears the error state on success", async (t) 
 
   assert.strictEqual(document.getElementById("ah-list-empty").hidden, true);
   assert.strictEqual(document.getElementById("ah-list").children.length, 1);
+});
+
+// ── Sincronização com o barramento de eventos (F6.3) ────────────────────────
+
+test("subscribes to the event bus on init: publishing SessionStarted triggers a reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.STARTED, { id: "sess-1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].offset, 0);
+});
+
+test("publishing SessionFinished triggers a reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1);
+});
+
+test("publishing SessionCancelled triggers a reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.CANCELLED, { id: "sess-1", status: "cancelled" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1);
+});
+
+test("publishing SessionUpdated triggers a reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.UPDATED, { id: "sess-1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1);
+});
+
+test("SessionPaused and SessionResumed do not trigger a reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.PAUSED, { id: "sess-1", status: "paused" });
+  publish(SESSION_EVENTS.RESUMED, { id: "sess-1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls.length, 0);
+});
+
+test("multiple events published in immediate succession coalesce into a single reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.STARTED, { id: "sess-1", status: "running" });
+  publish(SESSION_EVENTS.UPDATED, { id: "sess-1", status: "running" });
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1, "three events in the same tick should trigger exactly one reload");
+});
+
+test("an auto-reload from an event preserves the currently selected filter", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  document.querySelector('.ah-filter-tab[data-status="cancelled"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].status, "cancelled");
+});
+
+test("resetActivityHistoryView() unsubscribes from the event bus: further events do not reload", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  mod.resetActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  publish(SESSION_EVENTS.CANCELLED, { id: "sess-1", status: "cancelled" });
+  publish(SESSION_EVENTS.STARTED, { id: "sess-1", status: "running" });
+  publish(SESSION_EVENTS.UPDATED, { id: "sess-1", status: "running" });
+  await tick();
+
+  assert.strictEqual(calls.length, 0);
+});
+
+test("resetActivityHistoryView() cancels a reload already scheduled but not yet fired", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  mod.resetActivityHistoryView(); // reset happens before the debounced reload fires
+  await tick();
+
+  assert.strictEqual(calls.length, 0);
+});
+
+test("re-initializing does not register duplicate listeners (no leak across repeated init calls)", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  await mod.initActivityHistoryView();
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  await tick();
+
+  assert.strictEqual(calls.length, 1, "a single event should trigger exactly one reload, regardless of how many times init ran");
+});
+
+test("filters continue to work normally alongside the event-bus subscription", async (t) => {
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+
+  await mod.initActivityHistoryView();
+  calls.length = 0;
+
+  const finishedTab = document.querySelector('.ah-filter-tab[data-status="finished"]');
+  finishedTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(calls[0].status, "finished");
+  assert.strictEqual(finishedTab.classList.contains("ah-filter-tab--active"), true);
+});
+
+test("pagination continues to work normally alongside the event-bus subscription", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => {
+      if (opts.offset === 0) {
+        return { sessions: [{ id: "sess-1", status: "finished", source: "manual", started_at: "2026-01-01T08:00:00.000Z", ended_at: "2026-01-01T08:30:00.000Z", duration_minutes: 30 }], total: 2, hasMore: true };
+      }
+      return { sessions: [{ id: "sess-2", status: "finished", source: "manual", started_at: "2026-01-02T08:00:00.000Z", ended_at: "2026-01-02T08:30:00.000Z", duration_minutes: 30 }], total: 2, hasMore: false };
+    },
+  });
+
+  await mod.initActivityHistoryView();
+  const loadMoreBtn = document.getElementById("ah-load-more");
+  loadMoreBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(document.getElementById("ah-list").children.length, 2);
+  assert.strictEqual(loadMoreBtn.hidden, true);
 });
