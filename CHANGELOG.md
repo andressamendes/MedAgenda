@@ -2,6 +2,38 @@
 
 ---
 
+## [Unreleased] — F6.9: Agregação por Matéria (Projection)
+
+Novo `subjectProgressService.js`: projeção pura que consolida Sessões
+(`activitySessionService`) e Questões (`questionService`) por matéria, sem
+gravar nada no banco, sem cache permanente e sem eventos próprios — segue a
+arquitetura da F6.1 (Sessão e Questão são fatos; progresso é derivado, nunca
+persistido). Nenhum consumidor (Dashboard, Central de Insights, IA,
+Recommendation, Planning, Reflection, Decision Engine, User Memory,
+Conquistas) foi conectado ou alterado nesta etapa.
+
+Como `activity_sessions` não tem campo de matéria (só `category_id`), a
+matéria de uma sessão é resolvida através do compromisso que a originou:
+quando a sessão tem `event_id`, usa-se `events.category` (texto livre já
+existente) — daí `eventService` entrar como fonte de dados. Sessões sem
+`event_id` e questões sem `subject` caem no grupo "sem matéria". Nenhuma
+tabela, coluna ou SQL novo.
+
+APIs públicas: `listSubjectsProgress()`, `getSubjectProgress(subject)` e
+`getOverallProgress()` — tempo total estudado, número de sessões (com
+contagem por status finalizado/cancelado), número de questões, última
+sessão, última atividade e status geral (`sem_atividade` /
+`em_andamento` / `com_atividade`). Não calcula percentual de acerto,
+desempenho, ranking, conquistas ou constância — ficam para serviços
+próprios em etapas futuras.
+
+23 novos testes em `tests/services/subjectProgressService.test.js` (matéria
+sem sessões, múltiplas sessões, questões, múltiplas matérias, ordenação,
+agregações, sessões canceladas/finalizadas/em andamento, isolamento por
+usuário). Suíte completa: 774/774 passam.
+
+---
+
 ## [Unreleased] — F5.3: Modernização do Layout, Navegação e Responsividade
 
 Mudança puramente visual/estrutural sobre a casca compartilhada do app (header,
