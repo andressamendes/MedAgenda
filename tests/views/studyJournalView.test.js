@@ -987,3 +987,56 @@ test("summaries recompute over only the currently filtered/visible sessions, wit
   assert.match(dailySummaries()[0].textContent, /SOI II/);
   assert.doesNotMatch(dailySummaries()[0].textContent, /Anatomia/);
 });
+
+// ── Síntese Periódica de Aprendizado (F8.6) ─────────────────────────────
+
+test("a weekly summary card renders a derived narrative text (Resumo da Semana) below its stats", async (t) => {
+  const sessions = [
+    { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
+    { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
+      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
+    ],
+    listQuestions: async () => [{ id: "q1" }],
+  });
+
+  await mod.initStudyJournalView();
+
+  const week = weekSummaries()[0];
+  const title = week.querySelector(".sj-week-narrative-title");
+  const text = week.querySelector(".sj-week-narrative-text").textContent;
+
+  assert.strictEqual(title.textContent, "Resumo da Semana");
+  assert.match(text, /Nesta semana você realizou 2 sessões/);
+  assert.match(text, /estudou durante 1h30/);
+  assert.match(text, /resolveu 2 questões/);
+  assert.match(text, /estudou 2 matérias diferentes/);
+});
+
+test("the weekly narrative only considers the currently visible (filtered) entries of that week", async (t) => {
+  const sessions = [
+    { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
+    { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
+      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+  document.getElementById("sj-filter-subject").value = "Cardiologia";
+  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+
+  const text = weekSummaries()[0].querySelector(".sj-week-narrative-text").textContent;
+  assert.match(text, /Nesta semana você realizou 1 sessão/);
+  assert.match(text, /estudou 1 matéria diferente/);
+});

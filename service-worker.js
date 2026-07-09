@@ -82,6 +82,7 @@ const APP_SHELL = [
   './studyJournalView.js',
   './studyReflectionService.js',
   './studySessionView.js',
+  './studySummaryService.js',
   './studyTimelineService.js',
   './supabase.js',
   './telemetryService.js',
