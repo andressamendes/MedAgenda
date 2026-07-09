@@ -129,18 +129,29 @@ export async function finishSession(id, endedAt = new Date()) {
   }
 
   const endedAtDate = endedAt instanceof Date ? endedAt : new Date(endedAt);
-  const durationMinutes = Math.round((endedAtDate - new Date(session.started_at)) / 60000);
-  if (durationMinutes < 0) {
+  const rawMs = endedAtDate - new Date(session.started_at);
+  if (rawMs < 0) {
     throw _domainError(
       "A data de término não pode ser anterior ao início da sessão.",
       "INVALID_DURATION"
     );
   }
 
+  // Tempo líquido (F7.7): desconta paused_ms (pausas já concluídas) e, se a
+  // sessão está sendo finalizada diretamente a partir de "paused" (sem
+  // retomar antes), também o intervalo da pausa corrente (started em
+  // paused_at até agora) — mesma soma que resumeSession() faria.
+  const currentPauseMs = session.status === "paused" && session.paused_at
+    ? Math.max(0, endedAtDate - new Date(session.paused_at))
+    : 0;
+  const totalPausedMs = (session.paused_ms || 0) + currentPauseMs;
+  const durationMinutes = Math.max(0, Math.round((rawMs - totalPausedMs) / 60000));
+
   const finished = await updateActivitySession(id, {
     status: "finished",
     ended_at: endedAtDate.toISOString(),
     duration_minutes: durationMinutes,
+    paused_at: null,
   });
   publish(SESSION_EVENTS.FINISHED, finished);
   return finished;
@@ -177,11 +188,13 @@ export async function cancelSession(id) {
   return cancelled;
 }
 
-// Limitação atual: o modelo (activity_sessions) não tem campo para acumular
-// tempo pausado, então pausar/retomar apenas alterna o status. A duração
-// calculada em finishSession() é sempre started_at -> ended_at, incluindo
-// qualquer intervalo em pausa. Descontar tempo pausado exigiria novo campo
-// e fica para uma etapa futura.
+// Tempo líquido (F7.7): paused_at marca o início da pausa corrente;
+// paused_ms acumula pausas já concluídas. pauseSession() só grava paused_at
+// (o intervalo ainda está "aberto"); resumeSession() fecha esse intervalo,
+// somando-o a paused_ms, e limpa paused_at. finishSession() usa os dois
+// campos para descontar o tempo pausado de duration_minutes, inclusive
+// quando a sessão é finalizada diretamente a partir de "paused" (sem
+// retomar antes) — ver sql/17_activity_sessions_paused_time.sql.
 export async function pauseSession(id) {
   const session = await getActivitySessionById(id);
   if (!session) {
@@ -190,7 +203,10 @@ export async function pauseSession(id) {
   if (session.status !== "running") {
     throw _domainError("Somente sessões em andamento podem ser pausadas.", "INVALID_STATE");
   }
-  const paused = await updateActivitySession(id, { status: "paused" });
+  const paused = await updateActivitySession(id, {
+    status: "paused",
+    paused_at: new Date().toISOString(),
+  });
   publish(SESSION_EVENTS.PAUSED, paused);
   return paused;
 }
@@ -210,7 +226,14 @@ export async function resumeSession(id) {
       "SESSION_ALREADY_RUNNING"
     );
   }
-  const resumed = await updateActivitySession(id, { status: "running" });
+  const currentPauseMs = session.paused_at
+    ? Math.max(0, Date.now() - new Date(session.paused_at).getTime())
+    : 0;
+  const resumed = await updateActivitySession(id, {
+    status: "running",
+    paused_at: null,
+    paused_ms: (session.paused_ms || 0) + currentPauseMs,
+  });
   publish(SESSION_EVENTS.RESUMED, resumed);
   return resumed;
 }

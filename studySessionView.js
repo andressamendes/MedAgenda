@@ -239,10 +239,14 @@ function _eventFieldText(value) {
 
 // O tempo exibido é sempre recalculado a partir de started_at (o banco é a
 // fonte da verdade) — o timer local só decide QUANDO redesenhar, nunca o
-// valor em si (mesmo princípio do widget antigo, ver F1.3).
+// valor em si (mesmo princípio do widget antigo, ver F1.3). F7.7: o tempo
+// bruto descontado de paused_ms (pausas já concluídas) é o tempo líquido —
+// como o timer para de re-renderizar enquanto pausado (ver _render()), o
+// intervalo da pausa corrente nunca entra aqui, só é somado a paused_ms
+// quando resumeSession() a fecha.
 function _renderTime() {
   if (!_session) return;
-  const elapsedMs = Date.now() - new Date(_session.started_at).getTime();
+  const elapsedMs = Date.now() - new Date(_session.started_at).getTime() - (_session.paused_ms || 0);
   const elapsedText = _formatElapsed(elapsedMs);
   timeEl.textContent = elapsedText;
   indNetEl.textContent = elapsedText;
@@ -292,9 +296,6 @@ function _render() {
   btnResume.hidden = status !== "paused";
   btnCancel.hidden = status !== "paused";
 
-  // Limitação conhecida (ver activitySessionService.js): o modelo não
-  // acumula tempo pausado separadamente, então a duração final de
-  // finishSession() sempre inclui qualquer intervalo em pausa.
   pauseNoteEl.hidden = status !== "paused";
 
   const statusLabel = status === "running" ? "Executando" : "Pausada";
@@ -392,9 +393,14 @@ async function _run(action) {
 
 // Espelha a fórmula de duração de activitySessionService.finishSession() só
 // para exibição — não introduz uma regra nova, e o mesmo valor (em minutos) é
-// o que será de fato enviado a finishSession() ao confirmar.
-function _minutesBetween(startIso, endedAtDate) {
-  return Math.max(0, Math.round((endedAtDate - new Date(startIso)) / 60000));
+// o que será de fato calculado por finishSession() ao confirmar (F7.7: já
+// descontando paused_ms e, se a sessão está pausada agora, a pausa corrente).
+function _minutesBetween(session, endedAtDate) {
+  const currentPauseMs = session.status === "paused" && session.paused_at
+    ? Math.max(0, endedAtDate - new Date(session.paused_at))
+    : 0;
+  const totalPausedMs = (session.paused_ms || 0) + currentPauseMs;
+  return Math.max(0, Math.round((endedAtDate - new Date(session.started_at) - totalPausedMs) / 60000));
 }
 
 // ── Questões Resolvidas do resumo (F7.4) ────────────────────────────────────
@@ -573,7 +579,7 @@ function _openFinishModal() {
   if (_busy || !_session) return;
 
   _pendingEndedAt = new Date();
-  const netMinutes = _minutesBetween(_session.started_at, _pendingEndedAt);
+  const netMinutes = _minutesBetween(_session, _pendingEndedAt);
 
   ssfTitleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
   ssfCategoryEl.textContent = _eventMeta?.category || "—";

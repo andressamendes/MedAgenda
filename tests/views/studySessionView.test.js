@@ -197,6 +197,38 @@ test("pausing freezes the displayed time instead of continuing to tick", async (
   assert.strictEqual(document.getElementById("ss-btn-resume").hidden, false);
 });
 
+test("F7.7: paused time is deducted from the elapsed/net time shown after resuming", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+  const startedAt = new Date().toISOString();
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: startedAt }),
+    pauseSession: async (id) => ({ id, status: "paused", started_at: startedAt, paused_at: new Date().toISOString(), paused_ms: 0 }),
+    // Simula resumeSession() fechando o intervalo de pausa corrente (30s) em paused_ms.
+    resumeSession: async (id) => ({ id, status: "running", started_at: startedAt, paused_at: null, paused_ms: 30_000 }),
+  });
+
+  await mod.initStudySessionView();
+
+  t.mock.timers.tick(60_000); // 1 minuto rodando
+  assert.strictEqual(document.getElementById("ss-time").textContent, "01:00");
+
+  document.getElementById("ss-btn-pause").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  t.mock.timers.tick(30_000); // 30s pausado — congelado, não deve mudar o texto
+  assert.strictEqual(document.getElementById("ss-time").textContent, "01:00");
+
+  document.getElementById("ss-btn-resume").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  // Relógio real: 1min + 30s pausado = 1m30s desde started_at. Líquido:
+  // 1m30s - 30s (paused_ms) = 1min, exatamente como antes de pausar.
+  assert.strictEqual(document.getElementById("ss-time").textContent, "01:00");
+
+  t.mock.timers.tick(15_000); // mais 15s rodando após retomar
+  assert.strictEqual(document.getElementById("ss-time").textContent, "01:15");
+});
+
 test("resuming a paused session switches back to running", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: new Date().toISOString() }),
