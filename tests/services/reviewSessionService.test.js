@@ -156,6 +156,37 @@ test("associateReview() propaga erro do banco", async (t) => {
   );
 });
 
+// BUG 17: status "pending" não implica "sem sessão" — uma revisão associada
+// a uma Sessão continua pending até ser concluída/pulada, então nada
+// impedia associá-la de novo a outra Sessão, sobrescrevendo session_id
+// silenciosamente e "roubando" o vínculo da Sessão anterior.
+test("associateReview() rejeita quando a revisão já está associada a outra sessão", async (t) => {
+  const alreadyLinked = { ...REVIEW, session_id: "sess-other" };
+  const { mod, calls } = await loadReviewSessionService(t, {
+    review: alreadyLinked, session: SESSION,
+  });
+
+  await assert.rejects(
+    () => mod.associateReview("rev-1", "sess-1"),
+    (err) => err.code === "REVIEW_ALREADY_LINKED"
+  );
+  assert.ok(!calls.some(c => c.fn === "supabase.update"), "não deve sobrescrever o vínculo existente");
+});
+
+// Reassociar à mesma sessão precisa continuar funcionando — é o caminho de
+// retry do BUG 16 (confirmar de novo depois de uma falha parcial reassocia
+// a mesma revisão à mesma sessão em vez de recriar).
+test("associateReview() permite reassociar a revisão à mesma sessão já vinculada (idempotente)", async (t) => {
+  const alreadyLinkedToSameSession = { ...REVIEW, session_id: "sess-1" };
+  const updated = { ...alreadyLinkedToSameSession };
+  const { mod } = await loadReviewSessionService(t, {
+    review: alreadyLinkedToSameSession, session: SESSION, updateResult: updated,
+  });
+
+  const result = await mod.associateReview("rev-1", "sess-1");
+  assert.deepStrictEqual(result, updated);
+});
+
 // ── unlinkReview() ───────────────────────────────────────────────────────
 
 test("unlinkReview() exige reviewId", async (t) => {

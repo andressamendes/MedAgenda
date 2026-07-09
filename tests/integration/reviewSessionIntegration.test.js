@@ -118,6 +118,26 @@ test("integração: associateReview() nunca grava quando a sessão não existe (
   );
 });
 
+// BUG 17: uma revisão fica "pending" mesmo depois de associada a uma
+// Sessão — sem esta trava, uma segunda associação a outra Sessão
+// sobrescrevia session_id silenciosamente, roubando o vínculo da primeira.
+test("integração: associateReview() rejeita e não grava quando a revisão já está vinculada a outra sessão", async () => {
+  const linkedToOther = { ...REVIEW, session_id: "sess-other" };
+  resetMock({
+    reviews:           { data: linkedToOther, error: null },
+    activity_sessions: { data: SESSION, error: null },
+  });
+
+  await assert.rejects(
+    () => reviewSessionService.associateReview("rev-1", "sess-1"),
+    (err) => err.code === "REVIEW_ALREADY_LINKED"
+  );
+  assert.ok(
+    !state.calls.some(c => c.table === "reviews" && c.method === "update"),
+    "nenhum UPDATE deveria ocorrer quando a revisão já está associada a outra sessão"
+  );
+});
+
 test("integração: unlinkReview() zera session_id, escopado por id + usuário", async () => {
   const linked = { ...REVIEW, session_id: "sess-1" };
   const unlinked = { ...REVIEW, session_id: null };

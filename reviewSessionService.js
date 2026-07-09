@@ -55,8 +55,23 @@ export async function associateReview(reviewId, sessionId) {
     throw _domainError("Sessão é obrigatória para associação.", "SESSION_ID_REQUIRED");
   }
 
-  await _requireExistingReview(reviewId);
+  const review = await _requireExistingReview(reviewId);
   await _requireExistingSession(sessionId);
+
+  // BUG 17: reviewService.listPending() nunca filtra por session_id — uma
+  // revisão continua "pending" mesmo depois de associada a uma Sessão, então
+  // ela seguia aparecendo como disponível para associação em qualquer sessão
+  // futura do mesmo compromisso. Sem esta checagem, associar de novo
+  // sobrescrevia silenciosamente `session_id`, roubando o vínculo da Sessão
+  // anterior sem removê-lo explicitamente (unlinkReview() nunca era chamado).
+  // Re-associar à mesma Sessão continua sendo um no-op idempotente (ex.: BUG
+  // 16, retry após falha parcial).
+  if (review.session_id && review.session_id !== sessionId) {
+    throw _domainError(
+      "Esta revisão já está vinculada a outra sessão. Desvincule antes de associar a uma nova.",
+      "REVIEW_ALREADY_LINKED"
+    );
+  }
 
   const user_id = await currentUserId();
   const { data, error } = await supabase
