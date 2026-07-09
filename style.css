@@ -1730,6 +1730,43 @@ textarea { resize: vertical; }
   gap: .65rem;
 }
 
+.sj-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.sj-day-header {
+  display: flex;
+  align-items: baseline;
+  gap: .6rem;
+  flex-wrap: wrap;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  padding: 0 .1rem;
+}
+
+.sj-day-header-date {
+  font-size: .9rem;
+  color: var(--gray-800);
+}
+
+.sj-day-header-count,
+.sj-day-header-duration {
+  font-weight: 400;
+  color: var(--gray-500);
+}
+
+.sj-day-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
 .sj-entry {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
