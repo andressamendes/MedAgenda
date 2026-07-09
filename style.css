@@ -1798,6 +1798,40 @@ textarea { resize: vertical; }
   white-space: pre-wrap;
 }
 
+/* ── Reflexão da Sessão (F8.2) ── */
+.sj-reflection {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  align-items: flex-start;
+}
+
+.sj-reflection-text {
+  margin: 0;
+  color: var(--gray-600);
+  white-space: pre-wrap;
+}
+
+.sj-reflection-input {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  padding: .5rem .6rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+}
+
+.sj-reflection-actions {
+  display: flex;
+  gap: .5rem;
+}
+
+.sj-reflection-error {
+  margin: 0;
+  color: var(--color-danger-text);
+  font-size: .78rem;
+}
+
 /* ── Modal Quick Add ── */
 /* ── Modal (F5.2) — moldura única para quick-add, confirmação, contas,
    categorias, configurações e calendário acadêmico. Largura varia por

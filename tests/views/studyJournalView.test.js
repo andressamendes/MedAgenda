@@ -16,6 +16,7 @@ const SESSION_SPECIFIER  = new URL("../../activitySessionService.js", import.met
 const EVENT_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
 const QUESTIONS_SPECIFIER = new URL("../../sessionQuestionsService.js", import.meta.url).href;
 const REVIEWS_SPECIFIER  = new URL("../../reviewSessionService.js", import.meta.url).href;
+const REFLECTION_SPECIFIER = new URL("../../studyReflectionService.js", import.meta.url).href;
 const ERROR_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 
 function loadView(t, overrides = {}) {
@@ -47,8 +48,19 @@ function loadView(t, overrides = {}) {
     namedExports: { listBySession: overrides.listReviewsBySession ?? (async () => []) },
   });
 
+  const saveReflectionCalls = [];
+  t.mock.module(REFLECTION_SPECIFIER, {
+    namedExports: {
+      getBySession: overrides.getReflectionBySession ?? (async () => null),
+      saveReflection: overrides.saveReflection ?? (async (sessionId, content) => {
+        saveReflectionCalls.push({ sessionId, content });
+        return { id: "refl-1", session_id: sessionId, content };
+      }),
+    },
+  });
+
   return import(`../../studyJournalView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls }));
+    .then(mod => ({ mod, handleErrorCalls, saveReflectionCalls }));
 }
 
 beforeEach(() => {
@@ -168,6 +180,114 @@ test("a session with no questions/reviews/notes shows the empty placeholders in 
   assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
   assert.match(detailEl.textContent, /Nenhuma revisão vinculada\./);
   assert.match(detailEl.textContent, /Nenhuma observação registrada\./);
+  assert.match(detailEl.textContent, /Sem reflexão\./);
+  assert.match(detailEl.textContent, /Adicionar reflexão/);
+});
+
+// ── Reflexão da Sessão (F8.2) ────────────────────────────────────────────
+
+test("session without a reflection shows 'Sem reflexão' and an 'Adicionar reflexão' button", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => null,
+  });
+
+  await mod.initStudyJournalView();
+  const item = document.getElementById("sj-list").children[0];
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const reflectionEl = item.querySelector(".sj-reflection");
+  assert.match(reflectionEl.textContent, /Sem reflexão\./);
+  assert.ok(reflectionEl.querySelector(".sj-reflection-toggle").textContent.includes("Adicionar reflexão"));
+});
+
+test("session with an existing reflection shows its text and an 'Editar reflexão' button", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => ({ id: "refl-1", session_id: "sess-1", content: "Aprendi arritmias." }),
+  });
+
+  await mod.initStudyJournalView();
+  const item = document.getElementById("sj-list").children[0];
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const reflectionEl = item.querySelector(".sj-reflection");
+  assert.match(reflectionEl.textContent, /Aprendi arritmias\./);
+  assert.ok(reflectionEl.querySelector(".sj-reflection-toggle").textContent.includes("Editar reflexão"));
+});
+
+test("adding a reflection: filling the textarea and saving calls saveReflection() and shows the saved text", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod, saveReflectionCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => null,
+  });
+
+  await mod.initStudyJournalView();
+  const item = document.getElementById("sj-list").children[0];
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const reflectionEl = item.querySelector(".sj-reflection");
+  reflectionEl.querySelector(".sj-reflection-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const textarea = reflectionEl.querySelector(".sj-reflection-input");
+  assert.ok(textarea, "deve mostrar um textarea para editar a reflexão");
+  textarea.value = "O que aprendi hoje.";
+
+  reflectionEl.querySelector(".sj-reflection-save").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(saveReflectionCalls.length, 1);
+  assert.deepStrictEqual(saveReflectionCalls[0], { sessionId: "sess-1", content: "O que aprendi hoje." });
+  assert.match(reflectionEl.textContent, /O que aprendi hoje\./);
+  assert.ok(reflectionEl.querySelector(".sj-reflection-toggle").textContent.includes("Editar reflexão"));
+});
+
+test("cancelling the reflection form discards edits and keeps the previous state", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => ({ id: "refl-1", session_id: "sess-1", content: "Texto original." }),
+  });
+
+  await mod.initStudyJournalView();
+  const item = document.getElementById("sj-list").children[0];
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const reflectionEl = item.querySelector(".sj-reflection");
+  reflectionEl.querySelector(".sj-reflection-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  reflectionEl.querySelector(".sj-reflection-input").value = "Texto descartado.";
+  reflectionEl.querySelector(".sj-reflection-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.match(reflectionEl.textContent, /Texto original\./);
+  assert.strictEqual(reflectionEl.querySelector(".sj-reflection-input"), null);
+});
+
+test("a failed save shows a friendly error and keeps the form open", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => null,
+    saveReflection: async () => { throw new Error("network down"); },
+    friendlyMessage: "Sem conexão com a internet.",
+  });
+
+  await mod.initStudyJournalView();
+  const item = document.getElementById("sj-list").children[0];
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const reflectionEl = item.querySelector(".sj-reflection");
+  reflectionEl.querySelector(".sj-reflection-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  reflectionEl.querySelector(".sj-reflection-input").value = "Tentativa.";
+  reflectionEl.querySelector(".sj-reflection-save").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.ok(reflectionEl.querySelector(".sj-reflection-input"), "o formulário deve continuar aberto após falha");
+  const errorEl = reflectionEl.querySelector(".sj-reflection-error");
+  assert.strictEqual(errorEl.hidden, false);
+  assert.match(errorEl.textContent, /Sem conexão com a internet\./);
 });
 
 test("load-more button appears when there are more pages and fetches the next offset", async (t) => {
