@@ -26,18 +26,19 @@ import { associateReview } from "./reviewSessionService.js";
 import { getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
-import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const TICK_MS = 1000;
 
-// Sessão "running" restaurada com started_at anterior a este limiar é
-// avisada como antiga (F7.8, escopo 4) — só um aviso informativo, nenhuma
-// expiração/encerramento automático (fica para outra fase).
-const STALE_RUNNING_MS = 24 * 60 * 60 * 1000; // 24h
+// Sessão "running" ou "paused" restaurada com started_at anterior a este
+// limiar é considerada abandonada (F7.9) — só dispara o diálogo de decisão
+// abaixo; nenhuma expiração/encerramento/cancelamento automático (fora de
+// escopo, ver abandonedSessionDialog.js).
+const ABANDONED_SESSION_MS = 24 * 60 * 60 * 1000; // 24h
 
 // Rótulos de exibição para os campos de Questões (F7.4) — os mesmos valores
 // aceitos pelo CHECK constraint de sql/15_questions.sql, nenhum valor novo.
@@ -217,14 +218,6 @@ function _formatClockTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// Usado só no aviso de sessão "running" antiga (F7.8) — diferente de
-// _formatClockTime()/_formatEventDate(), que exibem cada parte separadamente
-// conforme o contexto já pedia até aqui.
-function _formatDateTime(iso) {
-  const d = new Date(iso);
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function _formatExpectedDuration(minutes) {
@@ -719,11 +712,39 @@ export async function initStudySessionView() {
   }
   _render();
 
-  if (_session?.status === "running" && Date.now() - new Date(_session.started_at).getTime() > STALE_RUNNING_MS) {
-    toast.info(`Existe uma sessão em andamento iniciada em ${_formatDateTime(_session.started_at)}.`);
+  // F7.9 — Sessão abandonada: a restauração acima já aconteceu normalmente
+  // (nenhuma mudança de comportamento para sessões recentes). Uma sessão
+  // "running" ou "paused" antiga demais só ganha, além disso, este diálogo —
+  // que nunca decide sozinho; ele apenas devolve a escolha do usuário para
+  // _resolveAbandonedSession() aplicar (ou não aplicar nada, em "continuar").
+  // Deliberadamente não aguardado aqui: não pode atrasar o restante da
+  // inicialização do app (script.js/_initApp) esperando o usuário decidir.
+  if (_session && Date.now() - new Date(_session.started_at).getTime() > ABANDONED_SESSION_MS) {
+    _resolveAbandonedSession(_session);
   }
 
   return !!_session;
+}
+
+// Mostra o diálogo de decisão (F7.9) e aplica exatamente a escolha do
+// usuário — "continuar" não faz nenhuma chamada (a sessão restaurada já está
+// na tela, intocada); "finalizar"/"cancelar" chamam só o service de domínio
+// já existente, sem passar pelo resumo de encerramento (F7.3) nem por
+// qualquer outra lógica paralela.
+async function _resolveAbandonedSession(session) {
+  const choice = await abandonedSessionDialog({ startedAt: session.started_at });
+
+  // A sessão pode ter mudado (outra aba finalizou/cancelou via barramento,
+  // ou o usuário já navegou para longe dela) enquanto o diálogo estava
+  // aberto — só age se ainda for a mesma sessão pendente de decisão.
+  if (_session?.id !== session.id) return;
+
+  if (choice === "finish") {
+    await _run(() => finishSession(session.id));
+  } else if (choice === "cancel") {
+    await _run(() => cancelSession(session.id));
+  }
+  // "continue": nenhuma ação — a sessão já restaurada continua exatamente como está.
 }
 
 /**

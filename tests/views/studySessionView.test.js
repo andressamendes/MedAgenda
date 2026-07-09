@@ -19,6 +19,7 @@ const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.
 const EVENT_SERVICE_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
 const CATEGORY_SERVICE_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
 const CONFIRM_DIALOG_SPECIFIER   = new URL("../../confirmDialog.js", import.meta.url).href;
+const ABANDONED_DIALOG_SPECIFIER = new URL("../../abandonedSessionDialog.js", import.meta.url).href;
 
 function loadStudySessionView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -92,8 +93,18 @@ function loadStudySessionView(t, overrides = {}) {
     },
   });
 
+  const abandonedDialogCalls = [];
+  t.mock.module(ABANDONED_DIALOG_SPECIFIER, {
+    namedExports: {
+      abandonedSessionDialog: async (opts) => {
+        abandonedDialogCalls.push(opts);
+        return overrides.abandonedDialogResolvesTo ?? "continue";
+      },
+    },
+  });
+
   return import(`../../studySessionView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls, addQuestionCalls, createReviewCalls, associateReviewCalls }));
+    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls, addQuestionCalls, createReviewCalls, associateReviewCalls, abandonedDialogCalls }));
 }
 
 beforeEach(() => {
@@ -884,4 +895,91 @@ test("resetStudySessionView() clears the page back to the empty state and unsubs
   publish(SESSION_EVENTS.STARTED, { id: "sess-2", status: "running", started_at: new Date().toISOString() });
   await new Promise(r => setTimeout(r, 0));
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
+});
+
+// ── F7.9 — Tratamento de Sessões abandonadas ────────────────────────────────
+// A restauração automática (F7.8) continua intocada para sessões recentes;
+// só uma sessão "running"/"paused" com started_at anterior a 24h aciona o
+// diálogo de decisão — que nunca decide sozinho: "continuar" não chama nada,
+// "finalizar"/"cancelar" chamam exatamente finishSession()/cancelSession().
+const OLD_STARTED_AT = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(); // 25h atrás
+
+test("a recent session is restored automatically without prompting the abandoned-session dialog", async (t) => {
+  const { mod, abandonedDialogCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+
+  const restored = await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(restored, true);
+  assert.strictEqual(abandonedDialogCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-active").hidden, false);
+  assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Executando");
+});
+
+test("a session older than 24h is restored to the screen and also prompts the abandoned-session dialog", async (t) => {
+  const { mod, abandonedDialogCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: OLD_STARTED_AT }),
+  });
+
+  const restored = await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(restored, true, "the session is still restored — no automatic decision is made");
+  assert.strictEqual(document.getElementById("ss-active").hidden, false);
+  assert.strictEqual(abandonedDialogCalls.length, 1);
+  assert.strictEqual(abandonedDialogCalls[0].startedAt, OLD_STARTED_AT);
+});
+
+test("choosing 'continue' in the abandoned-session dialog leaves the session exactly as restored", async (t) => {
+  const { mod, abandonedDialogCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: OLD_STARTED_AT }),
+    abandonedDialogResolvesTo: "continue",
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(abandonedDialogCalls.length, 1);
+  assert.strictEqual(document.getElementById("ss-active").hidden, false);
+  assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Pausada");
+});
+
+test("choosing 'finish' in the abandoned-session dialog calls exactly activitySessionService.finishSession()", async (t) => {
+  const finishCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: OLD_STARTED_AT }),
+    abandonedDialogResolvesTo: "finish",
+    finishSession: async (id) => {
+      finishCalls.push(id);
+      return { id, status: "finished" };
+    },
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(finishCalls, ["sess-1"]);
+  assert.strictEqual(document.getElementById("ss-empty").hidden, false);
+  assert.strictEqual(document.getElementById("ss-active").hidden, true);
+});
+
+test("choosing 'cancel' in the abandoned-session dialog calls exactly activitySessionService.cancelSession()", async (t) => {
+  const cancelCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: OLD_STARTED_AT }),
+    abandonedDialogResolvesTo: "cancel",
+    cancelSession: async (id) => {
+      cancelCalls.push(id);
+      return { id, status: "cancelled" };
+    },
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(cancelCalls, ["sess-1"]);
+  assert.strictEqual(document.getElementById("ss-empty").hidden, false);
+  assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
