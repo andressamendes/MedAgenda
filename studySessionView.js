@@ -543,6 +543,12 @@ function _removePendingReview(localId) {
 function _addPendingReviewCreation() {
   const scheduled_date = ssfRDateEl.value;
   if (!scheduled_date) return;
+  // BUG 15: sem esta checagem, clicar "Criar revisão" duas vezes com a mesma
+  // data enfileirava duas entradas idênticas, e cada uma virava um INSERT
+  // separado em _confirmFinish() — duas revisões pendentes duplicadas para o
+  // mesmo compromisso/data. Mesma proteção que _addPendingReviewAssociation()
+  // já tinha para revisões existentes (linha abaixo).
+  if (_pendingReviews.some(r => r.kind === "create" && r.scheduled_date === scheduled_date)) return;
   _pendingReviews.push({
     localId: _nextReviewLocalId++,
     kind:    "create",
@@ -578,13 +584,20 @@ async function _loadReviewOptions() {
     const pending = await listPendingReviews(_session?.event_id || undefined);
     if (requestId !== _reviewOptionsRequestId) return;
     ssfRExistingEl.innerHTML = "";
-    pending.forEach(r => {
+    // BUG 17: status "pending" não implica "sem sessão" — uma revisão já
+    // associada a outra Sessão continua pending até ser concluída/pulada.
+    // Oferecê-la aqui de novo levaria reviewSessionService.associateReview()
+    // a rejeitar a confirmação (ou, antes da correção, a roubar o vínculo
+    // silenciosamente); filtrar por session_id evita oferecer uma opção que
+    // já sabemos que vai falhar.
+    const available = pending.filter(r => !r.session_id);
+    available.forEach(r => {
       const opt = document.createElement("option");
       opt.value = r.id;
       opt.textContent = `Revisão de ${_formatReviewDate(r.scheduled_date)}`;
       ssfRExistingEl.appendChild(opt);
     });
-    ssfReviewAssociateRowEl.hidden = pending.length === 0;
+    ssfReviewAssociateRowEl.hidden = available.length === 0;
   } catch (err) {
     if (requestId !== _reviewOptionsRequestId) return;
     handleError(err, { context: "studySessionView.loadReviewOptions", silent: true });
@@ -671,10 +684,19 @@ async function _confirmFinish() {
         });
       }
       for (const r of reviews) {
-        const reviewId = r.kind === "create"
-          ? (await createReview({ event_id: eventId, scheduled_date: r.scheduled_date })).id
-          : r.reviewId;
-        await associateReview(reviewId, sessionId);
+        // BUG 16: se uma falha (ex.: erro de rede) interrompe este loop no meio
+        // e o usuário confirma de novo (BUG 08 mantém o resumo aberto com
+        // _pendingReviews intactos para permitir retry), reprocessar do zero
+        // recriava reviewService.create() para entradas já persistidas com
+        // sucesso na tentativa anterior — revisão duplicada. Ao converter a
+        // entrada para "associate" assim que ela é criada, o retry apenas
+        // reassocia a mesma revisão (idempotente) em vez de criar outra.
+        if (r.kind === "create") {
+          const created = await createReview({ event_id: eventId, scheduled_date: r.scheduled_date });
+          r.kind = "associate";
+          r.reviewId = created.id;
+        }
+        await associateReview(r.reviewId, sessionId);
       }
       finishedSession = await finishSession(sessionId, endedAt);
       return finishedSession;

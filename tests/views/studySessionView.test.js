@@ -727,6 +727,43 @@ test("when there are no pending reviews, the associate row stays hidden", async 
   assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, true);
 });
 
+// BUG 17: reviewService.listPending() nunca filtra por session_id — uma
+// revisão continua "pending" mesmo já associada a outra Sessão. Oferecê-la
+// de novo no dropdown levaria a uma confirmação que falha (associateReview()
+// agora rejeita) ou, antes da correção, a roubar o vínculo em silêncio.
+test("BUG 17: a pending review already linked to another session is excluded from the associate dropdown", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    listPendingReviews: async () => [
+      { id: "rev-free", status: "pending", scheduled_date: "2026-07-10", session_id: null },
+      { id: "rev-linked", status: "pending", scheduled_date: "2026-07-11", session_id: "sess-other" },
+    ],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const options = [...document.getElementById("ssf-r-existing").options].map(o => o.value);
+  assert.deepStrictEqual(options, ["rev-free"], "only the unlinked pending review should be offered");
+  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, false);
+});
+
+test("BUG 17: if every pending review is already linked elsewhere, the associate row stays hidden", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    listPendingReviews: async () => [
+      { id: "rev-linked", status: "pending", scheduled_date: "2026-07-11", session_id: "sess-other" },
+    ],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, true);
+});
+
 test("scheduling a new review only adds it to the local list — nothing is persisted before confirmation", async (t) => {
   const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
@@ -850,6 +887,95 @@ test("cancelling the finish flow (Voltar) discards pending reviews without persi
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
   assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
+});
+
+// BUG 15: clicar "Criar revisão" duas vezes com a mesma data enfileirava duas
+// entradas idênticas, e a confirmação virava dois INSERTs separados —
+// revisão duplicada. Mesma proteção que já existia para revisões existentes
+// (_addPendingReviewAssociation) precisa existir para revisões novas.
+test("BUG 15: adding an identical new-review entry twice (same date) does not queue a duplicate", async (t) => {
+  const { mod, createReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "the second identical entry must not be queued");
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 1, "only one review should be persisted");
+});
+
+// A different date is a legitimate, distinct review — the dedup guard must
+// not be so broad that it blocks two different "create" entries.
+test("BUG 15 (regression guard): two new-review entries with different dates both queue and persist", async (t) => {
+  const { mod, createReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-r-date").value = "2026-07-21";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 2);
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 2);
+});
+
+// BUG 16: se associateReview() falha no meio do loop de confirmação, o
+// resumo permanece aberto com _pendingReviews intactos para o usuário
+// corrigir e confirmar de novo (BUG 08). Reprocessar do zero recriava
+// reviewService.create() para uma revisão já persistida com sucesso na
+// tentativa anterior — revisão duplicada no retry.
+test("BUG 16: retrying confirmation after a partial failure does not recreate a review already persisted", async (t) => {
+  const associateAttempts = [];
+  const { mod, createReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    associateReview: async (reviewId, sessionId) => {
+      associateAttempts.push({ reviewId, sessionId });
+      if (associateAttempts.length === 1) throw Object.assign(new Error("network blip"), { code: "NETWORK_ERROR" });
+      return { id: reviewId, session_id: sessionId };
+    },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-r-date").value = "2026-07-14";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  // First attempt: createReview() succeeds, associateReview() throws — the
+  // modal stays open (BUG 08) with the same pending review still queued.
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(createReviewCalls.length, 1, "first attempt creates exactly one review");
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "the pending review survives the failed attempt");
+
+  // Retry: same review must be re-associated, never recreated.
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 1, "retry must not create a duplicate review");
+  assert.strictEqual(associateAttempts.length, 2, "associateReview() is retried for the same review");
+  assert.strictEqual(associateAttempts[1].reviewId, associateAttempts[0].reviewId, "both attempts target the same, already-created review");
 });
 
 // ── Contexto do compromisso vinculado (F1.4 / F7.2) ─────────────────────────
