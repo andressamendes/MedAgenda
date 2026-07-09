@@ -1,18 +1,25 @@
-// ── studyJournalView.js — Diário de Estudos (F8.1) ──────────────────────────
-// Tela apenas de consulta, foco narrativo: cada Sessão concluída vira um
-// registro cronológico da jornada de estudo. Nenhum dado novo é persistido
-// e nenhum domínio existente é alterado — este módulo só organiza o que já
-// existe, reutilizando exclusivamente activitySessionService.listSessions()
-// (mesmo contrato paginado do Histórico, F1.8), eventService.getEvents()
-// (metadados do compromisso), sessionQuestionsService.listQuestions() e
-// reviewSessionService.listBySession() (F8.1). Nenhum acesso direto ao
-// banco, nenhum SQL novo, nenhum evento novo — sessionEventBus.js não é
-// tocado, só assinado (mesmo padrão de activityHistoryView.js/F6.3).
+// ── studyJournalView.js — Diário de Estudos (F8.1 + Reflexão F8.2) ─────────
+// Tela majoritariamente de consulta, foco narrativo: cada Sessão concluída
+// vira um registro cronológico da jornada de estudo. Reutiliza
+// exclusivamente activitySessionService.listSessions() (mesmo contrato
+// paginado do Histórico, F1.8), eventService.getEvents() (metadados do
+// compromisso), sessionQuestionsService.listQuestions() e
+// reviewSessionService.listBySession() (F8.1) — nenhum acesso direto ao
+// banco para esses dados, nenhum SQL novo, nenhum evento novo —
+// sessionEventBus.js não é tocado, só assinado (mesmo padrão de
+// activityHistoryView.js/F6.3).
+//
+// A única escrita desta tela é a Reflexão (F8.2), via
+// studyReflectionService.js — um domínio próprio, separado de Observações
+// (activity_sessions.notes): Observações representam o estudo, Reflexão
+// representa a aprendizagem. Nenhum outro domínio (Dashboard, Insights, IA,
+// Conquistas, Progresso, Estatísticas) é lido ou alterado por essa escrita.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
 import { listQuestions } from "./sessionQuestionsService.js";
 import { listBySession as listReviewsBySession } from "./reviewSessionService.js";
+import { getBySession as getReflectionBySession, saveReflection } from "./studyReflectionService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
@@ -128,15 +135,63 @@ function _formatReviewDate(dateStr) {
 // busca ao expandir).
 async function _fetchSessionExtras(sessionId) {
   try {
-    const [questions, reviews] = await Promise.all([
+    const [questions, reviews, reflection] = await Promise.all([
       listQuestions(sessionId),
       listReviewsBySession(sessionId),
+      getReflectionBySession(sessionId),
     ]);
-    return { questions, reviews };
+    return { questions, reviews, reflection };
   } catch (err) {
     handleError(err, { context: "studyJournalView.fetchSessionExtras", silent: true });
-    return { questions: [], reviews: [], loadError: true };
+    return { questions: [], reviews: [], reflection: null, loadError: true };
   }
+}
+
+// ── Reflexão da sessão (F8.2) ────────────────────────────────────────────
+// Bloco à parte de Observações: Observações vêm de activity_sessions.notes
+// (o estudo em si), Reflexão vem de studyReflectionService.js (a
+// aprendizagem) — nunca a mesma fonte, nunca o mesmo domínio.
+
+function _renderReflectionView(sectionEl, sessionId, reflection) {
+  sectionEl.innerHTML = `
+    ${reflection
+      ? `<p class="sj-reflection-text">${escapeHtml(reflection.content)}</p>`
+      : `<p class="sj-detail-empty">Sem reflexão.</p>`}
+    <button type="button" class="btn btn-ghost btn-sm sj-reflection-toggle">
+      ${reflection ? "Editar reflexão" : "Adicionar reflexão"}
+    </button>
+  `;
+  sectionEl.querySelector(".sj-reflection-toggle")
+    .addEventListener("click", () => _renderReflectionForm(sectionEl, sessionId, reflection));
+}
+
+function _renderReflectionForm(sectionEl, sessionId, reflection) {
+  sectionEl.innerHTML = `
+    <textarea class="sj-reflection-input" rows="4">${reflection ? escapeHtml(reflection.content) : ""}</textarea>
+    <p class="sj-reflection-error" hidden></p>
+    <div class="sj-reflection-actions">
+      <button type="button" class="btn btn-primary btn-sm sj-reflection-save">Salvar</button>
+      <button type="button" class="btn btn-ghost btn-sm sj-reflection-cancel">Cancelar</button>
+    </div>
+  `;
+
+  const textarea = sectionEl.querySelector(".sj-reflection-input");
+  const errorEl  = sectionEl.querySelector(".sj-reflection-error");
+
+  sectionEl.querySelector(".sj-reflection-cancel")
+    .addEventListener("click", () => _renderReflectionView(sectionEl, sessionId, reflection));
+
+  sectionEl.querySelector(".sj-reflection-save").addEventListener("click", async () => {
+    errorEl.hidden = true;
+    try {
+      const saved = await saveReflection(sessionId, textarea.value);
+      _renderReflectionView(sectionEl, sessionId, saved);
+    } catch (err) {
+      const { friendly } = handleError(err, { context: "studyJournalView.saveReflection", silent: true });
+      errorEl.textContent = friendly;
+      errorEl.hidden = false;
+    }
+  });
 }
 
 function _renderDetail(detailEl, questions, reviews, notes) {
@@ -174,6 +229,10 @@ function _renderDetail(detailEl, questions, reviews, notes) {
       <h3 class="sj-detail-title">Observações</h3>
       ${notesHtml}
     </div>
+    <div class="sj-detail-section">
+      <h3 class="sj-detail-title">Reflexão</h3>
+      <div class="sj-reflection"></div>
+    </div>
   `;
 }
 
@@ -189,7 +248,7 @@ async function _renderSessions(sessions) {
 
   sessions.forEach((s, i) => {
     const meta = _resolveMeta(s);
-    const { questions, reviews } = extras[i];
+    const { questions, reviews, reflection } = extras[i];
     const li = document.createElement("li");
     li.className = "sj-entry";
     li.innerHTML = `
@@ -219,6 +278,7 @@ async function _renderSessions(sessions) {
     const toggleBtn = li.querySelector(".sj-toggle");
     const detailEl  = li.querySelector(".sj-entry-detail");
     _renderDetail(detailEl, questions, reviews, s.notes);
+    _renderReflectionView(detailEl.querySelector(".sj-reflection"), s.id, reflection);
     toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
 
     listEl.appendChild(li);

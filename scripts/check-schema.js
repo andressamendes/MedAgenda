@@ -33,7 +33,7 @@ const ROOT = path.join(__dirname, '..');
 export const REQUIRED_TABLES = [
   'events', 'categories', 'profiles', 'push_subscriptions', 'notification_logs',
   'academic_calendars', 'academic_events', 'ai_metrics',
-  'activity_sessions', 'reviews', 'schema_version',
+  'activity_sessions', 'reviews', 'reflections', 'schema_version',
 ];
 
 // tabela -> colunas cuja ausência não é detectável apenas checando se a
