@@ -2602,6 +2602,68 @@ textarea { resize: vertical; }
   text-align: center;
 }
 
+/* ── Barra de progresso temporal (F7.6) ── */
+.ss-progress {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .35rem;
+}
+
+.ss-progress-track {
+  width: 100%;
+  height: .5rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  overflow: hidden;
+}
+
+.ss-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--color-primary, #2563eb);
+  transition: width .3s ease;
+}
+
+.ss-progress-text {
+  font-size: .78rem;
+  color: var(--gray-500);
+}
+
+/* ── Indicadores rápidos da sessão (F7.6) ── */
+.ss-indicators {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: .75rem;
+  padding: .75rem;
+  background: var(--gray-50, #f9fafb);
+  border-radius: var(--radius);
+}
+
+.ss-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  text-align: center;
+}
+
+.ss-indicator-label {
+  font-size: .7rem;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.ss-indicator-value {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  overflow-wrap: break-word;
+}
+
 .ss-context {
   width: 100%;
   margin: 0;

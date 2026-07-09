@@ -742,6 +742,100 @@ test("a SessionFinished event published elsewhere returns the page to the empty 
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
 });
 
+// ── Painel de Contexto da Sessão (F7.6) ─────────────────────────────────────
+
+test("the progress bar appears and reflects elapsed vs expected time when the event has a duration", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+  const startedAt = new Date().toISOString();
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: startedAt, event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60, event_date: "2026-07-09" }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-progress").hidden, false);
+  assert.strictEqual(document.getElementById("ss-progress-text").textContent, "00:00 / 1h 0min");
+
+  t.mock.timers.tick(30 * 60_000); // metade do tempo previsto
+  assert.strictEqual(document.getElementById("ss-progress-bar").style.width, "50%");
+});
+
+test("the progress bar stays hidden when the event has no expected duration (only net time shown)", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Aula", category: "Aula", description: null, duration_minutes: null }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-progress").hidden, true);
+});
+
+test("the progress bar stays hidden for a standalone session (no event at all)", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-progress").hidden, true);
+});
+
+test("a standalone session shows an explicit 'Sem compromisso vinculado' label instead of a bare dash", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-category").textContent, "Sem compromisso vinculado");
+  assert.strictEqual(document.getElementById("ss-subject").textContent, "Sem compromisso vinculado");
+  assert.strictEqual(document.getElementById("ss-content").textContent, "Sem compromisso vinculado");
+  assert.strictEqual(document.getElementById("ss-date").textContent, "Sem compromisso vinculado");
+  assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Sem compromisso vinculado");
+});
+
+test("a linked event still shows a plain dash for its own empty fields, not the standalone label", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Aula", category: null, description: null, duration_minutes: null, event_date: null }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-category").textContent, "—");
+  assert.strictEqual(document.getElementById("ss-date").textContent, "—");
+  assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Aula");
+});
+
+test("the context panel shows the event date and the session's current status", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60, event_date: "2026-07-09" }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-date").textContent, "09/07/2026");
+  assert.strictEqual(document.getElementById("ss-status-text").textContent, "Pausada");
+  assert.strictEqual(document.getElementById("ss-ind-status").textContent, "Pausada");
+});
+
+test("the quick indicators mirror the started time, net time and linked event without any new computation", async (t) => {
+  const startedAt = new Date().toISOString();
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: startedAt, event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60, event_date: "2026-07-09" }),
+  });
+
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-ind-started").textContent, document.getElementById("ss-started-at").textContent);
+  assert.strictEqual(document.getElementById("ss-ind-net").textContent, document.getElementById("ss-time").textContent);
+  assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Plantão UTI");
+});
+
 test("resetStudySessionView() clears the page back to the empty state and unsubscribes from the bus (used on sign-out)", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),

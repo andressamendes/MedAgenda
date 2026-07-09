@@ -54,8 +54,16 @@ const QUESTION_DIFFICULTY_LABELS = {
 
 let emptyEl, emptyMessageEl, btnStartStandalone;
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
-let titleEl, categoryEl, subjectEl, contentEl, objectiveEl, startedAtEl, expectedDurationEl;
+let titleEl, categoryEl, subjectEl, contentEl, objectiveEl, dateEl, startedAtEl, expectedDurationEl, statusTextEl;
 let btnPause, btnResume, btnCancel, btnFinish;
+
+// Painel de Contexto (F7.6) — barra de progresso temporal (só quando o
+// compromisso tem tempo previsto) e indicadores rápidos. Nenhum cálculo novo:
+// os mesmos valores (started_at, duration_minutes) já usados em _render().
+let progressEl, progressBarEl, progressTextEl;
+let indStartedEl, indNetEl, indStatusEl, indEventEl;
+
+const NO_EVENT_TEXT = "Sem compromisso vinculado";
 
 // Modal de encerramento (F7.3) — resumo somente leitura + confirmação, entre
 // clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
@@ -114,8 +122,19 @@ function _queryElements() {
   subjectEl            = document.getElementById("ss-subject");
   contentEl            = document.getElementById("ss-content");
   objectiveEl          = document.getElementById("ss-objective");
+  dateEl               = document.getElementById("ss-date");
   startedAtEl          = document.getElementById("ss-started-at");
   expectedDurationEl   = document.getElementById("ss-expected-duration");
+  statusTextEl         = document.getElementById("ss-status-text");
+
+  progressEl      = document.getElementById("ss-progress");
+  progressBarEl   = document.getElementById("ss-progress-bar");
+  progressTextEl  = document.getElementById("ss-progress-text");
+
+  indStartedEl = document.getElementById("ss-ind-started");
+  indNetEl     = document.getElementById("ss-ind-net");
+  indStatusEl  = document.getElementById("ss-ind-status");
+  indEventEl   = document.getElementById("ss-ind-event");
 
   btnPause  = document.getElementById("ss-btn-pause");
   btnResume = document.getElementById("ss-btn-resume");
@@ -201,12 +220,47 @@ function _formatExpectedDuration(minutes) {
   return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
 
+// event_date é uma DATE pura ("YYYY-MM-DD") — localDate() (utils.js) evita o
+// desvio de fuso de `new Date("YYYY-MM-DD")`, mesmo padrão do restante do app
+// (ver reviewService.js/_formatReviewDate abaixo).
+function _formatEventDate(dateStr) {
+  if (!dateStr) return null;
+  const d = localDate(dateStr);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+// Campos que só existem quando a sessão tem um compromisso vinculado
+// (categoria/matéria/conteúdo/data, todos lidos do evento) — numa sessão
+// avulsa não há "—" ambíguo, e sim uma indicação explícita (F7.6, escopo 4).
+function _eventFieldText(value) {
+  if (value) return value;
+  return _session?.event_id ? "—" : NO_EVENT_TEXT;
+}
+
 // O tempo exibido é sempre recalculado a partir de started_at (o banco é a
 // fonte da verdade) — o timer local só decide QUANDO redesenhar, nunca o
 // valor em si (mesmo princípio do widget antigo, ver F1.3).
 function _renderTime() {
   if (!_session) return;
-  timeEl.textContent = _formatElapsed(Date.now() - new Date(_session.started_at).getTime());
+  const elapsedMs = Date.now() - new Date(_session.started_at).getTime();
+  const elapsedText = _formatElapsed(elapsedMs);
+  timeEl.textContent = elapsedText;
+  indNetEl.textContent = elapsedText;
+  _renderProgress(elapsedMs);
+}
+
+// Barra de progresso temporal (F7.6, escopo 2) — só existe quando o
+// compromisso tem tempo previsto (duration_minutes); o percentual nunca é
+// persistido, é sempre recalculado a partir de started_at + duration_minutes.
+function _renderProgress(elapsedMs) {
+  const expectedMinutes = _eventMeta?.duration_minutes;
+  progressEl.hidden = !expectedMinutes;
+  if (!expectedMinutes) return;
+
+  const expectedMs = expectedMinutes * 60000;
+  const pct = Math.min(100, Math.max(0, (elapsedMs / expectedMs) * 100));
+  progressBarEl.style.width = `${pct}%`;
+  progressTextEl.textContent = `${_formatElapsed(elapsedMs)} / ${_formatExpectedDuration(expectedMinutes)}`;
 }
 
 function _stopTicking() {
@@ -243,13 +297,22 @@ function _render() {
   // finishSession() sempre inclui qualquer intervalo em pausa.
   pauseNoteEl.hidden = status !== "paused";
 
+  const statusLabel = status === "running" ? "Executando" : "Pausada";
+
   titleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
-  categoryEl.textContent = _eventMeta?.category || "—";
-  subjectEl.textContent  = _eventMeta?.category || "—"; // domínio ainda não tem campo próprio de matéria (ver subjectProgressService.js)
-  contentEl.textContent  = _eventMeta?.description || "—";
+  categoryEl.textContent = _eventFieldText(_eventMeta?.category);
+  subjectEl.textContent  = _eventFieldText(_eventMeta?.category); // domínio ainda não tem campo próprio de matéria (ver subjectProgressService.js)
+  contentEl.textContent  = _eventFieldText(_eventMeta?.description);
   objectiveEl.textContent = "—"; // sem campo de objetivo no domínio atual — reservado para etapa futura
+  dateEl.textContent      = _eventFieldText(_formatEventDate(_eventMeta?.event_date));
   startedAtEl.textContent = _formatClockTime(_session.started_at);
   expectedDurationEl.textContent = _formatExpectedDuration(_eventMeta?.duration_minutes);
+  statusTextEl.textContent = statusLabel;
+
+  // Indicadores rápidos (F7.6, escopo 3) — mesmos dados acima, só resumidos.
+  indStartedEl.textContent = _formatClockTime(_session.started_at);
+  indStatusEl.textContent  = statusLabel;
+  indEventEl.textContent   = _eventMeta?.title || NO_EVENT_TEXT;
 
   if (status === "running") {
     _startTicking();
@@ -278,11 +341,11 @@ async function _resolveEventMeta(session) {
   try {
     const ev = await getEventById(session.event_id);
     return ev
-      ? { title: ev.title, category: ev.category || null, description: ev.description || null, duration_minutes: ev.duration_minutes || null }
-      : { title: "Compromisso removido", category: null, description: null, duration_minutes: null };
+      ? { title: ev.title, category: ev.category || null, description: ev.description || null, duration_minutes: ev.duration_minutes || null, event_date: ev.event_date || null }
+      : { title: "Compromisso removido", category: null, description: null, duration_minutes: null, event_date: null };
   } catch (err) {
     handleError(err, { context: "studySessionView.resolveEventMeta" });
-    return { title: "Compromisso removido", category: null, description: null, duration_minutes: null };
+    return { title: "Compromisso removido", category: null, description: null, duration_minutes: null, event_date: null };
   }
 }
 
@@ -645,7 +708,7 @@ export async function startSessionForEvent(event) {
   try {
     const category_id = await _resolveCategoryId(event.category);
     const session = await startSession({ event_id: event.id, category_id, source: "event" });
-    _eventMeta = { title: event.title, category: event.category || null, description: event.description || null, duration_minutes: event.duration_minutes || null };
+    _eventMeta = { title: event.title, category: event.category || null, description: event.description || null, duration_minutes: event.duration_minutes || null, event_date: event.event_date || null };
     _applySession(session);
     return true;
   } catch (err) {

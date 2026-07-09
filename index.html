@@ -364,7 +364,38 @@
               <span class="ss-timer-label">Tempo líquido</span>
             </div>
 
+            <!-- Barra de progresso temporal (F7.6) — só aparece quando o
+                 compromisso vinculado tem tempo previsto (duration_minutes).
+                 Percentual é sempre derivado na hora, nunca persistido. -->
+            <div id="ss-progress" class="ss-progress" hidden>
+              <div class="ss-progress-track">
+                <div id="ss-progress-bar" class="ss-progress-bar"></div>
+              </div>
+              <span id="ss-progress-text" class="ss-progress-text">00:00 / 00:00</span>
+            </div>
+
             <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa será contabilizado na duração final.</p>
+
+            <!-- Indicadores rápidos da sessão (F7.6) — mesmos dados do painel
+                 de contexto abaixo, só resumidos para leitura rápida. -->
+            <div class="ss-indicators">
+              <div class="ss-indicator">
+                <span class="ss-indicator-label">Sessão iniciada às</span>
+                <span id="ss-ind-started" class="ss-indicator-value">—</span>
+              </div>
+              <div class="ss-indicator">
+                <span class="ss-indicator-label">Tempo líquido</span>
+                <span id="ss-ind-net" class="ss-indicator-value">00:00</span>
+              </div>
+              <div class="ss-indicator">
+                <span class="ss-indicator-label">Estado atual</span>
+                <span id="ss-ind-status" class="ss-indicator-value">—</span>
+              </div>
+              <div class="ss-indicator">
+                <span class="ss-indicator-label">Compromisso vinculado</span>
+                <span id="ss-ind-event" class="ss-indicator-value">—</span>
+              </div>
+            </div>
 
             <dl class="ss-context">
               <div class="ss-context-row">
@@ -388,12 +419,20 @@
                 <dd id="ss-objective">—</dd>
               </div>
               <div class="ss-context-row">
+                <dt>Data</dt>
+                <dd id="ss-date">—</dd>
+              </div>
+              <div class="ss-context-row">
                 <dt>Horário de início</dt>
                 <dd id="ss-started-at">—</dd>
               </div>
               <div class="ss-context-row">
                 <dt>Tempo previsto</dt>
                 <dd id="ss-expected-duration">—</dd>
+              </div>
+              <div class="ss-context-row">
+                <dt>Status</dt>
+                <dd id="ss-status-text">—</dd>
               </div>
             </dl>
 
