@@ -240,6 +240,28 @@ test("F7.7: paused time is deducted from the elapsed/net time shown after resumi
   assert.strictEqual(document.getElementById("ss-time").textContent, "01:15");
 });
 
+test("BUG 07: restoring a paused session (reload/navigation) freezes the chronometer at the time already elapsed before the pause, not inflated by how long it has stayed paused since", async (t) => {
+  const now = Date.now();
+  const { mod } = await loadStudySessionView(t, {
+    // Sessão iniciada há 10min, pausada há 5min (pausa ainda aberta,
+    // paused_ms ainda não contabiliza esse intervalo corrente) — o tempo
+    // líquido correto até o instante da pausa é 5min, não 10min.
+    getRunningSession: async () => ({
+      id: "sess-1",
+      status: "paused",
+      started_at: new Date(now - 10 * 60 * 1000).toISOString(),
+      paused_at: new Date(now - 5 * 60 * 1000).toISOString(),
+      paused_ms: 0,
+    }),
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-time").textContent, "05:00");
+  assert.strictEqual(document.getElementById("ss-ind-net").textContent, "05:00");
+});
+
 test("resuming a paused session switches back to running", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: new Date().toISOString() }),
