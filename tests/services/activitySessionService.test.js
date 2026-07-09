@@ -190,6 +190,47 @@ test("startSession() refuses to start a second session while one is already runn
   );
 });
 
+// AUD-001 — corrida entre duas abas: getRunningSession() de ambas as chamadas
+// já passou (nenhuma via a outra) antes do INSERT concorrente ser confirmado;
+// só o índice único parcial do banco (sql/19_activity_sessions_running_unique.sql)
+// rejeita a segunda. Simula a violação como o Postgres/Supabase a reportam
+// (error.code 23505 + nome do índice na mensagem) e confirma que startSession()
+// converte isso no mesmo erro de domínio do caminho síncrono, sem propagar
+// detalhes de SQL/constraint para quem chamou.
+test("startSession() converts a unique-constraint race into the standard SESSION_ALREADY_RUNNING error", async (t) => {
+  const constraintError = {
+    code: "23505",
+    message: 'duplicate key value violates unique constraint "activity_sessions_one_running_per_user"',
+  };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    // 1ª chamada: getRunningSession() -> nenhuma sessão ativa (nesta aba)
+    // 2ª chamada: createActivitySession() -> banco rejeita por corrida com outra aba
+    activity_sessions: [{ data: null, error: null }, { data: null, error: constraintError }],
+  });
+
+  await assert.rejects(
+    () => mod.startSession({}),
+    (err) =>
+      err.code === "SESSION_ALREADY_RUNNING"
+      && err.message === "Já existe uma sessão de atividade em andamento. Finalize ou cancele-a antes de iniciar uma nova."
+      && !("sqlState" in err)
+  );
+  // Nenhuma sessão parcial fica "meio criada" — o INSERT falhou no banco, não há linha a limpar.
+  assert.strictEqual(supabase._calls.filter(c => c.method === "insert").length, 1);
+});
+
+test("startSession() re-throws unrelated Supabase errors untouched (not every 23505 is this constraint)", async (t) => {
+  const unrelatedError = { code: "23505", message: 'duplicate key value violates unique constraint "reflections_session_id_unique"' };
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: null, error: null }, { data: null, error: unrelatedError }],
+  });
+
+  await assert.rejects(
+    () => mod.startSession({}),
+    (err) => err.code === "23505" && err.message === unrelatedError.message
+  );
+});
+
 test("finishSession() sets ended_at, status and computes duration_minutes", async (t) => {
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30 };
@@ -365,6 +406,31 @@ test("resumeSession() refuses to resume when another session is already running"
   await assert.rejects(
     () => mod.resumeSession("sess-1"),
     (err) => err.code === "SESSION_ALREADY_RUNNING"
+  );
+});
+
+// AUD-001 — mesma corrida de startSession(), agora entre resumeSession() de
+// duas abas: ambas passam por getRunningSession() antes do UPDATE concorrente
+// ser confirmado; o índice único parcial rejeita a segunda no banco.
+test("resumeSession() converts a unique-constraint race into the standard SESSION_ALREADY_RUNNING error", async (t) => {
+  const session = { id: "sess-1", status: "paused", paused_at: "2026-07-09T12:00:00.000Z", paused_ms: 0 };
+  const constraintError = {
+    code: "23505",
+    message: 'duplicate key value violates unique constraint "activity_sessions_one_running_per_user"',
+  };
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: [
+      { data: session, error: null }, // getActivitySessionById
+      { data: null, error: null },    // getRunningSession -> nenhuma outra ativa (nesta aba)
+      { data: null, error: constraintError }, // updateActivitySession -> banco rejeita por corrida
+    ],
+  });
+
+  await assert.rejects(
+    () => mod.resumeSession("sess-1"),
+    (err) =>
+      err.code === "SESSION_ALREADY_RUNNING"
+      && err.message === "Já existe uma sessão de atividade em andamento. Finalize ou cancele-a antes de retomar esta."
   );
 });
 

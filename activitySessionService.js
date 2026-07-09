@@ -85,6 +85,27 @@ function _domainError(message, code) {
   return err;
 }
 
+// AUD-001 — última linha de defesa contra a corrida entre startSession()/
+// resumeSession() concorrentes (duas abas, dois dispositivos): o índice único
+// parcial activity_sessions_one_running_per_user (sql/19_activity_sessions_
+// running_unique.sql) rejeita, no banco, uma segunda linha "running" para o
+// mesmo user_id — mesmo quando a checagem getRunningSession() de ambas as
+// chamadas já passou antes que o INSERT/UPDATE concorrente fosse confirmado.
+// Reconhecida pelo código de erro do Postgres (23505 = unique_violation) e
+// pelo nome do próprio índice, nunca por texto genérico da mensagem, para não
+// mascarar outra violação de unicidade não relacionada.
+function _isRunningConstraintViolation(error) {
+  return error?.code === "23505"
+    && String(error?.message ?? "").includes("activity_sessions_one_running_per_user");
+}
+
+function _sessionAlreadyRunningError(action) {
+  return _domainError(
+    `Já existe uma sessão de atividade em andamento. Finalize ou cancele-a antes de ${action}.`,
+    "SESSION_ALREADY_RUNNING"
+  );
+}
+
 // Sessão em andamento do usuário atual, ou null se nenhuma.
 export async function getRunningSession() {
   const user_id = await currentUserId();
@@ -121,16 +142,21 @@ export async function getActiveSession() {
 export async function startSession(fields = {}) {
   const running = await getRunningSession();
   if (running) {
-    throw _domainError(
-      "Já existe uma sessão de atividade em andamento. Finalize ou cancele-a antes de iniciar uma nova.",
-      "SESSION_ALREADY_RUNNING"
-    );
+    throw _sessionAlreadyRunningError("iniciar uma nova");
   }
-  const created = await createActivitySession({
-    ...fields,
-    status: "running",
-    started_at: fields.started_at ?? new Date().toISOString(),
-  });
+  let created;
+  try {
+    created = await createActivitySession({
+      ...fields,
+      status: "running",
+      started_at: fields.started_at ?? new Date().toISOString(),
+    });
+  } catch (error) {
+    if (_isRunningConstraintViolation(error)) {
+      throw _sessionAlreadyRunningError("iniciar uma nova");
+    }
+    throw error;
+  }
   publish(SESSION_EVENTS.STARTED, created);
   return created;
 }
@@ -240,19 +266,24 @@ export async function resumeSession(id) {
   }
   const running = await getRunningSession();
   if (running) {
-    throw _domainError(
-      "Já existe uma sessão de atividade em andamento. Finalize ou cancele-a antes de retomar esta.",
-      "SESSION_ALREADY_RUNNING"
-    );
+    throw _sessionAlreadyRunningError("retomar esta");
   }
   const currentPauseMs = session.paused_at
     ? Math.max(0, Date.now() - new Date(session.paused_at).getTime())
     : 0;
-  const resumed = await updateActivitySession(id, {
-    status: "running",
-    paused_at: null,
-    paused_ms: (session.paused_ms || 0) + currentPauseMs,
-  });
+  let resumed;
+  try {
+    resumed = await updateActivitySession(id, {
+      status: "running",
+      paused_at: null,
+      paused_ms: (session.paused_ms || 0) + currentPauseMs,
+    });
+  } catch (error) {
+    if (_isRunningConstraintViolation(error)) {
+      throw _sessionAlreadyRunningError("retomar esta");
+    }
+    throw error;
+  }
   publish(SESSION_EVENTS.RESUMED, resumed);
   return resumed;
 }
