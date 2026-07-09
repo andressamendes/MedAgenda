@@ -22,7 +22,24 @@ let catAddBtn   = null;
 let catError    = null;
 let modal       = null;
 
-export function initCategoryView() {
+// Notificado depois de cada criação/edição/exclusão bem-sucedida para que
+// telas fora do modal (lista, semana, calendário, filtro por categoria em
+// script.js) se atualizem sem exigir reload da aplicação (BUG 14).
+let _onCategoriesChanged = null;
+
+// Incrementado sempre que o modal é reaberto ou a lista é reconstruída —
+// captura de generation nos handlers assíncronos evita que uma resposta
+// tardia (ex.: erro de uma edição já abandonada) escreva em `catError`
+// depois que o usuário já passou para outra categoria/operação (BUG 13).
+let _catGeneration = 0;
+
+export function initCategoryView(onCategoriesChanged) {
+  // Evita religar todos os listeners (e, com isso, duplicar submissões) caso
+  // initCategoryView() seja chamado mais de uma vez.
+  if (catAddBtn) return;
+
+  _onCategoriesChanged = onCategoriesChanged || null;
+
   fCategory   = document.getElementById("f-category");
   fColor      = document.getElementById("f-color");
   catOverlay  = document.getElementById("cat-overlay");
@@ -42,19 +59,30 @@ export function initCategoryView() {
   });
 
   catAddBtn?.addEventListener("click", async () => {
+    // Impede duplo clique de disparar duas criações concorrentes enquanto a
+    // primeira ainda está em rede (`disabled` sozinho não basta: um segundo
+    // clique disparado antes do primeiro repaint ainda encontra o listener).
+    if (catAddBtn.disabled) return;
+
     catError.textContent = "";
     const name  = catNewName.value.trim();
     const color = catNewColor.value;
     if (!name) { catError.textContent = "Nome é obrigatório."; catNewName.focus(); return; }
+
+    const generation = _catGeneration;
+    catAddBtn.disabled = true;
     try {
       await createCategory(name, color);
       catNewName.value  = "";
       catNewColor.value = "#3b82f6";
       await _reloadCategories();
       await _renderCatList();
+      _onCategoriesChanged?.();
     } catch (err) {
       handleError(err, { context: 'categoryView.create', silent: true });
-      catError.textContent = err.message;
+      if (generation === _catGeneration) catError.textContent = err.message;
+    } finally {
+      catAddBtn.disabled = false;
     }
   });
 }
@@ -79,6 +107,7 @@ export function categoryColor(name) {
 }
 
 export async function openCategoryModal() {
+  _catGeneration++;
   catError.textContent = "";
   catNewName.value  = "";
   catNewColor.value = "#3b82f6";
@@ -109,6 +138,7 @@ function _populateCategorySelect() {
 }
 
 async function _renderCatList() {
+  _catGeneration++;
   catList.innerHTML = "";
 
   let cats;
@@ -157,21 +187,29 @@ function _enterEditMode(row, cat) {
     </div>
   `;
   row.querySelector(".cat-edit-name").focus();
+  catError.textContent = "";
 
   const catSaveBtn = row.querySelector(".btn-primary");
   catSaveBtn.addEventListener("click", async () => {
     const newName  = row.querySelector(".cat-edit-name").value.trim();
     const newColor = row.querySelector(".cat-edit-color").value;
     if (!newName) return;
+    const generation = _catGeneration;
     catSaveBtn.disabled = true;
     try {
       await updateCategory(cat.id, newName, newColor);
       await _reloadCategories();
       await _renderCatList();
+      _onCategoriesChanged?.();
     } catch (err) {
       handleError(err, { context: 'categoryView.update', silent: true });
-      catError.textContent = err.message;
-      catSaveBtn.disabled = false;
+      // Se o modal já avançou para outra categoria/render enquanto este
+      // salvamento estava em rede, esta linha é um nó de DOM órfão — não
+      // atribuir o erro à operação/categoria atual do usuário.
+      if (generation === _catGeneration) {
+        catError.textContent = err.message;
+        catSaveBtn.disabled = false;
+      }
     }
   });
 
@@ -185,14 +223,22 @@ async function _handleCatDelete(cat, row) {
     danger:  true,
   });
   if (!ok) return;
+  catError.textContent = "";
+  const generation = _catGeneration;
+  const btns = row.querySelectorAll("button");
+  btns.forEach(b => b.disabled = true);
   row.style.opacity = ".4";
   try {
     await deleteCategory(cat.id);
     await _reloadCategories();
     await _renderCatList();
+    _onCategoriesChanged?.();
   } catch (err) {
     handleError(err, { context: 'categoryView.delete', silent: true });
-    row.style.opacity = "1";
-    catError.textContent = err.message;
+    if (generation === _catGeneration) {
+      row.style.opacity = "1";
+      btns.forEach(b => b.disabled = false);
+      catError.textContent = err.message;
+    }
   }
 }

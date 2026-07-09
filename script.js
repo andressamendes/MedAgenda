@@ -453,7 +453,7 @@ async function handleDelete(id, card) {
 safeInit("navegação", initNavigation);
 
 // ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
-safeInit("categorias (modal)", initCategoryView);
+safeInit("categorias (modal)", () => initCategoryView(refreshAll));
 
 // ── [DOMAIN: configurações e notificações] — extraído para settingsModal.js ──
 safeInit("configurações", () => initSettingsModal({ isDevMode: _isDevMode, setDevMode: _setDevMode }));
