@@ -316,6 +316,41 @@ test("a failure loading the tip/plan decisions degrades silently, without breaki
   assert.ok(container.querySelector("#wk-label").textContent.length > 0); // grade continua funcionando
 });
 
+test("destroyWeekView clears the rendered grid, tip and weekly plan (no data survives logout)", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, {
+    events: [ev],
+    getDecisions: async () => ({
+      decisions: [decision({
+        origem: "planning", origemTipo: "study", prioridade: "urgente",
+        mensagem: "Esta categoria não recebe sessões há 10 dias.",
+        dadosUtilizados: { categoria: "Anatomia" },
+        acaoSugerida: { tempoSugerido: "45 minutos", dataSugerida: "2099-01-01" },
+      })],
+      planning: [{ tipo: "review", prioridade: "alta", categoria: null, tempoSugerido: "15 minutos", dataSugerida: "2026-07-06", motivo: "Existem 2 revisões pendentes.", confianca: "alta" }],
+      unavailable: [],
+    }),
+  });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  await flush();
+
+  // Sanity: dados do usuário estão renderizados antes do logout.
+  assert.ok(container.querySelector(".wk-event"), "event block should be rendered before logout");
+  assert.ok(container.textContent.includes("Prova de Anatomia"));
+  assert.ok(container.querySelector(".ai-plan-item"), "weekly plan should be rendered before logout");
+
+  destroy();
+
+  // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
+  // após o logout — a grade, a dica de IA e o plano da semana são descartados.
+  assert.strictEqual(container.innerHTML, "", "logout must leave no rendered data behind");
+  assert.strictEqual(container.textContent.includes("Prova de Anatomia"), false);
+});
+
 test("navigating between weeks does not re-fetch the tip/plan decisions (no duplicated query)", async (t) => {
   let decisionCalls = 0;
   mockEventService(t, { events: [], getDecisions: async () => { decisionCalls++; return EMPTY_DECISIONS; } });

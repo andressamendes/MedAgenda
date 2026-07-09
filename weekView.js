@@ -57,9 +57,22 @@ export async function refreshWeekView() {
   loadTip();
 }
 
+// Chamada no logout/troca de usuário (ver authView.js/showAuthView). Além do
+// timer, descarta o DOM renderizado e o cache em memória (_weeklyPlan): esta
+// é uma SPA sem reload de página entre sessões, então os compromissos, a dica
+// de IA e o plano da semana do usuário anterior não podem sobreviver no DOM
+// nem em memória durante a janela entre o logout e o próximo _initApp —
+// mesma simetria init/reset dos demais subsistemas (auditoria A1.3).
 export function destroyWeekView() {
   if (_nowTimer) { clearInterval(_nowTimer); _nowTimer = null; }
+  if (_el) _el.innerHTML = "";
   _el = null;
+  _cbs = {};
+  _mon = null;
+  _weeklyPlan = [];
+  _planExpanded = false;
+  _academicProvider = null;
+  _showPersonal = () => true;
 }
 
 // ── Shell (built once) ─────────────────────────────────────────────────────

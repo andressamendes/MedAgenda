@@ -95,7 +95,7 @@ A autenticação é inteiramente delegada ao **Supabase Auth**. Não existe tabe
 
 1. Usuário aciona "Sair".
 2. `signOut()` chama `supabase.auth.signOut()`, invalidando a sessão local (e o refresh token no servidor, conforme configuração do projeto).
-3. O evento `SIGNED_OUT` redireciona para a tela de login e todo estado da aplicação é limpo (`onBeforeSignOut`, fechamento de modais, `destroyWeekView()`).
+3. O evento `SIGNED_OUT` redireciona para a tela de login e todo estado da aplicação é limpo (`onBeforeSignOut` — incluindo `resetCalendar()` —, fechamento de modais, `destroyWeekView()`). A limpeza remove também o conteúdo já renderizado no DOM da agenda semanal e do calendário mensal, para que nenhum dado do usuário anterior permaneça visível ou acessível entre sessões.
 
 ### Recuperação de senha
 

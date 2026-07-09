@@ -369,6 +369,7 @@ restoreSidebarState()
 **Principais funções exportadas:**
 - `initCalendar(el, cbs)` — inicializa o calendário no elemento fornecido.
 - `refreshCalendar()` — rebusca e rerenderiza o mês atual.
+- `resetCalendar()` — limpa o DOM renderizado e o estado do módulo (chamado no logout, via `onBeforeSignOut`); `refreshCalendar()` volta a ser no-op até o próximo `initCalendar()`.
 - `setCalendarAcademicProvider(fn)` — injeta o provider de eventos acadêmicos.
 - `setCalendarPersonalVisibility(fn)` — injeta o predicado de visibilidade pessoal.
 
@@ -392,7 +393,7 @@ restoreSidebarState()
 **Principais funções exportadas:**
 - `initWeekView(el, cbs)` — inicializa a view e começa o timer da linha do agora.
 - `refreshWeekView()` — rebusca e rerenderiza a semana atual.
-- `destroyWeekView()` — limpa o timer e a referência ao elemento (chamado no logout).
+- `destroyWeekView()` — limpa o timer, o DOM renderizado (grade, dica de IA e plano da semana) e o estado do módulo, incluindo o cache `_weeklyPlan` (chamado no logout).
 - `setWeekViewAcademicProvider(fn)` / `setWeekViewPersonalVisibility(fn)` — injetores de estado externo.
 
 ---
@@ -1005,8 +1006,9 @@ authView.js: usuário clica "Sair"
 → onAuthStateChange dispara com session=null
 → authView.js: showAuthView('login')
    → closeAllModals()
-   → destroyWeekView() (cancela o timer da linha do agora)
-   → resetAssistant() (via _onBeforeSignOut)
+   → destroyWeekView() (cancela o timer da linha do agora e limpa a grade,
+     a dica de IA e o plano da semana renderizados)
+   → resetAssistant(), resetCalendar(), demais resets (via _onBeforeSignOut)
    → _initializedUserId = null
 ```
 
