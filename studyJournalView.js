@@ -29,6 +29,17 @@
 // getBySession(); apenas re-renderiza o mesmo array já resolvido. As opções
 // de matéria/categoria dos <select> são derivadas do próprio conjunto
 // carregado (nenhuma consulta a subjectProgressService/categoryService).
+//
+// F8.5 — Linha do Tempo da Evolução: cartões de resumo diário/semanal e
+// indicadores de evolução entre grupos de dia. Toda a agregação vive em
+// studyTimelineService.js (função pura, sem I/O) e é recalculada a cada
+// _render() a partir de `filtered` — o mesmo array já filtrado pelo F8.4 —
+// então os resumos automaticamente só consideram as sessões atualmente
+// visíveis, sem nenhuma consulta nova a studyStreakService/
+// subjectProgressService/questionService/activitySessionService (ver
+// cabeçalho de studyTimelineService.js). Os cartões são elementos novos
+// inseridos entre/dentro dos grupos existentes — nunca substituem
+// `.sj-day-group`/`.sj-entry`, nunca alteram o HTML já renderizado por eles.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -39,6 +50,13 @@ import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
+import {
+  summarizeDayEntries,
+  compareDailySummaries,
+  weekKeyOf,
+  weekLabel,
+  summarizeWeekGroups,
+} from "./studyTimelineService.js";
 
 const PAGE_SIZE = 10;
 
@@ -320,10 +338,67 @@ function _createDayGroup(iso) {
   return {
     key: _dayKey(iso),
     sessions: [],
+    li,
     countEl: li.querySelector(".sj-day-header-count"),
     durationEl: li.querySelector(".sj-day-header-duration"),
     sessionsEl: li.querySelector(".sj-day-sessions"),
   };
+}
+
+// ── Resumo diário e indicadores de evolução (F8.5) ──────────────────────
+// Cartão anexado ao final do próprio grupo de dia (dentro do mesmo <li
+// class="sj-day-group">, depois de .sj-day-sessions) — nunca substitui as
+// sessões já renderizadas, só acrescenta uma camada narrativa sobre elas.
+function _comparisonBadge(delta, unitSingular, unitPlural) {
+  const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "•";
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  const abs = Math.abs(delta);
+  const unit = abs === 1 ? unitSingular : unitPlural;
+  return `<span class="sj-summary-badge">${arrow} ${sign}${abs} ${unit}</span>`;
+}
+
+function _appendDailySummary(dayGroup, summary, comparison) {
+  const div = document.createElement("div");
+  div.className = "sj-daily-summary";
+  div.innerHTML = `
+    <div class="sj-daily-summary-stats">
+      <span>${_formatDuration(summary.totalMinutes)} líquidos</span>
+      <span>${summary.sessionsCount} sessão(ões)</span>
+      <span>${summary.questionsCount} questão(ões) resolvida(s)</span>
+      <span>${summary.reviewsCount} revisão(ões)</span>
+      <span>${summary.subjects.length ? escapeHtml(summary.subjects.join(", ")) : "Sem matéria"}</span>
+    </div>
+    ${comparison ? `
+      <div class="sj-daily-summary-comparison">
+        <span class="sj-summary-comparison-label">Em relação ao dia anterior:</span>
+        ${_comparisonBadge(comparison.sessionsDelta, "sessão", "sessões")}
+        ${_comparisonBadge(comparison.minutesDelta, "minuto", "minutos")}
+        ${_comparisonBadge(comparison.questionsDelta, "questão", "questões")}
+      </div>
+    ` : ""}
+  `;
+  dayGroup.li.appendChild(div);
+}
+
+// ── Resumo semanal (F8.5) ────────────────────────────────────────────────
+// Inserido como um <li> próprio na lista, entre o último grupo de dia da
+// semana concluída e o primeiro grupo da semana seguinte (mais antiga) —
+// "quando um novo bloco semanal começa, mostra o resumo da semana anterior".
+function _appendWeekSummary(weekKey, weekDayGroups) {
+  const summary = summarizeWeekGroups(weekDayGroups);
+  const li = document.createElement("li");
+  li.className = "sj-week-summary";
+  li.innerHTML = `
+    <div class="sj-week-summary-title">${escapeHtml(weekLabel(weekKey))}</div>
+    <div class="sj-week-summary-stats">
+      <span>${_formatDuration(summary.totalMinutes)} estudadas</span>
+      <span>${summary.sessionsCount} sessão(ões)</span>
+      <span>${summary.questionsCount} questão(ões)</span>
+      <span>${summary.subjectsCount} matéria(s)</span>
+      <span>Maior sequência de estudos: ${summary.longestStreak} dia(s)</span>
+    </div>
+  `;
+  listEl.appendChild(li);
 }
 
 function _buildEntryEl(entry) {
@@ -465,15 +540,45 @@ function _render() {
 
   emptyEl.hidden = true;
 
-  let openGroup = null;
+  // Primeiro passo: agrupa as entradas filtradas por dia, na mesma ordem
+  // started_at desc já garantida por listSessions()/F8.3 — puramente em
+  // memória, nenhuma sessão buscada de novo.
+  const dayBuckets = [];
   filtered.forEach(entry => {
     const dayKey = _dayKey(entry.session.started_at);
-    if (!openGroup || openGroup.key !== dayKey) {
-      openGroup = _createDayGroup(entry.session.started_at);
+    let bucket = dayBuckets[dayBuckets.length - 1];
+    if (!bucket || bucket.key !== dayKey) {
+      bucket = { key: dayKey, iso: entry.session.started_at, entries: [] };
+      dayBuckets.push(bucket);
     }
-    openGroup.sessionsEl.appendChild(_buildEntryEl(entry));
-    openGroup.sessions.push(entry.session);
-    _updateGroupHeader(openGroup);
+    bucket.entries.push(entry);
+  });
+  const daySummaries = dayBuckets.map(bucket => summarizeDayEntries(bucket.entries));
+
+  // Segundo passo: renderiza os grupos de dia (F8.3, inalterado) e intercala
+  // os cartões novos do F8.5 — resumo semanal ao trocar de semana, resumo
+  // diário + comparação com o dia anterior ao final de cada grupo.
+  let currentWeekKey = null;
+  let weekBuckets = [];
+
+  dayBuckets.forEach((bucket, index) => {
+    const weekKey = weekKeyOf(bucket.iso);
+    if (currentWeekKey !== null && weekKey !== currentWeekKey) {
+      _appendWeekSummary(currentWeekKey, weekBuckets);
+      weekBuckets = [];
+    }
+    currentWeekKey = weekKey;
+    weekBuckets.push({ dayKey: bucket.key, summary: daySummaries[index] });
+
+    const dayGroup = _createDayGroup(bucket.iso);
+    bucket.entries.forEach(entry => {
+      dayGroup.sessionsEl.appendChild(_buildEntryEl(entry));
+      dayGroup.sessions.push(entry.session);
+    });
+    _updateGroupHeader(dayGroup);
+
+    const previousSummary = index + 1 < dayBuckets.length ? daySummaries[index + 1] : null;
+    _appendDailySummary(dayGroup, daySummaries[index], compareDailySummaries(daySummaries[index], previousSummary));
   });
 }
 

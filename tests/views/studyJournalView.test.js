@@ -812,3 +812,178 @@ test("re-initializing does not register duplicate listeners", async (t) => {
 
   assert.strictEqual(calls.length, 1, "um único evento deve disparar exatamente uma recarga, independente de quantas vezes init rodou");
 });
+
+// ── Linha do Tempo da Evolução (F8.5) ───────────────────────────────────
+
+function dailySummaries() {
+  return Array.from(document.querySelectorAll("#sj-list .sj-daily-summary"));
+}
+
+function weekSummaries() {
+  return Array.from(document.querySelectorAll("#sj-list .sj-week-summary"));
+}
+
+test("a day group ends with an automatic daily summary: tempo líquido, sessões, questões, revisões e matérias", async (t) => {
+  const sessions = [
+    { id: "sess-2", event_id: "ev-1", status: "finished", started_at: "2026-03-10T14:00:00.000Z", ended_at: "2026-03-10T14:45:00.000Z", duration_minutes: 45 },
+    { id: "sess-1", event_id: "ev-2", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
+      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
+    ],
+    listQuestions: async (sessionId) => sessionId === "sess-2" ? [{ id: "q1" }, { id: "q2" }] : [{ id: "q3" }],
+    listReviewsBySession: async (sessionId) => sessionId === "sess-2" ? [{ id: "r1" }] : [],
+  });
+
+  await mod.initStudyJournalView();
+
+  const summaries = dailySummaries();
+  assert.strictEqual(summaries.length, 1, "um único grupo de dia deve gerar um único resumo diário");
+  const text = summaries[0].textContent;
+  assert.match(text, /1h 15min líquidos/);
+  assert.match(text, /2 sessão\(ões\)/);
+  assert.match(text, /3 questão\(ões\) resolvida\(s\)/);
+  assert.match(text, /1 revisão\(ões\)/);
+  assert.match(text, /Cardiologia, Farmacologia/);
+});
+
+test("a session with no matéria shows a placeholder instead of an empty list in the daily summary", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.match(dailySummaries()[0].textContent, /Sem matéria/);
+});
+
+test("the daily summary sits inside its own day group, never replacing the session entries", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  const group = document.querySelector(".sj-day-group");
+  assert.strictEqual(group.querySelectorAll(".sj-entry").length, 1, "a sessão continua renderizada normalmente");
+  assert.strictEqual(group.querySelectorAll(".sj-daily-summary").length, 1, "o resumo é um elemento adicional dentro do mesmo grupo");
+});
+
+test("a day's summary shows evolution indicators compared to the previous day: sessions, minutes and questions delta", async (t) => {
+  const sessions = [
+    // dia mais recente: 1 sessão de 55min, 1 questão
+    { id: "sess-today", status: "finished", started_at: "2026-03-11T08:00:00.000Z", ended_at: "2026-03-11T08:55:00.000Z", duration_minutes: 55 },
+    // dia anterior: 2 sessões somando 90min, 3 questões
+    { id: "sess-prev-a", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:00:00.000Z", duration_minutes: 60 },
+    { id: "sess-prev-b", status: "finished", started_at: "2026-03-10T10:00:00.000Z", ended_at: "2026-03-10T10:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
+    listQuestions: async (sessionId) => {
+      if (sessionId === "sess-today") return [{ id: "q1" }];
+      if (sessionId === "sess-prev-a") return [{ id: "q2" }, { id: "q3" }];
+      return [{ id: "q4" }];
+    },
+  });
+
+  await mod.initStudyJournalView();
+
+  const summaries = dailySummaries();
+  assert.strictEqual(summaries.length, 2);
+
+  const [todaySummary, prevSummary] = summaries;
+  assert.match(todaySummary.textContent, /Em relação ao dia anterior/);
+  assert.match(todaySummary.textContent, /↓ −1 sessão/);
+  assert.match(todaySummary.textContent, /↓ −35 minutos/);
+  assert.match(todaySummary.textContent, /↓ −2 questões/);
+
+  assert.doesNotMatch(prevSummary.textContent, /Em relação ao dia anterior/, "o dia mais antigo da linha do tempo não tem dia anterior para comparar");
+});
+
+test("a lone visible day shows no comparison indicators", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.doesNotMatch(dailySummaries()[0].textContent, /Em relação ao dia anterior/);
+});
+
+test("a weekly summary card appears when a new week starts, summarizing the week just finished in the timeline", async (t) => {
+  const sessions = [
+    // semana de 2026-03-16 (segunda) — a mais recente na linha do tempo,
+    // com dois dias consecutivos estudados.
+    { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
+    // semana de 2026-03-09 (segunda) — mais antiga, ainda em exibição mas
+    // sem uma semana seguinte no conjunto filtrado, então não ganha cartão.
+    { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
+      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
+    ],
+    listQuestions: async () => [{ id: "q1" }],
+  });
+
+  await mod.initStudyJournalView();
+
+  const weeks = weekSummaries();
+  assert.strictEqual(weeks.length, 1, "só a semana com uma semana mais antiga seguinte no conjunto visível ganha um cartão");
+  const text = weeks[0].textContent;
+  assert.match(text, /Semana de 16\/03 a 22\/03/);
+  assert.match(text, /2 sessão\(ões\)/);
+  assert.match(text, /1h 30min estudadas/);
+  assert.match(text, /2 questão\(ões\)/);
+  assert.match(text, /2 matéria\(s\)/);
+  assert.match(text, /Maior sequência de estudos: 2 dia\(s\)/);
+
+  // o cartão semanal aparece entre os grupos de dia, antes do grupo mais antigo da semana seguinte.
+  const listChildren = Array.from(document.getElementById("sj-list").children);
+  const weekIndex = listChildren.findIndex(el => el.classList.contains("sj-week-summary"));
+  const groupIndexes = listChildren
+    .map((el, i) => ({ el, i }))
+    .filter(({ el }) => el.classList.contains("sj-day-group"))
+    .map(({ i }) => i);
+  assert.strictEqual(groupIndexes.length, 3);
+  assert.ok(weekIndex > groupIndexes[1] && weekIndex < groupIndexes[2], "o card semanal fica entre o último dia da semana concluída e o primeiro dia da semana seguinte");
+});
+
+test("summaries recompute over only the currently filtered/visible sessions, without a new listSessions() call", async (t) => {
+  const sessions = [
+    { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-2", event_id: "ev-2", status: "finished", started_at: "2026-03-10T09:00:00.000Z", ended_at: "2026-03-10T09:30:00.000Z", duration_minutes: 30 },
+  ];
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { calls.push(opts); return { sessions, total: 2, hasMore: false }; },
+    getEvents: async () => [
+      { id: "ev-1", title: "SOI II", category: "SOI II" },
+      { id: "ev-2", title: "Anatomia", category: "Anatomia" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+  assert.match(dailySummaries()[0].textContent, /2 sessão\(ões\)/);
+  assert.match(dailySummaries()[0].textContent, /1h 0min líquidos/);
+  calls.length = 0;
+
+  document.getElementById("sj-filter-subject").value = "SOI II";
+  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+
+  assert.strictEqual(calls.length, 0, "trocar o filtro não deve chamar listSessions() novamente");
+  assert.strictEqual(dailySummaries().length, 1);
+  assert.match(dailySummaries()[0].textContent, /1 sessão\(ões\)/);
+  assert.match(dailySummaries()[0].textContent, /30min líquidos/);
+  assert.match(dailySummaries()[0].textContent, /SOI II/);
+  assert.doesNotMatch(dailySummaries()[0].textContent, /Anatomia/);
+});
