@@ -600,6 +600,8 @@ function _openFinishModal() {
   ssfNetTimeEl.textContent       = _formatExpectedDuration(netMinutes);
   ssfTotalDurationEl.textContent = _formatExpectedDuration(netMinutes);
   ssfNotesEl.value = "";
+  ssfBtnConfirm.disabled = false;
+  ssfBtnBack.disabled = false;
 
   _pendingQuestions = [];
   _resetQuestionForm();
@@ -647,39 +649,52 @@ async function _confirmFinish() {
   // logo abaixo — o valor vem pronto de finishSession() (activitySessionService,
   // intocado), nenhum recálculo de duração/status acontece aqui.
   let finishedSession = null;
-  await _run(async () => {
-    for (const q of questions) {
-      await addQuestion(sessionId, {
-        question_type: q.question_type,
-        status:        q.status,
-        difficulty:    q.difficulty,
-        subject:       q.subject,
-        topic:         q.topic,
-      });
-    }
-    for (const r of reviews) {
-      const reviewId = r.kind === "create"
-        ? (await createReview({ event_id: eventId, scheduled_date: r.scheduled_date })).id
-        : r.reviewId;
-      await associateReview(reviewId, sessionId);
-    }
-    finishedSession = await finishSession(sessionId, endedAt);
-    return finishedSession;
-  });
-  _closeFinishModal();
-
-  if (finishedSession) {
-    openSessionSummary({
-      eventMeta,
-      startedAt:      finishedSession.started_at ?? startedAt,
-      endedAt:        finishedSession.ended_at ?? endedAt,
-      netMinutes:     finishedSession.duration_minutes ?? _pendingNetMinutes,
-      status:         finishedSession.status,
-      questionsCount: questions.length,
-      reviewsCount:   reviews.length,
-      notes,
+  ssfBtnConfirm.disabled = true;
+  ssfBtnBack.disabled = true;
+  try {
+    await _run(async () => {
+      for (const q of questions) {
+        await addQuestion(sessionId, {
+          question_type: q.question_type,
+          status:        q.status,
+          difficulty:    q.difficulty,
+          subject:       q.subject,
+          topic:         q.topic,
+        });
+      }
+      for (const r of reviews) {
+        const reviewId = r.kind === "create"
+          ? (await createReview({ event_id: eventId, scheduled_date: r.scheduled_date })).id
+          : r.reviewId;
+        await associateReview(reviewId, sessionId);
+      }
+      finishedSession = await finishSession(sessionId, endedAt);
+      return finishedSession;
     });
+  } finally {
+    ssfBtnConfirm.disabled = false;
+    ssfBtnBack.disabled = false;
   }
+
+  // BUG 08: uma falha em qualquer etapa (Questões, Revisões ou finishSession)
+  // já foi reportada por handleError() dentro de _run() — o fluxo não pode
+  // seguir adiante nem descartar o que o usuário preencheu. O resumo continua
+  // aberto, com _pendingQuestions/_pendingReviews intactos, para permitir
+  // corrigir e confirmar de novo, em vez de fechar o modal silenciosamente e
+  // deixar a sessão presa num limbo (nem finalizada, nem com o resumo aberto).
+  if (!finishedSession) return;
+
+  _closeFinishModal();
+  openSessionSummary({
+    eventMeta,
+    startedAt:      finishedSession.started_at ?? startedAt,
+    endedAt:        finishedSession.ended_at ?? endedAt,
+    netMinutes:     finishedSession.duration_minutes ?? _pendingNetMinutes,
+    status:         finishedSession.status,
+    questionsCount: questions.length,
+    reviewsCount:   reviews.length,
+    notes,
+  });
 }
 
 // Recarrega a partir de um evento do barramento — nunca assume que o payload

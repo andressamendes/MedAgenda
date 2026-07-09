@@ -3126,6 +3126,27 @@ textarea { resize: vertical; }
   display: block;
 }
 
+/* BUG 09 — Resumo/confirmação de encerramento (#ss-finish-modal) e resumo
+   final (#ss-summary-modal): conteúdo variável (Questões + Revisões
+   adicionadas na hora) podia crescer além da viewport. Como .modal-card só
+   tinha max-width (sem max-height/scroll), o cartão crescia além da tela e,
+   sem overflow-y no overlay, a metade excedente — inclusive o rodapé com
+   "Confirmar encerramento" — ficava inacessível. Mesmo padrão já usado em
+   .modal-event/.modal-account: cabeçalho e rodapé sempre visíveis, só o
+   corpo rola. */
+.modal-session {
+  max-width: 480px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-session .modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
 /* ── Toast notifications ── */
 .toast-container {
   position: fixed;

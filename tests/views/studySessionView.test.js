@@ -498,6 +498,103 @@ test("confirming the summary calls activitySessionService.finishSession() and re
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
 
+// ── BUG 08/09: robustez do encerramento (falha na persistência, clique duplo) ──
+
+test("BUG 08: a failure while persisting a Questão keeps the summary modal open with the pending data intact", async (t) => {
+  const finishCalls = [];
+  const { mod, handleErrorCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async () => { throw new Error("Falha ao salvar questão"); },
+    finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(handleErrorCalls.length, 1, "the failure must be reported");
+  assert.strictEqual(finishCalls.length, 0, "finishSession must never run after a failed step");
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false, "the summary must stay open — never close silently on failure");
+  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true, "the final summary must not open when nothing was actually finished");
+  assert.strictEqual(document.getElementById("ss-active").hidden, false, "the session is still active, not left in limbo");
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "the pending question must survive the failed attempt so the user can retry");
+});
+
+test("BUG 08: a failure in finishSession() itself keeps the summary modal open instead of discarding it", async (t) => {
+  const { mod, handleErrorCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async () => { throw new Error("Falha ao encerrar sessão"); },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(handleErrorCalls.length, 1);
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false);
+  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true);
+});
+
+test("BUG 09: Confirmar encerramento and Voltar are disabled while a confirmation is in flight, and re-enabled after", async (t) => {
+  let resolveFinish;
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id) => new Promise(resolve => { resolveFinish = () => resolve({ id, status: "finished" }); }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const btnConfirm = document.getElementById("ssf-btn-confirm");
+  const btnBack = document.getElementById("ssf-btn-back");
+  assert.strictEqual(btnConfirm.disabled, false, "the button must be reachable/enabled before confirming");
+
+  btnConfirm.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(btnConfirm.disabled, true, "disabled while finishSession() is in flight — prevents a double click");
+  assert.strictEqual(btnBack.disabled, true);
+
+  resolveFinish();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true);
+});
+
+test("prevention of double click: clicking Confirmar encerramento twice in a row only finishes the session once", async (t) => {
+  const finishCalls = [];
+  const addQuestionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async (sessionId, data) => { addQuestionCalls.push({ sessionId, data }); return { id: "q-1", session_id: sessionId, ...data }; },
+    finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const btnConfirm = document.getElementById("ssf-btn-confirm");
+  btnConfirm.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  btnConfirm.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); // clique duplo, mesmo tick
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(finishCalls.length, 1, "finishSession() must run exactly once");
+  assert.strictEqual(addQuestionCalls.length, 1, "questions must not be persisted twice");
+});
+
 // ── Resumo Final da Sessão concluída (F7.10) ────────────────────────────────
 
 test("confirming the summary opens the final session summary with the counts and notes just persisted", async (t) => {
