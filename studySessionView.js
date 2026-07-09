@@ -249,13 +249,21 @@ function _eventFieldText(value) {
 // O tempo exibido é sempre recalculado a partir de started_at (o banco é a
 // fonte da verdade) — o timer local só decide QUANDO redesenhar, nunca o
 // valor em si (mesmo princípio do widget antigo, ver F1.3). F7.7: o tempo
-// bruto descontado de paused_ms (pausas já concluídas) é o tempo líquido —
-// como o timer para de re-renderizar enquanto pausado (ver _render()), o
-// intervalo da pausa corrente nunca entra aqui, só é somado a paused_ms
-// quando resumeSession() a fecha.
+// bruto descontado de paused_ms (pausas já concluídas) é o tempo líquido.
+// BUG 07: enquanto pausada, a pausa corrente (started em paused_at) também
+// precisa ser descontada — não só paused_ms — senão qualquer redesenho que
+// aconteça enquanto pausada (restaurar após reload/navegação, ou um evento
+// do barramento) usa um Date.now() mais recente que o momento da pausa e
+// exibe a pausa em si como se fosse tempo de estudo. Mesma fórmula já usada
+// em _minutesBetween() (resumo de encerramento) e em
+// activitySessionService.finishSession()/resumeSession() — nenhuma conta nova.
 function _renderTime() {
   if (!_session) return;
-  const elapsedMs = Date.now() - new Date(_session.started_at).getTime() - (_session.paused_ms || 0);
+  const currentPauseMs = _session.status === "paused" && _session.paused_at
+    ? Math.max(0, Date.now() - new Date(_session.paused_at).getTime())
+    : 0;
+  const totalPausedMs = (_session.paused_ms || 0) + currentPauseMs;
+  const elapsedMs = Date.now() - new Date(_session.started_at).getTime() - totalPausedMs;
   const elapsedText = _formatElapsed(elapsedMs);
   timeEl.textContent = elapsedText;
   indNetEl.textContent = elapsedText;
