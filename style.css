@@ -1720,6 +1720,84 @@ textarea { resize: vertical; }
   margin: 1rem auto 0;
 }
 
+/* ── Diário de Estudos (F8.1) ── */
+.sj-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.sj-entry {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .7rem .9rem;
+  font-size: .82rem;
+}
+
+.sj-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+}
+
+.sj-entry-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+
+.sj-entry-detail {
+  margin-top: .6rem;
+  padding-top: .6rem;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+.sj-detail-title {
+  margin: 0 0 .3rem;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.sj-detail-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.sj-detail-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.sj-detail-empty,
+.sj-detail-loading,
+.sj-detail-error {
+  margin: 0;
+  color: var(--gray-600);
+}
+
+.sj-detail-notes {
+  margin: 0;
+  color: var(--gray-600);
+  white-space: pre-wrap;
+}
+
 /* ── Modal Quick Add ── */
 /* ── Modal (F5.2) — moldura única para quick-add, confirmação, contas,
    categorias, configurações e calendário acadêmico. Largura varia por

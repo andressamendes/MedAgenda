@@ -15,7 +15,9 @@ const REVIEW_SERVICE_SPECIFIER  = new URL("../../reviewService.js", import.meta.
 const SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const SUPABASE_SPECIFIER        = new URL("../../supabase.js", import.meta.url).href;
 
-function loadReviewSessionService(t, { review, session, updateResult, updateError = null } = {}) {
+function loadReviewSessionService(t, {
+  review, session, updateResult, updateError = null, listResult, listError = null,
+} = {}) {
   const calls = [];
 
   t.mock.module(REVIEW_SERVICE_SPECIFIER, {
@@ -43,6 +45,12 @@ function loadReviewSessionService(t, { review, session, updateResult, updateErro
     single: () => Promise.resolve(
       updateError ? { data: null, error: updateError } : { data: updateResult, error: null }
     ),
+    order: (...args) => {
+      calls.push({ fn: "supabase.order", args });
+      return Promise.resolve(
+        listError ? { data: null, error: listError } : { data: listResult, error: null }
+      );
+    },
   };
 
   t.mock.module(SUPABASE_SPECIFIER, {
@@ -225,5 +233,47 @@ test("getReviewSession() retorna a sessão associada", async (t) => {
   assert.deepStrictEqual(
     calls.find(c => c.fn === "activitySessionService.getActivitySessionById").args,
     ["sess-1"]
+  );
+});
+
+// ── listBySession() ──────────────────────────────────────────────────────
+
+test("listBySession() exige sessão existente", async (t) => {
+  const { mod } = await loadReviewSessionService(t, { review: REVIEW, session: null });
+
+  await assert.rejects(
+    () => mod.listBySession("sess-missing"),
+    (err) => err.code === "SESSION_NOT_FOUND"
+  );
+});
+
+test("listBySession() lista as revisões vinculadas à sessão", async (t) => {
+  const reviews = [
+    { ...REVIEW, id: "rev-1", session_id: "sess-1" },
+    { ...REVIEW, id: "rev-2", session_id: "sess-1" },
+  ];
+  const { mod, calls } = await loadReviewSessionService(t, {
+    review: REVIEW, session: SESSION, listResult: reviews,
+  });
+
+  const result = await mod.listBySession("sess-1");
+
+  assert.deepStrictEqual(result, reviews);
+  const eqCalls = calls.filter(c => c.fn === "supabase.eq").map(c => c.args);
+  assert.deepStrictEqual(eqCalls, [["user_id", "user-123"], ["session_id", "sess-1"]]);
+  assert.deepStrictEqual(
+    calls.find(c => c.fn === "activitySessionService.getActivitySessionById").args,
+    ["sess-1"]
+  );
+});
+
+test("listBySession() propaga erro do banco", async (t) => {
+  const { mod } = await loadReviewSessionService(t, {
+    review: REVIEW, session: SESSION, listError: new Error("query failed"),
+  });
+
+  await assert.rejects(
+    () => mod.listBySession("sess-1"),
+    (err) => err.message === "query failed"
   );
 });

@@ -101,3 +101,22 @@ export async function getReviewSession(reviewId) {
   if (!review.session_id) return null;
   return getActivitySessionById(review.session_id);
 }
+
+// Direção inversa de getReviewSession(): lista as Revisões associadas a uma
+// Sessão (F8.1 — Diário de Estudos). Só leitura, sem CRUD duplicado — mesmo
+// padrão de sessionQuestionsService.listQuestions(), que também exige a
+// Sessão existente antes de listar. reviews.session_id é escopado por
+// user_id da mesma forma que o UPDATE em associateReview()/unlinkReview().
+export async function listBySession(sessionId) {
+  await _requireExistingSession(sessionId);
+
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("user_id", user_id)
+    .eq("session_id", sessionId)
+    .order("scheduled_date", { ascending: true });
+  if (error) throw error;
+  return data;
+}

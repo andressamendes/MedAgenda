@@ -59,6 +59,7 @@ import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initStudySessionView, resetStudySessionView } from "./studySessionView.js";
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
+import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { resetAIContextService } from "./aiContextService.js";
@@ -256,6 +257,7 @@ async function _initApp(session) {
       })),
       safeInit("agenda", loadEvents),
       safeInit("histórico de sessões", () => initActivityHistoryView()),
+      safeInit("diário de estudos", () => initStudyJournalView()),
       safeInit("dashboard de execução", () => initActivityDashboardView()),
       safeInit("central de insights", () => initInsightsView()),
     ]);
@@ -484,6 +486,7 @@ initAuthView({
     resetNotifications();
     resetStudySessionView();
     resetActivityHistoryView();
+    resetStudyJournalView();
     resetActivityDashboardView();
     resetInsightsView();
     resetAccountView();
