@@ -79,6 +79,7 @@ const APP_SHELL = [
   './smartAssistant.js',
   './smartCardView.js',
   './stateView.js',
+  './studyJournalView.js',
   './studySessionView.js',
   './supabase.js',
   './telemetryService.js',
