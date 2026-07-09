@@ -2026,6 +2026,33 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+/* ── Busca Avançada e Linha do Tempo Inteligente (F8.8) ── */
+.sj-search-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .9rem;
+  padding: .55rem .8rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.sj-entry-matches {
+  margin-top: .3rem;
+  font-size: .75rem;
+  color: var(--gray-500);
+}
+
+.sj-search-mark {
+  background: var(--yellow-light, #fef08a);
+  color: inherit;
+  border-radius: .2em;
+  padding: 0 .1em;
+}
+
 /* ── Modal Quick Add ── */
 /* ── Modal (F5.2) — moldura única para quick-add, confirmação, contas,
    categorias, configurações e calendário acadêmico. Largura varia por

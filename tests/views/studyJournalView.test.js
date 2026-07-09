@@ -715,7 +715,7 @@ test("filtering to nothing shows a distinct 'no results for filters' message, no
 
   const emptyEl = document.getElementById("sj-list-empty");
   assert.strictEqual(emptyEl.hidden, false);
-  assert.match(emptyEl.textContent, /Nenhuma sessão encontrada para os filtros selecionados\./);
+  assert.match(emptyEl.textContent, /Nenhuma sessão encontrada para esta pesquisa\./);
   assert.strictEqual(document.getElementById("sj-list").children.length, 0);
 });
 
