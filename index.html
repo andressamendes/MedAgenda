@@ -558,6 +558,74 @@
               </div>
             </div>
           </div>
+
+          <!-- Resumo final da Sessão concluída (F7.10) — somente leitura, aberto
+               depois que finishSession() já foi confirmado. Nenhum dado novo é
+               calculado ou persistido aqui; tudo vem do que a confirmação de
+               encerramento (F7.3/F7.4/F7.5) já resolveu. -->
+          <div id="ss-summary-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ss-summary-title">
+            <div class="modal-card">
+              <div class="modal-header">
+                <span class="modal-date" id="ss-summary-title">Sessão concluída</span>
+              </div>
+              <div class="modal-body">
+                <dl class="ss-context">
+                  <div class="ss-context-row">
+                    <dt>Compromisso</dt>
+                    <dd id="sss-event-title">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Categoria</dt>
+                    <dd id="sss-category">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Matéria</dt>
+                    <dd id="sss-subject">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Conteúdo</dt>
+                    <dd id="sss-content">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Horário de início</dt>
+                    <dd id="sss-started-at">—</dd>
+                  </div>
+                  <div class="ss-context-row">
+                    <dt>Horário de término</dt>
+                    <dd id="sss-ended-at">—</dd>
+                  </div>
+                </dl>
+
+                <div class="dashboard-cards">
+                  <div class="dashboard-card">
+                    <span class="dashboard-card-title">Tempo estudado</span>
+                    <span class="dashboard-card-value" id="sss-card-net-time">—</span>
+                  </div>
+                  <div class="dashboard-card">
+                    <span class="dashboard-card-title">Questões registradas</span>
+                    <span class="dashboard-card-value" id="sss-card-questions">—</span>
+                  </div>
+                  <div class="dashboard-card">
+                    <span class="dashboard-card-title">Revisões associadas</span>
+                    <span class="dashboard-card-value" id="sss-card-reviews">—</span>
+                  </div>
+                  <div class="dashboard-card">
+                    <span class="dashboard-card-title">Status</span>
+                    <span class="dashboard-card-value" id="sss-card-status">—</span>
+                  </div>
+                </div>
+
+                <div id="sss-notes-block" hidden>
+                  <p class="ss-notes-label">Observações da sessão</p>
+                  <p id="sss-notes" class="ss-questions-empty"></p>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-ghost"   id="sss-btn-dashboard">Voltar ao Dashboard</button>
+                <button type="button" class="btn btn-primary" id="sss-btn-history">Ir para Histórico de Sessões</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Page: Dashboard de Execução (F2.1) -->
