@@ -1040,3 +1040,151 @@ test("the weekly narrative only considers the currently visible (filtered) entri
   assert.match(text, /Nesta semana você realizou 1 sessão/);
   assert.match(text, /estudou 1 matéria diferente/);
 });
+
+// ── Marcos da Evolução (F8.7) ───────────────────────────────────────────
+
+test("F8.7 — a first-session milestone renders as a read-only card before any day group", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "Aula Cardio", category: "Cardiologia" }],
+  });
+
+  await mod.initStudyJournalView();
+
+  const milestonesEl = document.querySelector("#sj-list .sj-milestones");
+  assert.ok(milestonesEl, "bloco de marcos deve ser renderizado");
+  assert.match(milestonesEl.textContent, /Primeira sessão/);
+
+  const listChildren = Array.from(document.getElementById("sj-list").children);
+  assert.strictEqual(listChildren[0], milestonesEl, "marcos aparecem antes de qualquer grupo de dia");
+});
+
+test("F8.7 — milestones are recalculated from the filtered subset and disappear naturally when a filter removes every visible session", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "Aula Cardio", category: "Farmacologia" }],
+  });
+
+  await mod.initStudyJournalView();
+  assert.ok(document.querySelector("#sj-list .sj-milestones"));
+
+  document.getElementById("sj-filter-search").value = "termo-que-nao-existe-em-nenhum-campo";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+
+  assert.strictEqual(
+    document.querySelectorAll("#sj-list .sj-milestones").length, 0,
+    "sem sessões visíveis após o filtro, nenhum marco (nunca persistido) é exibido"
+  );
+});
+
+// ── Reflexão + destaque de busca ativa (F8.2 + F8.8) ─────────────────────
+
+test("F8.8 — saving a reflection while a search filter is active keeps the highlight in the freshly rendered reflection, without a new interaction", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "Aula", category: "Cardiologia", description: "Estudo de cardio hoje" }],
+    getReflectionBySession: async () => null,
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-search").value = "cardio";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+  assert.strictEqual(entries().length, 1, "a sessão continua visível pois 'cardio' casa com o conteúdo do compromisso");
+
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const reflectionEl = item.querySelector(".sj-reflection");
+  reflectionEl.querySelector(".sj-reflection-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  reflectionEl.querySelector(".sj-reflection-input").value = "Anotações sobre cardio hoje";
+  reflectionEl.querySelector(".sj-reflection-save").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.match(
+    reflectionEl.innerHTML,
+    /<mark class="sj-search-mark">cardio<\/mark>/,
+    "o destaque da busca ativa deve continuar aparecendo na reflexão recém-salva"
+  );
+});
+
+test("F8.8 — cancelling a reflection edit keeps the search highlight on the previously saved text", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "Aula", category: "Cardiologia", description: "Estudo de cardio hoje" }],
+    getReflectionBySession: async () => ({ id: "refl-1", session_id: "sess-1", content: "insight sobre cardio" }),
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-search").value = "cardio";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const reflectionEl = item.querySelector(".sj-reflection");
+  assert.match(reflectionEl.innerHTML, /<mark class="sj-search-mark">cardio<\/mark>/);
+
+  reflectionEl.querySelector(".sj-reflection-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  reflectionEl.querySelector(".sj-reflection-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.match(
+    reflectionEl.innerHTML,
+    /<mark class="sj-search-mark">cardio<\/mark>/,
+    "cancelar a edição deve manter o destaque da busca ativa, igual ao estado antes de abrir o formulário"
+  );
+});
+
+// ── Reset completo e isolamento por usuário ──────────────────────────────
+
+test("resetStudyJournalView() clears the in-memory cache and the rendered list synchronously — this SPA never reloads the page between users", async (t) => {
+  const sessionA = { id: "sess-a", event_id: "ev-a", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [sessionA], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-a", title: "Sessão da Usuária A", category: "Cardiologia" }],
+  });
+
+  await mod.initStudyJournalView();
+  assert.strictEqual(entries().length, 1);
+  assert.match(document.getElementById("sj-list").textContent, /Usuária A/);
+
+  mod.resetStudyJournalView();
+
+  assert.strictEqual(entries().length, 0, "a lista renderizada não pode reter os dados do usuário anterior após o reset");
+  assert.strictEqual(document.getElementById("sj-list").innerHTML, "");
+  assert.strictEqual(document.getElementById("sj-load-more").hidden, true);
+  assert.strictEqual(document.getElementById("sj-search-stats").hidden, true);
+});
+
+test("switching users (resetStudyJournalView then initStudyJournalView again) shows only the new user's sessions, with no leftover entries or duplicates from the previous user", async (t) => {
+  let activeUser = "A";
+  const sessionsByUser = {
+    A: [{ id: "sess-a", event_id: "ev-a", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 }],
+    B: [{ id: "sess-b", event_id: "ev-b", status: "finished", started_at: "2026-03-11T08:00:00.000Z", ended_at: "2026-03-11T08:30:00.000Z", duration_minutes: 45 }],
+  };
+  const eventsByUser = {
+    A: [{ id: "ev-a", title: "Compromisso da Usuária A", category: "Cardiologia" }],
+    B: [{ id: "ev-b", title: "Compromisso do Usuário B", category: "Farmacologia" }],
+  };
+
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: sessionsByUser[activeUser], total: 1, hasMore: false }),
+    getEvents: async () => eventsByUser[activeUser],
+  });
+
+  await mod.initStudyJournalView();
+  assert.strictEqual(entries().length, 1);
+  assert.match(document.getElementById("sj-list").textContent, /Usuária A/);
+
+  mod.resetStudyJournalView();
+  activeUser = "B";
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(entries().length, 1, "nenhuma sessão duplicada nem perdida ao trocar de usuário");
+  const text = document.getElementById("sj-list").textContent;
+  assert.match(text, /Usuário B/);
+  assert.doesNotMatch(text, /Usuária A/, "dados do usuário anterior não podem sobreviver à troca de usuário");
+});
