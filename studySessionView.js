@@ -13,7 +13,7 @@
 // aba/fluxo (ex.: "Iniciar Sessão" no formulário de compromisso).
 
 import {
-  getRunningSession,
+  getActiveSession,
   startSession,
   pauseSession,
   resumeSession,
@@ -28,10 +28,16 @@ import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const TICK_MS = 1000;
+
+// Sessão "running" restaurada com started_at anterior a este limiar é
+// avisada como antiga (F7.8, escopo 4) — só um aviso informativo, nenhuma
+// expiração/encerramento automático (fica para outra fase).
+const STALE_RUNNING_MS = 24 * 60 * 60 * 1000; // 24h
 
 // Rótulos de exibição para os campos de Questões (F7.4) — os mesmos valores
 // aceitos pelo CHECK constraint de sql/15_questions.sql, nenhum valor novo.
@@ -211,6 +217,14 @@ function _formatClockTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Usado só no aviso de sessão "running" antiga (F7.8) — diferente de
+// _formatClockTime()/_formatEventDate(), que exibem cada parte separadamente
+// conforme o contexto já pedia até aqui.
+function _formatDateTime(iso) {
+  const d = new Date(iso);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function _formatExpectedDuration(minutes) {
@@ -673,10 +687,19 @@ function _subscribeToEventBus() {
 
 /**
  * Monta a tela (uma única vez) e restaura, se existir, a sessão em andamento
- * do usuário atual — reabrir a página (ou recarregar o app) nunca deve fazer
- * o usuário perder uma sessão ativa nem o contexto do compromisso vinculado.
+ * OU pausada do usuário atual (F7.8) — reabrir a página (ou recarregar o
+ * app) nunca deve fazer o usuário perder uma sessão ativa nem o contexto do
+ * compromisso vinculado, e uma sessão pausada nunca é retomada
+ * automaticamente: ela reaparece exatamente como "Pausada" (_render() já
+ * decide os botões/badge a partir de _session.status, sem mudança aqui).
+ * O cronômetro (quando running) recalcula a partir de started_at/paused_ms —
+ * os mesmos campos já usados em _renderTime() — sem qualquer ajuste manual.
  * Também assina o barramento de eventos (F6.2) para manter a tela sincronizada
  * sem polling e sem recarga completa.
+ *
+ * @returns {Promise<boolean>} true se uma sessão foi restaurada (running ou
+ * paused) — usado por script.js para decidir se deve levar o usuário direto
+ * à tela "Sessão de Estudo" ao abrir o app, em vez da última página salva.
  */
 export async function initStudySessionView() {
   if (!emptyEl) {
@@ -687,7 +710,7 @@ export async function initStudySessionView() {
   _subscribeToEventBus();
 
   try {
-    _session   = await getRunningSession();
+    _session   = await getActiveSession();
     _eventMeta = await _resolveEventMeta(_session);
   } catch (err) {
     handleError(err, { context: "studySessionView.restore" });
@@ -695,6 +718,12 @@ export async function initStudySessionView() {
     _eventMeta = null;
   }
   _render();
+
+  if (_session?.status === "running" && Date.now() - new Date(_session.started_at).getTime() > STALE_RUNNING_MS) {
+    toast.info(`Existe uma sessão em andamento iniciada em ${_formatDateTime(_session.started_at)}.`);
+  }
+
+  return !!_session;
 }
 
 /**
