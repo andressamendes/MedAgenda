@@ -1,4 +1,4 @@
-// ── studyJournalView.js — Diário de Estudos (F8.1 + Reflexão F8.2) ─────────
+// ── studyJournalView.js — Linha do Tempo da Aprendizagem (F8.1–F8.3) ───────
 // Tela majoritariamente de consulta, foco narrativo: cada Sessão concluída
 // vira um registro cronológico da jornada de estudo. Reutiliza
 // exclusivamente activitySessionService.listSessions() (mesmo contrato
@@ -14,6 +14,12 @@
 // (activity_sessions.notes): Observações representam o estudo, Reflexão
 // representa a aprendizagem. Nenhum outro domínio (Dashboard, Insights, IA,
 // Conquistas, Progresso, Estatísticas) é lido ou alterado por essa escrita.
+//
+// F8.3 — agrupamento por dia: puramente uma reorganização visual das mesmas
+// sessões retornadas por listSessions() (já ordenadas started_at desc, ver
+// activitySessionService.js). Nenhum dado novo é buscado ou persistido; data,
+// contagem de sessões e tempo líquido do cabeçalho diário são derivados em
+// memória das sessões já carregadas na página atual.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -58,6 +64,12 @@ let _eventsById = new Map();
 
 let _unsubscribers = [];
 let _reloadTimer   = null;
+
+// Grupo diário "aberto" no momento — sessões chegam sempre em ordem
+// started_at desc (listSessions), então o único grupo que uma nova página
+// pode continuar é o último já renderizado (o de data mais antiga até
+// agora). Resetado a cada _loadPage(reset=true).
+let _openGroup = null;
 
 function _scheduleReload() {
   if (_reloadTimer) return;
@@ -124,6 +136,28 @@ function _formatReviewDate(dateStr) {
   if (!dateStr) return "—";
   const d = localDate(dateStr);
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+// ── Agrupamento diário (F8.3) ───────────────────────────────────────────
+// Chave/rótulo derivados apenas de started_at (data local) — mesma sessão,
+// nenhum campo novo. "Hoje"/"Ontem" comparam por ano/mês/dia local, sem
+// round-trip por ISO/UTC (evita virar o dia perto da meia-noite em fusos
+// negativos).
+function _dayKeyFromDate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function _dayKey(iso) {
+  return _dayKeyFromDate(new Date(iso));
+}
+
+function _dayLabel(iso) {
+  const key = _dayKey(iso);
+  const now = new Date();
+  if (key === _dayKeyFromDate(now)) return "Hoje";
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (key === _dayKeyFromDate(yesterday)) return "Ontem";
+  return _formatDate(iso);
 }
 
 // ── Questões/Revisões da sessão (contagem no cartão + detalhamento) ────────
@@ -243,12 +277,49 @@ function _toggleEntry(toggleBtn, detailEl) {
   toggleBtn.textContent = expand ? "Recolher" : "Detalhar";
 }
 
+// Cabeçalho do grupo diário: data, quantidade de sessões e tempo líquido —
+// tudo somado a partir das sessões já anexadas ao grupo (nenhuma consulta
+// extra; duration_minutes já vem de listSessions/ver F7.7 desconto de pausas).
+function _updateGroupHeader(group) {
+  const totalMinutes = group.sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  group.countEl.textContent = `${group.sessions.length} sessão(ões)`;
+  group.durationEl.textContent = _formatDuration(totalMinutes);
+}
+
+function _createDayGroup(iso) {
+  const li = document.createElement("li");
+  li.className = "sj-day-group";
+  li.innerHTML = `
+    <div class="sj-day-header">
+      <span class="sj-day-header-date">${escapeHtml(_dayLabel(iso))}</span>
+      <span class="sj-day-header-count"></span>
+      <span class="sj-day-header-duration"></span>
+    </div>
+    <ul class="sj-day-sessions"></ul>
+  `;
+  listEl.appendChild(li);
+
+  return {
+    key: _dayKey(iso),
+    sessions: [],
+    countEl: li.querySelector(".sj-day-header-count"),
+    durationEl: li.querySelector(".sj-day-header-duration"),
+    sessionsEl: li.querySelector(".sj-day-sessions"),
+  };
+}
+
 async function _renderSessions(sessions) {
   const extras = await Promise.all(sessions.map(s => _fetchSessionExtras(s.id)));
 
   sessions.forEach((s, i) => {
     const meta = _resolveMeta(s);
     const { questions, reviews, reflection } = extras[i];
+
+    const dayKey = _dayKey(s.started_at);
+    if (!_openGroup || _openGroup.key !== dayKey) {
+      _openGroup = _createDayGroup(s.started_at);
+    }
+
     const li = document.createElement("li");
     li.className = "sj-entry";
     li.innerHTML = `
@@ -281,7 +352,9 @@ async function _renderSessions(sessions) {
     _renderReflectionView(detailEl.querySelector(".sj-reflection"), s.id, reflection);
     toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
 
-    listEl.appendChild(li);
+    _openGroup.sessionsEl.appendChild(li);
+    _openGroup.sessions.push(s);
+    _updateGroupHeader(_openGroup);
   });
 }
 
@@ -298,6 +371,7 @@ async function _loadPage(reset) {
   if (reset) {
     _offset = 0;
     listEl.innerHTML = "";
+    _openGroup = null;
     emptyEl.hidden = true;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
