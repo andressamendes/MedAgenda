@@ -1951,6 +1951,81 @@ textarea { resize: vertical; }
   font-size: .78rem;
 }
 
+/* ── Marcos da Evolução (F8.7) ── */
+.sj-milestones {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .7rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  background: var(--gray-50, transparent);
+}
+
+.sj-milestones-title {
+  margin: 0;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.sj-milestones-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.sj-milestone-item {
+  display: flex;
+  gap: .6rem;
+  align-items: flex-start;
+  border-left: 3px solid var(--gray-300);
+  padding-left: .6rem;
+}
+
+.sj-milestone-item--success { border-left-color: var(--color-success); }
+.sj-milestone-item--info    { border-left-color: var(--color-info); }
+.sj-milestone-item--warning { border-left-color: var(--color-warning); }
+
+.sj-milestone-icon {
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.sj-milestone-body {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-width: 0;
+}
+
+.sj-milestone-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .6rem;
+  align-items: baseline;
+}
+
+.sj-milestone-item-title {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.sj-milestone-date {
+  font-size: .75rem;
+  color: var(--gray-500);
+}
+
+.sj-milestone-description {
+  margin: 0;
+  font-size: .8rem;
+  color: var(--gray-600);
+}
+
 /* ── Modal Quick Add ── */
 /* ── Modal (F5.2) — moldura única para quick-add, confirmação, contas,
    categorias, configurações e calendário acadêmico. Largura varia por
