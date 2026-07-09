@@ -199,6 +199,28 @@ test("a compromisso with no sessions shows no indicator", async (t) => {
   assert.strictEqual(chip.classList.contains("cal-chip-executed"), false);
 });
 
+test("resetCalendar clears the rendered month grid and disables refresh until the next login", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, { events: [ev] });
+  const { initCalendar, refreshCalendar, resetCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  await initCalendar(container, {});
+
+  // Sanity: dados do usuário estão renderizados antes do logout.
+  assert.ok(container.querySelector(".cal-chip"), "event chip should be rendered before logout");
+  assert.ok(container.textContent.includes("Prova de Anatomia"));
+  const callsBeforeReset = rangeCalls.length;
+
+  resetCalendar();
+
+  // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
+  // após o logout, e nenhum refresh pode buscar dados antes do próximo login.
+  assert.strictEqual(container.innerHTML, "", "logout must leave no rendered data behind");
+  await refreshCalendar();
+  assert.strictEqual(rangeCalls.length, callsBeforeReset, "refresh after reset must not fetch anything");
+});
+
 test("a failure fetching execution summaries does not break the calendar", async (t) => {
   const { day15 } = currentMonthInfo();
   const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };

@@ -41,6 +41,21 @@ export async function refreshCalendar() {
   await fetchAndRender();
 }
 
+// Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut). Descarta
+// o DOM renderizado e o estado do módulo: esta é uma SPA sem reload de página
+// entre sessões, então os compromissos do usuário anterior não podem
+// sobreviver no DOM durante a janela entre o logout e o próximo _initApp —
+// mesma simetria init/reset dos demais subsistemas (auditoria A1.3). Com
+// `container` zerado, refreshCalendar() volta a ser no-op até o próximo
+// initCalendar().
+export function resetCalendar() {
+  if (container) container.innerHTML = "";
+  container = null;
+  callbacks = null;
+  _academicProvider = null;
+  _showPersonal = () => true;
+}
+
 // ── Shell (estrutura estática — criada uma vez) ────────────────────────────
 
 function buildShell() {

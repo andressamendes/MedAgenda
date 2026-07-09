@@ -27,7 +27,7 @@
  */
 
 import { getEvents, getEventById, deleteEvent } from "./eventService.js";
-import { initCalendar, refreshCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
+import { initCalendar, refreshCalendar, resetCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import { initNotifications, scheduleReminders, resetNotifications } from "./notificationService.js";
@@ -496,6 +496,7 @@ initAuthView({
     resetAIPanel();
     resetAIContextService();
     resetEventForm();
+    resetCalendar();
     _resetEventList();
   },
 });

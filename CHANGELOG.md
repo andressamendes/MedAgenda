@@ -2,6 +2,30 @@
 
 ---
 
+## [Unreleased] — F9: limpeza completa da Agenda Semanal e do Calendário no logout
+
+Correção de simetria init/reset (auditoria A1.3): no logout, a Agenda Semanal
+e o Calendário mensal eram os únicos subsistemas que não descartavam o
+conteúdo já renderizado nem o estado em memória — os compromissos do usuário
+anterior (títulos, chips, dica de IA e plano da semana) permaneciam no DOM, e
+o cache `_weeklyPlan` na memória, durante toda a janela entre o logout e o
+próximo login, nesta SPA sem reload de página.
+
+- `weekView.js` — `destroyWeekView()` passa a limpar também o DOM renderizado
+  (grade, dica contextual e plano da semana) e o estado do módulo
+  (`_cbs`, `_mon`, `_weeklyPlan`, `_planExpanded`, providers injetados), além
+  do timer da linha do agora que já limpava.
+- `calendar.js` — ganha `resetCalendar()` (não existia reset algum), que limpa
+  o DOM da grade do mês e zera o estado do módulo; `refreshCalendar()` volta a
+  ser no-op até o próximo `initCalendar()`.
+- `script.js` — `resetCalendar()` entra na cadeia `onBeforeSignOut`, junto dos
+  demais resets.
+
+Nenhuma API pública foi alterada (`destroyWeekView` mantém contrato; providers
+e callbacks já eram re-registrados a cada `_initApp`). Nenhum domínio foi
+tocado. Testes novos em `tests/views/weekView.test.js` e
+`tests/views/calendar.test.js` reproduzem o vazamento antes da correção.
+
 ## [Unreleased] — F8.5: Linha do Tempo da Evolução (Diário de Estudos)
 
 Adiciona uma camada narrativa sobre o Diário de Estudos (`studyJournalView.js`,
