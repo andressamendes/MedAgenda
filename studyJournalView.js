@@ -46,6 +46,16 @@
 // visíveis daquela semana, produzido por buildWeeklySummary()
 // (studySummaryService.js — função pura, sem I/O, sem IA). Nenhuma consulta
 // nova, nenhuma persistência, nenhum outro domínio tocado.
+//
+// F8.7 — Marcos da Evolução: acrescenta, antes dos grupos de dia, uma
+// timeline somente-leitura com os acontecimentos importantes da jornada
+// (primeira sessão, limiares de tempo/questões/matérias, recordes,
+// constância), produzida por buildMilestones() (studyMilestoneService.js —
+// função pura, sem I/O, sem IA) sobre `filtered` — o mesmo array já
+// filtrado pelo F8.4. Recalculado a cada _render(), então os marcos também
+// só consideram as sessões atualmente visíveis; nenhuma consulta nova,
+// nenhum dado persistido, nenhum outro domínio (Dashboard, Insights,
+// Conquistas) tocado.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -64,6 +74,7 @@ import {
   summarizeWeekGroups,
 } from "./studyTimelineService.js";
 import { buildWeeklySummary } from "./studySummaryService.js";
+import { buildMilestones } from "./studyMilestoneService.js";
 
 const PAGE_SIZE = 10;
 
@@ -352,6 +363,48 @@ function _createDayGroup(iso) {
   };
 }
 
+// ── Marcos da Evolução (F8.7) ────────────────────────────────────────────
+// Glifos já existentes no app (nav-icon de index.html) reaproveitados como
+// "ícone" de cada marco — nenhum SVG, imagem ou biblioteca de ícones novos,
+// apenas os mesmos caracteres Unicode já usados na barra lateral.
+const MILESTONE_ICON_GLYPHS = {
+  "check-circle": "\u{1F4CB}", // 📋 — mesmo glifo do nav "Compromissos"
+  clock:          "⏳",     // ⏳ — mesmo glifo do nav "Sessão de Estudo"
+  target:         "\u{1F4CA}", // 📊 — mesmo glifo do nav "Dashboard"
+  flame:          "✨",     // ✨ — mesmo glifo do nav "Assistente IA"
+  book:           "\u{1F4DA}", // 📚 — mesmo glifo do nav "Calendários"
+};
+
+// Inserido como o primeiro <li> da lista, antes de qualquer grupo de dia —
+// somente leitura, recalculado a cada _render() a partir de `filtered` (o
+// mesmo array já filtrado pelo F8.4) via buildMilestones()
+// (studyMilestoneService.js, função pura). Sem marcos, nada é inserido.
+function _appendMilestonesTimeline(filteredEntries) {
+  const milestones = buildMilestones(filteredEntries);
+  if (milestones.length === 0) return;
+
+  const li = document.createElement("li");
+  li.className = "sj-milestones";
+  li.innerHTML = `
+    <h3 class="sj-milestones-title">Marcos da Evolução</h3>
+    <ul class="sj-milestones-list">
+      ${milestones.map(m => `
+        <li class="sj-milestone-item sj-milestone-item--${escapeHtml(m.severity)}">
+          <span class="sj-milestone-icon" aria-hidden="true">${MILESTONE_ICON_GLYPHS[m.icon] || ""}</span>
+          <div class="sj-milestone-body">
+            <div class="sj-milestone-header">
+              <span class="sj-milestone-item-title">${escapeHtml(m.title)}</span>
+              <span class="sj-milestone-date">${_formatDate(m.date)}</span>
+            </div>
+            <p class="sj-milestone-description">${escapeHtml(m.description)}</p>
+          </div>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+  listEl.appendChild(li);
+}
+
 // ── Resumo diário e indicadores de evolução (F8.5) ──────────────────────
 // Cartão anexado ao final do próprio grupo de dia (dentro do mesmo <li
 // class="sj-day-group">, depois de .sj-day-sessions) — nunca substitui as
@@ -558,6 +611,10 @@ function _render() {
   }
 
   emptyEl.hidden = true;
+
+  // F8.7 — Marcos da Evolução: bloco somente-leitura inserido antes de
+  // qualquer grupo de dia, derivado das mesmas entradas filtradas.
+  _appendMilestonesTimeline(filtered);
 
   // Primeiro passo: agrupa as entradas filtradas por dia, na mesma ordem
   // started_at desc já garantida por listSessions()/F8.3 — puramente em
