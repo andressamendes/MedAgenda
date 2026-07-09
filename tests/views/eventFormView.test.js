@@ -572,3 +572,197 @@ test("closing the form clears any insight cards, and a failure loading them degr
   document.getElementById("btn-cancel").click();
   assert.strictEqual(document.getElementById("event-insights").hidden, true);
 });
+
+// ── B2: ciclo de vida do formulário (BUG 02 + BUG 03) ───────────────────────
+// BUG 02 — um salvamento que ainda está em rede quando o usuário cancela e
+// passa a editar outro compromisso não pode, ao terminar, sobrescrever o
+// campo Data (ou qualquer outro) do compromisso que está sendo editado agora.
+// BUG 03 — nenhum estado do formulário (campos, editingId, modal aberto) pode
+// sobreviver ao cancelar, salvar, fechar ou trocar de usuário (logout).
+
+test("editing the Data field repeatedly, then reopening the same event, always reflects the event's own date — never a leftover edit", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  const event = { id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" };
+  openEventForm(event);
+  assert.strictEqual(document.getElementById("f-date").value, "2026-08-12");
+
+  const fDate = document.getElementById("f-date");
+  fDate.value = "2026-08-15";
+  fDate.dispatchEvent(new window.Event("input"));
+  fDate.value = "2026-08-20";
+  fDate.dispatchEvent(new window.Event("change"));
+  assert.strictEqual(fDate.value, "2026-08-20");
+
+  // Cancelar descarta a edição não salva — reabrir o MESMO compromisso deve
+  // mostrar sua data original, não o valor editado e abandonado.
+  document.getElementById("btn-cancel").click();
+  openEventForm(event);
+  assert.strictEqual(document.getElementById("f-date").value, "2026-08-12");
+});
+
+test("a save still in flight when the user cancels and opens a different event does not clear/close that new edit when it resolves (BUG 02)", async (t) => {
+  let resolveUpdate;
+  serviceCalls = [];
+  t.mock.module(EVENT_SERVICE_SPECIFIER, {
+    namedExports: {
+      createEvent: async (fields) => { serviceCalls.push({ fn: "createEvent", fields }); return { id: "evt-new", ...fields }; },
+      updateEvent: (id, fields) => {
+        serviceCalls.push({ fn: "updateEvent", id, fields });
+        return new Promise((resolve) => { resolveUpdate = () => resolve({ id, ...fields }); });
+      },
+    },
+  });
+  t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
+  t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, { namedExports: { listByEvent: async () => [] } });
+  t.mock.module(AICONTEXT_SPECIFIER, { namedExports: { getAIContext: async () => EMPTY_AI_CONTEXT } });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  const eventA = { id: "evt-a", title: "Prova de Anatomia", event_date: "2026-08-10", start_time: "08:00:00" };
+  openEventForm(eventA);
+  document.getElementById("f-title").value = "Prova de Anatomia (editada)";
+  const savePromise = new Promise((resolve) => {
+    document.getElementById("btn-save").addEventListener("click", () => setTimeout(resolve, 0), { once: true });
+  });
+  document.getElementById("btn-save").click();
+  await savePromise;
+
+  // O usuário não espera a rede: cancela e abre outro compromisso enquanto
+  // o updateEvent de A ainda está pendente.
+  document.getElementById("btn-cancel").click();
+  const eventB = { id: "evt-b", title: "Plantão UPA", event_date: "2026-09-01", start_time: "20:00:00" };
+  openEventForm(eventB);
+  const fDate = document.getElementById("f-date");
+  fDate.value = "2026-09-15"; // usuário já está digitando a nova data de B
+
+  // O salvamento de A finalmente resolve...
+  resolveUpdate();
+  await flush();
+
+  // ...mas não pode fechar o modal nem sobrescrever o que o usuário está
+  // editando agora — o formulário continua mostrando B, intacto.
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
+  assert.strictEqual(document.getElementById("f-title").value, "Plantão UPA");
+  assert.strictEqual(fDate.value, "2026-09-15");
+  assert.strictEqual(document.getElementById("event-id").value, "evt-b");
+});
+
+test("opening a different event after properly closing the previous one never inherits its field values", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({
+    id: "evt-a", title: "Prova de Anatomia", event_date: "2026-08-10", start_time: "08:00:00",
+    duration_minutes: 90, category: "Anatomia", location: "Sala 3", description: "Levar prancheta",
+    reminder_minutes: 30, recurrence_type: "none",
+  });
+  document.getElementById("btn-cancel").click();
+
+  openEventForm({ id: "evt-b", title: "Plantão UPA", event_date: "2026-09-01", start_time: "20:00:00" });
+
+  assert.strictEqual(document.getElementById("f-title").value, "Plantão UPA");
+  assert.strictEqual(document.getElementById("f-date").value, "2026-09-01");
+  assert.strictEqual(document.getElementById("f-duration").value, "");
+  assert.strictEqual(document.getElementById("f-category").value, "");
+  assert.strictEqual(document.getElementById("f-location").value, "");
+  assert.strictEqual(document.getElementById("f-description").value, "");
+  assert.strictEqual(document.getElementById("f-reminder").value, "");
+  assert.strictEqual(document.getElementById("event-id").value, "evt-b");
+});
+
+test("repeated open/cancel and open/save cycles never trigger more than one service call per save", async (t) => {
+  mockEventService(t, { createResult: { id: "evt-new" } });
+  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  document.getElementById("btn-new-event").click();
+  fillRequiredFields({ date: "2026-08-01" });
+  document.getElementById("btn-cancel").click();
+
+  document.getElementById("btn-new-event").click();
+  fillRequiredFields({ date: "2026-08-02" });
+  document.getElementById("btn-cancel").click();
+
+  document.getElementById("btn-new-event").click();
+  fillRequiredFields({ date: "2026-08-03" });
+  document.getElementById("btn-save").click();
+  await flush();
+
+  assert.strictEqual(serviceCalls.length, 1);
+  assert.strictEqual(serviceCalls[0].fields.event_date, "2026-08-03");
+});
+
+test("resetEventForm() (called on logout / user switch) closes the modal and clears editingId, so the next session starts clean", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm, resetEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" });
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
+
+  resetEventForm();
+
+  assert.strictEqual(document.getElementById("event-modal").hidden, true);
+  assert.strictEqual(document.getElementById("f-title").value, "");
+  assert.strictEqual(document.getElementById("f-date").value, "");
+  assert.strictEqual(document.getElementById("event-id").value, "");
+
+  // O reset não pode deixar o formulário "travado" — a próxima sessão
+  // precisa conseguir abrir o formulário normalmente.
+  openEventForm({ id: "evt-2", title: "Aula", event_date: "2026-09-05", start_time: "10:00:00" });
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
+  assert.strictEqual(document.getElementById("f-title").value, "Aula");
+  assert.strictEqual(document.getElementById("f-date").value, "2026-09-05");
+});
+
+test("resetEventForm() invalidates any in-flight session-history/insights request from the event being edited at logout time", async (t) => {
+  let resolveHistory;
+  serviceCalls = [];
+  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { createEvent: async () => {}, updateEvent: async () => {} } });
+  t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
+  t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
+    namedExports: {
+      listByEvent: () => new Promise((resolve) => { resolveHistory = resolve; }),
+    },
+  });
+  t.mock.module(AICONTEXT_SPECIFIER, { namedExports: { getAIContext: async () => EMPTY_AI_CONTEXT } });
+  const { initEventForm, openEventForm, resetEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  resetEventForm();
+
+  resolveHistory([{
+    id: "sess-1", status: "finished", source: "manual",
+    started_at: "2026-08-12T08:00:00.000Z", ended_at: "2026-08-12T08:45:00.000Z", duration_minutes: 45,
+  }]);
+  await flush();
+
+  // A resposta chegou depois do logout — não pode popular a lista/estatísticas
+  // escondidas, nem sobreviver para o próximo usuário.
+  assert.strictEqual(document.getElementById("session-history-list").children.length, 0);
+  assert.strictEqual(document.getElementById("session-stats").hidden, true);
+});
+
+test("two independently-initialized module instances never share form state with each other", async (t) => {
+  mockEventService(t);
+  const first  = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const second = await import(`../../eventFormView.js?t=${Math.random()}`);
+
+  first.initEventForm();
+  first.openEventForm({ id: "evt-first", title: "Do primeiro módulo", event_date: "2026-08-12", start_time: "08:00:00" });
+  assert.strictEqual(document.getElementById("f-title").value, "Do primeiro módulo");
+
+  // O segundo módulo é uma instância totalmente separada (import com query
+  // string distinta) — reinicializá-lo sobre o mesmo DOM e limpar o
+  // formulário não pode ser afetado por nenhum estado retido pelo primeiro.
+  second.initEventForm();
+  second.resetEventForm();
+
+  assert.strictEqual(document.getElementById("f-title").value, "");
+  assert.strictEqual(document.getElementById("event-modal").hidden, true);
+});

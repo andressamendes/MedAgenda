@@ -41,6 +41,14 @@ let _editingEvent = null;
 let _onSave   = null;
 let _historyRequestId = 0; // descarta respostas obsoletas se o evento editado mudar antes da resposta chegar
 let _insightsRequestId = 0; // mesmo padrão, para os cards inteligentes (F3.5)
+// Identifica qual edição está "ao vivo" no formulário — incrementado toda vez
+// que o formulário passa a representar uma edição diferente (nova abertura,
+// reset, fechamento). Um salvamento em andamento captura o valor no início e
+// só limpa/fecha o formulário ao terminar se ele ainda corresponder à MESMA
+// edição — do contrário o usuário já cancelou e passou para outro
+// compromisso, e o salvamento tardio não pode sobrescrever a digitação nem
+// fechar um modal que não é mais o dele (BUG 02 / BUG 03).
+let _formGeneration = 0;
 
 let eventModal         = null;
 let eventForm          = null;
@@ -162,6 +170,13 @@ export function initEventForm(onSave) {
     if (!fDate.value)         { formError.textContent = "Data é obrigatória."; return; }
     if (!fStart.value)        { formError.textContent = "Hora de início é obrigatória."; return; }
 
+    // Identifica a edição atual antes de qualquer `await` — se o usuário
+    // cancelar e abrir outro compromisso enquanto este salvamento ainda está
+    // em rede, a resposta tardia não pode limpar/fechar o formulário que
+    // agora pertence a outra edição (BUG 02/03).
+    const generation   = _formGeneration;
+    const wasEditingId = editingId;
+
     const recType = fRecurrence.value || "none";
     const fields = {
       title:                   fTitle.value.trim(),
@@ -180,11 +195,11 @@ export function initEventForm(onSave) {
     };
 
     saveBtn.disabled    = true;
-    saveBtn.textContent = editingId ? "Atualizando…" : "Salvando…";
+    saveBtn.textContent = wasEditingId ? "Atualizando…" : "Salvando…";
 
     try {
-      if (editingId) {
-        await updateEvent(editingId, fields);
+      if (wasEditingId) {
+        await updateEvent(wasEditingId, fields);
         track(EVENTS.APPOINTMENT_EDITED, { title: fields.title });
         toast.success("Compromisso atualizado com sucesso.");
       } else {
@@ -192,15 +207,21 @@ export function initEventForm(onSave) {
         track(EVENTS.APPOINTMENT_CREATED, { title: fields.title });
         toast.success("Compromisso salvo com sucesso.");
       }
-      _clearForm();
-      _closeEventModal();
+      if (generation === _formGeneration) {
+        _clearForm();
+        _closeEventModal();
+      }
       if (_onSave) await _onSave();
     } catch (err) {
-      handleError(err, { context: editingId ? 'eventFormView.update' : 'eventFormView.create', silent: true });
-      formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
+      handleError(err, { context: wasEditingId ? 'eventFormView.update' : 'eventFormView.create', silent: true });
+      if (generation === _formGeneration) {
+        formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
+      }
     } finally {
-      saveBtn.disabled    = false;
-      saveBtn.textContent = editingId ? "Atualizar compromisso" : "Salvar compromisso";
+      if (generation === _formGeneration) {
+        saveBtn.disabled    = false;
+        saveBtn.textContent = editingId ? "Atualizar compromisso" : "Salvar compromisso";
+      }
     }
   });
 }
@@ -242,7 +263,18 @@ function _handleModalClose() {
   _clearForm();
 }
 
+/**
+ * Chamado no logout/troca de usuário (ver script.js) — sem isso, um modal
+ * deixado aberto (ou o `editingId`/`_editingEvent` de uma edição em curso)
+ * sobreviveria à troca de sessão e vazaria para o próximo usuário.
+ */
+export function resetEventForm() {
+  _closeEventModal();
+  _clearForm();
+}
+
 function _clearForm() {
+  _formGeneration++;
   editingId      = null;
   _editingEvent  = null;
   startSessionBtn.hidden = true;
@@ -266,12 +298,14 @@ function _clearForm() {
   recurrenceCustom.hidden   = true;
   _setSelectedDays("");
   formTitle.textContent = "Novo compromisso";
+  saveBtn.disabled       = false;
   saveBtn.textContent   = "Salvar compromisso";
   cancelBtn.hidden      = false;
   formError.textContent = "";
 }
 
 function _populateForm(ev) {
+  _formGeneration++;
   editingId             = ev.id;
   _editingEvent         = ev;
   startSessionBtn.hidden = false;
@@ -294,6 +328,7 @@ function _populateForm(ev) {
   _setSelectedDays(ev.recurrence_days_of_week || "");
   fRecurrence.dispatchEvent(new Event("change"));
   formTitle.textContent = "Editar compromisso";
+  saveBtn.disabled       = false;
   saveBtn.textContent   = "Atualizar compromisso";
   cancelBtn.hidden      = false;
   formError.textContent = "";
