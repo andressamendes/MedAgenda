@@ -498,6 +498,54 @@ test("confirming the summary calls activitySessionService.finishSession() and re
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
 
+// ── Resumo Final da Sessão concluída (F7.10) ────────────────────────────────
+
+test("confirming the summary opens the final session summary with the counts and notes just persisted", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: "2026-07-09T13:00:00.000Z", event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Cardiologia — aula 3", category: "Cardiologia", description: "IC", duration_minutes: 60 }),
+    finishSession: async (id, endedAt) => ({
+      id, status: "finished", started_at: "2026-07-09T13:00:00.000Z",
+      ended_at: endedAt.toISOString(), duration_minutes: 90,
+    }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-notes").value = "Revisar arritmias amanhã.";
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true, "the finish confirmation modal closes first");
+  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, false, "the final summary opens right after");
+  assert.strictEqual(document.getElementById("sss-event-title").textContent, "Cardiologia — aula 3");
+  assert.strictEqual(document.getElementById("sss-card-questions").textContent, "1");
+  assert.strictEqual(document.getElementById("sss-card-reviews").textContent, "0");
+  assert.strictEqual(document.getElementById("sss-card-net-time").textContent, "1h 30min");
+  assert.strictEqual(document.getElementById("sss-card-status").textContent, "Concluída");
+  assert.strictEqual(document.getElementById("sss-notes").textContent, "Revisar arritmias amanhã.");
+});
+
+test("clicking Voltar (cancelling the finish flow) never opens the final summary", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true);
+});
+
 test("a domain error (e.g. session already running) is reported via errorService and leaves the page in the empty state", async (t) => {
   const domainError = Object.assign(new Error("Já existe uma sessão de atividade em andamento."), {
     code: "SESSION_ALREADY_RUNNING",

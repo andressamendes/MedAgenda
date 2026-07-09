@@ -28,6 +28,7 @@ import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
 import { initModal } from "./modalController.js";
+import { openSessionSummary } from "./sessionSummaryView.js";
 import { handleError } from "./errorService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
@@ -97,6 +98,7 @@ let _tickId    = null;
 let _busy      = false; // evita cliques duplicados durante uma chamada em andamento
 let _unsubscribers = [];
 let _pendingEndedAt = null; // horário de término congelado ao abrir o resumo, reaproveitado na confirmação
+let _pendingNetMinutes = null; // mesmo valor exibido em ssf-net-time (F7.10: reaproveitado no resumo final, sem recálculo)
 
 // Questões adicionadas no resumo, ainda não persistidas — só viram linhas em
 // public.questions (via sessionQuestionsService.addQuestion()) na confirmação
@@ -587,6 +589,7 @@ function _openFinishModal() {
 
   _pendingEndedAt = new Date();
   const netMinutes = _minutesBetween(_session, _pendingEndedAt);
+  _pendingNetMinutes = netMinutes;
 
   ssfTitleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
   ssfCategoryEl.textContent = _eventMeta?.category || "—";
@@ -616,6 +619,7 @@ function _openFinishModal() {
 
 function _closeFinishModal() {
   _pendingEndedAt = null;
+  _pendingNetMinutes = null;
   _pendingQuestions = [];
   _editingQuestionLocalId = null;
   _pendingReviews = [];
@@ -635,7 +639,14 @@ async function _confirmFinish() {
   const endedAt = _pendingEndedAt;
   const questions = _pendingQuestions;
   const reviews = _pendingReviews;
+  const eventMeta = _eventMeta;
+  const notes = ssfNotesEl.value;
+  const startedAt = _session.started_at; // _session vira null após _run() (sessão finalizada), então precisa ser capturado antes
 
+  // F7.10: capturado só para alimentar o resumo final somente leitura aberto
+  // logo abaixo — o valor vem pronto de finishSession() (activitySessionService,
+  // intocado), nenhum recálculo de duração/status acontece aqui.
+  let finishedSession = null;
   await _run(async () => {
     for (const q of questions) {
       await addQuestion(sessionId, {
@@ -652,9 +663,23 @@ async function _confirmFinish() {
         : r.reviewId;
       await associateReview(reviewId, sessionId);
     }
-    return finishSession(sessionId, endedAt);
+    finishedSession = await finishSession(sessionId, endedAt);
+    return finishedSession;
   });
   _closeFinishModal();
+
+  if (finishedSession) {
+    openSessionSummary({
+      eventMeta,
+      startedAt:      finishedSession.started_at ?? startedAt,
+      endedAt:        finishedSession.ended_at ?? endedAt,
+      netMinutes:     finishedSession.duration_minutes ?? _pendingNetMinutes,
+      status:         finishedSession.status,
+      questionsCount: questions.length,
+      reviewsCount:   reviews.length,
+      notes,
+    });
+  }
 }
 
 // Recarrega a partir de um evento do barramento — nunca assume que o payload
@@ -804,6 +829,7 @@ export function resetStudySessionView() {
   _eventMeta = null;
   _busy      = false;
   _pendingEndedAt = null;
+  _pendingNetMinutes = null;
   _pendingQuestions = [];
   _editingQuestionLocalId = null;
   _pendingReviews = [];
