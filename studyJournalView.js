@@ -1,4 +1,4 @@
-// ── studyJournalView.js — Linha do Tempo da Aprendizagem (F8.1–F8.3) ───────
+// ── studyJournalView.js — Linha do Tempo da Aprendizagem (F8.1–F8.4) ───────
 // Tela majoritariamente de consulta, foco narrativo: cada Sessão concluída
 // vira um registro cronológico da jornada de estudo. Reutiliza
 // exclusivamente activitySessionService.listSessions() (mesmo contrato
@@ -20,6 +20,15 @@
 // activitySessionService.js). Nenhum dado novo é buscado ou persistido; data,
 // contagem de sessões e tempo líquido do cabeçalho diário são derivados em
 // memória das sessões já carregadas na página atual.
+//
+// F8.4 — filtros e navegação: período, matéria, categoria e busca textual
+// operam inteiramente sobre `_allEntries`, o acumulado em memória das
+// sessões (+ metadados do compromisso + questões/revisões/reflexão) já
+// carregadas via "Carregar mais" — trocar um filtro nunca dispara uma nova
+// chamada a listSessions()/getEvents()/listQuestions()/listBySession()/
+// getBySession(); apenas re-renderiza o mesmo array já resolvido. As opções
+// de matéria/categoria dos <select> são derivadas do próprio conjunto
+// carregado (nenhuma consulta a subjectProgressService/categoryService).
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -54,6 +63,7 @@ const REVIEW_STATUS_LABELS = {
 };
 
 let listEl, emptyEl, loadMoreBtn;
+let periodSelect, subjectSelect, categorySelect, searchInput;
 
 let _offset  = 0;
 let _loading = false;
@@ -65,11 +75,15 @@ let _eventsById = new Map();
 let _unsubscribers = [];
 let _reloadTimer   = null;
 
-// Grupo diário "aberto" no momento — sessões chegam sempre em ordem
-// started_at desc (listSessions), então o único grupo que uma nova página
-// pode continuar é o último já renderizado (o de data mais antiga até
-// agora). Resetado a cada _loadPage(reset=true).
-let _openGroup = null;
+// Acumulado em memória de tudo que já foi carregado (todas as páginas até
+// agora), na mesma ordem started_at desc devolvida por listSessions() — a
+// base sobre a qual os filtros (F8.4) operam sem nenhuma consulta nova.
+// Cada item: { session, meta, extras }.
+let _allEntries = [];
+
+// Estado dos filtros (F8.4) — puramente client-side, nenhum valor novo
+// persistido. `search` já normalizado (trim + lowercase) ao ser lido do input.
+let _filters = { period: "all", subject: "", category: "", search: "" };
 
 function _scheduleReload() {
   if (_reloadTimer) return;
@@ -186,7 +200,7 @@ async function _fetchSessionExtras(sessionId) {
 // (o estudo em si), Reflexão vem de studyReflectionService.js (a
 // aprendizagem) — nunca a mesma fonte, nunca o mesmo domínio.
 
-function _renderReflectionView(sectionEl, sessionId, reflection) {
+function _renderReflectionView(sectionEl, entry, reflection) {
   sectionEl.innerHTML = `
     ${reflection
       ? `<p class="sj-reflection-text">${escapeHtml(reflection.content)}</p>`
@@ -196,10 +210,10 @@ function _renderReflectionView(sectionEl, sessionId, reflection) {
     </button>
   `;
   sectionEl.querySelector(".sj-reflection-toggle")
-    .addEventListener("click", () => _renderReflectionForm(sectionEl, sessionId, reflection));
+    .addEventListener("click", () => _renderReflectionForm(sectionEl, entry, reflection));
 }
 
-function _renderReflectionForm(sectionEl, sessionId, reflection) {
+function _renderReflectionForm(sectionEl, entry, reflection) {
   sectionEl.innerHTML = `
     <textarea class="sj-reflection-input" rows="4">${reflection ? escapeHtml(reflection.content) : ""}</textarea>
     <p class="sj-reflection-error" hidden></p>
@@ -213,13 +227,17 @@ function _renderReflectionForm(sectionEl, sessionId, reflection) {
   const errorEl  = sectionEl.querySelector(".sj-reflection-error");
 
   sectionEl.querySelector(".sj-reflection-cancel")
-    .addEventListener("click", () => _renderReflectionView(sectionEl, sessionId, reflection));
+    .addEventListener("click", () => _renderReflectionView(sectionEl, entry, reflection));
 
   sectionEl.querySelector(".sj-reflection-save").addEventListener("click", async () => {
     errorEl.hidden = true;
     try {
-      const saved = await saveReflection(sessionId, textarea.value);
-      _renderReflectionView(sectionEl, sessionId, saved);
+      const saved = await saveReflection(entry.session.id, textarea.value);
+      // Mantém _allEntries consistente (mesmo objeto usado pela busca
+      // textual do F8.4) sem refazer getBySession — a resposta de
+      // saveReflection já é a reflexão salva.
+      entry.extras.reflection = saved;
+      _renderReflectionView(sectionEl, entry, saved);
     } catch (err) {
       const { friendly } = handleError(err, { context: "studyJournalView.saveReflection", silent: true });
       errorEl.textContent = friendly;
@@ -308,54 +326,43 @@ function _createDayGroup(iso) {
   };
 }
 
-async function _renderSessions(sessions) {
-  const extras = await Promise.all(sessions.map(s => _fetchSessionExtras(s.id)));
+function _buildEntryEl(entry) {
+  const { session: s, meta, extras } = entry;
+  const { questions, reviews, reflection } = extras;
 
-  sessions.forEach((s, i) => {
-    const meta = _resolveMeta(s);
-    const { questions, reviews, reflection } = extras[i];
-
-    const dayKey = _dayKey(s.started_at);
-    if (!_openGroup || _openGroup.key !== dayKey) {
-      _openGroup = _createDayGroup(s.started_at);
-    }
-
-    const li = document.createElement("li");
-    li.className = "sj-entry";
-    li.innerHTML = `
-      <div class="sj-entry-header">
-        <div class="sj-entry-title-row">
-          <span class="ah-item-title">${escapeHtml(meta.title)}</span>
-          ${meta.category ? `<span class="ah-item-category">· ${escapeHtml(meta.category)}</span>` : ""}
-        </div>
-        <button type="button" class="btn btn-ghost btn-sm sj-toggle" aria-expanded="false">Detalhar</button>
+  const li = document.createElement("li");
+  li.className = "sj-entry";
+  li.innerHTML = `
+    <div class="sj-entry-header">
+      <div class="sj-entry-title-row">
+        <span class="ah-item-title">${escapeHtml(meta.title)}</span>
+        ${meta.category ? `<span class="ah-item-category">· ${escapeHtml(meta.category)}</span>` : ""}
       </div>
-      <div class="session-history-row session-history-meta">
-        <span class="session-history-date">${_formatDate(s.started_at)}</span>
-        <span>${_formatTime(s.started_at)} – ${_formatTime(s.ended_at)}</span>
-        <span>${_formatDuration(s.duration_minutes)}</span>
-      </div>
-      <div class="session-history-row session-history-meta">
-        <span>Matéria: ${meta.subject ? escapeHtml(meta.subject) : "—"}</span>
-        <span>Conteúdo: ${meta.content ? escapeHtml(meta.content) : "—"}</span>
-      </div>
-      <div class="session-history-row session-history-meta">
-        <span>${questions.length} questão(ões)</span>
-        <span>${reviews.length} revisão(ões)</span>
-      </div>
-      <div class="sj-entry-detail" hidden></div>
-    `;
+      <button type="button" class="btn btn-ghost btn-sm sj-toggle" aria-expanded="false">Detalhar</button>
+    </div>
+    <div class="session-history-row session-history-meta">
+      <span class="session-history-date">${_formatDate(s.started_at)}</span>
+      <span>${_formatTime(s.started_at)} – ${_formatTime(s.ended_at)}</span>
+      <span>${_formatDuration(s.duration_minutes)}</span>
+    </div>
+    <div class="session-history-row session-history-meta">
+      <span>Matéria: ${meta.subject ? escapeHtml(meta.subject) : "—"}</span>
+      <span>Conteúdo: ${meta.content ? escapeHtml(meta.content) : "—"}</span>
+    </div>
+    <div class="session-history-row session-history-meta">
+      <span>${questions.length} questão(ões)</span>
+      <span>${reviews.length} revisão(ões)</span>
+    </div>
+    <div class="sj-entry-detail" hidden></div>
+  `;
 
-    const toggleBtn = li.querySelector(".sj-toggle");
-    const detailEl  = li.querySelector(".sj-entry-detail");
-    _renderDetail(detailEl, questions, reviews, s.notes);
-    _renderReflectionView(detailEl.querySelector(".sj-reflection"), s.id, reflection);
-    toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
+  const toggleBtn = li.querySelector(".sj-toggle");
+  const detailEl  = li.querySelector(".sj-entry-detail");
+  _renderDetail(detailEl, questions, reviews, s.notes);
+  _renderReflectionView(detailEl.querySelector(".sj-reflection"), entry, reflection);
+  toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
 
-    _openGroup.sessionsEl.appendChild(li);
-    _openGroup.sessions.push(s);
-    _updateGroupHeader(_openGroup);
-  });
+  return li;
 }
 
 function _renderLoadError({ state, message }) {
@@ -364,14 +371,127 @@ function _renderLoadError({ state, message }) {
   renderStateBlock(emptyEl, { state, message, onRetry: () => _loadPage(true) });
 }
 
+// ── Filtros (F8.4) ───────────────────────────────────────────────────────
+// Tudo abaixo opera exclusivamente sobre `_allEntries` (já em memória) —
+// trocar um filtro nunca chama nenhum dos services novamente.
+
+function _periodStart(period) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === "today") return today;
+  if (period === "7d")  return new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+  if (period === "30d") return new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29);
+  return null; // "all"
+}
+
+function _matchesFilters(entry) {
+  const { session: s, meta, extras } = entry;
+
+  const periodStart = _periodStart(_filters.period);
+  if (periodStart && new Date(s.started_at) < periodStart) return false;
+
+  if (_filters.subject && meta.subject !== _filters.subject) return false;
+  if (_filters.category && meta.category !== _filters.category) return false;
+
+  if (_filters.search) {
+    const haystack = [meta.title, meta.content, s.notes, extras.reflection?.content]
+      .filter(Boolean)
+      .join(" \n ")
+      .toLowerCase();
+    if (!haystack.includes(_filters.search)) return false;
+  }
+
+  return true;
+}
+
+// Opções de matéria/categoria derivadas do próprio conjunto já carregado —
+// nenhuma consulta a categoryService/subjectProgressService.
+function _collectFieldValues(field) {
+  const values = new Set();
+  _allEntries.forEach(entry => {
+    if (entry.meta[field]) values.add(entry.meta[field]);
+  });
+  return Array.from(values).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function _populateSelect(selectEl, values, allLabel) {
+  if (!selectEl) return;
+  const current = selectEl.value;
+  selectEl.innerHTML = `<option value="">${allLabel}</option>` +
+    values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  selectEl.value = values.includes(current) ? current : "";
+}
+
+function _refreshFilterOptions() {
+  _populateSelect(subjectSelect, _collectFieldValues("subject"), "Todas as matérias");
+  _populateSelect(categorySelect, _collectFieldValues("category"), "Todas as categorias");
+}
+
+function _onFilterChange() {
+  _filters = {
+    period: periodSelect.value,
+    subject: subjectSelect.value,
+    category: categorySelect.value,
+    search: searchInput.value.trim().toLowerCase(),
+  };
+  _render();
+}
+
+function _bindFilters() {
+  periodSelect?.addEventListener("change", _onFilterChange);
+  subjectSelect?.addEventListener("change", _onFilterChange);
+  categorySelect?.addEventListener("change", _onFilterChange);
+  searchInput?.addEventListener("input", _onFilterChange);
+}
+
+// ── Renderização (F8.3 + F8.4) ──────────────────────────────────────────
+// Reconstrói a lista inteira a partir de `_allEntries` filtrado — mesma
+// ordem started_at desc já devolvida por listSessions(), então o
+// agrupamento por dia continua correto mesmo após um filtro remover
+// sessões de um grupo (o grupo simplesmente não é recriado).
+function _render() {
+  listEl.innerHTML = "";
+  const filtered = _allEntries.filter(_matchesFilters);
+
+  if (filtered.length === 0) {
+    emptyEl.hidden = false;
+    emptyEl.classList.remove("list-error");
+    clearStateBlock(emptyEl);
+    emptyEl.textContent = _allEntries.length === 0
+      ? "Nenhuma sessão de estudo registrada ainda."
+      : "Nenhuma sessão encontrada para os filtros selecionados.";
+    return;
+  }
+
+  emptyEl.hidden = true;
+
+  let openGroup = null;
+  filtered.forEach(entry => {
+    const dayKey = _dayKey(entry.session.started_at);
+    if (!openGroup || openGroup.key !== dayKey) {
+      openGroup = _createDayGroup(entry.session.started_at);
+    }
+    openGroup.sessionsEl.appendChild(_buildEntryEl(entry));
+    openGroup.sessions.push(entry.session);
+    _updateGroupHeader(openGroup);
+  });
+}
+
+async function _loadEntriesData(sessions) {
+  const extrasList = await Promise.all(sessions.map(s => _fetchSessionExtras(s.id)));
+  sessions.forEach((s, i) => {
+    _allEntries.push({ session: s, meta: _resolveMeta(s), extras: extrasList[i] });
+  });
+}
+
 async function _loadPage(reset) {
   if (_loading) return;
   _loading = true;
 
   if (reset) {
     _offset = 0;
+    _allEntries = [];
     listEl.innerHTML = "";
-    _openGroup = null;
     emptyEl.hidden = true;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
@@ -386,7 +506,9 @@ async function _loadPage(reset) {
       emptyEl.hidden = false;
       emptyEl.textContent = "Nenhuma sessão de estudo registrada ainda.";
     } else {
-      await _renderSessions(sessions);
+      await _loadEntriesData(sessions);
+      _refreshFilterOptions();
+      _render();
     }
     loadMoreBtn.hidden = !hasMore;
   } catch (err) {
@@ -411,7 +533,13 @@ export async function initStudyJournalView() {
     emptyEl     = document.getElementById("sj-list-empty");
     loadMoreBtn = document.getElementById("sj-load-more");
 
+    periodSelect   = document.getElementById("sj-filter-period");
+    subjectSelect  = document.getElementById("sj-filter-subject");
+    categorySelect = document.getElementById("sj-filter-category");
+    searchInput    = document.getElementById("sj-filter-search");
+
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
+    _bindFilters();
   }
 
   _subscribeToEventBus();
@@ -430,4 +558,12 @@ export function resetStudyJournalView() {
     clearTimeout(_reloadTimer);
     _reloadTimer = null;
   }
+
+  // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
+  // entre usuários diferentes na mesma sessão do navegador.
+  _filters = { period: "all", subject: "", category: "", search: "" };
+  if (periodSelect)   periodSelect.value = "all";
+  if (subjectSelect)  subjectSelect.value = "";
+  if (categorySelect) categorySelect.value = "";
+  if (searchInput)    searchInput.value = "";
 }

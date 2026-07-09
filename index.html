@@ -662,6 +662,23 @@
           <div class="page-header">
             <h1 class="page-title">Diário de Estudos</h1>
           </div>
+          <div class="appointments-toolbar">
+            <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
+            <div class="toolbar-filters">
+              <select id="sj-filter-period" class="toolbar-select">
+                <option value="all">Todo o período</option>
+                <option value="today">Hoje</option>
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+              </select>
+              <select id="sj-filter-subject" class="toolbar-select">
+                <option value="">Todas as matérias</option>
+              </select>
+              <select id="sj-filter-category" class="toolbar-select">
+                <option value="">Todas as categorias</option>
+              </select>
+            </div>
+          </div>
           <p id="sj-list-empty" class="list-empty" hidden></p>
           <ul id="sj-list" class="sj-list"></ul>
           <button type="button" id="sj-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
