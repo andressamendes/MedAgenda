@@ -50,7 +50,7 @@ import { initAIPanel, resetAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, restoreLastPage, restoreSidebarState, showPage } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor, resetCategories } from "./categoryView.js";
-import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
+import { initEventForm, openEventForm, handleEventClick, resetEventForm } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
 import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
 import { assertSchemaCompatible } from "./schemaService.js";
@@ -495,6 +495,7 @@ initAuthView({
     resetPushService();
     resetAIPanel();
     resetAIContextService();
+    resetEventForm();
     _resetEventList();
   },
 });
