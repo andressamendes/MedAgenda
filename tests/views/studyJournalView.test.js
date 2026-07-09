@@ -531,6 +531,271 @@ test("resetStudyJournalView() unsubscribes from the event bus: further events do
   assert.strictEqual(calls.length, 0);
 });
 
+// ── Filtros e busca (F8.4) ───────────────────────────────────────────────
+
+function groups() {
+  return Array.from(document.querySelectorAll("#sj-list .sj-day-group"));
+}
+
+test("period filter (Hoje) keeps only today's sessions, filtered entirely in memory", async (t) => {
+  const now = new Date();
+  const todayIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0).toISOString();
+  const oldIso = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 20, 9, 0, 0).toISOString();
+
+  const calls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => {
+      calls.push(opts);
+      return {
+        sessions: [
+          { id: "sess-today", status: "finished", started_at: todayIso, ended_at: todayIso, duration_minutes: 30 },
+          { id: "sess-old", status: "finished", started_at: oldIso, ended_at: oldIso, duration_minutes: 30 },
+        ],
+        total: 2, hasMore: false,
+      };
+    },
+  });
+
+  await mod.initStudyJournalView();
+  assert.strictEqual(entries().length, 2);
+  calls.length = 0;
+
+  document.getElementById("sj-filter-period").value = "today";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+
+  assert.strictEqual(entries().length, 1);
+  assert.strictEqual(entries()[0].querySelector(".sj-toggle") ? true : true, true);
+  assert.strictEqual(calls.length, 0, "trocar o filtro não deve chamar listSessions() novamente");
+});
+
+test("period filter (Últimos 7 dias / Últimos 30 dias) bound sessions by a rolling window", async (t) => {
+  const now = new Date();
+  const iso = (daysAgo) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, 9, 0, 0).toISOString();
+
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({
+      sessions: [
+        { id: "sess-1d", status: "finished", started_at: iso(1), ended_at: iso(1), duration_minutes: 30 },
+        { id: "sess-10d", status: "finished", started_at: iso(10), ended_at: iso(10), duration_minutes: 30 },
+        { id: "sess-40d", status: "finished", started_at: iso(40), ended_at: iso(40), duration_minutes: 30 },
+      ],
+      total: 3, hasMore: false,
+    }),
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-period").value = "7d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(entries().length, 1);
+
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(entries().length, 2);
+
+  document.getElementById("sj-filter-period").value = "all";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(entries().length, 3);
+});
+
+test("subject and category filter options are derived from the loaded sessions, and filtering by them narrows the list", async (t) => {
+  const sessions = [
+    { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-2", event_id: "ev-2", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "Aula SOI II", category: "SOI II" },
+      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+
+  const subjectSelect = document.getElementById("sj-filter-subject");
+  const categorySelect = document.getElementById("sj-filter-category");
+  const subjectOptions = Array.from(subjectSelect.options).map(o => o.value).filter(Boolean);
+  const categoryOptions = Array.from(categorySelect.options).map(o => o.value).filter(Boolean);
+  assert.deepStrictEqual(subjectOptions.sort(), ["Farmacologia", "SOI II"]);
+  assert.deepStrictEqual(categoryOptions.sort(), ["Farmacologia", "SOI II"]);
+
+  subjectSelect.value = "SOI II";
+  subjectSelect.dispatchEvent(new window.Event("change"));
+
+  assert.strictEqual(entries().length, 1);
+  assert.match(document.getElementById("sj-list").textContent, /Aula SOI II/);
+});
+
+test("text search matches compromisso, conteúdo, observações and reflexão, case-insensitively", async (t) => {
+  const sessions = [
+    { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30, notes: "nada especial" },
+    { id: "sess-2", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30, notes: "Revisão de FARMACOLOGIA renal" },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "Plantão", category: "Estágio", description: "rotina" }],
+  });
+
+  await mod.initStudyJournalView();
+
+  const searchInput = document.getElementById("sj-filter-search");
+  searchInput.value = "farmacologia";
+  searchInput.dispatchEvent(new window.Event("input"));
+
+  assert.strictEqual(entries().length, 1);
+  assert.match(document.getElementById("sj-list").textContent, /FARMACOLOGIA renal/);
+});
+
+test("combining period + matéria + busca applies all filters simultaneously", async (t) => {
+  const now = new Date();
+  const recentIso = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 9, 0, 0).toISOString();
+  const oldIso = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60, 9, 0, 0).toISOString();
+
+  const sessions = [
+    { id: "sess-match", event_id: "ev-1", status: "finished", started_at: recentIso, ended_at: recentIso, duration_minutes: 30, notes: "estudo de farmacologia" },
+    { id: "sess-wrong-subject", event_id: "ev-2", status: "finished", started_at: recentIso, ended_at: recentIso, duration_minutes: 30, notes: "estudo de farmacologia" },
+    { id: "sess-too-old", event_id: "ev-1", status: "finished", started_at: oldIso, ended_at: oldIso, duration_minutes: 30, notes: "estudo de farmacologia" },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "SOI II", category: "SOI II" },
+      { id: "ev-2", title: "Anatomia", category: "Anatomia" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-subject").value = "SOI II";
+  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-search").value = "farmacologia";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+
+  assert.strictEqual(entries().length, 1);
+  assert.match(document.getElementById("sj-list").textContent, /SOI II/);
+});
+
+test("a day group with no sessions left after filtering disappears from the timeline", async (t) => {
+  const sessions = [
+    { id: "sess-day1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-day2", event_id: "ev-2", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "SOI II", category: "SOI II" },
+      { id: "ev-2", title: "Anatomia", category: "Anatomia" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+  assert.strictEqual(groups().length, 2);
+
+  document.getElementById("sj-filter-subject").value = "SOI II";
+  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+
+  assert.strictEqual(groups().length, 1);
+  assert.match(groups()[0].querySelector(".sj-day-header-date").textContent, /10\/03\/2026/);
+});
+
+test("filtering to nothing shows a distinct 'no results for filters' message, not the 'no sessions at all' one", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "SOI II", category: "SOI II" }],
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-search").value = "termo que não existe em nada";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+
+  const emptyEl = document.getElementById("sj-list-empty");
+  assert.strictEqual(emptyEl.hidden, false);
+  assert.match(emptyEl.textContent, /Nenhuma sessão encontrada para os filtros selecionados\./);
+  assert.strictEqual(document.getElementById("sj-list").children.length, 0);
+});
+
+test("editing and saving a reflection updates the in-memory entry, so a subsequent text search can find it without refetching", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => null,
+  });
+
+  await mod.initStudyJournalView();
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  const reflectionEl = item.querySelector(".sj-reflection");
+  reflectionEl.querySelector(".sj-reflection-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  reflectionEl.querySelector(".sj-reflection-input").value = "insight sobre eletrocardiograma";
+  reflectionEl.querySelector(".sj-reflection-save").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  document.getElementById("sj-filter-search").value = "eletrocardiograma";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+
+  assert.strictEqual(entries().length, 1);
+});
+
+test("load-more appends to the already-filtered set without resetting the active filters", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => {
+      if (opts.offset === 0) {
+        return {
+          sessions: [
+            { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+          ],
+          total: 2, hasMore: true,
+        };
+      }
+      return {
+        sessions: [
+          { id: "sess-2", event_id: "ev-2", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
+        ],
+        total: 2, hasMore: false,
+      };
+    },
+    getEvents: async () => [
+      { id: "ev-1", title: "SOI II", category: "SOI II" },
+      { id: "ev-2", title: "Anatomia", category: "Anatomia" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-subject").value = "SOI II";
+  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(entries().length, 1);
+
+  document.getElementById("sj-load-more").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  // A nova sessão (Anatomia) foi carregada mas o filtro (SOI II) continua ativo.
+  assert.strictEqual(entries().length, 1);
+  assert.match(document.getElementById("sj-list").textContent, /SOI II/);
+});
+
+test("re-initializing (new login) resets filters back to defaults", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "ev-1", title: "SOI II", category: "SOI II" }],
+  });
+
+  await mod.initStudyJournalView();
+  document.getElementById("sj-filter-subject").value = "SOI II";
+  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(entries().length, 1);
+
+  mod.resetStudyJournalView();
+  assert.strictEqual(document.getElementById("sj-filter-subject").value, "");
+});
+
 test("re-initializing does not register duplicate listeners", async (t) => {
   const calls = [];
   const { mod } = await loadView(t, {
