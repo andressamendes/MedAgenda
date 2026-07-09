@@ -293,7 +293,7 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
   const errorEl  = sectionEl.querySelector(".sj-reflection-error");
 
   sectionEl.querySelector(".sj-reflection-cancel")
-    .addEventListener("click", () => _renderReflectionView(sectionEl, entry, reflection));
+    .addEventListener("click", () => _renderReflectionView(sectionEl, entry, reflection, _filters.search));
 
   sectionEl.querySelector(".sj-reflection-save").addEventListener("click", async () => {
     errorEl.hidden = true;
@@ -305,7 +305,7 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
       // `_allEntries` mudou — mesma regra de _loadEntriesData.
       entry.extras.reflection = saved;
       _searchIndex = buildSearchIndex(_allEntries);
-      _renderReflectionView(sectionEl, entry, saved);
+      _renderReflectionView(sectionEl, entry, saved, _filters.search);
     } catch (err) {
       const { friendly } = handleError(err, { context: "studyJournalView.saveReflection", silent: true });
       errorEl.textContent = friendly;
@@ -837,7 +837,13 @@ export async function initStudyJournalView() {
 
 /**
  * Desfaz a assinatura do barramento de eventos e qualquer recarga pendente.
- * Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut).
+ * Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut) — esta
+ * é uma SPA sem reload de página entre sessões, então o cache acumulado em
+ * memória (_allEntries/_searchIndex/_eventsById) e a lista já renderizada
+ * têm que ser descartados aqui, não apenas na próxima _loadPage(true):
+ * sem isso, os dados do usuário anterior (sessões, reflexões, observações)
+ * ficam visíveis na tela e acessíveis em memória durante a janela assíncrona
+ * entre o login do novo usuário e a resolução de _loadPage(true).
  */
 export function resetStudyJournalView() {
   _unsubscribers.forEach(off => off());
@@ -846,6 +852,20 @@ export function resetStudyJournalView() {
     clearTimeout(_reloadTimer);
     _reloadTimer = null;
   }
+
+  _offset = 0;
+  _allEntries = [];
+  _searchIndex = [];
+  _eventsById = new Map();
+
+  if (listEl) listEl.innerHTML = "";
+  if (emptyEl) {
+    emptyEl.hidden = true;
+    emptyEl.classList.remove("list-error");
+    clearStateBlock(emptyEl);
+  }
+  if (statsEl) statsEl.hidden = true;
+  if (loadMoreBtn) loadMoreBtn.hidden = true;
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
   // entre usuários diferentes na mesma sessão do navegador.
