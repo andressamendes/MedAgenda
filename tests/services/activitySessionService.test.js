@@ -172,6 +172,46 @@ test("finishSession() sets ended_at, status and computes duration_minutes", asyn
   assert.strictEqual(updateCall.args[0].ended_at, "2026-01-01T10:30:00.000Z");
 });
 
+test("finishSession() deducts paused_ms (already-completed pauses) from duration_minutes", async (t) => {
+  const session = {
+    id: "sess-1",
+    status: "running",
+    started_at: "2026-01-01T10:00:00.000Z",
+    paused_ms: 10 * 60000, // 10 minutos já pausados, acumulados numa pausa/retomada anterior
+  };
+  const updated = { ...session, status: "finished", duration_minutes: 20 };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+  });
+
+  await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
+
+  const updateCall = supabase._calls.find(c => c.method === "update");
+  // 30 minutos de relógio - 10 minutos pausados = 20 minutos líquidos.
+  assert.strictEqual(updateCall.args[0].duration_minutes, 20);
+});
+
+test("finishSession() also deducts the current (still-open) pause interval when finishing directly from paused, without resuming first", async (t) => {
+  const session = {
+    id: "sess-1",
+    status: "paused",
+    started_at: "2026-01-01T10:00:00.000Z",
+    paused_at: "2026-01-01T10:20:00.000Z", // pausou aos 20min, sem retomar
+    paused_ms: 0,
+  };
+  const updated = { ...session, status: "finished", duration_minutes: 20 };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+  });
+
+  await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
+
+  const updateCall = supabase._calls.find(c => c.method === "update");
+  // 30 minutos de relógio, mas os últimos 10 (20min->30min) estavam em pausa aberta.
+  assert.strictEqual(updateCall.args[0].duration_minutes, 20);
+  assert.strictEqual(updateCall.args[0].paused_at, null);
+});
+
 test("finishSession() rejects an end time earlier than the start (negative duration)", async (t) => {
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:30:00.000Z" };
   const { mod } = await loadActivitySessionService(t, {
@@ -236,7 +276,7 @@ test("cancelSession() refuses to cancel an already finished session", async (t) 
 
 test("pauseSession() moves a running session to paused", async (t) => {
   const session = { id: "sess-1", status: "running" };
-  const paused = { ...session, status: "paused" };
+  const paused = { ...session, status: "paused", paused_at: "2026-07-09T12:00:00.000Z" };
   const { mod, supabase } = await loadActivitySessionService(t, {
     activity_sessions: [{ data: session, error: null }, { data: paused, error: null }],
   });
@@ -245,7 +285,8 @@ test("pauseSession() moves a running session to paused", async (t) => {
 
   assert.deepStrictEqual(result, paused);
   const updateCall = supabase._calls.find(c => c.method === "update");
-  assert.deepStrictEqual(updateCall.args[0], { status: "paused" });
+  assert.strictEqual(updateCall.args[0].status, "paused");
+  assert.strictEqual(typeof updateCall.args[0].paused_at, "string");
 });
 
 test("pauseSession() refuses to pause a session that isn't running", async (t) => {
@@ -261,8 +302,8 @@ test("pauseSession() refuses to pause a session that isn't running", async (t) =
 });
 
 test("resumeSession() moves a paused session back to running", async (t) => {
-  const session = { id: "sess-1", status: "paused" };
-  const resumed = { ...session, status: "running" };
+  const session = { id: "sess-1", status: "paused", paused_at: "2026-07-09T12:00:00.000Z", paused_ms: 0 };
+  const resumed = { ...session, status: "running", paused_at: null, paused_ms: 60000 };
   const { mod, supabase } = await loadActivitySessionService(t, {
     activity_sessions: [
       { data: session, error: null }, // getActivitySessionById
@@ -275,7 +316,9 @@ test("resumeSession() moves a paused session back to running", async (t) => {
 
   assert.deepStrictEqual(result, resumed);
   const updateCall = supabase._calls.find(c => c.method === "update");
-  assert.deepStrictEqual(updateCall.args[0], { status: "running" });
+  assert.strictEqual(updateCall.args[0].status, "running");
+  assert.strictEqual(updateCall.args[0].paused_at, null);
+  assert.strictEqual(typeof updateCall.args[0].paused_ms, "number");
 });
 
 test("resumeSession() refuses to resume when another session is already running", async (t) => {
