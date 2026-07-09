@@ -40,6 +40,12 @@
 // cabeçalho de studyTimelineService.js). Os cartões são elementos novos
 // inseridos entre/dentro dos grupos existentes — nunca substituem
 // `.sj-day-group`/`.sj-entry`, nunca alteram o HTML já renderizado por eles.
+//
+// F8.6 — Síntese Periódica de Aprendizado: acrescenta ao cartão de resumo
+// semanal (F8.5) um texto narrativo totalmente derivado das mesmas entradas
+// visíveis daquela semana, produzido por buildWeeklySummary()
+// (studySummaryService.js — função pura, sem I/O, sem IA). Nenhuma consulta
+// nova, nenhuma persistência, nenhum outro domínio tocado.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -57,6 +63,7 @@ import {
   weekLabel,
   summarizeWeekGroups,
 } from "./studyTimelineService.js";
+import { buildWeeklySummary } from "./studySummaryService.js";
 
 const PAGE_SIZE = 10;
 
@@ -384,8 +391,16 @@ function _appendDailySummary(dayGroup, summary, comparison) {
 // Inserido como um <li> próprio na lista, entre o último grupo de dia da
 // semana concluída e o primeiro grupo da semana seguinte (mais antiga) —
 // "quando um novo bloco semanal começa, mostra o resumo da semana anterior".
-function _appendWeekSummary(weekKey, weekDayGroups) {
+//
+// F8.6 — Síntese Periódica: além dos números do cartão (já existentes desde
+// F8.5), acrescenta o texto narrativo de buildWeeklySummary()
+// (studySummaryService.js) sobre as mesmas `weekEntries` (as entradas já
+// filtradas/visíveis dessa semana, o mesmo subconjunto que alimentou
+// summarizeWeekGroups) — nenhuma consulta nova, nenhum dado além do que já
+// está em `_allEntries`.
+function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
   const summary = summarizeWeekGroups(weekDayGroups);
+  const narrative = buildWeeklySummary(weekEntries);
   const li = document.createElement("li");
   li.className = "sj-week-summary";
   li.innerHTML = `
@@ -396,6 +411,10 @@ function _appendWeekSummary(weekKey, weekDayGroups) {
       <span>${summary.questionsCount} questão(ões)</span>
       <span>${summary.subjectsCount} matéria(s)</span>
       <span>Maior sequência de estudos: ${summary.longestStreak} dia(s)</span>
+    </div>
+    <div class="sj-week-narrative">
+      <h3 class="sj-week-narrative-title">Resumo da Semana</h3>
+      <p class="sj-week-narrative-text">${escapeHtml(narrative.text).replace(/\n\n/g, "</p><p class=\"sj-week-narrative-text\">")}</p>
     </div>
   `;
   listEl.appendChild(li);
@@ -560,15 +579,18 @@ function _render() {
   // diário + comparação com o dia anterior ao final de cada grupo.
   let currentWeekKey = null;
   let weekBuckets = [];
+  let weekEntries = [];
 
   dayBuckets.forEach((bucket, index) => {
     const weekKey = weekKeyOf(bucket.iso);
     if (currentWeekKey !== null && weekKey !== currentWeekKey) {
-      _appendWeekSummary(currentWeekKey, weekBuckets);
+      _appendWeekSummary(currentWeekKey, weekBuckets, weekEntries);
       weekBuckets = [];
+      weekEntries = [];
     }
     currentWeekKey = weekKey;
     weekBuckets.push({ dayKey: bucket.key, summary: daySummaries[index] });
+    weekEntries = weekEntries.concat(bucket.entries);
 
     const dayGroup = _createDayGroup(bucket.iso);
     bucket.entries.forEach(entry => {

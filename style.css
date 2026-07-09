@@ -1921,6 +1921,30 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+.sj-week-narrative {
+  border-top: 1px dashed var(--gray-200);
+  padding-top: .5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.sj-week-narrative-title {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--gray-500);
+  margin: 0;
+}
+
+.sj-week-narrative-text {
+  margin: 0;
+  font-size: .82rem;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
 .sj-reflection-error {
   margin: 0;
   color: var(--color-danger-text);
