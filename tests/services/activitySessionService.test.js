@@ -127,6 +127,40 @@ test("getRunningSession() returns null when there is no running session", async 
   assert.strictEqual(await mod.getRunningSession(), null);
 });
 
+// ── F7.8 — Recuperação e continuidade da sessão ─────────────────────────────
+
+test("getActiveSession() returns null when there is no running/paused session", async (t) => {
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [], error: null },
+  });
+
+  assert.strictEqual(await mod.getActiveSession(), null);
+});
+
+test("getActiveSession() scopes the query to running/paused, most recent first", async (t) => {
+  const row = { id: "sess-1", status: "paused", started_at: "2026-01-01T10:00:00.000Z" };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [row], error: null },
+  });
+
+  const result = await mod.getActiveSession();
+
+  assert.deepStrictEqual(result, row);
+  const inCall = supabase._calls.find(c => c.method === "in");
+  assert.deepStrictEqual(inCall.args, ["status", ["running", "paused"]]);
+  const orderCall = supabase._calls.find(c => c.method === "order");
+  assert.deepStrictEqual(orderCall.args, ["started_at", { ascending: false }]);
+});
+
+test("getActiveSession() returns a running session unchanged (F7.7 continuity fields intact)", async (t) => {
+  const row = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z", paused_ms: 60000, paused_at: null };
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [row], error: null },
+  });
+
+  assert.deepStrictEqual(await mod.getActiveSession(), row);
+});
+
 test("startSession() creates a running session when none is active", async (t) => {
   const created = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const { mod, supabase } = await loadActivitySessionService(t, {

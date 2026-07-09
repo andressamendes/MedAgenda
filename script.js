@@ -48,7 +48,7 @@ import {
 import { initAssistantView, renderAssistant, resetAssistant } from "./assistantView.js";
 import { initAIPanel, resetAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
-import { initNavigation, restoreLastPage, restoreSidebarState } from "./navigationView.js";
+import { initNavigation, restoreLastPage, restoreSidebarState, showPage } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor, resetCategories } from "./categoryView.js";
 import { initEventForm, openEventForm, handleEventClick } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
@@ -145,7 +145,7 @@ async function refreshAll() {
 // já usada pelos demais try/catch de _initApp.
 async function safeInit(label, fn) {
   try {
-    await fn();
+    return await fn();
   } catch (err) {
     handleError(err, { context: `initApp.${label}` });
   }
@@ -195,7 +195,7 @@ async function _initApp(session) {
     if (avatarCircle) avatarCircle.textContent = (session.user.email || "?").charAt(0).toUpperCase();
 
     safeInit("conta", () => initAccountView(session.user.id));
-    safeInit("sessão de estudo", () => initStudySessionView());
+    const hasActiveStudySession = await safeInit("sessão de estudo", () => initStudySessionView());
     safeInit("notificações", () => {
       initNotifications(session.user.id);
       initPushService(session.user.id, VAPID_PUBLIC_KEY);
@@ -262,6 +262,14 @@ async function _initApp(session) {
 
     // Restore the page the user was on before the last refresh/logout
     restoreLastPage();
+
+    // F7.8 — Recuperação de sessão: existindo uma sessão "running" ou "paused"
+    // do usuário (consultada exclusivamente via activitySessionService, dentro
+    // de initStudySessionView() acima), a tela "Sessão de Estudo" sempre
+    // prevalece sobre a última página salva — nunca inicia nem finaliza nada
+    // automaticamente, só leva o usuário direto para onde pode decidir
+    // continuar, cancelar ou finalizar.
+    if (hasActiveStudySession) showPage("study-session");
   } catch (err) {
     // Última rede de segurança: qualquer falha não tratada nas etapas acima
     // não pode deixar o usuário numa tela parcialmente carregada sem aviso.

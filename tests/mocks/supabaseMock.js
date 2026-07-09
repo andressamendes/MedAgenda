@@ -15,7 +15,7 @@ function toQueue(responses) {
 
 const CHAIN_METHODS = [
   "select", "insert", "update", "delete", "upsert",
-  "eq", "neq", "gte", "lte", "lt", "gt", "or", "order", "in", "range",
+  "eq", "neq", "gte", "lte", "lt", "gt", "or", "order", "in", "range", "limit",
 ];
 
 function createQueryBuilder(table, result, calls) {

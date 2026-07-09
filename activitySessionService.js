@@ -98,6 +98,25 @@ export async function getRunningSession() {
   return data;
 }
 
+// Sessão "running" OU "paused" do usuário atual, ou null se nenhuma (F7.8 —
+// recuperação ao reabrir o app: diferente de getRunningSession(), também
+// enxerga sessões pausadas, que continuam sem cronômetro rodando mas ainda
+// não foram encerradas). Só leitura — nenhuma regra de negócio nova; as
+// regras de transição continuam só em startSession()/resumeSession() (que
+// seguem checando getRunningSession(), sem alteração de comportamento).
+export async function getActiveSession() {
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("activity_sessions")
+    .select("*")
+    .eq("user_id", user_id)
+    .in("status", ["running", "paused"])
+    .order("started_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
 // Regra: um usuário nunca pode ter duas sessões "running" simultâneas.
 export async function startSession(fields = {}) {
   const running = await getRunningSession();

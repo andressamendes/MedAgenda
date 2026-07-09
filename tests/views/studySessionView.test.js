@@ -33,7 +33,7 @@ function loadStudySessionView(t, overrides = {}) {
 
   t.mock.module(SERVICE_SPECIFIER, {
     namedExports: {
-      getRunningSession: overrides.getRunningSession ?? (async () => null),
+      getActiveSession:  overrides.getRunningSession ?? (async () => null),
       startSession:      overrides.startSession ?? (async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() })),
       pauseSession:      overrides.pauseSession ?? (async (id) => ({ id, status: "paused", started_at: new Date().toISOString() })),
       resumeSession:     overrides.resumeSession ?? (async (id) => ({ id, status: "running", started_at: new Date().toISOString() })),
