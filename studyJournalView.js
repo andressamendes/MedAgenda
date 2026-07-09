@@ -56,6 +56,19 @@
 // só consideram as sessões atualmente visíveis; nenhuma consulta nova,
 // nenhum dado persistido, nenhum outro domínio (Dashboard, Insights,
 // Conquistas) tocado.
+//
+// F8.8 — Busca Avançada e Linha do Tempo Inteligente: substitui a busca
+// textual simples do F8.4 (só compromisso/conteúdo/observações/reflexão,
+// `String.includes` puro) e acrescenta os novos filtros combináveis
+// (reflexão/observações/revisões/questões/duração/tipo/status/dificuldade)
+// via studySearchService.js (função pura, sem I/O). A View permanece
+// responsável só por capturar os filtros, montar/reaproveitar o índice
+// (buildSearchIndex — reconstruído apenas quando `_allEntries` muda, nunca
+// a cada troca de filtro) e renderizar `searchEntries()` — nenhuma lógica
+// de busca vive aqui. período/matéria/categoria continuam sendo aplicados
+// pela própria View (F8.4, inalterado) antes de studySearchService, na
+// mesma passada — todos os filtros são combinados juntos, sem prioridade
+// entre eles.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -75,6 +88,7 @@ import {
 } from "./studyTimelineService.js";
 import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
+import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 
 const PAGE_SIZE = 10;
 
@@ -98,8 +112,10 @@ const REVIEW_STATUS_LABELS = {
   skipped:   "Pulada",
 };
 
-let listEl, emptyEl, loadMoreBtn;
+let listEl, emptyEl, loadMoreBtn, statsEl;
 let periodSelect, subjectSelect, categorySelect, searchInput;
+let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
+let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
 
 let _offset  = 0;
 let _loading = false;
@@ -113,13 +129,27 @@ let _reloadTimer   = null;
 
 // Acumulado em memória de tudo que já foi carregado (todas as páginas até
 // agora), na mesma ordem started_at desc devolvida por listSessions() — a
-// base sobre a qual os filtros (F8.4) operam sem nenhuma consulta nova.
+// base sobre a qual os filtros (F8.4/F8.8) operam sem nenhuma consulta nova.
 // Cada item: { session, meta, extras }.
 let _allEntries = [];
 
-// Estado dos filtros (F8.4) — puramente client-side, nenhum valor novo
-// persistido. `search` já normalizado (trim + lowercase) ao ser lido do input.
-let _filters = { period: "all", subject: "", category: "", search: "" };
+// Índice de busca (F8.8/studySearchService.js) — reconstruído apenas
+// quando `_allEntries` muda (_loadEntriesData), nunca a cada troca de
+// filtro; searchEntries() consulta este índice já pronto em _render().
+let _searchIndex = [];
+
+const _DEFAULT_FILTERS = {
+  period: "all", subject: "", category: "", search: "",
+  onlyWithReflection: false, onlyWithNotes: false, onlyWithReviews: false,
+  onlyWithQuestions: false, onlyWithoutQuestions: false,
+  onlyLong: false, onlyShort: false,
+  questionType: "", questionStatus: "", questionDifficulty: "",
+};
+
+// Estado dos filtros (F8.4/F8.8) — puramente client-side, nenhum valor novo
+// persistido. `search` já normalizado (trim) ao ser lido do input —
+// studySearchService.js normaliza caixa/acentos/espaços internamente.
+let _filters = { ..._DEFAULT_FILTERS };
 
 function _scheduleReload() {
   if (_reloadTimer) return;
@@ -236,10 +266,10 @@ async function _fetchSessionExtras(sessionId) {
 // (o estudo em si), Reflexão vem de studyReflectionService.js (a
 // aprendizagem) — nunca a mesma fonte, nunca o mesmo domínio.
 
-function _renderReflectionView(sectionEl, entry, reflection) {
+function _renderReflectionView(sectionEl, entry, reflection, query = "") {
   sectionEl.innerHTML = `
     ${reflection
-      ? `<p class="sj-reflection-text">${escapeHtml(reflection.content)}</p>`
+      ? `<p class="sj-reflection-text">${highlightMatches(reflection.content, query)}</p>`
       : `<p class="sj-detail-empty">Sem reflexão.</p>`}
     <button type="button" class="btn btn-ghost btn-sm sj-reflection-toggle">
       ${reflection ? "Editar reflexão" : "Adicionar reflexão"}
@@ -269,10 +299,12 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
     errorEl.hidden = true;
     try {
       const saved = await saveReflection(entry.session.id, textarea.value);
-      // Mantém _allEntries consistente (mesmo objeto usado pela busca
-      // textual do F8.4) sem refazer getBySession — a resposta de
-      // saveReflection já é a reflexão salva.
+      // Mantém _allEntries consistente (mesmo objeto usado pela busca do
+      // F8.4/F8.8) sem refazer getBySession — a resposta de saveReflection
+      // já é a reflexão salva. Reconstrói o índice de busca (F8.8) já que
+      // `_allEntries` mudou — mesma regra de _loadEntriesData.
       entry.extras.reflection = saved;
+      _searchIndex = buildSearchIndex(_allEntries);
       _renderReflectionView(sectionEl, entry, saved);
     } catch (err) {
       const { friendly } = handleError(err, { context: "studyJournalView.saveReflection", silent: true });
@@ -282,13 +314,13 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
   });
 }
 
-function _renderDetail(detailEl, questions, reviews, notes) {
+function _renderDetail(detailEl, questions, reviews, notes, query = "") {
   const questionsHtml = questions.length
     ? `<ul class="sj-detail-items">${questions.map(q => `
         <li class="sj-detail-item">
-          <span>${QUESTION_TYPE_LABELS[q.question_type] || q.question_type}</span>
-          <span>${QUESTION_STATUS_LABELS[q.status] || q.status}</span>
-          ${[q.subject, q.topic].filter(Boolean).map(escapeHtml).join(" — ")}
+          <span>${highlightMatches(QUESTION_TYPE_LABELS[q.question_type] || q.question_type, query)}</span>
+          <span>${highlightMatches(QUESTION_STATUS_LABELS[q.status] || q.status, query)}</span>
+          ${[q.subject, q.topic].filter(Boolean).map(t => highlightMatches(t, query)).join(" — ")}
         </li>`).join("")}</ul>`
     : `<p class="sj-detail-empty">Nenhuma questão registrada.</p>`;
 
@@ -301,7 +333,7 @@ function _renderDetail(detailEl, questions, reviews, notes) {
     : `<p class="sj-detail-empty">Nenhuma revisão vinculada.</p>`;
 
   const notesHtml = notes
-    ? `<p class="sj-detail-notes">${escapeHtml(notes)}</p>`
+    ? `<p class="sj-detail-notes">${highlightMatches(notes, query)}</p>`
     : `<p class="sj-detail-empty">Nenhuma observação registrada.</p>`;
 
   detailEl.innerHTML = `
@@ -473,17 +505,33 @@ function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
   listEl.appendChild(li);
 }
 
+// F8.8 — Linha do Tempo Inteligente: quando há busca textual ativa, marca
+// visualmente (highlightMatches — studySearchService.js) os trechos
+// encontrados em compromisso/matéria/conteúdo, e mostra abaixo do título
+// quais campos geraram o resultado (entry.matches, anexado por
+// searchEntries()) — nunca só a sessão, sempre o contexto do que casou com
+// a busca.
+const _MATCH_LABELS_IN_ENTRY = new Set(["commitment", "category", "subject", "content"]);
+
+function _matchedFieldsBadge(matches) {
+  const extra = matches.filter(m => !_MATCH_LABELS_IN_ENTRY.has(m.field));
+  if (extra.length === 0) return "";
+  const labels = [...new Set(extra.map(m => m.label))];
+  return `<div class="sj-entry-matches">Encontrado em: ${escapeHtml(labels.join(", "))}</div>`;
+}
+
 function _buildEntryEl(entry) {
-  const { session: s, meta, extras } = entry;
+  const { session: s, meta, extras, matches = [] } = entry;
   const { questions, reviews, reflection } = extras;
+  const query = _filters.search;
 
   const li = document.createElement("li");
   li.className = "sj-entry";
   li.innerHTML = `
     <div class="sj-entry-header">
       <div class="sj-entry-title-row">
-        <span class="ah-item-title">${escapeHtml(meta.title)}</span>
-        ${meta.category ? `<span class="ah-item-category">· ${escapeHtml(meta.category)}</span>` : ""}
+        <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
+        ${meta.category ? `<span class="ah-item-category">· ${highlightMatches(meta.category, query)}</span>` : ""}
       </div>
       <button type="button" class="btn btn-ghost btn-sm sj-toggle" aria-expanded="false">Detalhar</button>
     </div>
@@ -493,20 +541,21 @@ function _buildEntryEl(entry) {
       <span>${_formatDuration(s.duration_minutes)}</span>
     </div>
     <div class="session-history-row session-history-meta">
-      <span>Matéria: ${meta.subject ? escapeHtml(meta.subject) : "—"}</span>
-      <span>Conteúdo: ${meta.content ? escapeHtml(meta.content) : "—"}</span>
+      <span>Matéria: ${meta.subject ? highlightMatches(meta.subject, query) : "—"}</span>
+      <span>Conteúdo: ${meta.content ? highlightMatches(meta.content, query) : "—"}</span>
     </div>
     <div class="session-history-row session-history-meta">
       <span>${questions.length} questão(ões)</span>
       <span>${reviews.length} revisão(ões)</span>
     </div>
+    ${_matchedFieldsBadge(matches)}
     <div class="sj-entry-detail" hidden></div>
   `;
 
   const toggleBtn = li.querySelector(".sj-toggle");
   const detailEl  = li.querySelector(".sj-entry-detail");
-  _renderDetail(detailEl, questions, reviews, s.notes);
-  _renderReflectionView(detailEl.querySelector(".sj-reflection"), entry, reflection);
+  _renderDetail(detailEl, questions, reviews, s.notes, query);
+  _renderReflectionView(detailEl.querySelector(".sj-reflection"), entry, reflection, query);
   toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
 
   return li;
@@ -531,22 +580,19 @@ function _periodStart(period) {
   return null; // "all"
 }
 
-function _matchesFilters(entry) {
-  const { session: s, meta, extras } = entry;
+// Período/matéria/categoria continuam sendo aplicados aqui (F8.4,
+// inalterado) — busca textual composta e os demais filtros novos
+// (reflexão/observações/revisões/questões/duração/tipo/status/dificuldade)
+// vivem em studySearchService.js (F8.8) e são aplicados em _render() sobre
+// o subconjunto já filtrado por esta função, sem prioridade entre eles.
+function _matchesBaseFilters(entry) {
+  const { session: s, meta } = entry;
 
   const periodStart = _periodStart(_filters.period);
   if (periodStart && new Date(s.started_at) < periodStart) return false;
 
   if (_filters.subject && meta.subject !== _filters.subject) return false;
   if (_filters.category && meta.category !== _filters.category) return false;
-
-  if (_filters.search) {
-    const haystack = [meta.title, meta.content, s.notes, extras.reflection?.content]
-      .filter(Boolean)
-      .join(" \n ")
-      .toLowerCase();
-    if (!haystack.includes(_filters.search)) return false;
-  }
 
   return true;
 }
@@ -579,7 +625,17 @@ function _onFilterChange() {
     period: periodSelect.value,
     subject: subjectSelect.value,
     category: categorySelect.value,
-    search: searchInput.value.trim().toLowerCase(),
+    search: searchInput.value.trim(),
+    onlyWithReflection: Boolean(reflectionCheck?.checked),
+    onlyWithNotes: Boolean(notesCheck?.checked),
+    onlyWithReviews: Boolean(reviewsCheck?.checked),
+    onlyWithQuestions: Boolean(questionsCheck?.checked),
+    onlyWithoutQuestions: Boolean(noQuestionsCheck?.checked),
+    onlyLong: Boolean(longCheck?.checked),
+    onlyShort: Boolean(shortCheck?.checked),
+    questionType: questionTypeSelect?.value || "",
+    questionStatus: questionStatusSelect?.value || "",
+    questionDifficulty: questionDifficultySelect?.value || "",
   };
   _render();
 }
@@ -589,28 +645,58 @@ function _bindFilters() {
   subjectSelect?.addEventListener("change", _onFilterChange);
   categorySelect?.addEventListener("change", _onFilterChange);
   searchInput?.addEventListener("input", _onFilterChange);
+  questionTypeSelect?.addEventListener("change", _onFilterChange);
+  questionStatusSelect?.addEventListener("change", _onFilterChange);
+  questionDifficultySelect?.addEventListener("change", _onFilterChange);
+  [reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck]
+    .forEach(el => el?.addEventListener("change", _onFilterChange));
 }
 
-// ── Renderização (F8.3 + F8.4) ──────────────────────────────────────────
-// Reconstrói a lista inteira a partir de `_allEntries` filtrado — mesma
+// ── Estatísticas da busca (F8.8) ─────────────────────────────────────────
+// Cartão fixo acima da lista, derivado apenas do resultado já filtrado
+// (searchStats() — studySearchService.js, função pura) — nenhuma consulta
+// nova, mesmo padrão dos cartões de resumo do F8.5/F8.6.
+function _renderSearchStats(filteredEntries) {
+  if (!statsEl) return;
+  const stats = searchStats(filteredEntries);
+  statsEl.hidden = false;
+  statsEl.innerHTML = `
+    <span>${stats.sessionsCount} sessão(ões) encontrada(s)</span>
+    <span>${_formatDuration(stats.totalMinutes)} estudados</span>
+    <span>${stats.questionsCount} questão(ões)</span>
+    <span>${stats.reviewsCount} revisão(ões)</span>
+    <span>${stats.subjectsCount} matéria(s) diferente(s)</span>
+  `;
+}
+
+// ── Renderização (F8.3 + F8.4 + F8.8) ────────────────────────────────────
+// Reconstrói a lista inteira a partir de `_searchIndex` filtrado — mesma
 // ordem started_at desc já devolvida por listSessions(), então o
 // agrupamento por dia continua correto mesmo após um filtro remover
-// sessões de um grupo (o grupo simplesmente não é recriado).
+// sessões de um grupo (o grupo simplesmente não é recriado). Período/
+// matéria/categoria (F8.4) são aplicados primeiro sobre o índice já pronto
+// (_matchesBaseFilters); busca textual composta e os demais filtros novos
+// (F8.8) são então aplicados de uma vez por searchEntries()
+// (studySearchService.js) — todos combinados, sem prioridade entre eles,
+// nenhuma consulta nova a nenhum service.
 function _render() {
   listEl.innerHTML = "";
-  const filtered = _allEntries.filter(_matchesFilters);
+  const preFiltered = _searchIndex.filter(record => _matchesBaseFilters(record.entry));
+  const filtered = searchEntries(preFiltered, _filters);
 
   if (filtered.length === 0) {
+    if (statsEl) statsEl.hidden = true;
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
     emptyEl.textContent = _allEntries.length === 0
       ? "Nenhuma sessão de estudo registrada ainda."
-      : "Nenhuma sessão encontrada para os filtros selecionados.";
+      : "Nenhuma sessão encontrada para esta pesquisa.";
     return;
   }
 
   emptyEl.hidden = true;
+  _renderSearchStats(filtered);
 
   // F8.7 — Marcos da Evolução: bloco somente-leitura inserido antes de
   // qualquer grupo de dia, derivado das mesmas entradas filtradas.
@@ -666,6 +752,10 @@ async function _loadEntriesData(sessions) {
   sessions.forEach((s, i) => {
     _allEntries.push({ session: s, meta: _resolveMeta(s), extras: extrasList[i] });
   });
+  // F8.8 — índice reconstruído aqui (só quando `_allEntries` muda: nova
+  // página carregada), nunca em _render()/_onFilterChange — reutilizado por
+  // searchEntries() a cada troca de filtro sem reprocessar as entradas.
+  _searchIndex = buildSearchIndex(_allEntries);
 }
 
 async function _loadPage(reset) {
@@ -675,6 +765,7 @@ async function _loadPage(reset) {
   if (reset) {
     _offset = 0;
     _allEntries = [];
+    _searchIndex = [];
     listEl.innerHTML = "";
     emptyEl.hidden = true;
     emptyEl.classList.remove("list-error");
@@ -716,11 +807,24 @@ export async function initStudyJournalView() {
     listEl      = document.getElementById("sj-list");
     emptyEl     = document.getElementById("sj-list-empty");
     loadMoreBtn = document.getElementById("sj-load-more");
+    statsEl     = document.getElementById("sj-search-stats");
 
     periodSelect   = document.getElementById("sj-filter-period");
     subjectSelect  = document.getElementById("sj-filter-subject");
     categorySelect = document.getElementById("sj-filter-category");
     searchInput    = document.getElementById("sj-filter-search");
+
+    questionTypeSelect       = document.getElementById("sj-filter-question-type");
+    questionStatusSelect     = document.getElementById("sj-filter-question-status");
+    questionDifficultySelect = document.getElementById("sj-filter-question-difficulty");
+
+    reflectionCheck  = document.getElementById("sj-filter-reflection");
+    notesCheck       = document.getElementById("sj-filter-notes");
+    reviewsCheck     = document.getElementById("sj-filter-reviews");
+    questionsCheck   = document.getElementById("sj-filter-questions");
+    noQuestionsCheck = document.getElementById("sj-filter-no-questions");
+    longCheck        = document.getElementById("sj-filter-long");
+    shortCheck       = document.getElementById("sj-filter-short");
 
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
     _bindFilters();
@@ -745,9 +849,14 @@ export function resetStudyJournalView() {
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
   // entre usuários diferentes na mesma sessão do navegador.
-  _filters = { period: "all", subject: "", category: "", search: "" };
+  _filters = { ..._DEFAULT_FILTERS };
   if (periodSelect)   periodSelect.value = "all";
   if (subjectSelect)  subjectSelect.value = "";
   if (categorySelect) categorySelect.value = "";
   if (searchInput)    searchInput.value = "";
+  if (questionTypeSelect)       questionTypeSelect.value = "";
+  if (questionStatusSelect)     questionStatusSelect.value = "";
+  if (questionDifficultySelect) questionDifficultySelect.value = "";
+  [reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck]
+    .forEach(el => { if (el) el.checked = false; });
 }
