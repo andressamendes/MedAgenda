@@ -1863,6 +1863,64 @@ textarea { resize: vertical; }
   gap: .5rem;
 }
 
+/* ── Linha do Tempo da Evolução (F8.5) ── */
+.sj-daily-summary {
+  margin-top: .5rem;
+  padding: .55rem .7rem;
+  border-top: 1px dashed var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-size: .78rem;
+  color: var(--gray-600);
+}
+
+.sj-daily-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .8rem;
+}
+
+.sj-daily-summary-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+
+.sj-summary-comparison-label {
+  color: var(--gray-500);
+}
+
+.sj-summary-badge {
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.sj-week-summary {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .7rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  background: var(--gray-50, transparent);
+}
+
+.sj-week-summary-title {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.sj-week-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .9rem;
+  font-size: .8rem;
+  color: var(--gray-600);
+}
+
 .sj-reflection-error {
   margin: 0;
   color: var(--color-danger-text);

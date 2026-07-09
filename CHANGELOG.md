@@ -2,6 +2,37 @@
 
 ---
 
+## [Unreleased] — F8.5: Linha do Tempo da Evolução (Diário de Estudos)
+
+Adiciona uma camada narrativa sobre o Diário de Estudos (`studyJournalView.js`,
+F8.1-F8.4): além de responder "o que estudei?", a tela passa a responder "como
+minha evolução aconteceu ao longo do tempo?" com resumos automáticos de dia e
+de semana, e pequenos indicadores de evolução entre um dia e o anterior.
+
+Toda a agregação vive em `studyTimelineService.js` (novo, função pura, sem
+I/O) — mesma filosofia de `computeDashboardIndicators()` em
+`activityDashboardService.js`/F2.1: separa o cálculo puro do ponto onde os
+dados são buscados. Agrupamento semanal reaproveita `mondayOf()`/`isoDate()`
+de `utils.js`, a mesma dupla já usada por `activityDashboardService.js` para
+"semana" — nenhuma numeração de semana ISO é inventada. "Dia estudado" e
+"maior sequência de dias consecutivos" seguem o mesmo conceito de
+`studyStreakService.js`, e "matéria" o mesmo de `subjectProgressService.js`,
+mas recalculados sobre as entradas já carregadas por `studyJournalView.js`
+(sessão + questões + revisões, já buscadas para os cartões) em vez de chamar
+essas services — que buscariam todo o histórico do banco de novo. Isso
+garante que os resumos só consideram as sessões atualmente visíveis após os
+filtros do F8.4, sem nenhuma consulta adicional.
+
+Os cartões (`.sj-daily-summary` dentro do próprio `<li class="sj-day-group">`,
+`.sj-week-summary` como `<li>` entre grupos) são elementos novos que nunca
+substituem `.sj-day-group`/`.sj-entry` nem alteram seu conteúdo. Nenhum dado é
+persistido, nenhum domínio (`activitySessionService.js`, `sessionEventBus.js`,
+Dashboard, Insights, Achievement, Study Streak, Subject Progress, Question
+Service, Reflection Service, Review Service) foi alterado.
+
+`service-worker.js` (APP_SHELL) regenerado via `npm run build:app-shell`
+(inclui `studyTimelineService.js`) e `CACHE_VERSION` incrementada.
+
 ## [Unreleased] — F7.5: Revisões Espaçadas no Pós-Sessão
 
 Move definitivamente o fluxo de Revisões da tela "Editar Compromisso" para o
