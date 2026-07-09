@@ -13,6 +13,7 @@ const APP_SHELL = [
   './index.html',
   './style.css',
   // AUTO-GENERATED:BEGIN (scripts/generate-app-shell.js)
+  './abandonedSessionDialog.js',
   './academicCalendarEventsView.js',
   './academicCalendarFilter.js',
   './academicCalendarICSView.js',
