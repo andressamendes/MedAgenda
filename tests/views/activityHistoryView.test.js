@@ -33,7 +33,10 @@ function loadView(t, overrides = {}) {
   });
 
   t.mock.module(EVENT_SPECIFIER, {
-    namedExports: { getEvents: overrides.getEvents ?? (async () => []) },
+    namedExports: {
+      getEvents: overrides.getEvents ?? (async () => []),
+      getEventById: overrides.getEventById ?? (async () => null),
+    },
   });
 
   t.mock.module(CATEGORY_SPECIFIER, {
@@ -389,6 +392,98 @@ test("filters continue to work normally alongside the event-bus subscription", a
 
   assert.strictEqual(calls[0].status, "finished");
   assert.strictEqual(finishedTab.classList.contains("ah-filter-tab--active"), true);
+});
+
+// ── Invalidação do cache de eventos (AUD-003) ───────────────────────────────
+// O cache de eventos (_eventsById) é carregado uma vez no login. Sem
+// invalidação, um compromisso criado depois do login nunca aparece nesse
+// cache, e a sessão vinculada a ele é exibida como "Compromisso removido"
+// mesmo existindo no banco. Estes testes cobrem os 4 cenários da AUD-003.
+
+test("scenario 1: a session referencing an event created after the initial cache load still resolves its title", async (t) => {
+  const getEventByIdCalls = [];
+  const session = {
+    id: "sess-1", event_id: "event-new", status: "finished", source: "event",
+    started_at: "2026-07-10T08:00:00.000Z", ended_at: "2026-07-10T09:00:00.000Z", duration_minutes: 60,
+  };
+  const { mod } = await loadView(t, {
+    // Cache do login: o compromisso "event-new" ainda não existia.
+    getEvents: async () => [],
+    getEventById: async (id) => {
+      getEventByIdCalls.push(id);
+      return id === "event-new" ? { id: "event-new", title: "Revisão de farmacologia", category: "Estudo" } : null;
+    },
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initActivityHistoryView();
+
+  const list = document.getElementById("ah-list");
+  assert.match(list.textContent, /Revisão de farmacologia/);
+  assert.doesNotMatch(list.textContent, /Compromisso removido/);
+  assert.deepStrictEqual(getEventByIdCalls, ["event-new"]);
+});
+
+test("scenario 2: an event that already existed at login keeps resolving without hitting getEventById", async (t) => {
+  const getEventByIdCalls = [];
+  const session = {
+    id: "sess-1", event_id: "event-1", status: "finished", source: "event",
+    started_at: "2026-07-10T08:00:00.000Z", ended_at: "2026-07-10T09:00:00.000Z", duration_minutes: 60,
+  };
+  const { mod } = await loadView(t, {
+    getEvents: async () => [{ id: "event-1", title: "Plantão UPA", category: "Estágio" }],
+    getEventById: async (id) => { getEventByIdCalls.push(id); return null; },
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initActivityHistoryView();
+
+  assert.match(document.getElementById("ah-list").textContent, /Plantão UPA/);
+  assert.deepStrictEqual(getEventByIdCalls, [], "an already-cached event must not trigger a lookup");
+});
+
+test("scenario 3: a genuinely deleted event still shows \"Compromisso removido\"", async (t) => {
+  const session = {
+    id: "sess-1", event_id: "event-gone", status: "finished", source: "event",
+    started_at: "2026-07-10T08:00:00.000Z", ended_at: "2026-07-10T09:00:00.000Z", duration_minutes: 60,
+  };
+  const { mod } = await loadView(t, {
+    getEvents: async () => [],
+    getEventById: async () => null, // não existe mais no banco
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initActivityHistoryView();
+
+  assert.match(document.getElementById("ah-list").textContent, /Compromisso removido/);
+});
+
+test("scenario 4: a resolved event is cached and never looked up again across reloads", async (t) => {
+  const getEventByIdCalls = [];
+  const getEventsCalls = [];
+  const session = {
+    id: "sess-1", event_id: "event-new", status: "finished", source: "event",
+    started_at: "2026-07-10T08:00:00.000Z", ended_at: "2026-07-10T09:00:00.000Z", duration_minutes: 60,
+  };
+  const { mod } = await loadView(t, {
+    getEvents: async () => { getEventsCalls.push(1); return []; },
+    getEventById: async (id) => {
+      getEventByIdCalls.push(id);
+      return { id, title: "Revisão de farmacologia", category: null };
+    },
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initActivityHistoryView();
+  assert.deepStrictEqual(getEventByIdCalls, ["event-new"]);
+
+  // Um evento do barramento de sessões dispara uma recarga (F6.3) — a mesma
+  // sessão, referenciando o mesmo compromisso, é re-renderizada.
+  publish(SESSION_EVENTS.FINISHED, { id: "sess-1", status: "finished" });
+  await tick();
+
+  assert.deepStrictEqual(getEventByIdCalls, ["event-new"], "a cached event must not be looked up again on a later render");
+  assert.strictEqual(getEventsCalls.length, 1, "the full events list must only be loaded once, at login");
 });
 
 test("pagination continues to work normally alongside the event-bus subscription", async (t) => {
