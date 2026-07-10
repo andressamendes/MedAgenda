@@ -221,6 +221,59 @@ test("resetCalendar clears the rendered month grid and disables refresh until th
   assert.strictEqual(rangeCalls.length, callsBeforeReset, "refresh after reset must not fetch anything");
 });
 
+// ── AUD-007 — corrida de navegação ──────────────────────────────────────────
+// Cliques rápidos em "próximo mês" disparam duas buscas concorrentes; se a
+// mais antiga (para o mês já abandonado) resolver por último, ela não pode
+// sobrescrever o resultado da navegação mais recente.
+test("rapid navigation renders only the result of the most recent request, discarding a stale response that resolves later", async (t) => {
+  const { y, m } = currentMonthInfo();
+  const nextY  = m === 11 ? y + 1 : y;
+  const nextM  = m === 11 ? 0     : m + 1;
+  const next2Y = nextM === 11 ? nextY + 1 : nextY;
+  const next2M = nextM === 11 ? 0         : nextM + 1;
+
+  const evNext  = { id: "evt-next",  title: "Mês seguinte (obsoleto)",   event_date: `${nextY}-${pad(nextM + 1)}-15`,   recurrence_type: "none" };
+  const evNext2 = { id: "evt-next2", title: "Mês seguinte 2 (mais recente)", event_date: `${next2Y}-${pad(next2M + 1)}-15`, recurrence_type: "none" };
+
+  const pending = [];
+  t.mock.module(EVENT_SERVICE_SPECIFIER, {
+    namedExports: {
+      getEventsByRange: async (start, end) => new Promise(resolve => pending.push({ start, end, resolve })),
+    },
+  });
+  t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
+    namedExports: { getEventExecutionSummaries: async () => ({}) },
+  });
+
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  const initPromise = initCalendar(container, {});
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(pending.length, 1, "initial fetch for the current month");
+  pending[0].resolve([]);
+  await initPromise;
+
+  // Dois cliques rápidos em "próximo mês" — nenhum é aguardado antes do
+  // próximo, reproduzindo a navegação rápida do bug.
+  container.querySelector("#cal-next").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  container.querySelector("#cal-next").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(pending.length, 3, "two navigations queued two more fetches");
+
+  // A busca mais recente (mês seguinte 2) resolve primeiro; a mais antiga
+  // (mês seguinte, já abandonado) resolve DEPOIS — a ordem invertida é o
+  // cenário do bug.
+  pending[2].resolve([evNext2]);
+  await new Promise(r => setTimeout(r, 0));
+  pending[1].resolve([evNext]);
+  await new Promise(r => setTimeout(r, 0));
+
+  const chips = [...container.querySelectorAll(".cal-chip")];
+  assert.strictEqual(chips.length, 1, "the stale response must not add/clear chips after the latest render");
+  assert.strictEqual(chips[0].textContent, "Mês seguinte 2 (mais recente)");
+});
+
 test("a failure fetching execution summaries does not break the calendar", async (t) => {
   const { day15 } = currentMonthInfo();
   const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };

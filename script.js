@@ -152,6 +152,16 @@ async function safeInit(label, fn) {
   }
 }
 
+// AUD-005 — guarda o listener de "btn-academic-cals" contra re-registro.
+// _initApp roda a cada login (após logout na mesma página, sem reload — ver
+// authView.js/showApp, que reseta _initializedUserId no sign-out); sem esta
+// guarda, cada login empilharia mais um listener de click no botão
+// "Calendários", disparando openAcademicCalendarModal N vezes por clique após
+// N logins. Deliberadamente nunca resetado no logout — mesmo padrão de
+// _modalOverlay em academicCalendarView.js/initAcademicModal(): o listener
+// deve existir uma única vez por carregamento de página, não por sessão.
+let _academicCalsButtonBound = false;
+
 // ── P0 — Proteção contra Divergência de Schema ────────────────────────────
 // Primeiro passo de todo _initApp: confirma que o banco já recebeu as
 // migrations que este build do frontend exige (ver schemaService.js) antes
@@ -227,8 +237,12 @@ async function _initApp(session) {
     setCalendarPersonalVisibility(isPersonalVisible);
     setWeekViewPersonalVisibility(isPersonalVisible);
 
-    // Hook up "Calendários" button
-    document.getElementById("btn-academic-cals")?.addEventListener("click", openAcademicCalendarModal);
+    // Hook up "Calendários" button (AUD-005: uma única vez por carregamento
+    // de página — ver guarda declarada em _academicCalsButtonBound)
+    if (!_academicCalsButtonBound) {
+      document.getElementById("btn-academic-cals")?.addEventListener("click", openAcademicCalendarModal);
+      _academicCalsButtonBound = true;
+    }
 
     // Categorias devem estar prontas antes do calendário e da lista
     try {

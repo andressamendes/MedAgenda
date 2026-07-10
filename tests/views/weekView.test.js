@@ -351,6 +351,62 @@ test("destroyWeekView clears the rendered grid, tip and weekly plan (no data sur
   assert.strictEqual(container.textContent.includes("Prova de Anatomia"), false);
 });
 
+// ── AUD-007 — corrida de navegação ──────────────────────────────────────────
+// Cliques rápidos em "próxima semana" disparam duas buscas concorrentes; se a
+// mais antiga (para a semana já abandonada) resolver por último, ela não pode
+// sobrescrever o resultado da navegação mais recente — nem com dados errados
+// (a antiga não teria eventos da semana atual, já que dateToCol() filtra pela
+// _mon corrente) nem apagando o que já foi renderizado corretamente.
+test("rapid navigation renders only the result of the most recent request, discarding a stale response that resolves later", async (t) => {
+  const { mon } = currentWeekRange();
+  const weekPlus1 = new Date(mon); weekPlus1.setDate(weekPlus1.getDate() + 7);
+  const weekPlus2 = new Date(mon); weekPlus2.setDate(weekPlus2.getDate() + 14);
+
+  const evPlus1 = { id: "evt-plus1", title: "Semana +1 (obsoleta)", event_date: isoDate(weekPlus1), start_time: "10:00:00", duration_minutes: 30, recurrence_type: "none" };
+  const evPlus2 = { id: "evt-plus2", title: "Semana +2 (mais recente)", event_date: isoDate(weekPlus2), start_time: "10:00:00", duration_minutes: 30, recurrence_type: "none" };
+
+  const pending = [];
+  t.mock.module(EVENT_SERVICE_SPECIFIER, {
+    namedExports: {
+      getEventsByRange: async (start, end) => new Promise(resolve => pending.push({ start, end, resolve })),
+    },
+  });
+  t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
+    namedExports: { getEventExecutionSummaries: async () => ({}) },
+  });
+  t.mock.module(DECISION_ENGINE_SPECIFIER, {
+    namedExports: { getDecisions: async () => EMPTY_DECISIONS },
+  });
+
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  const initPromise = initWeekView(container, {});
+  await flush();
+  assert.strictEqual(pending.length, 1, "initial fetch for the current week");
+  pending[0].resolve([]);
+  await initPromise;
+
+  // Dois cliques rápidos em "próxima semana" — nenhum é aguardado antes do
+  // próximo, reproduzindo a navegação rápida do bug.
+  container.querySelector("#wk-next").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flush();
+  container.querySelector("#wk-next").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await flush();
+  assert.strictEqual(pending.length, 3, "two navigations queued two more fetches");
+
+  // A busca mais recente (semana +2) resolve primeiro; a mais antiga (semana
+  // +1, já abandonada) resolve DEPOIS — a ordem invertida é o cenário do bug.
+  pending[2].resolve([evPlus2]);
+  await flush();
+  pending[1].resolve([evPlus1]);
+  await flush();
+
+  const events = [...container.querySelectorAll(".wk-event")];
+  assert.strictEqual(events.length, 1, "the stale response must not add/clear events after the latest render");
+  assert.ok(events[0].textContent.includes("Semana +2"), "only the most recent navigation's event survives");
+});
+
 test("navigating between weeks does not re-fetch the tip/plan decisions (no duplicated query)", async (t) => {
   let decisionCalls = 0;
   mockEventService(t, { events: [], getDecisions: async () => { decisionCalls++; return EMPTY_DECISIONS; } });

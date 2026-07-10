@@ -13,6 +13,7 @@ const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
 let container, calYear, calMonth, callbacks;
 let _academicProvider = null;
+let _fetchGeneration = 0; // AUD-007: descarta respostas de fetchAndRender() obsoletas em navegações rápidas
 
 /** Registers a provider function (start, end) => Promise<AcademicEvent[]> */
 export function setCalendarAcademicProvider(fn) {
@@ -54,6 +55,7 @@ export function resetCalendar() {
   callbacks = null;
   _academicProvider = null;
   _showPersonal = () => true;
+  _fetchGeneration++; // descarta qualquer fetchAndRender() ainda em voo desta instância
 }
 
 // ── Shell (estrutura estática — criada uma vez) ────────────────────────────
@@ -96,6 +98,12 @@ async function goToday() {
 // ── Busca e renderização ───────────────────────────────────────────────────
 
 async function fetchAndRender() {
+  // AUD-007: cada chamada recebe uma geração própria; se o mês exibido mudar
+  // de novo (nova navegação) antes desta resolver, esta geração fica obsoleta
+  // e seu resultado é descartado — só a navegação mais recente chega a
+  // renderizar.
+  const generation = ++_fetchGeneration;
+
   updateTitle();
   showLoading();
   try {
@@ -107,8 +115,10 @@ async function fetchAndRender() {
     ]);
     const personal = expandEvents(rawEvents, start, end);
     const executionSummaries = await fetchExecutionSummaries(personal);
+    if (generation !== _fetchGeneration) return; // navegação mais recente já assumiu a tela
     renderGrid(groupByDate([...personal, ...academicEvents]), executionSummaries);
   } catch (err) {
+    if (generation !== _fetchGeneration) return;
     // Erro (rede/banco/sessão) não deve ser tratado como "mês sem eventos" —
     // renderiza um estado de erro distinto, com opção de tentar novamente,
     // em vez de uma grade vazia indistinguível de um mês sem compromissos.

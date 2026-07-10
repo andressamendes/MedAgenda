@@ -127,3 +127,27 @@ test("validateGoalMinutes rejects non-numeric values", () => {
 test("validateGoalMinutes throws for an unknown period", () => {
   assert.throws(() => validateGoalMinutes(60, "yearly"));
 });
+
+// ── monthly_goal_minutes — AUD-006 (SMALLINT do banco vs. limite da UI) ─────
+
+test("validateGoalMinutes accepts the smallest valid monthly value", () => {
+  assert.deepStrictEqual(
+    validateGoalMinutes(GOAL_LIMITS.monthly.min, "monthly"),
+    { valid: true, value: GOAL_LIMITS.monthly.min }
+  );
+});
+
+test("validateGoalMinutes accepts the largest valid monthly value (44640, acima do limite do SMALLINT)", () => {
+  assert.deepStrictEqual(
+    validateGoalMinutes(GOAL_LIMITS.monthly.max, "monthly"),
+    { valid: true, value: GOAL_LIMITS.monthly.max }
+  );
+  // 32767 é o limite do SMALLINT do Postgres — o maior valor aceito pela UI
+  // precisa ultrapassá-lo para a migration 20 (INTEGER) ser de fato necessária.
+  assert.ok(GOAL_LIMITS.monthly.max > 32767);
+});
+
+test("validateGoalMinutes rejects a monthly value above the limit", () => {
+  const result = validateGoalMinutes(GOAL_LIMITS.monthly.max + 1, "monthly");
+  assert.strictEqual(result.valid, false);
+});
