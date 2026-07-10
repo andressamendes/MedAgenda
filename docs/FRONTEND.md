@@ -417,6 +417,7 @@ restoreSidebarState()
 - `initCategories()` — garante categorias padrão e preenche o select do formulário de evento.
 - `categoryColor(name)` — retorna a cor da categoria pelo nome (usada em `script.js` ao renderizar a lista).
 - `openCategoryModal()` — abre o modal de gerenciamento.
+- `resetCategories()` — chamado no logout (auditoria A1.3): zera `categoriesCache` e limpa o DOM já renderizado (lista do modal e `<select>` do formulário) — o modal é apenas ocultado no logout (nunca fechado via `modal.close()`), então sem isto a lista do usuário anterior ficaria presente até a próxima abertura.
 
 ---
 
@@ -453,12 +454,12 @@ restoreSidebarState()
 **Estado interno:**
 - `_assistantSection`, `_assistantBody` — referências ao DOM.
 - `_assistantHidden` — bool que persiste o estado de oculto durante a sessão; resetado no logout por `resetAssistant()`.
-- `_lastEvents` — último array de eventos recebido, usado para rerenderizar ao exibir novamente.
+- `_lastEvents` — último array de eventos recebido, usado para rerenderizar ao exibir novamente; zerado no logout.
 
 **Principais funções exportadas:**
 - `initAssistantView()` — registra os listeners de fechar/reexibir o painel.
 - `renderAssistant(events)` — atualiza o conteúdo do painel com novos dados.
-- `resetAssistant()` — resetado no logout para que o assistente apareça automaticamente no próximo login.
+- `resetAssistant()` — chamado no logout (auditoria A1.3): zera `_lastEvents`, limpa o DOM já renderizado em `_assistantBody` e esconde a seção — sem isso, "Mostrar Assistente" reexibiria os cards do usuário anterior antes do próximo login.
 
 ---
 

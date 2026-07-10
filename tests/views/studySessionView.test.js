@@ -1190,6 +1190,26 @@ test("resetStudySessionView() clears the page back to the empty state and unsubs
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
 });
 
+test("resetStudySessionView() clears the previous user's event title/category text — not just hides the section (no data survives logout)", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({
+      id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1",
+    }),
+    getEventById: async (id) => (id === "evt-1" ? { id, title: "Prova de Anatomia", category: "Anatomia", description: null, duration_minutes: null } : null),
+  });
+
+  await mod.initStudySessionView();
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Prova de Anatomia");
+
+  mod.resetStudySessionView();
+
+  // Simetria A1.3: mesmo com a seção ativa oculta (activeEl.hidden = true),
+  // o texto do usuário anterior não pode continuar presente no DOM.
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "");
+  assert.strictEqual(document.getElementById("ss-category").textContent, "");
+  assert.strictEqual(document.getElementById("ss-started-at").textContent, "");
+});
+
 // ── F7.9 — Tratamento de Sessões abandonadas ────────────────────────────────
 // A restauração automática (F7.8) continua intocada para sessões recentes;
 // só uma sessão "running"/"paused" com started_at anterior a 24h aciona o

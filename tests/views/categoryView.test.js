@@ -160,6 +160,26 @@ test("resetCategories() clears the cached category list (logout symmetry, A1.3)"
   assert.strictEqual(view.categoryColor("Aula"), "#6b7280");
 });
 
+test("resetCategories() also clears the modal's rendered list (no data survives logout, even hidden)", async (t) => {
+  mockCategoryService(t, {
+    categories: [{ id: "cat-1", name: "Aula", color: "#3b82f6" }],
+  });
+  view = await import(`../../categoryView.js?t=${Math.random()}`);
+  view.initCategoryView();
+  await view.initCategories();
+  await view.openCategoryModal();
+
+  // Sanity: dados do usuário estão renderizados antes do logout (o modal é
+  // apenas ocultado no logout, ver _closeAllModals em authView.js — nunca
+  // fechado via modal.close()).
+  assert.match(document.getElementById("cat-list").textContent, /Aula/);
+
+  view.resetCategories();
+
+  assert.strictEqual(document.getElementById("cat-list").innerHTML, "", "logout must leave no rendered data behind");
+  assert.strictEqual(document.getElementById("f-category").children.length, 1, "select must be back to only the placeholder option");
+});
+
 test("editing a category saves once, updates the row, and clears a previous error", async (t) => {
   mockCategoryService(t, {
     categories: [{ id: "cat-1", name: "Aula", color: "#3b82f6" }],

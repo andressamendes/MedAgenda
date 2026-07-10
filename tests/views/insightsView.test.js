@@ -464,6 +464,24 @@ test("resetInsightsView() also unsubscribes onReviewStatusChanged/onProfileUpdat
   assert.strictEqual(calls, 1); // no reload after reset
 });
 
+test("resetInsightsView() clears the rendered cards of all four blocks (no data survives logout)", async (t) => {
+  const { mod } = await loadView(t, { getInsightsData: async () => EMPTY_INSIGHTS });
+
+  await mod.initInsightsView();
+
+  // Sanity: dados do usuário estão renderizados antes do logout.
+  assert.notStrictEqual(document.getElementById("insights-execucao-cards").innerHTML, "");
+  assert.notStrictEqual(document.getElementById("insights-revisoes-cards").innerHTML, "");
+
+  mod.resetInsightsView();
+
+  // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
+  // após o logout, em nenhum dos quatro blocos.
+  for (const cardsId of ["insights-execucao-cards", "insights-metas-cards", "insights-revisoes-cards", "insights-produtividade-cards"]) {
+    assert.strictEqual(document.getElementById(cardsId).innerHTML, "", `${cardsId} must be empty after logout`);
+  }
+});
+
 test("repeated initInsightsView() calls don't double-subscribe (no double reload per event)", async (t) => {
   let calls = 0;
   const { mod } = await loadView(t, {

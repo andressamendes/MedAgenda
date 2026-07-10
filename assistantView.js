@@ -11,8 +11,17 @@ let _assistantHidden  = false;
 let _lastEvents       = [];
 
 // Called by onBeforeSignOut so the assistant re-appears after the next login.
+// Also discards the previous user's rendered cards (_assistantBody) and the
+// cached event list (_lastEvents) — without this, both would remain visible/
+// reachable during the window between logout and the next login (SPA sem
+// reload de página — mesma simetria init/reset da auditoria A1.3).
 export function resetAssistant() {
   _assistantHidden = false;
+  _lastEvents = [];
+  if (_assistantBody) _assistantBody.innerHTML = '';
+  if (_assistantSection) _assistantSection.hidden = true;
+  const btnShowAssistant = document.getElementById('btn-show-assistant');
+  if (btnShowAssistant) btnShowAssistant.hidden = true;
 }
 
 export function initAssistantView() {

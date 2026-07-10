@@ -257,10 +257,14 @@ export async function initActivityHistoryView() {
 }
 
 /**
- * Desfaz a assinatura do barramento de eventos e qualquer recarga pendente.
- * Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut) — sem
- * isso, os listeners registrados em _subscribeToEventBus() sobreviveriam à
- * troca de sessão e recarregariam a lista com o usuário errado.
+ * Desfaz a assinatura do barramento de eventos e qualquer recarga pendente,
+ * além de descartar o DOM renderizado e as caches em memória (_eventsById,
+ * _categoriesById). Chamada no logout/troca de usuário (ver
+ * script.js/onBeforeSignOut) — sem isso, os listeners registrados em
+ * _subscribeToEventBus() sobreviveriam à troca de sessão e recarregariam a
+ * lista com o usuário errado, e o histórico do usuário anterior permaneceria
+ * visível no DOM durante a janela entre o logout e o próximo login (SPA sem
+ * reload de página — mesma simetria init/reset da auditoria A1.3).
  */
 export function resetActivityHistoryView() {
   _unsubscribers.forEach(off => off());
@@ -269,4 +273,16 @@ export function resetActivityHistoryView() {
     clearTimeout(_reloadTimer);
     _reloadTimer = null;
   }
+  if (listEl) listEl.innerHTML = "";
+  if (emptyEl) {
+    emptyEl.hidden = true;
+    emptyEl.classList.remove("list-error");
+    clearStateBlock(emptyEl);
+  }
+  if (loadMoreBtn) loadMoreBtn.hidden = true;
+  _eventsById     = new Map();
+  _categoriesById = new Map();
+  _status  = "all";
+  _offset  = 0;
+  _loading = false;
 }

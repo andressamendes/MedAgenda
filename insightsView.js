@@ -227,10 +227,13 @@ export async function initInsightsView() {
 
 /**
  * Desfaz a assinatura do barramento de eventos e demais listeners, além de
- * qualquer recarga pendente. Chamada no logout/troca de usuário (ver
- * script.js/onBeforeSignOut) — sem isso, os listeners registrados em
- * _subscribeToEventBus() sobreviveriam à troca de sessão e recarregariam a
- * Central de Insights com o usuário errado.
+ * qualquer recarga pendente, e descarta o DOM renderizado dos quatro blocos.
+ * Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut) — sem
+ * isso, os listeners registrados em _subscribeToEventBus() sobreviveriam à
+ * troca de sessão e recarregariam a Central de Insights com o usuário
+ * errado, e os cards do usuário anterior permaneceriam visíveis no DOM
+ * durante a janela entre o logout e o próximo login (SPA sem reload de
+ * página — mesma simetria init/reset da auditoria A1.3).
  */
 export function resetInsightsView() {
   _unsubscribers.forEach(off => off());
@@ -241,4 +244,13 @@ export function resetInsightsView() {
   }
   if (_unsubscribeReview)  { _unsubscribeReview();  _unsubscribeReview  = null; }
   if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
+  for (const blockDef of BLOCK_DEFS) {
+    const cardsEl  = document.getElementById(blockDef.cardsId);
+    const errorEl  = document.getElementById(blockDef.errorId);
+    const noticeEl = document.getElementById(blockDef.noticeId);
+    if (cardsEl) cardsEl.innerHTML = "";
+    if (errorEl) { errorEl.hidden = true; errorEl.innerHTML = ""; clearStateBlock(errorEl); }
+    if (noticeEl) { noticeEl.hidden = true; noticeEl.textContent = ""; }
+  }
+  _loading = false;
 }
