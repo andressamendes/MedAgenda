@@ -13,6 +13,7 @@ import {
   updateQuestion as updateQuestionRecord,
   deleteQuestion,
   listBySession,
+  listBySessions,
 } from "./questionService.js";
 
 // Mesmo padrão de _domainError() de activitySessionService.js/reviewService.js:
@@ -71,6 +72,16 @@ export async function listQuestions(sessionId) {
   }
   await _requireExistingSession(sessionId);
   return listBySession(sessionId);
+}
+
+// Versão em lote de listQuestions(), para telas que renderizam várias
+// sessões de uma vez (Diário de Estudos, AUD-002): uma única consulta evita
+// o N+1 de existência+listagem por sessão. Sem checagem individual de
+// existência — o chamador já obteve os session_ids de uma fonte que os
+// escopa ao usuário atual (ex.: activitySessionService.listSessions()), e
+// questionService.listBySessions() já filtra por user_id.
+export async function listQuestionsBySessions(sessionIds) {
+  return listBySessions(sessionIds);
 }
 
 // Atualização segura: session_id nunca é aceito no payload — uma questão

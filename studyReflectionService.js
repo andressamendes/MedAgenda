@@ -36,6 +36,28 @@ export async function getBySession(sessionId) {
   return data;
 }
 
+// Reflexões de várias sessões de uma só vez, mapeadas por session_id — para
+// telas que renderizam muitas sessões ao mesmo tempo (Diário de Estudos,
+// AUD-002): uma única consulta com `in` evita o N+1 de chamar getBySession()
+// por sessão. Sessões sem reflexão simplesmente não aparecem no mapa
+// resultante (mesmo sentido de `null` em getBySession()).
+export async function listBySessions(sessionIds) {
+  const ids = [...new Set((sessionIds || []).filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("reflections")
+    .select("*")
+    .eq("user_id", user_id)
+    .in("session_id", ids);
+  if (error) throw error;
+
+  const bySession = {};
+  for (const reflection of data) bySession[reflection.session_id] = reflection;
+  return bySession;
+}
+
 // Cria ou edita a reflexão da sessão (no máximo uma por sessão) — UPSERT por
 // session_id, o mesmo conflito que a UNIQUE constraint do banco impõe, para
 // que "Adicionar reflexão" e "Editar reflexão" sejam a mesma operação do

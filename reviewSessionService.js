@@ -135,3 +135,31 @@ export async function listBySession(sessionId) {
   if (error) throw error;
   return data;
 }
+
+// Versão em lote de listBySession(), para telas que renderizam várias
+// sessões de uma vez (Diário de Estudos, AUD-002): uma única consulta com
+// `in` evita o N+1 de existência+listagem por sessão. Sem checagem
+// individual de existência — o chamador já obteve os session_ids de uma
+// fonte que os escopa ao usuário atual (ex.:
+// activitySessionService.listSessions()), e a consulta abaixo já filtra por
+// user_id.
+export async function listBySessions(sessionIds) {
+  const ids = [...new Set((sessionIds || []).filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("user_id", user_id)
+    .in("session_id", ids)
+    .order("scheduled_date", { ascending: true });
+  if (error) throw error;
+
+  const bySession = {};
+  for (const id of ids) bySession[id] = [];
+  for (const review of data) {
+    if (bySession[review.session_id]) bySession[review.session_id].push(review);
+  }
+  return bySession;
+}

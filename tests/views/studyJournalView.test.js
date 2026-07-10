@@ -1,5 +1,7 @@
 /**
- * Tests for studyJournalView.js — Linha do Tempo da Aprendizagem (F8.1–F8.3).
+ * Tests for studyJournalView.js — Linha do Tempo da Aprendizagem (F8.1–F8.3),
+ * incluindo a correção de performance do AUD-002 (carregamento em lote de
+ * questões/revisões/reflexões, eliminando o N+1 por sessão).
  * activitySessionService/eventService/sessionQuestionsService/
  * reviewSessionService are mocked: this exercises only rendering,
  * agrupamento diário, detalhamento (expand/collapse) and pagination against
@@ -18,6 +20,18 @@ const QUESTIONS_SPECIFIER = new URL("../../sessionQuestionsService.js", import.m
 const REVIEWS_SPECIFIER  = new URL("../../reviewSessionService.js", import.meta.url).href;
 const REFLECTION_SPECIFIER = new URL("../../studyReflectionService.js", import.meta.url).href;
 const ERROR_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
+
+// Constrói uma versão em lote { [sessionId]: value } a partir de uma função
+// por sessão (o estilo antigo, ainda usado pela maioria dos testes abaixo) —
+// só uma conveniência de teste; a view real nunca chama nada "por sessão".
+function _batchFromPerSession(perSessionFn, emptyValue) {
+  return async (sessionIds) => {
+    const entries = await Promise.all(
+      sessionIds.map(async id => [id, await perSessionFn(id)])
+    );
+    return Object.fromEntries(entries.map(([id, value]) => [id, value ?? emptyValue]));
+  };
+}
 
 function loadView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -40,18 +54,37 @@ function loadView(t, overrides = {}) {
     namedExports: { getEvents: overrides.getEvents ?? (async () => []) },
   });
 
+  const questionsCalls = [];
   t.mock.module(QUESTIONS_SPECIFIER, {
-    namedExports: { listQuestions: overrides.listQuestions ?? (async () => []) },
+    namedExports: {
+      listQuestionsBySessions: overrides.listQuestionsBySessions ?? (async (sessionIds) => {
+        questionsCalls.push(sessionIds);
+        const perSession = overrides.listQuestions ?? (async () => []);
+        return _batchFromPerSession(perSession, [])(sessionIds);
+      }),
+    },
   });
 
+  const reviewsCalls = [];
   t.mock.module(REVIEWS_SPECIFIER, {
-    namedExports: { listBySession: overrides.listReviewsBySession ?? (async () => []) },
+    namedExports: {
+      listBySessions: overrides.listReviewsBySessions ?? (async (sessionIds) => {
+        reviewsCalls.push(sessionIds);
+        const perSession = overrides.listReviewsBySession ?? (async () => []);
+        return _batchFromPerSession(perSession, [])(sessionIds);
+      }),
+    },
   });
 
   const saveReflectionCalls = [];
+  const reflectionsCalls = [];
   t.mock.module(REFLECTION_SPECIFIER, {
     namedExports: {
-      getBySession: overrides.getReflectionBySession ?? (async () => null),
+      listBySessions: overrides.listReflectionsBySessions ?? (async (sessionIds) => {
+        reflectionsCalls.push(sessionIds);
+        const perSession = overrides.getReflectionBySession ?? (async () => null);
+        return _batchFromPerSession(perSession, null)(sessionIds);
+      }),
       saveReflection: overrides.saveReflection ?? (async (sessionId, content) => {
         saveReflectionCalls.push({ sessionId, content });
         return { id: "refl-1", session_id: sessionId, content };
@@ -60,7 +93,7 @@ function loadView(t, overrides = {}) {
   });
 
   return import(`../../studyJournalView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, saveReflectionCalls }));
+    .then(mod => ({ mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls }));
 }
 
 beforeEach(() => {
@@ -1187,4 +1220,99 @@ test("switching users (resetStudyJournalView then initStudyJournalView again) sh
   const text = document.getElementById("sj-list").textContent;
   assert.match(text, /Usuário B/);
   assert.doesNotMatch(text, /Usuária A/, "dados do usuário anterior não podem sobreviver à troca de usuário");
+});
+
+// ── AUD-002 — Carregamento em lote (elimina o N+1 de consultas) ──────────
+// A página inteira de sessões busca questões/revisões/reflexões em uma única
+// chamada por domínio (listQuestionsBySessions/listBySessions/listBySessions),
+// nunca uma chamada por sessão — ver studyJournalView.js/_fetchPageExtras().
+
+function _sessionsPage(count, { offset = 0, dayOffset = 0 } = {}) {
+  return Array.from({ length: count }, (_, i) => {
+    const n = offset + i + 1;
+    const iso = `2026-03-${String(10 + dayOffset).padStart(2, "0")}T0${n % 9}:00:00.000Z`;
+    return {
+      id: `sess-${n}`, status: "finished",
+      started_at: iso, ended_at: iso, duration_minutes: 30,
+    };
+  });
+}
+
+test("AUD-002 — loading a page of 10 sessions calls each batch service exactly once, not once per session", async (t) => {
+  const sessions = _sessionsPage(10);
+  const { mod, questionsCalls, reviewsCalls, reflectionsCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 10, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(questionsCalls.length, 1, "questões devem ser buscadas em uma única chamada em lote por página");
+  assert.strictEqual(reviewsCalls.length, 1, "revisões devem ser buscadas em uma única chamada em lote por página");
+  assert.strictEqual(reflectionsCalls.length, 1, "reflexões devem ser buscadas em uma única chamada em lote por página");
+
+  assert.deepStrictEqual(questionsCalls[0].slice().sort(), sessions.map(s => s.id).sort());
+  assert.deepStrictEqual(reviewsCalls[0].slice().sort(), sessions.map(s => s.id).sort());
+  assert.deepStrictEqual(reflectionsCalls[0].slice().sort(), sessions.map(s => s.id).sort());
+});
+
+test("AUD-002 — a page of 10 sessions still renders all of them with correct questões/revisões counts (same visible content, batched)", async (t) => {
+  const sessions = _sessionsPage(10);
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 10, hasMore: false }),
+    listQuestions: async (sessionId) => sessionId === "sess-1" ? [{ id: "q1" }, { id: "q2" }] : [],
+    listReviewsBySession: async (sessionId) => sessionId === "sess-5" ? [{ id: "r1" }] : [],
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(entries().length, 10);
+  const sess1Entry = entries().find(li => li.textContent.includes("2 questão(ões)"));
+  assert.ok(sess1Entry, "a sessão com questões batched continua mostrando a contagem correta");
+  const sess5Entry = entries().find(li => li.textContent.includes("1 revisão(ões)"));
+  assert.ok(sess5Entry, "a sessão com revisão batched continua mostrando a contagem correta");
+});
+
+test("AUD-002 — loading a second page only fetches extras for the newly loaded sessions, never re-fetching the first page", async (t) => {
+  const page1 = _sessionsPage(10, { offset: 0 });
+  const page2 = _sessionsPage(5, { offset: 10, dayOffset: -1 });
+
+  const { mod, questionsCalls, reviewsCalls, reflectionsCalls } = await loadView(t, {
+    listSessions: async (opts) => {
+      if (opts.offset === 0) return { sessions: page1, total: 15, hasMore: true };
+      return { sessions: page2, total: 15, hasMore: false };
+    },
+  });
+
+  await mod.initStudyJournalView();
+  assert.strictEqual(questionsCalls.length, 1);
+  assert.deepStrictEqual(questionsCalls[0].slice().sort(), page1.map(s => s.id).sort());
+
+  document.getElementById("sj-load-more").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(entries().length, 15, "as sessões da primeira página continuam visíveis junto com a segunda");
+  assert.strictEqual(questionsCalls.length, 2, "carregar mais deve disparar uma nova chamada em lote, não uma recarga da página anterior");
+  assert.strictEqual(reviewsCalls.length, 2);
+  assert.strictEqual(reflectionsCalls.length, 2);
+
+  assert.deepStrictEqual(questionsCalls[1].slice().sort(), page2.map(s => s.id).sort(),
+    "a segunda chamada em lote deve pedir apenas os session_ids da nova página, nunca os da primeira");
+  assert.deepStrictEqual(reviewsCalls[1].slice().sort(), page2.map(s => s.id).sort());
+  assert.deepStrictEqual(reflectionsCalls[1].slice().sort(), page2.map(s => s.id).sort());
+});
+
+test("AUD-002 — a load error for the batched extras falls back to empty questões/revisões/reflexão without breaking the page", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    listQuestionsBySessions: async () => { throw new Error("network down"); },
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(entries().length, 1, "a sessão continua aparecendo mesmo se a busca em lote de questões falhar");
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+  assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
 });

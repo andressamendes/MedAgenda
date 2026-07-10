@@ -78,3 +78,28 @@ export async function listBySession(sessionId) {
   if (error) throw error;
   return data;
 }
+
+// Questões de várias sessões de uma só vez, agrupadas por session_id — para
+// telas que renderizam muitas sessões ao mesmo tempo (Diário de Estudos,
+// AUD-002): uma única consulta com `in` evita o N+1 de chamar listBySession()
+// por sessão.
+export async function listBySessions(sessionIds) {
+  const ids = [...new Set((sessionIds || []).filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("questions")
+    .select("*")
+    .eq("user_id", user_id)
+    .in("session_id", ids)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const bySession = {};
+  for (const id of ids) bySession[id] = [];
+  for (const question of data) {
+    if (bySession[question.session_id]) bySession[question.session_id].push(question);
+  }
+  return bySession;
+}
