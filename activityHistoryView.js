@@ -8,7 +8,7 @@
 // etapas futuras (dashboard/analytics/IA) vão consultar.
 
 import { listSessions } from "./activitySessionService.js";
-import { getEvents } from "./eventService.js";
+import { getEvents, getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
@@ -35,8 +35,15 @@ let _status  = "all";  // "all" | "finished" | "cancelled"
 let _offset  = 0;
 let _loading = false;
 
-// Resolvidos uma única vez por sessão de tela (não por item) — evita N+1:
-// o histórico pode ter centenas de linhas apontando para dezenas de eventos.
+// Carregados uma vez por sessão de tela (não por item) — evita N+1: o
+// histórico pode ter centenas de linhas apontando para dezenas de eventos.
+// _eventsById é uma cache incremental (AUD-003): compromissos criados após
+// esse carregamento inicial não estão aqui ainda, então _resolveMissingEvents
+// busca sob demanda (por id) qualquer event_id referenciado por uma sessão
+// que ainda não esteja no mapa, e guarda o resultado — inclusive `null`
+// quando o compromisso não existe mais, para não repetir a busca a cada
+// recarga. Como ids de eventos nunca são reaproveitados, um `null` cacheado
+// é definitivo: nunca fica obsoleto.
 let _eventsById     = new Map();
 let _categoriesById = new Map();
 
@@ -82,6 +89,34 @@ async function _loadLookups() {
     _eventsById     = new Map();
     _categoriesById = new Map();
   }
+}
+
+// Busca sob demanda, por id, qualquer compromisso referenciado pelas
+// sessões da página atual que ainda não esteja em _eventsById — sem isso,
+// uma sessão finalizada logo após a criação do compromisso (que só existe
+// no banco depois do carregamento inicial do cache) apareceria como
+// "Compromisso removido" mesmo existindo (AUD-003). Só busca o que falta:
+// nunca recarrega a lista inteira de eventos.
+async function _resolveMissingEvents(sessions) {
+  const missingIds = [...new Set(
+    sessions
+      .filter(s => s.event_id && !_eventsById.has(s.event_id))
+      .map(s => s.event_id)
+  )];
+  if (missingIds.length === 0) return;
+
+  const fetched = await Promise.all(missingIds.map(async id => {
+    try {
+      return await getEventById(id);
+    } catch (err) {
+      handleError(err, { context: "activityHistoryView.resolveMissingEvents", silent: true });
+      return undefined; // falha na busca: não afirma que foi removido, tenta de novo na próxima recarga
+    }
+  }));
+
+  missingIds.forEach((id, i) => {
+    if (fetched[i] !== undefined) _eventsById.set(id, fetched[i]); // objeto encontrado, ou null (removido)
+  });
 }
 
 // Título/categoria são só para exibição — nunca persistidos na sessão além
@@ -161,6 +196,7 @@ async function _loadPage(reset) {
   try {
     const { sessions, hasMore } = await listSessions({ status: _status, limit: PAGE_SIZE, offset: _offset });
     _offset += sessions.length;
+    await _resolveMissingEvents(sessions);
 
     if (reset && sessions.length === 0) {
       emptyEl.hidden = false;
