@@ -33,6 +33,7 @@ let _mon = null; // Date — Monday of the displayed week (time=00:00:00)
 let _nowTimer = null;
 let _weeklyPlan = []; // último plano computado por loadTip() (F3.5, ETAPA 6)
 let _planExpanded = false;
+let _fetchGeneration = 0; // AUD-007: descarta respostas de fetchAndRender() obsoletas em navegações rápidas
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export function destroyWeekView() {
   _planExpanded = false;
   _academicProvider = null;
   _showPersonal = () => true;
+  _fetchGeneration++; // descarta qualquer fetchAndRender() ainda em voo desta instância
 }
 
 // ── Shell (built once) ─────────────────────────────────────────────────────
@@ -181,6 +183,11 @@ async function goToday() {
 // ── Fetch & render ─────────────────────────────────────────────────────────
 
 async function fetchAndRender() {
+  // AUD-007: cada chamada recebe uma geração própria; se _mon mudar de novo
+  // (nova navegação) antes desta resolver, esta geração fica obsoleta e seu
+  // resultado é descartado — só a navegação mais recente chega a renderizar.
+  const generation = ++_fetchGeneration;
+
   updateLabel();
   updateDayHeaders();
   clearEvents();
@@ -194,16 +201,19 @@ async function fetchAndRender() {
     ]);
     const personal = expandEvents(rawEvents, start, end);
     const executionSummaries = await fetchExecutionSummaries(personal);
+    if (generation !== _fetchGeneration) return; // navegação mais recente já assumiu a tela
     renderEvents(personal, executionSummaries);
     renderAcademicEvents(academicEvents);
     hideWeekError();
   } catch (err) {
+    if (generation !== _fetchGeneration) return;
     // Erro (rede/banco/sessão) não deve ser tratado como "semana sem eventos" —
     // exibe um banner de erro distinto, com opção de tentar novamente, em vez
     // de deixar a grade silenciosamente vazia.
     showWeekError(errorToState(handleError(err, { context: "weekView.fetchAndRender", silent: true })));
   }
 
+  if (generation !== _fetchGeneration) return;
   updateNowLine();
   scrollToTime();
 }
