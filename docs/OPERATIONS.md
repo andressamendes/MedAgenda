@@ -90,9 +90,15 @@ Existem quatro superfícies de deploy no projeto, com automação e frequência 
 12_time_goals.sql
 13_reviews.sql
 14_schema_version.sql
+15_questions.sql
+16_review_session_link.sql
+17_activity_sessions_paused_time.sql
+18_reflections.sql
+19_activity_sessions_running_unique.sql
+20_monthly_goal_minutes_integer.sql
 ```
 
-`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql`, `08_ai_metrics.sql` e `14_schema_version.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. Ver detalhamento completo em [`DATABASE.md`](DATABASE.md).
+`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql`, `08_ai_metrics.sql` e `14_schema_version.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. `15` a `20` seguem a mesma convenção — cada uma declara suas dependências no cabeçalho e faz bump de `schema_version` apenas quando o frontend passa a depender dela nesse mesmo commit (`17`, `18`, `19`, `20`; `15` e `16` não fazem bump). Ver detalhamento completo de cada migration em [`DATABASE.md`](DATABASE.md).
 
 **Quando deve ser aplicado:** sempre **antes** de mesclar/publicar código (frontend ou Edge Function) que dependa das novas tabelas/colunas — caso contrário, o código em produção pode referenciar schema inexistente.
 
@@ -307,7 +313,7 @@ Localizadas em `/sql`, oito arquivos numerados sequencialmente (`01_` a `08_`), 
 
 ### Ordem
 
-Aplicação obrigatória em ordem numérica crescente — ver lista completa na seção "Deploy → Deploy Banco" acima. A dependência mais relevante é a função `update_updated_at()`, definida em `01_events.sql` e reutilizada por triggers em seis das oito tabelas.
+Aplicação obrigatória em ordem numérica crescente — ver lista completa na seção "Deploy → Deploy Banco" acima. A dependência mais relevante é a função `update_updated_at()`, definida em `01_events.sql` e reutilizada por triggers em 10 das 13 tabelas (ver [`DATABASE.md`](DATABASE.md) → Triggers).
 
 ### Cuidados
 
@@ -319,7 +325,7 @@ Aplicação obrigatória em ordem numérica crescente — ver lista completa na 
 
 ### Rollback
 
-Não existe mecanismo de rollback (`down migration`) para nenhuma das oito migrations — todas são escritas apenas no sentido de aplicação (`up`), sem script de reversão correspondente. A maioria usa `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`, o que as torna seguras para reexecução, mas não oferece um caminho automatizado para desfazer uma migration já aplicada. Reverter uma mudança de schema em produção exige escrever e executar manualmente o SQL inverso (`DROP TABLE`, `ALTER TABLE ... DROP COLUMN`, etc.) no SQL Editor, avaliando primeiro o impacto sobre dados já gravados.
+Não existe mecanismo de rollback (`down migration`) para nenhuma das 20 migrations — todas são escritas apenas no sentido de aplicação (`up`), sem script de reversão correspondente. A maioria usa `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`, o que as torna seguras para reexecução, mas não oferece um caminho automatizado para desfazer uma migration já aplicada. Reverter uma mudança de schema em produção exige escrever e executar manualmente o SQL inverso (`DROP TABLE`, `ALTER TABLE ... DROP COLUMN`, etc.) no SQL Editor, avaliando primeiro o impacto sobre dados já gravados.
 
 ---
 
@@ -487,7 +493,7 @@ O frontend é inteiramente reconstruível a partir do Git: qualquer commit da br
 
 ### Banco
 
-Não há procedimento de recuperação automatizado. Na ausência de um backup (ver seção "Backup"), a recuperação depende inteiramente do que a própria plataforma Supabase oferecer para o plano do projeto (point-in-time recovery, se disponível) — algo fora do controle deste repositório. O que o repositório oferece é a capacidade de **reconstruir o schema do zero**, reaplicando as 8 migrations de `/sql` em ordem no SQL Editor de um projeto Supabase novo; isso recria estrutura, funções, triggers e políticas RLS, mas **não recupera dados** perdidos, pois as migrations não contêm dados, apenas schema.
+Não há procedimento de recuperação automatizado. Na ausência de um backup (ver seção "Backup"), a recuperação depende inteiramente do que a própria plataforma Supabase oferecer para o plano do projeto (point-in-time recovery, se disponível) — algo fora do controle deste repositório. O que o repositório oferece é a capacidade de **reconstruir o schema do zero**, reaplicando as 20 migrations de `/sql` em ordem no SQL Editor de um projeto Supabase novo; isso recria estrutura, funções, triggers e políticas RLS, mas **não recupera dados** perdidos, pois as migrations não contêm dados, apenas schema.
 
 ### Edge Functions
 
@@ -596,7 +602,7 @@ Verificação de cobertura da documentação operacional e do pipeline real, sem
 
 | Item verificado | Status | Observação |
 |---|---|---|
-| Deploy do frontend documentado | Consistente | `deploy.yml` corresponde exatamente ao que está descrito em `DEPLOY.md`, `ARCHITECTURE.md`/`ARQUITETURA.md` e neste documento. |
+| Deploy do frontend documentado | Consistente | `deploy.yml` corresponde exatamente ao que está descrito em `DEPLOY.md`, `ARCHITECTURE.md` e neste documento. |
 | Todos os workflows documentados | Consistente | 3 workflows no repositório (`ci.yml`, `deploy.yml`, `deploy-functions.yml`); todos documentados acima com objetivo, gatilho, etapas e artefatos. |
 | Todas as Edge Functions documentadas | Consistente | 3 funções (`ai-chat`, `send-push-notifications`, `delete-account`); todas cobertas nesta e em outras docs (`BACKEND.md`, `SECURITY.md`). |
 | Deploy automatizado cobre todas as Edge Functions | **Inconsistência confirmada** | `deploy-functions.yml` só publica `ai-chat`. `send-push-notifications` e `delete-account` dependem de deploy manual — risco real de divergência entre o código no repositório e o que está de fato em produção, já apontado em `BACKEND.md`, `SECURITY.md` e `DEVELOPMENT.md`. |

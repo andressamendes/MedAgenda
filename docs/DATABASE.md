@@ -1,5 +1,7 @@
 # Banco de Dados MedAgenda
 
+> Documento oficial do schema do MedAgenda. Cobre as 20 migrations em `sql/*.sql` (01 a 20) e reflete exatamente o estado atual do banco — tabelas, colunas, relacionamentos, chaves estrangeiras, índices, constraints, políticas RLS e comportamento `ON DELETE`. Para o modelo de domínio (como as tabelas se compõem em Compromisso → Sessão → Questões → Revisões → Reflexão → Projeções) e o Session Event Bus, ver [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ## Visão Geral
 
 O MedAgenda utiliza o **PostgreSQL** como banco de dados relacional, gerenciado pela plataforma **Supabase**. A arquitetura é fundamentada em três pilares:
@@ -8,7 +10,11 @@ O MedAgenda utiliza o **PostgreSQL** como banco de dados relacional, gerenciado 
 - **Supabase Auth:** a autenticação é delegada inteiramente ao Supabase (`auth.users`). As tabelas de domínio referenciam `auth.users(id)` via chave estrangeira com `ON DELETE CASCADE`.
 - **Edge Functions:** operações que requerem privilégios elevados (como inserir logs de notificação ou enviar push) são executadas via Edge Functions com `service_role`, contornando o RLS de forma controlada e auditada.
 
-As migrations estão organizadas em arquivos numerados sequencialmente em `/sql`, devendo ser executadas em ordem no SQL Editor do Supabase. Cada arquivo é autocontido e declara explicitamente suas dependências nos comentários de cabeçalho.
+As migrations estão organizadas em arquivos numerados sequencialmente em `/sql` (`01` a `20`), devendo ser executadas em ordem no SQL Editor do Supabase. Cada arquivo é autocontido e declara explicitamente suas dependências nos comentários de cabeçalho. Não há uso da CLI de migrations do Supabase (`supabase db push`) — todas as migrations são aplicadas manualmente.
+
+Desde a migration `14_schema_version.sql`, a tabela `public.schema_version` registra a versão de schema mais recente aplicada; o frontend (`schemaService.js`) e o pipeline de deploy (`deploy.yml`) leem essa versão para bloquear a execução contra um banco desatualizado. Ver `OPERATIONS.md` para o mecanismo completo.
+
+As migrations `11` a `20` introduzem o domínio de **Execução de Estudo** (Sessão de Atividade, Questões, Revisões, Reflexão) que se soma ao domínio de **Planejamento** (Compromissos, Categorias, Calendário Acadêmico) já existente desde `01`–`10`. Ver `ARCHITECTURE.md` para como esse domínio se conecta ao Session Event Bus e às projeções derivadas (Dashboard, Diário, Histórico, Subject Progress, Study Streak, Achievements).
 
 ---
 
@@ -166,6 +172,18 @@ As migrations estão organizadas em arquivos numerados sequencialmente em `/sql`
 
 ---
 
+### 09_notification_logs_integrity.sql
+
+**Objetivo:** Corrigir a ausência de FK formal entre `notification_logs.event_id` e `events.id` (Auditoria P1.3), eliminando o risco de logs órfãos ao excluir um evento.
+
+**Tabelas alteradas:** `notification_logs` — remove logs órfãos pré-existentes e adiciona `CONSTRAINT notification_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE`.
+
+**Idempotência:** guarda via `DO $$ ... IF NOT EXISTS (SELECT 1 FROM pg_constraint ...) $$`, pois Postgres não suporta `ADD CONSTRAINT IF NOT EXISTS`.
+
+**Dependências:** `01_events.sql` (tabela `events`), `04_push_notifications.sql` (tabela `notification_logs`).
+
+---
+
 ### 10_ai_metrics_observability.sql
 
 **Objetivo:** Observabilidade da Edge Function `ai-chat` (Auditoria A2.2) — adiciona colunas a `ai_metrics` para registrar modelo utilizado, código HTTP e um resumo curto de erro por chamada.
@@ -178,6 +196,222 @@ As migrations estão organizadas em arquivos numerados sequencialmente em `/sql`
 
 ---
 
+### 11_activity_sessions.sql
+
+**Objetivo:** F1.1 — infraestrutura das Sessões de Atividade (execução real de estudo/plantão/etc., distinta do compromisso planejado em `events`). Apenas tabela, RLS e índices — sem cronômetro, sem UI, sem regras de negócio nesta migration.
+
+**Tabelas criadas:** `activity_sessions`
+
+**Colunas-chave:** `status` (`running`/`paused`/`finished`/`cancelled`), `source` (`quick`/`event`/`manual`), `event_id` (FK opcional para `events`, `ON DELETE SET NULL` — a Sessão sobrevive à exclusão do compromisso que a originou, por ser ela própria o registro de execução), `category_id` (FK opcional para `categories`, `ON DELETE SET NULL`), `started_at`, `ended_at`, `duration_minutes`, `notes`.
+
+**Constraints:**
+- `activity_sessions_status_check` — `status IN ('running','paused','finished','cancelled')`.
+- `activity_sessions_source_check` — `source IN ('quick','event','manual')`.
+
+**Índices:**
+- `activity_sessions_user_id_idx`, `activity_sessions_event_id_idx`, `activity_sessions_started_at_idx`.
+
+**Triggers:**
+- `activity_sessions_updated_at` — reutiliza `update_updated_at()`.
+
+**Políticas RLS:** SELECT, INSERT, UPDATE, DELETE com `user_id = auth.uid()`.
+
+**Dependências:** `01_events.sql` (para `update_updated_at`).
+
+---
+
+### 12_time_goals.sql
+
+**Objetivo:** F2.2 — Metas de Tempo (Study Goals). Não cria tabela própria: estende `profiles` com metas pessoais de tempo de estudo/atividade, reaproveitando a relação 1:1 já existente entre `profiles` e o usuário (mesmo padrão de `timezone`/`theme`).
+
+**Tabelas alteradas:** `profiles` — adiciona `daily_goal_minutes SMALLINT`, `weekly_goal_minutes SMALLINT`, `monthly_goal_minutes SMALLINT` (tipo ampliado para `INTEGER` em `20_monthly_goal_minutes_integer.sql`).
+
+**Constraints:**
+- `daily_goal_minutes IS NULL OR daily_goal_minutes BETWEEN 5 AND 1440`
+- `weekly_goal_minutes IS NULL OR weekly_goal_minutes BETWEEN 5 AND 10080`
+- `monthly_goal_minutes IS NULL OR monthly_goal_minutes BETWEEN 5 AND 44640`
+
+**Dependências:** `05_profiles.sql` (tabela `profiles`).
+
+---
+
+### 13_reviews.sql
+
+**Objetivo:** F2.3 — infraestrutura do Sistema de Revisões Inteligentes (repetição espaçada). Apenas tabela, RLS e índices — sem IA, sem notificações, sem dashboard, sem geração automática nesta migration.
+
+**Tabelas criadas:** `reviews`
+
+**Por que é uma tabela própria (não reaproveita `events`):** uma revisão não é um compromisso — não tem horário, duração ou recorrência própria, e um evento pode ter várias revisões futuras simultâneas. Uma tabela dedicada, referenciando `events` por FK, mantém os dois ciclos de vida (compromisso × revisão) desacoplados — mesmo padrão de `11_activity_sessions.sql`.
+
+**Colunas-chave:** `event_id` (FK obrigatória para `events`, `ON DELETE CASCADE` — uma revisão nunca existe sem o compromisso original), `scheduled_date`, `status` (`pending`/`completed`/`skipped`), `completed_at`, `review_type` (`manual`/`automatic`), `origin` (`event`/`ai`/`user`).
+
+**Constraints:**
+- `reviews_status_check` — `status IN ('pending','completed','skipped')`.
+- `reviews_review_type_check` — `review_type IN ('manual','automatic')`.
+- `reviews_origin_check` — `origin IN ('event','ai','user')`.
+
+**Índices:**
+- `reviews_user_id_idx`, `reviews_event_id_idx`, `reviews_user_status_idx` (composto), `reviews_scheduled_date_idx`.
+
+**Triggers:**
+- `reviews_updated_at` — reutiliza `update_updated_at()`.
+
+**Políticas RLS:** SELECT, INSERT, UPDATE, DELETE com `user_id = auth.uid()`.
+
+**Dependências:** `01_events.sql` (para `update_updated_at`, tabela `events`).
+
+---
+
+### 14_schema_version.sql
+
+**Objetivo:** P0 — Sistema de Proteção contra Divergência de Schema. Cria a fonte única de verdade sobre qual versão de schema está aplicada no banco, prevenindo o incidente em que o frontend foi publicado consultando tabelas (`activity_sessions`, `reviews`) ainda não migradas em produção.
+
+**Tabelas criadas:** `schema_version` — linha única (`id = 1`, `CHECK (id = 1)`), colunas `version INTEGER` e `applied_at TIMESTAMPTZ`.
+
+**Convenção obrigatória a partir desta migration:** toda migration numerada da qual o frontend passe a depender deve terminar com `UPDATE public.schema_version SET version = <N>, applied_at = now() WHERE id = 1;`. Migrations que só adicionam infraestrutura ainda não consumida por nenhuma View/Service (ex.: `15`, `16`) não fazem esse bump — ele acontece na migration que efetivamente conecta o schema a um consumidor visual.
+
+**Políticas RLS:** leitura liberada para `anon` **e** `authenticated` (não guarda dado de usuário, apenas um inteiro público) — o frontend lê no bootstrap (`schemaService.js`) e o workflow `deploy.yml` lê via REST com a anon key antes de publicar. Nenhuma política de escrita — apenas o SQL Editor (fora de RLS) altera a versão.
+
+**Dependências:** Nenhuma (tabela independente).
+
+---
+
+### 15_questions.sql
+
+**Objetivo:** F6.7 — infraestrutura do domínio Questões Resolvidas. Apenas tabela, RLS, índices e trigger — sem estatísticas, sem acertos/erros, sem conquistas, sem tela nesta migration.
+
+**Tabelas criadas:** `questions`
+
+**Relação:** Sessão 1:N Questões. `session_id NOT NULL REFERENCES activity_sessions(id) ON DELETE CASCADE` — uma questão nunca existe sem uma sessão (mesmo raciocínio de `reviews.event_id`, e não o `SET NULL` de `activity_sessions.event_id`, pois aqui não há "questão órfã" no domínio).
+
+**Colunas-chave:** `question_type` (`multiple_choice`/`true_false`/`open`/`flashcard`), `status` (`pending`/`answered`/`skipped` — andamento da questão, nunca "correto/incorreto"), `difficulty` (`easy`/`medium`/`hard`), `subject`, `topic`.
+
+**Constraints:**
+- `questions_question_type_check`, `questions_status_check`, `questions_difficulty_check`.
+
+**Índices:**
+- `questions_user_id_idx`, `questions_session_id_idx`, `questions_user_status_idx` (composto).
+
+**Triggers:**
+- `questions_updated_at` — reutiliza `update_updated_at()`.
+
+**Políticas RLS:** SELECT, INSERT, UPDATE, DELETE com `user_id = auth.uid()`.
+
+**Schema version:** sem bump — nenhum consumidor visual conectado nesta etapa (ver `14_schema_version.sql`).
+
+**Dependências:** `01_events.sql` (para `update_updated_at`), `11_activity_sessions.sql`.
+
+---
+
+### 16_review_session_link.sql
+
+**Objetivo:** F6.10 — integração Sessão ↔ Revisão. Apenas a coluna e a FK que ligam uma Revisão à Sessão que a executou; nenhuma alteração em `activity_sessions` (a referência é de mão única, de `reviews` para `activity_sessions`).
+
+**Tabelas alteradas:** `reviews` — adiciona `session_id UUID REFERENCES activity_sessions(id) ON DELETE SET NULL` (nullable).
+
+**Por que `reviews.session_id` (e não o inverso, nem N:N):**
+1. Cardinalidade real 1:N — uma Sessão pode cobrir várias Revisões pendentes do mesmo compromisso; uma Revisão aponta para no máximo uma Sessão.
+2. Nullable nos dois sentidos — diferente de `questions.session_id` (composição obrigatória), aqui uma Revisão pode existir sem Sessão e vice-versa.
+3. `ON DELETE SET NULL` (não `CASCADE`) — Sessão e Revisão são dois ciclos de vida independentes; excluir a Sessão que executou uma Revisão não apaga a Revisão, só remove a referência de "quem a executou".
+
+**Índices:** `reviews_session_id_idx`.
+
+**Schema version:** sem bump — mesmo motivo de `15_questions.sql` (nenhum consumidor visual conectado nesta etapa).
+
+**Dependências:** `11_activity_sessions.sql`, `13_reviews.sql`.
+
+---
+
+### 17_activity_sessions_paused_time.sql
+
+**Objetivo:** F7.7 — Tempo Líquido de Estudo (desconto de pausas). Corrige `duration_minutes` para não incluir intervalos em pausa.
+
+**Tabelas alteradas:** `activity_sessions` — adiciona `paused_ms BIGINT NOT NULL DEFAULT 0` (total acumulado de milissegundos pausados em pausas já concluídas) e `paused_at TIMESTAMPTZ` (timestamp de início da pausa corrente, ou `NULL` se não pausada).
+
+**Uso:** `pauseSession()` grava `paused_at`; `resumeSession()` soma o intervalo pausado a `paused_ms` e limpa `paused_at`; `finishSession()` usa ambos para calcular a duração líquida e também limpa `paused_at`.
+
+**Schema version:** com bump — `activitySessionService.js` passa a depender destas colunas no mesmo commit.
+
+```sql
+UPDATE public.schema_version SET version = 17, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `11_activity_sessions.sql`, `14_schema_version.sql`.
+
+---
+
+### 18_reflections.sql
+
+**Objetivo:** F8.2 — infraestrutura do domínio Reflexão da Sessão (Reflection Journal, parte do Diário de Estudos). Apenas tabela, RLS, índice e trigger — sem IA, sem resumo automático, sem análise de sentimento.
+
+**Tabelas criadas:** `reflections`
+
+**Conceito distinto de Observações (`activity_sessions.notes`):** Observações representam o estudo em si (o que foi feito); Reflexão representa a aprendizagem (o que o usuário tirou de aprendizado). Por isso é uma tabela própria, nunca reaproveita `notes`.
+
+**Relação:** Sessão 1:1 Reflexão. `session_id NOT NULL REFERENCES activity_sessions(id) ON DELETE CASCADE`, com `UNIQUE (session_id)` garantindo no máximo uma reflexão por sessão; o service usa `UPSERT (ON CONFLICT session_id)` para "criar ou editar" sem duplicar linhas.
+
+**Constraints:**
+- `reflections_session_id_unique` — `UNIQUE (session_id)`.
+- `reflections_content_not_blank` — `CHECK (btrim(content) <> '')`.
+
+**Índices:** `reflections_user_id_idx`.
+
+**Triggers:** `reflections_updated_at` — reutiliza `update_updated_at()`.
+
+**Políticas RLS:** SELECT, INSERT, UPDATE, DELETE com `user_id = auth.uid()`.
+
+**Schema version:** com bump — `studyJournalView.js` consome `studyReflectionService.js` nesta mesma etapa.
+
+```sql
+UPDATE public.schema_version SET version = 18, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `01_events.sql` (para `update_updated_at`), `11_activity_sessions.sql`.
+
+---
+
+### 19_activity_sessions_running_unique.sql
+
+**Objetivo:** AUD-001 — integridade: no máximo uma sessão `"running"` por usuário, imposta no banco como última linha de defesa contra corrida entre requisições concorrentes (duas abas/dispositivos chamando `startSession()` simultaneamente).
+
+**Tabelas alteradas:** `activity_sessions` — adiciona índice único parcial.
+
+**Guarda de dados pré-existentes:** um bloco `DO $$ ... $$` verifica se já existe mais de uma sessão `"running"` para o mesmo usuário; se existir, a migration falha explicitamente com mensagem clara em vez de deixar o `CREATE UNIQUE INDEX` abortar com erro genérico. A correção de dados inconsistentes é manual.
+
+**Índice:**
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS activity_sessions_one_running_per_user
+  ON public.activity_sessions (user_id)
+  WHERE status = 'running';
+```
+`paused`/`finished`/`cancelled` continuam ilimitados — a condição `WHERE` do índice só alcança `status = 'running'`.
+
+**Schema version:** com bump — `activitySessionService.js` converte a violação desta constraint no erro de domínio `SESSION_ALREADY_RUNNING`.
+
+```sql
+UPDATE public.schema_version SET version = 19, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `11_activity_sessions.sql`, `14_schema_version.sql`.
+
+---
+
+### 20_monthly_goal_minutes_integer.sql
+
+**Objetivo:** AUD-006 — `monthly_goal_minutes` era `SMALLINT` (máx. 32767) mas o `CHECK` e a aplicação sempre aceitaram até 44640 (31 dias × 1440 min), causando overflow do Postgres para valores entre 32768 e 44640.
+
+**Tabelas alteradas:** `profiles` — `ALTER COLUMN monthly_goal_minutes TYPE INTEGER`. `daily_goal_minutes` (máx. 1440) e `weekly_goal_minutes` (máx. 10080) cabem em `SMALLINT` e não são alterados.
+
+**Schema version:** com bump.
+
+```sql
+UPDATE public.schema_version SET version = 20, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `12_time_goals.sql` (coluna `monthly_goal_minutes`), `14_schema_version.sql`.
+
+---
+
 ## Modelo de Dados
 
 Diagrama lógico das tabelas e seus relacionamentos:
@@ -185,25 +419,46 @@ Diagrama lógico das tabelas e seus relacionamentos:
 ```
 auth.users  (Supabase Auth — schema auth)
 │
-├── profiles           (1:1 — id PK = auth.users.id)
+├── profiles                (1:1 — id PK = auth.users.id; inclui metas de tempo desde 12_time_goals.sql)
 │
-├── events             (N:1 — user_id → auth.users.id)
-│
-├── categories         (N:1 — user_id → auth.users.id)
-│
-├── push_subscriptions (N:1 — user_id → auth.users.id)
-│
-├── notification_logs  (N:1 — user_id → auth.users.id)
-│                      [event_id → events.id, ON DELETE CASCADE]
-│
-├── academic_calendars (N:1 — user_id → auth.users.id)
+├── events                  (N:1 — user_id → auth.users.id)
 │   │
-│   └── academic_events (N:1 — calendar_id → academic_calendars.id)
+│   ├── notification_logs   (N:1 — user_id) [event_id → events.id, ON DELETE CASCADE]
+│   ├── reviews              (N:1 — user_id) [event_id → events.id, ON DELETE CASCADE]
+│   └── activity_sessions   (N:1 — user_id) [event_id → events.id, ON DELETE SET NULL]
 │
-└── ai_metrics         (N:1 — user_id → auth.users.id)
+├── categories               (N:1 — user_id → auth.users.id)
+│   └── [vínculo lógico: activity_sessions.category_id → categories.id, ON DELETE SET NULL]
+│
+├── push_subscriptions       (N:1 — user_id → auth.users.id)
+│
+├── academic_calendars       (N:1 — user_id → auth.users.id)
+│   │
+│   └── academic_events     (N:1 — calendar_id → academic_calendars.id, ON DELETE CASCADE)
+│
+├── ai_metrics                (N:1 — user_id → auth.users.id)
+│
+└── activity_sessions        (N:1 — user_id → auth.users.id)
+    │
+    ├── questions            (N:1 — session_id → activity_sessions.id, ON DELETE CASCADE)
+    ├── reflections           (1:1 — session_id → activity_sessions.id, ON DELETE CASCADE, UNIQUE)
+    └── reviews.session_id   (N:1 — session_id → activity_sessions.id, ON DELETE SET NULL — mão única, de reviews para activity_sessions)
+
+schema_version (tabela independente, linha única, sem FK, sem user_id — versão global do schema)
 
 storage.objects (Supabase Storage — schema storage)
 └── bucket: avatars  (gerenciado por políticas RLS de storage, sem FK relacional)
+```
+
+**Cadeia do domínio de Execução de Estudo** (ver `ARCHITECTURE.md` para o Modelo de Domínio completo):
+
+```
+events (Compromisso)
+  └─▶ activity_sessions (Sessão de Estudo — event_id opcional, ON DELETE SET NULL)
+        ├─▶ questions (Questões — session_id obrigatório, ON DELETE CASCADE)
+        ├─▶ reflections (Reflexão — session_id obrigatório, 1:1, ON DELETE CASCADE)
+        └──(reviews.session_id aponta de volta, opcional, ON DELETE SET NULL)
+reviews (Revisão — event_id obrigatório, ON DELETE CASCADE; session_id opcional, ON DELETE SET NULL)
 ```
 
 ---
@@ -215,12 +470,12 @@ storage.objects (Supabase Storage — schema storage)
 **Objetivo:** Tabela central do sistema. Armazena todos os compromissos dos usuários com suporte completo a recorrência, lembretes e categorização.
 
 | Coluna                    | Tipo        | Nullable | Padrão                |
-|---------------------------|-------------|----------|-----------------------|
+|---------------------------|-------------|----------|------------------------|
 | `id`                      | UUID        | NÃO      | `gen_random_uuid()`   |
 | `user_id`                 | UUID        | NÃO      | —                     |
 | `title`                   | TEXT        | NÃO      | —                     |
 | `event_date`              | DATE        | NÃO      | —                     |
-| `start_time`              | TIME        | SIM      | —                     |
+| `start_time`               | TIME        | SIM      | —                     |
 | `duration_minutes`        | INTEGER     | SIM      | —                     |
 | `category`                | TEXT        | SIM      | —                     |
 | `color`                   | TEXT        | SIM      | —                     |
@@ -231,11 +486,10 @@ storage.objects (Supabase Storage — schema storage)
 | `recurrence_interval`     | INTEGER     | SIM      | —                     |
 | `recurrence_until`        | DATE        | SIM      | —                     |
 | `recurrence_days_of_week` | TEXT        | SIM      | —                     |
-| `created_at`              | TIMESTAMPTZ | NÃO      | `now()`               |
-| `updated_at`              | TIMESTAMPTZ | NÃO      | `now()`               |
+| `created_at`               | TIMESTAMPTZ | NÃO      | `now()`               |
+| `updated_at`               | TIMESTAMPTZ | NÃO      | `now()`               |
 
-**Constraints:**
-- `events_recurrence_type_check` — `recurrence_type` deve ser um de: `none`, `daily`, `weekdays`, `weekly`, `biweekly`, `monthly`, `yearly`, `custom`.
+**Constraints:** `events_recurrence_type_check` — `recurrence_type` ∈ `{none, daily, weekdays, weekly, biweekly, monthly, yearly, custom}`.
 
 **Índices:** `events_user_id_idx`, `events_user_date_idx`
 
@@ -244,9 +498,10 @@ storage.objects (Supabase Storage — schema storage)
 **RLS:** Todas as operações restritas ao próprio usuário via `user_id = auth.uid()`.
 
 **Relacionamentos:**
-- `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
+- `user_id` → `auth.users(id)` `ON DELETE CASCADE`
+- Referenciada por `notification_logs.event_id` (`ON DELETE CASCADE`), `reviews.event_id` (`ON DELETE CASCADE`), `activity_sessions.event_id` (`ON DELETE SET NULL`)
 
-**Observações:** O campo `category` armazena o nome textual da categoria (não uma FK para `categories`). O vínculo é conceitual — a exclusão de uma categoria no banco não quebra os eventos existentes, mas o frontend impede a exclusão de categorias em uso. O campo `recurrence_days_of_week` armazena dias como string (ex: `"1,3,5"`) para o tipo `custom`.
+**Observações:** O campo `category` armazena o nome textual da categoria (não uma FK para `categories`). O vínculo é conceitual — a exclusão de uma categoria no banco não quebra os eventos existentes, mas o frontend impede a exclusão de categorias em uso.
 
 ---
 
@@ -255,7 +510,7 @@ storage.objects (Supabase Storage — schema storage)
 **Objetivo:** Categorias personalizadas por usuário para classificação visual e filtragem de eventos.
 
 | Coluna       | Tipo        | Nullable | Padrão              |
-|--------------|-------------|----------|---------------------|
+|--------------|-------------|----------|----------------------|
 | `id`         | UUID        | NÃO      | `gen_random_uuid()` |
 | `user_id`    | UUID        | NÃO      | —                   |
 | `name`       | TEXT        | NÃO      | —                   |
@@ -264,27 +519,62 @@ storage.objects (Supabase Storage — schema storage)
 | `created_at` | TIMESTAMPTZ | NÃO      | `now()`             |
 | `updated_at` | TIMESTAMPTZ | NÃO      | `now()`             |
 
-**Índices:**
-- `categories_user_name_idx` — UNIQUE em `(user_id, lower(name))`
-- `categories_user_id_idx` em `(user_id)`
+**Índices:** `categories_user_name_idx` (UNIQUE, `lower(name)`), `categories_user_id_idx`
 
 **Triggers:** `categories_updated_at`
 
-**RLS:** Todas as operações restritas ao próprio usuário via `user_id = auth.uid()`.
+**RLS:** Todas as operações restritas via `user_id = auth.uid()`.
 
-**Relacionamentos:**
-- `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`; referenciada por `activity_sessions.category_id` (`ON DELETE SET NULL`).
 
-**Observações:** O índice único usa `lower(name)` para prevenir duplicatas case-insensitive. O frontend cria 8 categorias padrão (`Aula`, `Plantão`, `Ambulatório`, `Laboratório`, `Estudo`, `Prova`, `Congresso`, `Pessoal`) automaticamente via `ensureDefaultCategories()` quando o usuário não possui nenhuma. O campo `icon` existe na estrutura mas não é utilizado pelo frontend atual.
+**Observações:** O frontend cria 8 categorias padrão automaticamente via `ensureDefaultCategories()`. O campo `icon` existe na estrutura mas não é utilizado.
+
+---
+
+### `profiles`
+
+**Objetivo:** Perfil estendido do usuário com informações acadêmicas, preferências de configuração e, desde `12_time_goals.sql`, metas pessoais de tempo de estudo. Criado automaticamente via trigger no momento do cadastro.
+
+| Coluna                     | Tipo          | Nullable                 | Padrão                    |
+|----------------------------|---------------|---------------------------|-----------------------------|
+| `id`                        | UUID          | NÃO (PK = `auth.users.id`) | —                        |
+| `full_name`                 | TEXT          | SIM                       | —                           |
+| `avatar_url`                | TEXT          | SIM                       | —                           |
+| `university`                | TEXT          | SIM                       | —                           |
+| `course`                    | TEXT          | SIM                       | —                           |
+| `semester`                  | SMALLINT      | SIM                       | —                           |
+| `timezone`                  | TEXT          | SIM                       | `'America/Sao_Paulo'`      |
+| `notification_enabled`      | BOOLEAN       | SIM                       | `TRUE`                      |
+| `theme`                     | TEXT          | SIM                       | `'light'`                   |
+| `daily_goal_minutes`        | SMALLINT      | SIM                       | — (`12_time_goals.sql`)    |
+| `weekly_goal_minutes`       | SMALLINT      | SIM                       | — (`12_time_goals.sql`)    |
+| `monthly_goal_minutes`      | INTEGER       | SIM                       | — (`12_time_goals.sql`, tipo ampliado em `20`) |
+| `created_at`                 | TIMESTAMPTZ   | SIM (sem `NOT NULL`)      | `now()`                     |
+| `updated_at`                 | TIMESTAMPTZ   | SIM (sem `NOT NULL`)      | `now()`                     |
+
+**Constraints:**
+- `semester BETWEEN 1 AND 12`
+- `theme IN ('light','dark','system')`
+- `daily_goal_minutes IS NULL OR daily_goal_minutes BETWEEN 5 AND 1440`
+- `weekly_goal_minutes IS NULL OR weekly_goal_minutes BETWEEN 5 AND 10080`
+- `monthly_goal_minutes IS NULL OR monthly_goal_minutes BETWEEN 5 AND 44640`
+
+**Triggers:** `on_auth_user_created` (em `auth.users`), `profiles_updated_at`
+
+**RLS:** SELECT, INSERT, UPDATE (`USING` + `WITH CHECK`) e DELETE restritos a `auth.uid() = id`.
+
+**Relacionamentos:** `id` → `auth.users(id)` `ON DELETE CASCADE` (1:1).
+
+**Observações:** "Metas de Tempo" (Study Goals) **não é uma tabela separada** — são três colunas opcionais em `profiles`, 1:1 com o usuário e apenas informativas (sem recomendação automática), reaproveitando a relação já existente em vez de criar uma nova tabela. `created_at`/`updated_at` são nullable nesta tabela, inconsistência de convenção sem impacto funcional (o `DEFAULT` sempre preenche o valor).
 
 ---
 
 ### `push_subscriptions`
 
-**Objetivo:** Armazena as assinaturas Web Push de cada dispositivo por usuário, permitindo múltiplos dispositivos simultâneos (desktop, mobile, notebook).
+**Objetivo:** Assinaturas Web Push por dispositivo/usuário.
 
 | Coluna       | Tipo        | Nullable | Padrão              |
-|--------------|-------------|----------|---------------------|
+|--------------|-------------|----------|----------------------|
 | `id`         | UUID        | NÃO      | `gen_random_uuid()` |
 | `user_id`    | UUID        | NÃO      | —                   |
 | `endpoint`   | TEXT        | NÃO      | —                   |
@@ -294,25 +584,22 @@ storage.objects (Supabase Storage — schema storage)
 | `created_at` | TIMESTAMPTZ | NÃO      | `now()`             |
 | `updated_at` | TIMESTAMPTZ | NÃO      | `now()`             |
 
-**Índices:** `push_subscriptions_user_endpoint` — UNIQUE em `(user_id, endpoint)`
+**Índices:** `push_subscriptions_user_endpoint` (UNIQUE)
 
 **Triggers:** `push_subscriptions_updated_at`
 
-**RLS:** SELECT, INSERT, UPDATE e DELETE restritos ao próprio usuário via `auth.uid() = user_id`.
+**RLS:** SELECT/INSERT/UPDATE/DELETE via `auth.uid() = user_id`.
 
-**Relacionamentos:**
-- `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
-
-**Observações:** O `endpoint` identifica unicamente o dispositivo junto ao serviço de push do navegador. O par `p256dh` e `auth` são as chaves criptográficas para cifrar mensagens push via protocolo Web Push. O frontend usa upsert com `onConflict: 'user_id,endpoint'` para garantir idempotência no registro. A Edge Function `send-push-notifications` remove automaticamente assinaturas que retornam HTTP 410 ou 404 (assinatura revogada pelo navegador).
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`.
 
 ---
 
 ### `notification_logs`
 
-**Objetivo:** Registra cada notificação enviada para prevenir envios duplicados e fornecer trilha de auditoria para diagnóstico.
+**Objetivo:** Registra cada notificação enviada, para deduplicação e auditoria.
 
 | Coluna       | Tipo        | Nullable | Padrão              |
-|--------------|-------------|----------|---------------------|
+|--------------|-------------|----------|----------------------|
 | `id`         | UUID        | NÃO      | `gen_random_uuid()` |
 | `user_id`    | UUID        | NÃO      | —                   |
 | `event_id`   | UUID        | NÃO      | —                   |
@@ -321,87 +608,45 @@ storage.objects (Supabase Storage — schema storage)
 | `error`      | TEXT        | SIM      | —                   |
 | `sent_at`    | TIMESTAMPTZ | NÃO      | `now()`             |
 
-**Índices:**
-- `notification_logs_dedup` — UNIQUE em `(user_id, event_id, event_date)`
-- `notification_logs_sent_at_idx` em `(sent_at)`
+**Índices:** `notification_logs_dedup` (UNIQUE), `notification_logs_sent_at_idx`
 
-**RLS:** Apenas SELECT para o próprio usuário via `auth.uid() = user_id`. Inserções realizadas pela Edge Function `send-push-notifications` com `service_role`, contornando o RLS de forma intencional.
+**RLS:** apenas SELECT via `auth.uid() = user_id`; INSERT feito só via `service_role`.
 
-**Relacionamentos:**
-- `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
-- `event_id` → `events(id)` com `ON DELETE CASCADE` (migration `09_notification_logs_integrity.sql`)
-
-**Observações:** O campo `status` aceita `'sent'` ou `'failed'`. O índice `notification_logs_dedup` é a principal garantia de idempotência — um upsert para a mesma combinação `(user_id, event_id, event_date)` atualiza o registro existente em vez de duplicar. A FK em `event_id` com `ON DELETE CASCADE` garante que, ao excluir um evento (recorrente ou não), todo o seu histórico de notificações seja removido junto, eliminando a possibilidade de logs órfãos. A função `cleanup_old_notification_logs()` remove registros com mais de 90 dias.
-
----
-
-### `profiles`
-
-**Objetivo:** Perfil estendido do usuário com informações acadêmicas e preferências de configuração da aplicação. Criado automaticamente via trigger no momento do cadastro.
-
-| Coluna                 | Tipo        | Nullable | Padrão                |
-|------------------------|-------------|----------|-----------------------|
-| `id`                   | UUID        | NÃO      | — (PK = auth.users.id)|
-| `full_name`            | TEXT        | SIM      | —                     |
-| `avatar_url`           | TEXT        | SIM      | —                     |
-| `university`           | TEXT        | SIM      | —                     |
-| `course`               | TEXT        | SIM      | —                     |
-| `semester`             | SMALLINT    | SIM      | —                     |
-| `timezone`             | TEXT        | SIM      | `'America/Sao_Paulo'` |
-| `notification_enabled` | BOOLEAN     | SIM      | `true`                |
-| `theme`                | TEXT        | SIM      | `'light'`             |
-| `created_at`           | TIMESTAMPTZ | SIM      | `now()`               |
-| `updated_at`           | TIMESTAMPTZ | SIM      | `now()`               |
-
-**Constraints:**
-- `semester`: CHECK `(semester BETWEEN 1 AND 12)`
-- `theme`: CHECK `(theme IN ('light', 'dark', 'system'))`
-
-**Triggers:**
-- `on_auth_user_created` (em `auth.users`) — cria automaticamente o perfil ao registrar novo usuário.
-- `profiles_updated_at` — atualiza `updated_at` em cada UPDATE.
-
-**RLS:** SELECT, INSERT, UPDATE (com `USING` e `WITH CHECK`) e DELETE restritos a `auth.uid() = id`.
-
-**Relacionamentos:**
-- `id` → `auth.users(id)` com `ON DELETE CASCADE` (relação 1:1)
-
-**Observações:** `created_at` e `updated_at` são nullable nesta tabela, diferentemente das demais onde são `NOT NULL` — inconsistência presente na migration original. Não impacta funcionalidade pois ambos têm `DEFAULT now()`. O `avatar_url` armazena a URL pública do arquivo no bucket `avatars`. O `profileService.js` usa uma allowlist de campos na função `upsertProfile()` para evitar que campos não autorizados sejam gravados.
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`; `event_id` → `events(id)` `ON DELETE CASCADE` (desde `09_notification_logs_integrity.sql`).
 
 ---
 
 ### `academic_calendars`
 
-**Objetivo:** Representa um calendário acadêmico completo pertencente a um usuário, agrupando eventos de um período letivo ou instituição específica.
+**Objetivo:** Calendários acadêmicos (múltiplos por usuário).
 
 | Coluna          | Tipo        | Nullable | Padrão              |
-|-----------------|-------------|----------|---------------------|
+|-----------------|-------------|----------|----------------------|
 | `id`            | UUID        | NÃO      | `gen_random_uuid()` |
 | `user_id`       | UUID        | NÃO      | —                   |
 | `name`          | TEXT        | NÃO      | —                   |
 | `university`    | TEXT        | SIM      | —                   |
 | `academic_year` | TEXT        | SIM      | —                   |
 | `color`         | TEXT        | NÃO      | `'#7c3aed'`         |
-| `created_at`    | TIMESTAMPTZ | NÃO      | `now()`             |
-| `updated_at`    | TIMESTAMPTZ | NÃO      | `now()`             |
+| `created_at`     | TIMESTAMPTZ | NÃO      | `now()`             |
+| `updated_at`     | TIMESTAMPTZ | NÃO      | `now()`             |
 
-**Índices:** `academic_calendars_user_id_idx` em `(user_id)`
+**Índices:** `academic_calendars_user_id_idx`
 
 **Triggers:** `academic_calendars_updated_at`
 
-**RLS:** SELECT, INSERT, UPDATE e DELETE restritos a `user_id = auth.uid()`.
+**RLS:** SELECT/INSERT/UPDATE/DELETE via `user_id = auth.uid()`.
 
-**Relacionamentos:**
-- `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`; pai de `academic_events`.
 
 ---
 
 ### `academic_events`
 
-**Objetivo:** Eventos dentro de um calendário acadêmico com suporte a eventos de múltiplos dias (provas, semanas acadêmicas, recessos, rodízios).
+**Objetivo:** Eventos dentro de um calendário acadêmico, com suporte a intervalos de múltiplos dias.
 
 | Coluna        | Tipo        | Nullable | Padrão              |
-|---------------|-------------|----------|---------------------|
+|---------------|-------------|----------|----------------------|
 | `id`          | UUID        | NÃO      | `gen_random_uuid()` |
 | `calendar_id` | UUID        | NÃO      | —                   |
 | `title`       | TEXT        | NÃO      | —                   |
@@ -412,30 +657,25 @@ storage.objects (Supabase Storage — schema storage)
 | `color`       | TEXT        | SIM      | —                   |
 | `category`    | TEXT        | SIM      | —                   |
 | `location`    | TEXT        | SIM      | —                   |
-| `created_at`  | TIMESTAMPTZ | NÃO      | `now()`             |
-| `updated_at`  | TIMESTAMPTZ | NÃO      | `now()`             |
+| `created_at`   | TIMESTAMPTZ | NÃO      | `now()`             |
+| `updated_at`   | TIMESTAMPTZ | NÃO      | `now()`             |
 
-**Índices:**
-- `academic_events_calendar_id_idx` em `(calendar_id)`
-- `academic_events_start_date_idx` em `(start_date)`
+**Índices:** `academic_events_calendar_id_idx`, `academic_events_start_date_idx`
 
 **Triggers:** `academic_events_updated_at`
 
-**RLS:** Acesso via subquery com `EXISTS` verificando ownership do calendário pai. O usuário só acessa eventos de calendários que lhe pertencem. A tabela não possui `user_id` diretamente.
+**RLS:** via subquery `EXISTS` — a única tabela do schema sem `user_id` próprio.
 
-**Relacionamentos:**
-- `calendar_id` → `academic_calendars(id)` com `ON DELETE CASCADE`
-
-**Observações:** `end_date` é opcional — eventos de um único dia omitem o campo. O frontend expande eventos de múltiplos dias em entradas individuais por data via `expandAcademicEvents()` no `academicCalendarService.js`. Queries de range usam join com `academic_calendars` para retornar `id`, `name` e `color` do calendário pai.
+**Relacionamentos:** `calendar_id` → `academic_calendars(id)` `ON DELETE CASCADE`.
 
 ---
 
 ### `ai_metrics`
 
-**Objetivo:** Registrar métricas de uso das funcionalidades de IA sem armazenar o conteúdo das conversas ou prompts.
+**Objetivo:** Métricas de uso de IA, sem armazenar conteúdo de conversas.
 
 | Coluna          | Tipo        | Nullable | Padrão              |
-|-----------------|-------------|----------|---------------------|
+|-----------------|-------------|----------|----------------------|
 | `id`            | UUID        | NÃO      | `gen_random_uuid()` |
 | `user_id`       | UUID        | NÃO      | —                   |
 | `prompt_type`   | TEXT        | NÃO      | —                   |
@@ -445,375 +685,454 @@ storage.objects (Supabase Storage — schema storage)
 | `http_status`   | INTEGER     | SIM      | —                   |
 | `error_code`    | TEXT        | SIM      | —                   |
 | `error_message` | TEXT        | SIM      | —                   |
-| `created_at`    | TIMESTAMPTZ | NÃO      | `now()`             |
+| `created_at`     | TIMESTAMPTZ | NÃO      | `now()`             |
 
-**RLS:** Apenas SELECT para o próprio usuário via `auth.uid() = user_id`. Inserções realizadas via Edge Function com `service_role`.
+**RLS:** apenas SELECT via `auth.uid() = user_id`; INSERT só via `service_role`.
+
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`.
+
+---
+
+### `activity_sessions`
+
+**Objetivo:** Fato central do domínio de Execução de Estudo — registra o tempo efetivamente gasto em uma atividade (estudo, plantão, etc.), com ou sem vínculo a um compromisso planejado. É a entidade raiz de que Questões, Reflexão e (opcionalmente) Revisões dependem. Ver `ARCHITECTURE.md` → Modelo de Domínio.
+
+| Coluna              | Tipo          | Nullable | Padrão               |
+|----------------------|---------------|----------|-------------------------|
+| `id`                  | UUID          | NÃO      | `gen_random_uuid()`    |
+| `user_id`             | UUID          | NÃO      | —                       |
+| `event_id`            | UUID          | SIM      | — (FK opcional)         |
+| `category_id`         | UUID          | SIM      | — (FK opcional)         |
+| `status`              | TEXT          | NÃO      | `'running'`             |
+| `started_at`          | TIMESTAMPTZ   | NÃO      | `now()`                 |
+| `ended_at`            | TIMESTAMPTZ   | SIM      | —                       |
+| `duration_minutes`    | INTEGER       | SIM      | — (líquido, desconta pausas) |
+| `source`              | TEXT          | NÃO      | `'manual'`              |
+| `notes`               | TEXT          | SIM      | — (Observações, distinto de Reflexão) |
+| `paused_ms`           | BIGINT        | NÃO      | `0` (`17`)              |
+| `paused_at`           | TIMESTAMPTZ   | SIM      | — (`17`)                |
+| `created_at`           | TIMESTAMPTZ   | NÃO      | `now()`                 |
+| `updated_at`           | TIMESTAMPTZ   | NÃO      | `now()`                 |
+
+**Constraints:**
+- `activity_sessions_status_check` — `status IN ('running','paused','finished','cancelled')`
+- `activity_sessions_source_check` — `source IN ('quick','event','manual')`
+
+**Índices:**
+- `activity_sessions_user_id_idx`, `activity_sessions_event_id_idx`, `activity_sessions_started_at_idx`
+- `activity_sessions_one_running_per_user` — UNIQUE parcial em `(user_id) WHERE status = 'running'` (`19`)
+
+**Triggers:** `activity_sessions_updated_at`
+
+**RLS:** SELECT/INSERT/UPDATE/DELETE via `user_id = auth.uid()`.
 
 **Relacionamentos:**
-- `user_id` → `auth.users(id)` com `ON DELETE CASCADE`
+- `user_id` → `auth.users(id)` `ON DELETE CASCADE`
+- `event_id` → `events(id)` `ON DELETE SET NULL` — a Sessão sobrevive à exclusão do compromisso
+- `category_id` → `categories(id)` `ON DELETE SET NULL`
+- Referenciada por `questions.session_id` (`ON DELETE CASCADE`), `reflections.session_id` (`ON DELETE CASCADE`, 1:1), `reviews.session_id` (`ON DELETE SET NULL`, opcional)
 
-**Observações:** `prompt_type` identifica o tipo de análise solicitada (`weekly_summary`, `study_suggestion`, `schedule_analysis`). `model`, `http_status` e `error_message` foram adicionadas em `10_ai_metrics_observability.sql` (Auditoria A2.2). Não há `updated_at` pois registros de métricas são imutáveis. A Edge Function `ai-chat` insere uma linha por chamada (sucesso ou falha), em background via `service_role`, sem armazenar prompt, resposta ou dados pessoais.
+**Observações:** `duration_minutes` é o tempo **líquido** (desde `17_activity_sessions_paused_time.sql`) — desconta qualquer intervalo em `paused`. Toda transição de status é publicada no Session Event Bus por `activitySessionService.js` (único publicador) — ver `ARCHITECTURE.md`.
+
+---
+
+### `reviews`
+
+**Objetivo:** Controle do ciclo de revisão espaçada de um compromisso — quando revisar, se já foi revisada, e (opcionalmente) qual Sessão a executou.
+
+| Coluna              | Tipo          | Nullable | Padrão               |
+|----------------------|---------------|----------|-------------------------|
+| `id`                  | UUID          | NÃO      | `gen_random_uuid()`    |
+| `user_id`             | UUID          | NÃO      | —                       |
+| `event_id`            | UUID          | NÃO      | —                       |
+| `session_id`          | UUID          | SIM      | — (`16`, opcional)      |
+| `scheduled_date`      | DATE          | NÃO      | —                       |
+| `status`              | TEXT          | NÃO      | `'pending'`             |
+| `completed_at`         | TIMESTAMPTZ   | SIM      | —                       |
+| `review_type`         | TEXT          | NÃO      | `'manual'`              |
+| `origin`              | TEXT          | NÃO      | `'user'`                |
+| `created_at`           | TIMESTAMPTZ   | NÃO      | `now()`                 |
+| `updated_at`           | TIMESTAMPTZ   | NÃO      | `now()`                 |
+
+**Constraints:**
+- `reviews_status_check` — `status IN ('pending','completed','skipped')`
+- `reviews_review_type_check` — `review_type IN ('manual','automatic')`
+- `reviews_origin_check` — `origin IN ('event','ai','user')`
+
+**Índices:** `reviews_user_id_idx`, `reviews_event_id_idx`, `reviews_user_status_idx`, `reviews_scheduled_date_idx`, `reviews_session_id_idx` (`16`)
+
+**Triggers:** `reviews_updated_at`
+
+**RLS:** SELECT/INSERT/UPDATE/DELETE via `user_id = auth.uid()`.
+
+**Relacionamentos:**
+- `user_id` → `auth.users(id)` `ON DELETE CASCADE`
+- `event_id` → `events(id)` `ON DELETE CASCADE` — uma revisão nunca existe sem o compromisso original
+- `session_id` → `activity_sessions(id)` `ON DELETE SET NULL` — vínculo opcional, mão única (só `reviews` conhece `activity_sessions`, nunca o inverso)
+
+**Observações:** `reviewService.js` mantém um pub/sub próprio (`onReviewStatusChanged`), independente e mais antigo que o Session Event Bus — não publica nem consome eventos do barramento de Sessão.
+
+---
+
+### `questions`
+
+**Objetivo:** Questões resolvidas durante uma Sessão de estudo.
+
+| Coluna              | Tipo          | Nullable | Padrão                    |
+|----------------------|---------------|----------|-------------------------------|
+| `id`                  | UUID          | NÃO      | `gen_random_uuid()`         |
+| `user_id`             | UUID          | NÃO      | —                             |
+| `session_id`          | UUID          | NÃO      | —                             |
+| `question_type`       | TEXT          | NÃO      | `'multiple_choice'`          |
+| `status`              | TEXT          | NÃO      | `'pending'`                   |
+| `difficulty`          | TEXT          | NÃO      | `'medium'`                    |
+| `subject`             | TEXT          | SIM      | —                             |
+| `topic`               | TEXT          | SIM      | —                             |
+| `created_at`           | TIMESTAMPTZ   | NÃO      | `now()`                       |
+| `updated_at`           | TIMESTAMPTZ   | NÃO      | `now()`                       |
+
+**Constraints:**
+- `questions_question_type_check` — `question_type IN ('multiple_choice','true_false','open','flashcard')`
+- `questions_status_check` — `status IN ('pending','answered','skipped')`
+- `questions_difficulty_check` — `difficulty IN ('easy','medium','hard')`
+
+**Índices:** `questions_user_id_idx`, `questions_session_id_idx`, `questions_user_status_idx`
+
+**Triggers:** `questions_updated_at`
+
+**RLS:** SELECT/INSERT/UPDATE/DELETE via `user_id = auth.uid()`.
+
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`; `session_id` → `activity_sessions(id)` `ON DELETE CASCADE` — uma questão nunca existe sem sessão (composição, não opcional).
+
+**Observações:** `status` é o andamento da questão no fluxo do usuário, nunca "correto/incorreto" — desempenho é derivado por consumidores futuros, não um campo bruto. `subject` é a única coluna do schema que carrega "matéria" — `subjectProgressService.js` usa `events.category` (via `activity_sessions.event_id`) como proxy de matéria quando `questions.subject` não está disponível.
+
+---
+
+### `reflections`
+
+**Objetivo:** Texto livre que o usuário escreve sobre o que aprendeu em uma Sessão — distinto de `activity_sessions.notes` (Observações, sobre o que foi feito).
+
+| Coluna       | Tipo        | Nullable | Padrão              |
+|--------------|-------------|----------|----------------------|
+| `id`         | UUID        | NÃO      | `gen_random_uuid()` |
+| `user_id`    | UUID        | NÃO      | —                   |
+| `session_id` | UUID        | NÃO      | — (UNIQUE)          |
+| `content`    | TEXT        | NÃO      | —                   |
+| `created_at`  | TIMESTAMPTZ | NÃO      | `now()`             |
+| `updated_at`  | TIMESTAMPTZ | NÃO      | `now()`             |
+
+**Constraints:**
+- `reflections_session_id_unique` — `UNIQUE (session_id)` — no máximo uma reflexão por sessão
+- `reflections_content_not_blank` — `CHECK (btrim(content) <> '')`
+
+**Índices:** `reflections_user_id_idx`
+
+**Triggers:** `reflections_updated_at`
+
+**RLS:** SELECT/INSERT/UPDATE/DELETE via `user_id = auth.uid()`.
+
+**Relacionamentos:** `user_id` → `auth.users(id)` `ON DELETE CASCADE`; `session_id` → `activity_sessions(id)` `ON DELETE CASCADE`, `UNIQUE` (1:1).
+
+**Observações:** `studyReflectionService.js` grava via `UPSERT (ON CONFLICT session_id)` — "criar" e "editar" são a mesma operação. Consumida por `studyJournalView.js` (Diário de Estudos) como a única escrita que essa tela realiza.
+
+---
+
+### `schema_version`
+
+**Objetivo:** Fonte única de verdade sobre a versão de schema aplicada no banco — não guarda dado de usuário.
+
+| Coluna       | Tipo        | Nullable | Padrão   |
+|--------------|-------------|----------|----------|
+| `id`         | SMALLINT    | NÃO (PK) | `1`      |
+| `version`    | INTEGER     | NÃO      | —        |
+| `applied_at` | TIMESTAMPTZ | NÃO      | `now()`  |
+
+**Constraints:** `schema_version_single_row` — `CHECK (id = 1)`, garante linha única.
+
+**RLS:** SELECT liberado para `anon` e `authenticated`; nenhuma política de escrita (só o SQL Editor, fora de RLS).
+
+**Relacionamentos:** Nenhum — tabela independente, sem FK.
+
+**Observações:** Versão atual: `20` (última migration que fez bump). Consumida por `schemaService.js` (frontend, bootstrap) e pelo passo "Validate database schema version" de `deploy.yml`. Ver `OPERATIONS.md` para o mecanismo completo.
 
 ---
 
 ## Índices
 
-| Nome                               | Tabela               | Colunas                           | Tipo   | Objetivo                                                   |
-|------------------------------------|----------------------|-----------------------------------|--------|------------------------------------------------------------|
-| `events_user_id_idx`               | `events`             | `(user_id)`                       | B-tree | Filtro rápido de eventos por usuário                       |
-| `events_user_date_idx`             | `events`             | `(user_id, event_date)`           | B-tree | Queries de calendário por usuário + intervalo de datas     |
-| `categories_user_name_idx`         | `categories`         | `(user_id, lower(name))`          | UNIQUE | Previne categorias duplicadas case-insensitive por usuário |
-| `categories_user_id_idx`           | `categories`         | `(user_id)`                       | B-tree | Listagem de categorias do usuário                          |
-| `push_subscriptions_user_endpoint` | `push_subscriptions` | `(user_id, endpoint)`             | UNIQUE | Garante uma assinatura por dispositivo por usuário         |
-| `notification_logs_dedup`          | `notification_logs`  | `(user_id, event_id, event_date)` | UNIQUE | Previne notificação duplicada para o mesmo evento/data     |
-| `notification_logs_sent_at_idx`    | `notification_logs`  | `(sent_at)`                       | B-tree | Queries de cleanup por data e auditoria temporal           |
-| `academic_calendars_user_id_idx`   | `academic_calendars` | `(user_id)`                       | B-tree | Listagem de calendários do usuário                         |
-| `academic_events_calendar_id_idx`  | `academic_events`    | `(calendar_id)`                   | B-tree | Busca de eventos por calendário                            |
-| `academic_events_start_date_idx`   | `academic_events`    | `(start_date)`                    | B-tree | Filtro de eventos por data de início                       |
+| Nome                                        | Tabela               | Colunas                             | Tipo             | Objetivo |
+|----------------------------------------------|------------------------|----------------------------------------|------------------|----------|
+| `events_user_id_idx`                        | `events`               | `(user_id)`                           | B-tree           | Filtro rápido por usuário |
+| `events_user_date_idx`                      | `events`               | `(user_id, event_date)`               | B-tree composto  | Consulta de calendário por usuário + intervalo de datas |
+| `categories_user_name_idx`                  | `categories`           | `(user_id, lower(name))`              | UNIQUE           | Previne categorias duplicadas case-insensitive |
+| `categories_user_id_idx`                    | `categories`           | `(user_id)`                           | B-tree           | Listagem de categorias do usuário |
+| `push_subscriptions_user_endpoint`          | `push_subscriptions`   | `(user_id, endpoint)`                 | UNIQUE           | Uma assinatura por dispositivo por usuário |
+| `notification_logs_dedup`                   | `notification_logs`    | `(user_id, event_id, event_date)`     | UNIQUE           | Previne notificação duplicada |
+| `notification_logs_sent_at_idx`             | `notification_logs`    | `(sent_at)`                           | B-tree           | Cleanup e auditoria temporal |
+| `academic_calendars_user_id_idx`            | `academic_calendars`   | `(user_id)`                           | B-tree           | Listagem de calendários do usuário |
+| `academic_events_calendar_id_idx`           | `academic_events`      | `(calendar_id)`                       | B-tree           | Busca de eventos por calendário |
+| `academic_events_start_date_idx`            | `academic_events`      | `(start_date)`                        | B-tree           | Filtro por data de início |
+| `activity_sessions_user_id_idx`             | `activity_sessions`    | `(user_id)`                           | B-tree           | Listagem de sessões do usuário |
+| `activity_sessions_event_id_idx`            | `activity_sessions`    | `(event_id)`                          | B-tree           | Sessões de um compromisso (`listByEvent`) |
+| `activity_sessions_started_at_idx`          | `activity_sessions`    | `(started_at)`                        | B-tree           | Filtro por intervalo de datas / histórico |
+| `activity_sessions_one_running_per_user`    | `activity_sessions`    | `(user_id) WHERE status='running'`    | UNIQUE parcial   | No máximo uma sessão `running` por usuário (AUD-001) |
+| `reviews_user_id_idx`                       | `reviews`               | `(user_id)`                           | B-tree           | Listagem de revisões do usuário |
+| `reviews_event_id_idx`                      | `reviews`               | `(event_id)`                          | B-tree           | Revisões de um compromisso |
+| `reviews_user_status_idx`                   | `reviews`               | `(user_id, status)`                   | B-tree composto  | Revisões pendentes/concluídas do usuário |
+| `reviews_scheduled_date_idx`                | `reviews`               | `(scheduled_date)`                    | B-tree           | Revisões por data agendada |
+| `reviews_session_id_idx`                    | `reviews`               | `(session_id)`                        | B-tree           | Revisão executada por uma Sessão |
+| `questions_user_id_idx`                     | `questions`             | `(user_id)`                           | B-tree           | Listagem de questões do usuário |
+| `questions_session_id_idx`                  | `questions`             | `(session_id)`                        | B-tree           | Questões de uma Sessão (`listBySession`) |
+| `questions_user_status_idx`                 | `questions`             | `(user_id, status)`                   | B-tree composto  | Questões pendentes/respondidas do usuário |
+| `reflections_user_id_idx`                    | `reflections`           | `(user_id)`                           | B-tree           | Listagem de reflexões do usuário |
+
+23 índices explícitos, além do índice implícito de cada chave primária. `ai_metrics` e `schema_version` são as únicas tabelas sem índice explícito além da PK.
 
 ---
 
 ## Triggers
 
-Todos os triggers de atualização de timestamps seguem o mesmo padrão, reutilizando uma única função centralizada definida em `01_events.sql`.
-
 ### `update_updated_at()`
 
-Função TRIGGER do tipo `BEFORE UPDATE` que atribui `now()` ao campo `updated_at` do registro sendo atualizado. Definida uma única vez em `01_events.sql` e compartilhada por todas as tabelas que possuem o campo `updated_at`.
+Função central, definida uma única vez em `sql/01_events.sql` e reutilizada por 10 tabelas:
 
-| Trigger                          | Tabela               | Momento       | Função chamada        |
-|----------------------------------|----------------------|---------------|-----------------------|
-| `events_updated_at`              | `events`             | BEFORE UPDATE | `update_updated_at()` |
-| `categories_updated_at`          | `categories`         | BEFORE UPDATE | `update_updated_at()` |
-| `push_subscriptions_updated_at`  | `push_subscriptions` | BEFORE UPDATE | `update_updated_at()` |
-| `profiles_updated_at`            | `profiles`           | BEFORE UPDATE | `update_updated_at()` |
-| `academic_calendars_updated_at`  | `academic_calendars` | BEFORE UPDATE | `update_updated_at()` |
-| `academic_events_updated_at`     | `academic_events`    | BEFORE UPDATE | `update_updated_at()` |
+| Trigger                          | Tabela               |
+|-----------------------------------|------------------------|
+| `events_updated_at`               | `events`               |
+| `categories_updated_at`           | `categories`           |
+| `push_subscriptions_updated_at`   | `push_subscriptions`   |
+| `profiles_updated_at`             | `profiles`             |
+| `academic_calendars_updated_at`   | `academic_calendars`   |
+| `academic_events_updated_at`      | `academic_events`      |
+| `activity_sessions_updated_at`    | `activity_sessions`    |
+| `reviews_updated_at`              | `reviews`               |
+| `questions_updated_at`            | `questions`             |
+| `reflections_updated_at`           | `reflections`           |
+
+`notification_logs`, `ai_metrics` e `schema_version` **não** têm essa trigger — não possuem `updated_at` (registros tratados como imutáveis) ou não fazem sentido para o padrão (linha única de `schema_version`).
 
 ### `on_auth_user_created`
 
-Trigger especial em `auth.users` (`AFTER INSERT FOR EACH ROW`), que chama `handle_new_user()`. Garante que todo novo usuário tenha um perfil criado automaticamente na tabela `profiles`, com o `full_name` extraído dos metadados de cadastro via `raw_user_meta_data->>'full_name'`. Usa `ON CONFLICT (id) DO NOTHING` para ser idempotente em caso de reexecução.
+Trigger em `auth.users` (`AFTER INSERT FOR EACH ROW`), chama `handle_new_user()`. Garante que todo novo usuário tenha um perfil criado automaticamente em `profiles`.
 
 ---
 
 ## Funções SQL
 
-### `update_updated_at()`
+Três funções no total — nenhuma nova foi introduzida pelas migrations `11`–`20`:
 
-- **Tipo:** TRIGGER
-- **Linguagem:** PL/pgSQL
-- **Objetivo:** Manter o campo `updated_at` sincronizado com o momento exato de cada atualização de registro, sem depender da camada de aplicação.
-- **Parâmetros:** Nenhum (opera sobre a variável especial `NEW` implícita em triggers).
-- **Retorno:** `TRIGGER` (retorna `NEW` com `updated_at` atualizado para `now()`).
-- **Utilizada por:** 6 triggers de 6 tabelas distintas (`events`, `categories`, `push_subscriptions`, `profiles`, `academic_calendars`, `academic_events`).
-
-### `handle_new_user()`
-
-- **Tipo:** TRIGGER com `SECURITY DEFINER`
-- **Linguagem:** PL/pgSQL
-- **Objetivo:** Criar automaticamente uma linha em `public.profiles` para cada novo usuário registrado via Supabase Auth, populando o `full_name` a partir dos metadados fornecidos no cadastro.
-- **Parâmetros:** Nenhum (opera sobre `NEW` do trigger em `auth.users`).
-- **Retorno:** `TRIGGER` (retorna `NEW`).
-- **Utilizada por:** Trigger `on_auth_user_created` em `auth.users`.
-- **Observação:** Executada com `SECURITY DEFINER` e `SET search_path = public` para garantir permissão de escrita em `profiles` partindo do schema `auth`, onde o trigger está registrado.
-
-### `cleanup_old_notification_logs()`
-
-- **Tipo:** Função utilitária
-- **Linguagem:** SQL
-- **Objetivo:** Remover registros de `notification_logs` com mais de 90 dias para controlar o crescimento da tabela ao longo do tempo.
-- **Parâmetros:** Nenhum.
-- **Retorno:** `void`.
-- **Utilizada por:** Não é chamada automaticamente por nenhum trigger. Deve ser agendada via Supabase Scheduler (recomendado) ou pg_cron conforme documentado em `04_push_notifications.sql`.
+- **`update_updated_at()`** — trigger `BEFORE UPDATE`, definida em `01_events.sql`, reutilizada por 10 tabelas.
+- **`handle_new_user()`** — `SECURITY DEFINER`, cria a linha de `profiles` no cadastro do usuário.
+- **`cleanup_old_notification_logs()`** — utilitária, remove `notification_logs` com mais de 90 dias; não é chamada automaticamente.
 
 ---
 
 ## Row Level Security
 
-O MedAgenda adota uma estratégia de **isolamento completo por usuário** via RLS. Toda tabela de dados do usuário tem `ENABLE ROW LEVEL SECURITY` ativado, com políticas que garantem que cada usuário veja e modifique apenas seus próprios dados.
-
-O mecanismo central é `auth.uid()`, função provida pelo Supabase que retorna o UUID do usuário autenticado na sessão atual. A função retorna `NULL` para sessões não autenticadas, efetivamente bloqueando todo acesso sem login.
+Isolamento completo por usuário via RLS, com `auth.uid()` como mecanismo central.
 
 ### Estratégias adotadas
 
-**Acesso direto por `user_id`:** Padrão utilizado em `events`, `categories`, `push_subscriptions`, `academic_calendars`.
-
-```
-USING (user_id = auth.uid())
-```
-
-**Acesso por chave primária:** Utilizado em `profiles`, onde o `id` é simultaneamente PK e FK para `auth.users`.
-
-```
-USING (auth.uid() = id)
-```
-
-**Acesso via subquery com JOIN:** Utilizado em `academic_events`, que não possui `user_id` diretamente. O acesso é validado verificando se o `calendar_id` referencia um calendário pertencente ao usuário autenticado.
-
-```
-USING (
-  EXISTS (
-    SELECT 1 FROM academic_calendars
-    WHERE id = calendar_id AND user_id = auth.uid()
-  )
-)
-```
-
-**Acesso apenas para leitura pelo usuário:** `notification_logs` e `ai_metrics` — o usuário pode consultar seus próprios registros, mas inserções são feitas exclusivamente via `service_role` em Edge Functions, contornando o RLS de forma controlada.
-
-**Acesso público para leitura (Storage):** Bucket `avatars` — SELECT público para que as URLs de avatar funcionem sem autenticação. INSERT, UPDATE e DELETE restritos ao dono da pasta.
+- **Acesso direto por `user_id`:** `events`, `categories`, `push_subscriptions`, `academic_calendars`, `activity_sessions`, `reviews`, `questions`, `reflections`.
+- **Acesso por chave primária:** `profiles` (`id` é PK e FK).
+- **Acesso via subquery/JOIN:** `academic_events` (via `academic_calendars.user_id`).
+- **Leitura própria, escrita só via `service_role`:** `notification_logs`, `ai_metrics`.
+- **Leitura pública (anon + authenticated), sem escrita de usuário:** `schema_version`.
+- **Leitura pública (Storage):** bucket `avatars`.
 
 ### Detalhamento por tabela
 
 | Tabela                | SELECT              | INSERT              | UPDATE              | DELETE              |
-|-----------------------|---------------------|---------------------|---------------------|---------------------|
+|-----------------------|---------------------|----------------------|----------------------|----------------------|
 | `events`              | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
 | `categories`          | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
 | `push_subscriptions`  | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
 | `notification_logs`   | `user_id = uid()`   | service_role apenas | —                   | —                   |
-| `profiles`            | `id = uid()`        | `id = uid()`        | `id = uid()` (USING + WITH CHECK) | `id = uid()` |
+| `profiles`            | `id = uid()`        | `id = uid()`        | `id = uid()` (USING+WITH CHECK) | `id = uid()` |
 | `academic_calendars`  | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
 | `academic_events`     | via JOIN            | via JOIN            | via JOIN            | via JOIN            |
 | `ai_metrics`          | `user_id = uid()`   | service_role apenas | —                   | —                   |
+| `activity_sessions`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
+| `reviews`             | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
+| `questions`           | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
+| `reflections`         | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
+| `schema_version`      | `anon, authenticated` (true) | —          | —                   | —                   |
 | `storage.objects`     | público (avatars)   | `uid()` = pasta     | `uid()` = pasta     | `uid()` = pasta     |
 
 ---
 
 ## Integridade dos Dados
 
-### Foreign Keys
+### Foreign Keys e `ON DELETE`
 
-Todas as referências a `auth.users(id)` usam `ON DELETE CASCADE`, garantindo que a exclusão de um usuário remova automaticamente todos os seus dados nas tabelas de domínio (`events`, `categories`, `push_subscriptions`, `notification_logs`, `profiles`, `academic_calendars`, `ai_metrics`).
+| Origem                          | Destino                | Ação            |
+|-----------------------------------|--------------------------|-------------------|
+| `profiles.id`                    | `auth.users(id)`         | CASCADE           |
+| `events.user_id`                 | `auth.users(id)`         | CASCADE           |
+| `categories.user_id`             | `auth.users(id)`         | CASCADE           |
+| `push_subscriptions.user_id`     | `auth.users(id)`         | CASCADE           |
+| `notification_logs.user_id`      | `auth.users(id)`         | CASCADE           |
+| `academic_calendars.user_id`     | `auth.users(id)`         | CASCADE           |
+| `ai_metrics.user_id`              | `auth.users(id)`         | CASCADE           |
+| `activity_sessions.user_id`      | `auth.users(id)`         | CASCADE           |
+| `reviews.user_id`                 | `auth.users(id)`         | CASCADE           |
+| `questions.user_id`               | `auth.users(id)`         | CASCADE           |
+| `reflections.user_id`             | `auth.users(id)`         | CASCADE           |
+| `academic_events.calendar_id`    | `academic_calendars(id)` | CASCADE           |
+| `notification_logs.event_id`     | `events(id)`              | CASCADE           |
+| `reviews.event_id`                | `events(id)`              | CASCADE           |
+| `activity_sessions.event_id`     | `events(id)`              | **SET NULL**      |
+| `activity_sessions.category_id`  | `categories(id)`          | **SET NULL**      |
+| `questions.session_id`            | `activity_sessions(id)`  | CASCADE           |
+| `reflections.session_id`          | `activity_sessions(id)`  | CASCADE (+ UNIQUE)|
+| `reviews.session_id`              | `activity_sessions(id)`  | **SET NULL**      |
 
-A relação `academic_events.calendar_id → academic_calendars(id)` também usa `ON DELETE CASCADE`, de forma que excluir um calendário remove automaticamente todos os seus eventos acadêmicos.
+**Padrão de decisão CASCADE × SET NULL:** `CASCADE` é usado quando a linha filha não tem sentido sem a pai (composição — ex.: uma Questão sem Sessão, um log de notificação sem o evento que o gerou). `SET NULL` é usado quando as duas entidades têm ciclos de vida independentes e a filha deve sobreviver à exclusão da referência (ex.: a Sessão sobrevive à exclusão do compromisso que a originou, por ser ela própria o registro de execução; uma Revisão sobrevive à exclusão da Sessão que a executou).
 
-### Constraints e Validações
+### Constraints CHECK
 
-| Tabela     | Constraint                      | Regra                                                                                        |
-|------------|---------------------------------|----------------------------------------------------------------------------------------------|
-| `events`   | `events_recurrence_type_check`  | `recurrence_type` ∈ `{none, daily, weekdays, weekly, biweekly, monthly, yearly, custom}`    |
-| `profiles` | CHECK em `semester`             | `semester BETWEEN 1 AND 12`                                                                  |
-| `profiles` | CHECK em `theme`                | `theme` ∈ `{light, dark, system}`                                                            |
+| Tabela               | Constraint                          | Regra |
+|------------------------|----------------------------------------|-------|
+| `events`               | `events_recurrence_type_check`         | `recurrence_type ∈ {none,daily,weekdays,weekly,biweekly,monthly,yearly,custom}` |
+| `profiles`             | (sem nome)                             | `semester BETWEEN 1 AND 12` |
+| `profiles`             | (sem nome)                             | `theme ∈ {light,dark,system}` |
+| `profiles`             | (sem nome, `12`)                       | `daily_goal_minutes IS NULL OR BETWEEN 5 AND 1440` |
+| `profiles`             | (sem nome, `12`)                       | `weekly_goal_minutes IS NULL OR BETWEEN 5 AND 10080` |
+| `profiles`             | (sem nome, `12`/`20`)                  | `monthly_goal_minutes IS NULL OR BETWEEN 5 AND 44640` |
+| `activity_sessions`    | `activity_sessions_status_check`       | `status ∈ {running,paused,finished,cancelled}` |
+| `activity_sessions`    | `activity_sessions_source_check`       | `source ∈ {quick,event,manual}` |
+| `reviews`               | `reviews_status_check`                 | `status ∈ {pending,completed,skipped}` |
+| `reviews`               | `reviews_review_type_check`            | `review_type ∈ {manual,automatic}` |
+| `reviews`               | `reviews_origin_check`                 | `origin ∈ {event,ai,user}` |
+| `questions`             | `questions_question_type_check`        | `question_type ∈ {multiple_choice,true_false,open,flashcard}` |
+| `questions`             | `questions_status_check`               | `status ∈ {pending,answered,skipped}` |
+| `questions`             | `questions_difficulty_check`           | `difficulty ∈ {easy,medium,hard}` |
+| `reflections`           | `reflections_session_id_unique`        | `UNIQUE(session_id)` — no máximo 1 reflexão por sessão |
+| `reflections`           | `reflections_content_not_blank`        | `btrim(content) <> ''` |
+| `schema_version`       | `schema_version_single_row`            | `id = 1` — linha única |
 
-### Campos Obrigatórios vs. Opcionais
-
-- **`events`:** obrigatórios: `id`, `user_id`, `title`, `event_date`, `recurrence_type`, `created_at`, `updated_at`.
-- **`categories`:** obrigatórios: `id`, `user_id`, `name`, `color`, `created_at`, `updated_at`.
-- **`push_subscriptions`:** obrigatórios: `id`, `user_id`, `endpoint`, `p256dh`, `auth`, `created_at`, `updated_at`.
-- **`notification_logs`:** obrigatórios: `id`, `user_id`, `event_id`, `event_date`, `status`, `sent_at`.
-- **`profiles`:** obrigatório apenas `id` (PK). Todos os demais campos são opcionais com defaults.
-- **`academic_calendars`:** obrigatórios: `id`, `user_id`, `name`, `color`, `created_at`, `updated_at`.
-- **`academic_events`:** obrigatórios: `id`, `calendar_id`, `title`, `start_date`, `all_day`, `created_at`, `updated_at`.
-- **`ai_metrics`:** obrigatórios: `id`, `user_id`, `prompt_type`, `success`, `created_at`.
+`notification_logs.status` e `academic_events.category` continuam sem CHECK — o domínio de valores é imposto apenas em código.
 
 ### Unicidade garantida pelo banco
 
-- Categorias: nome único por usuário (case-insensitive) via índice `categories_user_name_idx`.
-- Push subscriptions: um `endpoint` por usuário via índice `push_subscriptions_user_endpoint`.
-- Notification logs: uma entrada por `(user_id, event_id, event_date)` via índice `notification_logs_dedup`.
-- Profiles: exatamente um perfil por usuário (PK = FK para `auth.users`).
+- Categorias: nome único por usuário (case-insensitive).
+- Push subscriptions: um `endpoint` por usuário.
+- Notification logs: uma entrada por `(user_id, event_id, event_date)`.
+- Profiles: exatamente um perfil por usuário.
+- Activity sessions: no máximo uma sessão `running` por usuário (`19`).
+- Reflections: no máximo uma reflexão por sessão.
+- Schema version: linha única (`id = 1`).
+
+---
+
+## Versões de Schema
+
+| Migration | Versão gravada em `schema_version` | O que passou a ser exigido pelo frontend |
+|---|---|---|
+| `01`–`13` | — (retroativas, não rastreadas) | Base do sistema até Revisões, aplicada antes da criação da tabela de versionamento |
+| `14_schema_version.sql` | `14` | A própria tabela de versionamento |
+| `15_questions.sql` | sem bump | Infraestrutura de Questões, sem consumidor visual ainda |
+| `16_review_session_link.sql` | sem bump | Vínculo Revisão↔Sessão, sem consumidor visual ainda |
+| `17_activity_sessions_paused_time.sql` | `17` | `paused_ms`/`paused_at` (Tempo Líquido) |
+| `18_reflections.sql` | `18` | Tabela `reflections` (Diário de Estudos) |
+| `19_activity_sessions_running_unique.sql` | `19` | Índice único parcial (erro `SESSION_ALREADY_RUNNING`) |
+| `20_monthly_goal_minutes_integer.sql` | `20` | Tipo `INTEGER` em `monthly_goal_minutes` |
+
+**Versão atual do schema: 20.**
 
 ---
 
 ## Fluxo de Persistência
 
-### Eventos
+### Eventos, Categorias, Calendário Acadêmico, Perfil, Push
+
+Inalterado desde a introdução dessas tabelas — ver histórico completo em versões anteriores deste documento ou em `BACKEND.md`. Resumo: View → Service → `supabase.from(tabela)...` → RLS valida `user_id = auth.uid()` → Postgres grava/lê → trigger `update_updated_at()` mantém timestamps.
+
+### Sessão de Estudo (`activity_sessions`)
 
 ```
-Frontend (eventFormView.js)
-  ↓ createEvent() / updateEvent() / deleteEvent() / getEventsByRange()
-eventService.js
-  ↓ supabase.from('events').insert | .update | .delete | .select
-Supabase (RLS valida user_id = auth.uid())
+Frontend (studySessionView.js / eventFormView.js "Iniciar Sessão")
+  ↓ startSession() / pauseSession() / resumeSession() / finishSession() / cancelSession()
+activitySessionService.js  (único publicador do Session Event Bus)
+  ↓ supabase.from('activity_sessions').insert | .update
+Supabase (RLS: user_id = auth.uid(); índice único parcial bloqueia 2ª sessão "running")
   ↓
-Tabela: events
-  ↓ Trigger: events_updated_at → update_updated_at()
-Resposta: objeto do evento criado/atualizado ou confirmação de exclusão
+Tabela: activity_sessions
+  ↓ Trigger: activity_sessions_updated_at
+  ↓ sessionEventBus.publish(SessionStarted | SessionPaused | SessionResumed | SessionFinished | SessionCancelled | SessionUpdated, session)
+Consumidores do barramento (Dashboard, Histórico, Diário, IA context) recarregam suas projeções
 ```
 
-Para consultas por intervalo, `getEventsByRange()` dispara duas queries paralelas via `Promise.all()`: uma para eventos com data base dentro do range, outra para eventos recorrentes com data base anterior ao range mas com ocorrências dentro dele. Os resultados são mesclados no cliente com deduplicação por `id`.
+Ver `ARCHITECTURE.md` → Session Event Bus para o detalhamento de cada evento, publicador e consumidores.
 
-### Categorias
+### Questões (`questions`)
 
 ```
-Frontend (categoryView.js)
-  ↓ getCategories() / createCategory() / updateCategory() / deleteCategory()
-categoryService.js
-  ↓ supabase.from('categories')...
-Supabase (RLS valida user_id = auth.uid())
+Frontend (studySessionView.js, durante Sessão "running"/"paused")
+  ↓ sessionQuestionsService.addQuestion(sessionId, data)
+questionService.js
+  ↓ supabase.from('questions').insert  (session_id obrigatório)
+Supabase (RLS: user_id = auth.uid())
   ↓
-Tabela: categories
-  ↓ Trigger: categories_updated_at → update_updated_at()
-Resposta: array ou objeto de categoria
+Tabela: questions  (ON DELETE CASCADE se a Sessão for excluída)
 ```
 
-O `deleteCategory()` verifica previamente no frontend quantos eventos utilizam a categoria antes de permitir a exclusão. Em caso de uso, lança erro de negócio sem chamar o banco.
+Nenhum evento é publicado — a Sessão continua sendo o único evento raiz.
 
-### Calendário Acadêmico
-
-```
-Frontend (academicCalendarView.js)
-  ↓ getCalendars() / createCalendar() / getAcademicEventsByRange() / bulkInsertAcademicEvents()
-academicCalendarService.js
-  ↓ supabase.from('academic_calendars' | 'academic_events')...
-Supabase
-  ├── academic_calendars: RLS via user_id = auth.uid()
-  └── academic_events: RLS via JOIN com academic_calendars
-  ↓
-Tabelas: academic_calendars → academic_events
-Resposta: objetos ou arrays, com join inline de dados do calendário pai
-```
-
-O `getAcademicEventsByRange()` faz select com join `academic_calendars(id, name, color)` para retornar metadados do calendário pai junto com cada evento. O frontend expande eventos de múltiplos dias com `expandAcademicEvents()`, gerando entradas individuais por data para renderização no calendário.
-
-### Perfil
-
-**Dados textuais:**
+### Revisões (`reviews`) e vínculo com Sessão
 
 ```
-Frontend (accountView.js)
-  ↓ getProfile() / upsertProfile()
-profileService.js
-  ↓ supabase.from('profiles').select('*').eq('id', id)
-  ↓ supabase.from('profiles').upsert(payload, { onConflict: 'id' })
-Supabase (RLS valida id = auth.uid())
-  ↓
-Tabela: profiles
-  ↓ Trigger: profiles_updated_at → update_updated_at()
-Resposta: objeto do perfil completo
-```
-
-O `upsertProfile()` filtra os campos recebidos contra uma allowlist explícita (`full_name`, `avatar_url`, `university`, `course`, `semester`, `timezone`, `notification_enabled`, `theme`) antes de enviar ao banco.
-
-**Upload de avatar:**
-
-```
-Frontend (accountView.js)
-  ↓ uploadAvatar(file)
-avatarService.js
-  ↓ Valida MIME (jpeg/png/webp/gif) e tamanho (máx 2 MB)
-  ↓ supabase.storage.from('avatars').upload('{user_id}/avatar.{ext}', file, { upsert: true })
-Supabase Storage (policy: avatars_insert_own / avatars_update_own)
-  ↓ Verifica: bucket_id = 'avatars' AND auth.uid()::text = pasta do arquivo
-Bucket: avatars / {user_id}/avatar.{ext}
-  ↓ Retorna URL pública (com ?v={timestamp} para forçar refresh no navegador)
 Frontend
-  ↓ upsertProfile({ avatar_url: url })
-profileService.js → Tabela: profiles (campo avatar_url)
+  ↓ reviewService.create(eventId, ...) / generateForEvent(eventId, baseDate, [1,7,30])
+reviewService.js  (pub/sub próprio onReviewStatusChanged, independente do Session Event Bus)
+  ↓ supabase.from('reviews').insert  (event_id obrigatório)
+
+Quando uma Sessão executa a revisão:
+  ↓ reviewSessionService.associateReview(reviewId, sessionId)
+  ↓ supabase.from('reviews').update({ session_id })  (mão única: reviews → activity_sessions)
 ```
 
-A remoção do avatar (`removeAvatar()`) lista todos os arquivos da pasta do usuário no bucket e os remove via `supabase.storage.from('avatars').remove(paths)`. A política `avatars_delete_own` garante que apenas o próprio usuário possa remover seus arquivos.
-
-### Notificações Push
+### Reflexão (`reflections`)
 
 ```
-Frontend (pushService.js)
-  ↓ subscribeToPush() → upsert em push_subscriptions (RLS user)
-  ↓ unsubscribeFromPush() → delete em push_subscriptions (RLS user)
-
-[Cron: a cada minuto]
-Edge Function: send-push-notifications (service_role)
-  ↓ Consulta events WHERE reminder_minutes IS NOT NULL
-  ↓ Para cada evento: expandEvent() verifica se hoje é ocorrência válida
-  ↓ Calcula fireTime = start_time - reminder_minutes
-  ↓ Verifica janela de 5 minutos e ausência de log em notification_logs
-  ↓ Busca push_subscriptions do usuário
-  ↓ Envia via web-push para cada dispositivo
-  ↓ Upsert em notification_logs (status: sent | failed)
-  ↓ Remove subscriptions com erro 410/404 (revogadas)
+Frontend (studyJournalView.js, tela do Diário de Estudos)
+  ↓ studyReflectionService.saveReflection(sessionId, content)
+  ↓ supabase.from('reflections').upsert(..., { onConflict: 'session_id' })
+Supabase (RLS: user_id = auth.uid(); UNIQUE(session_id))
+  ↓
+Tabela: reflections  (ON DELETE CASCADE se a Sessão for excluída)
 ```
 
-### IA (Métricas)
-
-```
-Frontend (aiPanelView.js / assistantView.js)
-  ↓ getWeeklySummary() / getStudySuggestion() / getScheduleAnalysis()
-services/ai/aiService.js
-  ↓ prepareWeeklySummary / prepareStudySuggestion / prepareScheduleAnalysis
-  ↓ callGemini() → fetch para Edge Function ai-chat
-
-Edge Function: ai-chat (anon key + auth.getUser())
-  ↓ Valida JWT do usuário via Supabase Auth
-  ↓ Monta prompt conforme tipo solicitado
-  ↓ Chama Gemini API (gemini-2.5-flash por padrão)
-  ↓ Retorna { text, ms } ao frontend
-  ↓ Em paralelo (service_role, via EdgeRuntime.waitUntil): insere 1 linha em
-    ai_metrics (prompt_type, model, duration_ms, success, http_status,
-    error_code, error_message) — sucesso ou falha, sem prompt/resposta/PII
-
-Frontend
-  ↓ parseResponse(raw) — limpa markdown do retorno
-Resposta: string em linguagem natural exibida no painel
-```
+Única escrita que a tela do Diário de Estudos realiza — todo o resto que ela exibe (agrupamento por dia, resumos, marcos, timeline, busca) é projeção em memória, nunca persistida. Ver `ARCHITECTURE.md` → Diário de Estudos.
 
 ---
 
 ## Convenções
 
-O banco de dados segue convenções consistentes em todas as migrations:
-
-| Convenção              | Padrão adotado                                                                                   |
+| Convenção              | Padrão adotado |
 |------------------------|--------------------------------------------------------------------------------------------------|
-| **Chaves primárias**   | `UUID` gerado por `gen_random_uuid()` em todas as tabelas.                                       |
-| **Timestamps**         | `TIMESTAMPTZ` com timezone incluído. Sempre `created_at` e `updated_at`, exceto `ai_metrics` (registros imutáveis, sem `updated_at`) e `notification_logs` (usa `sent_at` no lugar). |
-| **Strings**            | `TEXT` sem limite de tamanho definido. Excepção: `semester` usa `SMALLINT`.                      |
-| **Booleans**           | `BOOLEAN` com valor padrão explícito (`true` ou `false`).                                        |
-| **JSONB**              | Não utilizado nas tabelas de domínio. `raw_user_meta_data` (JSONB) existe em `auth.users` mas é gerenciado exclusivamente pelo Supabase Auth. |
-| **Atualização de timestamps** | Via trigger `update_updated_at()` em `BEFORE UPDATE`. Nenhuma tabela depende da aplicação para atualizar `updated_at`. |
-| **RLS**                | Habilitado em todas as tabelas públicas via `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`.         |
-| **Nomes de políticas** | Descritivos em inglês: `"Users can view own events"` ou padrão abreviado `tabela_operação` (ex: `push_subscriptions_select`). |
-| **Cascade**            | `ON DELETE CASCADE` em todas as FKs que referenciam `auth.users(id)`.                           |
-| **Idempotência**       | `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `DROP TRIGGER IF EXISTS`, `CREATE OR REPLACE FUNCTION` tornam as migrations reaplicáveis com segurança no SQL Editor. |
-| **Defaults de cor**    | Azul padrão (`#3b82f6`) em `categories`, roxo (`#7c3aed`) em `academic_calendars`.              |
-| **Ordenação de migrations** | Prefixo numérico sequencial de dois dígitos (`01_`, `02_`, ...) com dependências declaradas em comentários no cabeçalho de cada arquivo. |
-
----
-
-## Auditoria de Consistência
-
-### Ordem e dependências das migrations
-
-As 10 migrations estão numeradas sequencialmente de `01` a `10`. A ordem de execução obrigatória é:
-
-- `01_events.sql` — sem dependências, deve ser a primeira.
-- `02_categories.sql`, `03_recurrence.sql`, `04_push_notifications.sql`, `05_profiles.sql`, `07_academic_calendar.sql` — dependem de `01_events.sql` (função `update_updated_at`).
-- `06_storage.sql` — independente, atua em `storage.objects`.
-- `08_ai_metrics.sql` — independente das demais migrations SQL.
-- `09_notification_logs_integrity.sql` — depende de `01_events.sql` e `04_push_notifications.sql`.
-- `10_ai_metrics_observability.sql` — depende de `08_ai_metrics.sql`.
-
-### Resultados da auditoria
-
-| Item                                           | Status                 | Observação                                                                                                                                    |
-|------------------------------------------------|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| Migrations em ordem                            | Consistente            | Numeração sequencial, dependências declaradas e respeitadas.                                                                                  |
-| Ausência de duplicações                        | Consistente            | `IF NOT EXISTS` e `CREATE OR REPLACE` garantem idempotência em todas as migrations.                                                           |
-| Função `update_updated_at` reutilizada         | Consistente            | Todas as 6 tabelas com `updated_at` usam a mesma função centralizada definida em `01_events.sql`.                                             |
-| Triggers consistentes                          | Consistente            | Todos os triggers de timestamp seguem `BEFORE UPDATE FOR EACH ROW EXECUTE FUNCTION update_updated_at()`.                                     |
-| RLS em todas as tabelas públicas               | Consistente            | Todas as tabelas em `public` têm RLS habilitado com políticas cobrindo as operações relevantes.                                               |
-| Compatibilidade frontend-banco                 | Consistente            | Todos os campos consultados e escritos pelos services (`eventService.js`, `categoryService.js`, `profileService.js`, `academicCalendarService.js`, `pushService.js`) correspondem exatamente às colunas existentes nas tabelas. |
-| `profiles.created_at` nullable                 | Inconsistência menor   | Em `profiles`, `created_at` e `updated_at` são `TIMESTAMPTZ DEFAULT NOW()` sem `NOT NULL`, quebrando a convenção das demais tabelas. Não impacta funcionalidade pois `DEFAULT now()` garante preenchimento. |
-| `03_recurrence.sql` redundante                 | Inconsistência menor   | As 3 colunas adicionadas por esta migration já estão declaradas em `01_events.sql`. A migration é segura (`IF NOT EXISTS`) mas desnecessária se executada após `01`. |
-| `notification_logs.event_id` sem FK formal     | Resolvido (`09_notification_logs_integrity.sql`) | `event_id` agora tem FK para `events(id)` com `ON DELETE CASCADE`, eliminando o risco de logs órfãos ao excluir um evento. |
-| `events.category` como TEXT sem FK            | Decisão arquitetural   | O campo armazena o nome da categoria por texto. Vínculo com `categories` é gerenciado pelo frontend via validação de negócio, não por integridade referencial no banco. |
-| `ai_metrics` não populada pela Edge Function   | Resolvido (`10_ai_metrics_observability.sql`, Auditoria A2.2) | A Edge Function `ai-chat` passou a inserir uma linha por chamada em `ai_metrics` (sucesso ou falha), via `service_role`, incluindo as colunas `model`, `http_status` e `error_message` adicionadas nesta migration. |
+| **Chaves primárias**   | `UUID` gerado por `gen_random_uuid()` em todas as tabelas, exceto `profiles.id` (= `auth.users.id`) e `schema_version.id` (`SMALLINT` fixo `1`). |
+| **Timestamps**         | `TIMESTAMPTZ`. Sempre `created_at`/`updated_at`, exceto `ai_metrics`/`notification_logs` (registros imutáveis) e `schema_version` (linha única). |
+| **Strings**            | `TEXT` sem limite. Exceção: `semester`/`daily_goal_minutes`/`weekly_goal_minutes` usam `SMALLINT`; `monthly_goal_minutes` usa `INTEGER` desde `20`. |
+| **Atualização de timestamps** | Via trigger `update_updated_at()`, `BEFORE UPDATE`, compartilhada por 10 tabelas. |
+| **RLS**                | Habilitado em todas as tabelas `public`. |
+| **Cascade**            | `ON DELETE CASCADE` para relações de composição (auth.users, e Sessão→Questão/Reflexão); `ON DELETE SET NULL` para relações entre ciclos de vida independentes (Compromisso→Sessão, Sessão→Revisão). |
+| **Idempotência**       | `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, guardas `DO $$ IF NOT EXISTS $$` para `ADD CONSTRAINT` (Postgres não suporta `IF NOT EXISTS` nessa cláusula). |
+| **Versionamento**      | Migrations numeradas sequencialmente (`01`–`20`); migrations das quais o frontend passa a depender fazem bump de `schema_version` no mesmo commit (convenção de `14_schema_version.sql`). |
+| **Status como enum textual** | `TEXT` + `CHECK IN (...)`, nunca tipo `ENUM` do Postgres nem tabela de domínio — padrão usado em `events.recurrence_type`, `activity_sessions.status/source`, `reviews.status/review_type/origin`, `questions.question_type/status/difficulty`. |
 
 ---
 
 ## Estado Atual
 
 | Métrica                    | Quantidade |
-|----------------------------|------------|
-| Tabelas                    | 8          |
-| Migrations                 | 10         |
-| Triggers                   | 7          |
-| Funções SQL                | 3          |
-| Políticas RLS (tabelas)    | 26         |
-| Políticas RLS (storage)    | 4          |
-| Índices                    | 10         |
+|-----------------------------|------------|
+| Migrations                  | 20 (`01` a `20`) |
+| Tabelas no schema `public`  | 13 |
+| Triggers                    | 11 (10× `update_updated_at()` + `on_auth_user_created`) |
+| Funções SQL                 | 3 |
+| Índices explícitos          | 23 |
+| Políticas RLS (tabelas)     | 43 |
+| Políticas RLS (Storage)     | 4 |
+| Versão de schema atual      | 20 |
 
-**Avaliação geral da arquitetura:**
-
-O banco de dados do MedAgenda é simples, coeso e bem alinhado com as capacidades do Supabase. A delegação de autenticação ao Supabase Auth, combinada com RLS granular, garante isolamento robusto dos dados sem complexidade adicional na camada de serviço. A função `update_updated_at()` centralizada e o padrão uniforme de triggers demonstram coerência arquitetural. As Edge Functions com `service_role` para operações privilegiadas (notificações, métricas) seguem o padrão recomendado pelo Supabase.
-
-As inconsistências identificadas são de baixo impacto: `profiles` com timestamps nullable quebra a convenção mas não compromete a integridade; `03_recurrence.sql` é redundante mas inofensiva. A ausência de FK formal em `notification_logs.event_id` foi corrigida pela migration `09_notification_logs_integrity.sql` (Auditoria P1.3), que adiciona `ON DELETE CASCADE` após limpar logs órfãos pré-existentes. A tabela `ai_metrics`, antes provisionada mas não utilizada pela Edge Function `ai-chat`, passou a ser alimentada a cada chamada (Auditoria A2.2, `10_ai_metrics_observability.sql`), fechando essa lacuna de observabilidade.
+**Avaliação geral:** O banco cresceu de 8 para 13 tabelas entre as migrations `10` e `20`, introduzindo o domínio de Execução de Estudo (`activity_sessions`, `questions`, `reflections`) e o de Revisão Espaçada (`reviews`) sem alterar nenhuma das 8 tabelas originais de Planejamento — a única exceção é a extensão não-destrutiva de `profiles` com metas de tempo (`12`). O padrão de RLS, triggers e `ON DELETE CASCADE` para `auth.users` permanece idêntico ao das primeiras 10 migrations; a novidade estrutural é o uso deliberado de `ON DELETE SET NULL` (`activity_sessions.event_id`, `activity_sessions.category_id`, `reviews.session_id`) para modelar relações entre ciclos de vida independentes — algo que não existia até a migration `11`. A tabela `schema_version` (`14`) fechou a lacuna que havia permitido o incidente de deploy com schema desatualizado (migrations `11`–`13`), e o índice único parcial de `19` moveu para o banco uma invariante de negócio (uma sessão `running` por usuário) que antes só era garantida na aplicação.

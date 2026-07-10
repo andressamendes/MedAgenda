@@ -406,7 +406,7 @@ A Edge Function `send-push-notifications` roda agendada (cron `* * * * *`, confi
 
 ### RLS
 
-Detalhada nas seções "Autorização" acima — ativada em todas as 8 tabelas de domínio do schema `public`, com o padrão de nomes de política em inglês descritivo (`"Users can view own events"`) ou abreviado (`push_subscriptions_select`).
+Detalhada nas seções "Autorização" acima — ativada em todas as 13 tabelas de domínio do schema `public` (incluindo `activity_sessions`, `reviews`, `questions`, `reflections` e a leitura pública de `schema_version`), com o padrão de nomes de política em inglês descritivo (`"Users can view own events"`) ou abreviado (`push_subscriptions_select`). Ver [`DATABASE.md`](DATABASE.md) para o detalhamento completo por tabela.
 
 ### Constraints
 
@@ -547,7 +547,7 @@ Nenhum workflow executa testes de segurança dedicados (SAST, dependency scannin
 
 Práticas de segurança já em uso no projeto (nenhuma nova regra introduzida aqui):
 
-- **RLS como principal barreira de autorização**, aplicada de forma consistente nas 8 tabelas de domínio.
+- **RLS como principal barreira de autorização**, aplicada de forma consistente nas 13 tabelas de domínio (ver `DATABASE.md`).
 - **Nenhuma chave privilegiada (`service_role`) ou de terceiros (`GEMINI_API_KEY`, VAPID privada) no frontend** — confinadas às Edge Functions.
 - **Validação de JWT delegada ao Supabase** (`auth.getUser()`), evitando implementação própria (e potencialmente falha) de verificação de assinatura de token.
 - **`escapeHtml()` sistemático** antes de interpolar dados do usuário via `innerHTML`.
@@ -579,7 +579,7 @@ Revisão da consistência entre autenticação, RLS, Edge Functions e secrets, s
 ### O que foi verificado e está consistente
 
 - **Autenticação:** consistente entre `ai-chat` e `delete-account` — ambas exigem e validam JWT da mesma forma (`auth.getUser()`), falhando com `401` antes de qualquer efeito colateral.
-- **RLS:** consistente — todas as 8 tabelas de domínio têm RLS habilitado, sem exceções encontradas; os padrões de política (direto, PK=FK, JOIN, leitura-only) são aplicados de forma coerente com a modelagem de cada tabela.
+- **RLS:** consistente — todas as 13 tabelas de domínio têm RLS habilitado, sem exceções encontradas; os padrões de política (direto, PK=FK, JOIN, leitura-only, leitura-pública para `schema_version`) são aplicados de forma coerente com a modelagem de cada tabela.
 - **Edge Functions protegidas:** as duas funções expostas a chamadas de usuário final (`ai-chat`, `delete-account`) validam autenticação antes de processar qualquer dado; a função agendada (`send-push-notifications`) não é alcançável por um cliente externo autenticado como usuário — depende inteiramente do isolamento do agendador do Supabase e da posse do `service_role`, que nunca é exposto.
 - **Secrets:** nenhum secret sensível (`GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, VAPID privada) foi encontrado versionado no repositório ou embutido em código do frontend; `config.js` está corretamente listado em `.gitignore`.
 
@@ -594,7 +594,7 @@ Revisão da consistência entre autenticação, RLS, Edge Functions e secrets, s
 - Perfil (`profiles`) criado automaticamente por trigger (`SECURITY DEFINER`) no momento do cadastro.
 
 **Mecanismos de autorização:**
-- Row Level Security habilitado em 100% das tabelas de domínio (8 tabelas), com 26 políticas de tabela + 4 políticas de Storage.
+- Row Level Security habilitado em 100% das tabelas de domínio (13 tabelas), com 43 políticas de tabela + 4 políticas de Storage.
 - `auth.uid()` como fonte única de verdade de identidade em todas as políticas.
 - Três padrões de política (direto por `user_id`, PK=FK, JOIN via tabela pai) aplicados conforme a modelagem de cada tabela.
 

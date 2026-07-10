@@ -34,7 +34,7 @@ Supabase (Auth + PostgreSQL com RLS + Storage + Edge Functions)
   └─► Web Push (navegadores) (via Edge Function send-push-notifications)
 ```
 
-Para o detalhamento completo da arquitetura, ver [`ARQUITETURA.md`](ARQUITETURA.md), [`BACKEND.md`](BACKEND.md) e [`FRONTEND.md`](FRONTEND.md).
+Para o detalhamento completo da arquitetura, ver [`ARCHITECTURE.md`](ARCHITECTURE.md), [`BACKEND.md`](BACKEND.md) e [`FRONTEND.md`](FRONTEND.md).
 
 ### Stack utilizada
 
@@ -304,7 +304,7 @@ Alterações em `sql/*.sql` **não** disparam nenhum deploy automático — prec
 
 Convenções observadas no código atual do projeto (não são novas regras — apenas o padrão já em uso):
 
-- **Nomes de arquivo:** `camelCase.js` para módulos JavaScript (`eventFormView.js`, `academicCalendarICSView.js`). Documentação em `docs/` usa `SCREAMING_SNAKE_CASE.md` ou nomes em português/inglês conforme o conteúdo (`ARQUITETURA.md`, `DATABASE.md`).
+- **Nomes de arquivo:** `camelCase.js` para módulos JavaScript (`eventFormView.js`, `academicCalendarICSView.js`). Documentação em `docs/` usa `SCREAMING_SNAKE_CASE.md`, com `ARCHITECTURE.md` e `DATABASE.md` como referências únicas de arquitetura e banco (documentos PT/EN divergentes anteriores — `ARQUITETURA.md`, `DATA_MODEL.md`, `BANCO_DE_DADOS.md` — foram convertidos em redirecionamentos na consolidação de documentação técnica).
 - **Nomes de funções e variáveis:** `camelCase` em todo o código JavaScript (`createEvent`, `expandEvents`, `currentUserId`). Constantes de configuração usam `SCREAMING_SNAKE_CASE` (`AI_CONFIG`, `SUPABASE_URL`).
 - **Sufixos de arquivo por papel:** `*Service.js` para acesso a dados, `*View.js` para UI/DOM. Módulos sem sufixo são domínio puro (`recurrence.js`, `utils.js`, `analytics.js`) ou infraestrutura (`supabase.js`, `pwa.js`).
 - **ES Modules:** todo o frontend usa `import`/`export` nativo (`type="module"` em `index.html`, `"type": "module"` em `package.json`). Não há `require`/`module.exports`.
@@ -337,7 +337,21 @@ Aplicar sempre em ordem numérica crescente, pois migrations posteriores podem d
 06_storage.sql
 07_academic_calendar.sql
 08_ai_metrics.sql
+09_notification_logs_integrity.sql
+10_ai_metrics_observability.sql
+11_activity_sessions.sql
+12_time_goals.sql
+13_reviews.sql
+14_schema_version.sql
+15_questions.sql
+16_review_session_link.sql
+17_activity_sessions_paused_time.sql
+18_reflections.sql
+19_activity_sessions_running_unique.sql
+20_monthly_goal_minutes_integer.sql
 ```
+
+Detalhamento de cada migration (objetivo, tabelas, dependências): [`DATABASE.md`](DATABASE.md).
 
 Aplicação: SQL Editor do Supabase Dashboard (não há uso da CLI de migrations do Supabase — `supabase db push`/`migration` — neste projeto).
 
@@ -355,7 +369,7 @@ Aplicação: SQL Editor do Supabase Dashboard (não há uso da CLI de migrations
 - Trigger compartilhada `update_updated_at()` para manter `updated_at` consistente sem repetir lógica em cada tabela.
 - Cada migration documenta em seu cabeçalho se é opcional e como aplicá-la manualmente.
 
-Detalhamento completo do schema: [`DATABASE.md`](DATABASE.md) / [`BANCO_DE_DADOS.md`](BANCO_DE_DADOS.md).
+Detalhamento completo do schema: [`DATABASE.md`](DATABASE.md).
 
 ---
 
@@ -581,7 +595,7 @@ Padrões já em uso no projeto (nenhuma regra nova):
 ### RLS bloqueando dados
 
 **Sintoma:** consultas retornam vazio mesmo com dados existentes no banco, ou inserts falham silenciosamente.
-**Solução:** confirmar que a política RLS da tabela usa `auth.uid()` corretamente e que o usuário está autenticado (JWT válido). Testar a política diretamente no SQL Editor do Supabase simulando o `auth.uid()` do usuário, ou revisar `ARQUITETURA.md`/`DATABASE.md` para a política esperada da tabela.
+**Solução:** confirmar que a política RLS da tabela usa `auth.uid()` corretamente e que o usuário está autenticado (JWT válido). Testar a política diretamente no SQL Editor do Supabase simulando o `auth.uid()` do usuário, ou revisar `DATABASE.md` para a política esperada da tabela.
 
 ### Erros de autenticação
 
@@ -611,7 +625,7 @@ Avaliação do fluxo de desenvolvimento atual, sem alteração de código — ap
 
 - **Deploy automatizado cobre apenas 1 de 3 Edge Functions.** `deploy-functions.yml` só publica `ai-chat`. `send-push-notifications` e `delete-account` dependem inteiramente de deploy manual via CLI, criando risco de divergência entre o código no repositório e o código efetivamente em produção para essas duas funções.
 - **Migrations SQL fora de qualquer pipeline.** Não há automação (CI/CD ou CLI de migrations do Supabase) aplicando os arquivos de `/sql`; a ordem e a aplicação corretas dependem inteiramente de disciplina manual, sem registro automático de quais migrations já foram aplicadas em produção.
-- **Documentação de arquitetura duplicada.** Coexistem `docs/ARCHITECTURE.md` (inglês) e `docs/ARQUITETURA.md` (português) com conteúdo sobreposto, além de `docs/BACKEND.md`, `docs/FRONTEND.md`, `docs/DATABASE.md`/`docs/BANCO_DE_DADOS.md` cobrindo partes semelhantes sob ângulos diferentes. Não há um único documento "fonte da verdade" para arquitetura.
+- ~~Documentação de arquitetura duplicada.~~ **Resolvido** (PR6): `docs/ARCHITECTURE.md` é agora a única fonte da verdade para arquitetura geral e `docs/DATABASE.md` para o schema; `docs/ARQUITETURA.md`, `docs/DATA_MODEL.md` e `docs/BANCO_DE_DADOS.md` foram convertidos em redirecionamentos. `docs/BACKEND.md` e `docs/FRONTEND.md` continuam como referências específicas de cada camada, sem duplicar o conteúdo consolidado.
 - **`FRONTEND.md` referencia Jest indevidamente.** O documento descreve a pasta `tests/` como testes "Jest", mas o projeto não depende de Jest — os testes usam exclusivamente o módulo `assert` nativo do Node.js com `--experimental-vm-modules`, conforme os próprios scripts em `package.json`.
 - **Versão divergente entre `package.json` e `README.md`.** `package.json` declara `"version": "1.0.0-rc1"`, enquanto `README.md` anuncia "**v1.1.0** — Calendário Acadêmico (Etapa 17)". Não há um processo único de bump de versão sincronizando os dois arquivos.
 - ~~**Tabela `ai_metrics` criada mas não alimentada.**~~ Resolvido (Auditoria A2.2): a Edge Function `ai-chat` agora insere uma linha por chamada em `ai_metrics` (`10_ai_metrics_observability.sql` adiciona `model`, `http_status`, `error_message`), além do `console.log` existente.
