@@ -3,11 +3,19 @@
 // vira um registro cronológico da jornada de estudo. Reutiliza
 // exclusivamente activitySessionService.listSessions() (mesmo contrato
 // paginado do Histórico, F1.8), eventService.getEvents() (metadados do
-// compromisso), sessionQuestionsService.listQuestions() e
-// reviewSessionService.listBySession() (F8.1) — nenhum acesso direto ao
+// compromisso), sessionQuestionsService.listQuestionsBySessions() e
+// reviewSessionService.listBySessions() (F8.1) — nenhum acesso direto ao
 // banco para esses dados, nenhum SQL novo, nenhum evento novo —
 // sessionEventBus.js não é tocado, só assinado (mesmo padrão de
 // activityHistoryView.js/F6.3).
+//
+// AUD-002 — carregamento em lote: questões, revisões e reflexão de todas as
+// sessões de uma página são buscadas em três consultas (uma por domínio,
+// via `in (session_id...)`), nunca uma consulta por sessão — ver
+// _fetchPageExtras(). Isso elimina o N+1 que existia aqui (uma chamada a
+// listQuestions()/listBySession()/getBySession() por sessão, cada uma delas
+// ainda validando a existência da sessão de novo, apesar de já ter acabado
+// de vir de listSessions() na mesma página).
 //
 // A única escrita desta tela é a Reflexão (F8.2), via
 // studyReflectionService.js — um domínio próprio, separado de Observações
@@ -25,8 +33,8 @@
 // operam inteiramente sobre `_allEntries`, o acumulado em memória das
 // sessões (+ metadados do compromisso + questões/revisões/reflexão) já
 // carregadas via "Carregar mais" — trocar um filtro nunca dispara uma nova
-// chamada a listSessions()/getEvents()/listQuestions()/listBySession()/
-// getBySession(); apenas re-renderiza o mesmo array já resolvido. As opções
+// chamada a listSessions()/getEvents()/listQuestionsBySessions()/
+// listBySessions(); apenas re-renderiza o mesmo array já resolvido. As opções
 // de matéria/categoria dos <select> são derivadas do próprio conjunto
 // carregado (nenhuma consulta a subjectProgressService/categoryService).
 //
@@ -72,9 +80,9 @@
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
-import { listQuestions } from "./sessionQuestionsService.js";
-import { listBySession as listReviewsBySession } from "./reviewSessionService.js";
-import { getBySession as getReflectionBySession, saveReflection } from "./studyReflectionService.js";
+import { listQuestionsBySessions } from "./sessionQuestionsService.js";
+import { listBySessions as listReviewsBySessions } from "./reviewSessionService.js";
+import { listBySessions as listReflectionsBySessions, saveReflection } from "./studyReflectionService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
@@ -240,24 +248,31 @@ function _dayLabel(iso) {
   return _formatDate(iso);
 }
 
-// ── Questões/Revisões da sessão (contagem no cartão + detalhamento) ────────
+// ── Questões/Revisões/Reflexão da página (contagem no cartão + detalhamento,
+// AUD-002) ──────────────────────────────────────────────────────────────
 // O cartão precisa mostrar "quantidade de questões" e "quantidade de
 // revisões" sem exigir que o usuário expanda o registro — por isso a busca
-// acontece uma vez por sessão, junto com a página (não em N chamadas
-// repetidas: cada sessão é buscada uma única vez, o resultado é reutilizado
-// tanto para a contagem quanto para o detalhamento expandido, sem refazer a
-// busca ao expandir).
-async function _fetchSessionExtras(sessionId) {
+// acontece uma vez por página inteira (não por sessão): as três consultas em
+// lote abaixo trazem questões/revisões/reflexões de todas as sessões da
+// página de uma só vez, evitando o N+1 de uma chamada por sessão. O
+// resultado é reutilizado tanto para a contagem quanto para o detalhamento
+// expandido, sem refazer a busca ao expandir.
+async function _fetchPageExtras(sessions) {
+  const ids = sessions.map(s => s.id);
   try {
-    const [questions, reviews, reflection] = await Promise.all([
-      listQuestions(sessionId),
-      listReviewsBySession(sessionId),
-      getReflectionBySession(sessionId),
+    const [questionsBySession, reviewsBySession, reflectionsBySession] = await Promise.all([
+      listQuestionsBySessions(ids),
+      listReviewsBySessions(ids),
+      listReflectionsBySessions(ids),
     ]);
-    return { questions, reviews, reflection };
+    return sessions.map(s => ({
+      questions: questionsBySession[s.id] || [],
+      reviews: reviewsBySession[s.id] || [],
+      reflection: reflectionsBySession[s.id] || null,
+    }));
   } catch (err) {
-    handleError(err, { context: "studyJournalView.fetchSessionExtras", silent: true });
-    return { questions: [], reviews: [], reflection: null, loadError: true };
+    handleError(err, { context: "studyJournalView.fetchPageExtras", silent: true });
+    return sessions.map(() => ({ questions: [], reviews: [], reflection: null, loadError: true }));
   }
 }
 
@@ -748,7 +763,7 @@ function _render() {
 }
 
 async function _loadEntriesData(sessions) {
-  const extrasList = await Promise.all(sessions.map(s => _fetchSessionExtras(s.id)));
+  const extrasList = await _fetchPageExtras(sessions);
   sessions.forEach((s, i) => {
     _allEntries.push({ session: s, meta: _resolveMeta(s), extras: extrasList[i] });
   });

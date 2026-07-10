@@ -51,6 +51,12 @@ function loadSessionQuestionsService(t, { session, questionServiceOverrides = {}
           ? questionServiceOverrides.listBySession(sessionId)
           : [];
       },
+      listBySessions: async (sessionIds) => {
+        calls.push({ fn: "listBySessions", args: [sessionIds] });
+        return questionServiceOverrides.listBySessions
+          ? questionServiceOverrides.listBySessions(sessionIds)
+          : {};
+      },
     },
   });
 
