@@ -232,10 +232,14 @@ export async function initActivityDashboardView() {
 
 /**
  * Desfaz a assinatura do barramento de eventos e demais listeners, além de
- * qualquer recarga pendente. Chamada no logout/troca de usuário (ver
+ * qualquer recarga pendente, e descarta o DOM renderizado (cards de execução
+ * e cards inteligentes). Chamada no logout/troca de usuário (ver
  * script.js/onBeforeSignOut) — sem isso, os listeners registrados em
  * _subscribeToEventBus() sobreviveriam à troca de sessão e recarregariam o
- * dashboard com o usuário errado.
+ * dashboard com o usuário errado, e os indicadores do usuário anterior
+ * permaneceriam visíveis no DOM durante a janela entre o logout e o próximo
+ * login (SPA sem reload de página — mesma simetria init/reset da auditoria
+ * A1.3).
  */
 export function resetActivityDashboardView() {
   _unsubscribers.forEach(off => off());
@@ -246,4 +250,12 @@ export function resetActivityDashboardView() {
   }
   if (_unsubscribeReview)  { _unsubscribeReview();  _unsubscribeReview  = null; }
   if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
+  if (cardsEl) cardsEl.innerHTML = "";
+  if (errorEl) {
+    errorEl.hidden = true;
+    errorEl.innerHTML = "";
+    clearStateBlock(errorEl);
+  }
+  if (smartTipsEl) smartTipsEl.innerHTML = "";
+  _loading = false;
 }

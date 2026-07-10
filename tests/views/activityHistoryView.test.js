@@ -360,6 +360,30 @@ test("resetActivityHistoryView() cancels a reload already scheduled but not yet 
   assert.strictEqual(calls.length, 0);
 });
 
+test("resetActivityHistoryView() clears the rendered list (no data survives logout)", async (t) => {
+  const session = {
+    id: "sess-1", event_id: "evt-1", status: "finished", source: "event",
+    started_at: "2026-07-10T08:00:00.000Z", ended_at: "2026-07-10T09:00:00.000Z", duration_minutes: 60,
+  };
+  const { mod } = await loadView(t, {
+    getEvents: async () => [{ id: "evt-1", title: "Prova de Anatomia", category: null }],
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: true }),
+  });
+
+  await mod.initActivityHistoryView();
+
+  // Sanity: dados do usuário estão renderizados antes do logout.
+  assert.match(document.getElementById("ah-list").textContent, /Prova de Anatomia/);
+
+  mod.resetActivityHistoryView();
+
+  // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
+  // após o logout — a lista, a mensagem de vazio e o botão "carregar mais"
+  // voltam ao estado de uma aplicação recém-aberta.
+  assert.strictEqual(document.getElementById("ah-list").innerHTML, "", "logout must leave no rendered data behind");
+  assert.strictEqual(document.getElementById("ah-load-more").hidden, true);
+});
+
 test("re-initializing does not register duplicate listeners (no leak across repeated init calls)", async (t) => {
   const calls = [];
   const { mod } = await loadView(t, {

@@ -881,4 +881,26 @@ export function resetStudySessionView() {
   _reviewOptionsRequestId++;
   if (finishModalEl && !finishModalEl.hidden) finishModal.close();
   if (emptyEl) _render();
+
+  // _render() acima só esconde activeEl quando _session é null — não limpa o
+  // texto já escrito nos campos (título, categoria, horários etc.), que
+  // ficariam presentes no DOM (embora ocultos) até o próximo login. Mesma
+  // simetria init/reset da auditoria A1.3: o texto do usuário anterior não
+  // pode sobreviver no DOM, mesmo dentro de uma seção hidden.
+  [titleEl, categoryEl, subjectEl, contentEl, objectiveEl, dateEl, startedAtEl,
+   expectedDurationEl, statusTextEl, indStartedEl, indStatusEl, indEventEl]
+    .forEach(el => { if (el) el.textContent = ""; });
+  if (timeEl) timeEl.textContent = "";
+  if (statusBadgeEl) { statusBadgeEl.textContent = ""; statusBadgeEl.className = "ss-status-badge"; }
+
+  // Campos e listas do modal de encerramento (F7.4/F7.5): _openFinishModal()
+  // sempre os reconstrói do zero antes de reabrir, mas nada os limpava ao
+  // fechar por logout — o resumo e as listas de questões/revisões do usuário
+  // anterior ficariam presentes no DOM enquanto o modal permanece fechado.
+  [ssfTitleEl, ssfCategoryEl, ssfSubjectEl, ssfContentEl, ssfStartedAtEl,
+   ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl]
+    .forEach(el => { if (el) el.textContent = ""; });
+  if (ssfNotesEl) ssfNotesEl.value = "";
+  if (ssfQuestionsListEl) _renderQuestionsList();
+  if (ssfReviewsListEl) _renderReviewsList();
 }

@@ -96,9 +96,16 @@ export async function initCategories() {
  * Chamado no logout (ver script.js) — a próxima sessão de usuário não deve
  * herdar as categorias em cache do usuário anterior, mesmo que initCategories()
  * ainda não tenha rodado de novo (ex.: uma tela ainda aberta lendo categoryColor()).
+ * Também descarta o DOM do modal (lista de categorias e select do formulário
+ * de compromisso) — o modal é apenas ocultado no logout (_closeAllModals),
+ * não fechado via modal.close(), então sem isto a lista do usuário anterior
+ * ficaria presente (embora oculta) até a próxima abertura do modal.
  */
 export function resetCategories() {
   categoriesCache = [];
+  if (catList) catList.innerHTML = "";
+  if (catError) catError.textContent = "";
+  if (fCategory) fCategory.innerHTML = '<option value="">— Selecione —</option>';
 }
 
 export function categoryColor(name) {

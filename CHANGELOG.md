@@ -2,6 +2,52 @@
 
 ---
 
+## [Unreleased] — Auditoria completa de lifecycle (init ↔ reset) das Views (PR4)
+
+Segue a mesma auditoria de simetria init/reset (A1.3) que já havia corrigido
+Agenda Semanal e Calendário mensal, agora estendida a todas as demais Views —
+sem tocar em regra de negócio, arquitetura, banco, serviços ou Event Bus. Cada
+gap encontrado era do mesmo tipo: dado do usuário anterior permanecendo no DOM
+(às vezes só oculto, nunca visível de fato) ou em cache de módulo, durante a
+janela entre o logout e o próximo login — nesta SPA sem reload de página, um
+reset incompleto abre espaço para vazamento entre sessões de usuários
+diferentes.
+
+- `activityHistoryView.js` — `resetActivityHistoryView()` passa a limpar
+  também a lista renderizada (`listEl`), o estado vazio/"carregar mais" e as
+  caches `_eventsById`/`_categoriesById`, além de `_offset`/`_status`.
+- `activityDashboardView.js` — `resetActivityDashboardView()` passa a limpar
+  os cards de execução e os cards inteligentes renderizados.
+- `insightsView.js` — `resetInsightsView()` passa a limpar os cards, erros e
+  avisos renderizados nos quatro blocos (Execução/Metas/Revisões/
+  Produtividade).
+- `assistantView.js` — `resetAssistant()` só zerava a flag de "assistente
+  oculto"; agora também limpa a cache `_lastEvents` e o DOM já renderizado,
+  e esconde a seção — sem isso, um clique em "Mostrar Assistente" logo após
+  o logout reexibia os cards do usuário anterior.
+- `studySessionView.js` — `resetStudySessionView()` já zerava o estado e
+  escondia a seção ativa, mas deixava o texto (título, categoria, horários)
+  e os campos/listas do modal de encerramento presentes no DOM, só ocultos;
+  agora tudo é limpo explicitamente.
+- `categoryView.js` — `resetCategories()` só zerava a cache; como o modal de
+  categorias é apenas ocultado no logout (nunca fechado via `modal.close()`),
+  a lista renderizada e o `<select>` de categoria do formulário de
+  compromisso ficavam com os dados do usuário anterior até a próxima
+  abertura do modal. Agora ambos são limpos.
+
+Os demais módulos auditados (`weekView.js`/`calendar.js` — já corrigidos em
+F9 —, `eventFormView.js`, `accountView.js`, `aiPanelView.js`,
+`academicCalendarView.js`, `notificationService.js`, `pushService.js`,
+`studyJournalView.js`) já tinham simetria completa init/reset. `navigationView.js`,
+`settingsModal.js` e `diagnosticModal.js` são inicializados uma única vez no
+carregamento da página (não a cada login) e não mantêm dado de usuário em
+cache — fora do escopo desta correção.
+
+Testes novos em `tests/views/{activityHistoryView,activityDashboardView,
+insightsView,studySessionView,categoryView}.test.js` e no novo
+`tests/views/assistantView.test.js` reproduzem cada vazamento antes da
+correção.
+
 ## [Unreleased] — F9: limpeza completa da Agenda Semanal e do Calendário no logout
 
 Correção de simetria init/reset (auditoria A1.3): no logout, a Agenda Semanal

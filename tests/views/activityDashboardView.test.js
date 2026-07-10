@@ -494,6 +494,24 @@ test("repeated initActivityDashboardView() calls don't double-subscribe (no doub
   assert.strictEqual(calls, 3); // exactly one reload, not one per subscription
 });
 
+test("resetActivityDashboardView() clears the rendered cards (no data survives logout)", async (t) => {
+  const data = { ...EMPTY_DATA, todayMinutes: 90, todaySessionsCount: 2 };
+  const { mod } = await loadView(t, { getDashboardData: async () => data });
+
+  await mod.initActivityDashboardView();
+
+  // Sanity: dados do usuário estão renderizados antes do logout.
+  assert.match(document.getElementById("dash-cards").textContent, /1h 30min/);
+
+  mod.resetActivityDashboardView();
+
+  // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
+  // após o logout — cards de execução e cards inteligentes voltam ao estado
+  // de uma aplicação recém-aberta.
+  assert.strictEqual(document.getElementById("dash-cards").innerHTML, "", "logout must leave no rendered data behind");
+  assert.strictEqual(document.getElementById("dash-smart-tips").innerHTML, "");
+});
+
 // ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7)
 // A view só chama decisionEngine.getDecisions() uma vez e renderiza o que
 // vier — nenhum cálculo, priorização ou deduplicação mora aqui (isso já é
