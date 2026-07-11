@@ -39,13 +39,23 @@ const GLOBALS = [
   "requestAnimationFrame", "cancelAnimationFrame", "getComputedStyle",
 ];
 
+// Última instância instalada — uninstallDom() precisa fechá-la para cancelar
+// timers/requestAnimationFrame pendentes do jsdom (pretendToBeVisual agenda
+// RAF via setTimeout interno): sem window.close(), callbacks agendados por um
+// teste (ex.: weekView.scrollToTime) continuam executando DEPOIS do teste
+// terminar, contra estado já desmontado — exatamente o padrão
+// "runAnimationFrameCallbacks após o fim do teste" visto no CI.
+let _currentDom = null;
+
 /**
  * Installs a fresh jsdom document (from the real index.html) onto Node's
  * global scope so plain `import`-ed browser modules work unmodified.
  * Returns the JSDOM instance; call uninstallDom() afterwards to tear down.
  */
 export function installDom({ url = "http://localhost/" } = {}) {
+  if (_currentDom) uninstallDom(); // nunca deixa dois windows vivos
   const dom = new JSDOM(INDEX_HTML, { url, pretendToBeVisual: true });
+  _currentDom = dom;
   patchOffsetParent(dom.window);
 
   for (const name of GLOBALS) {
@@ -64,6 +74,12 @@ export function installDom({ url = "http://localhost/" } = {}) {
 }
 
 export function uninstallDom() {
+  // Cancela todos os timers/RAF internos do jsdom antes de soltar os globals
+  // — teardown determinístico: nada agendado durante o teste sobrevive a ele.
+  if (_currentDom) {
+    _currentDom.window.close();
+    _currentDom = null;
+  }
   for (const name of GLOBALS) {
     delete globalThis[name];
   }

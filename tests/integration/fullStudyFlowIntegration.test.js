@@ -98,11 +98,19 @@ const studyStreakService      = await import("../../studyStreakService.js");
 const achievementService      = await import("../../achievementService.js");
 const activityDashboardService = await import("../../activityDashboardService.js");
 
-const NOW = new Date("2026-07-09T15:00:00.000Z");
-const STARTED_AT = "2026-07-09T14:00:00.000Z"; // 60 min antes de NOW
+// Ancorado no dia REAL em que o teste roda (às 15:00 locais, longe da
+// virada de dia/mês): studyStreakService.getStreakSummary() usa o relógio
+// real (new Date()) para decidir "hoje", então uma data fixa no passado
+// fazia a asserção de streak (currentStreak === 1) expirar sozinha com o
+// passar dos dias — o teste quebrava sem nenhuma mudança de código.
+const _today = new Date();
+const NOW = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate(), 15, 0, 0);
+const STARTED_AT = new Date(NOW.getTime() - 60 * 60000).toISOString(); // 60 min antes de NOW
 const DURATION_MINUTES = 60;
 
-const EVENT = { id: "evt-1", user_id: "user-123", category: "Cardiologia", event_date: "2026-07-09" };
+const _pad2 = (n) => String(n).padStart(2, "0");
+const EVENT_DATE = `${NOW.getFullYear()}-${_pad2(NOW.getMonth() + 1)}-${_pad2(NOW.getDate())}`;
+const EVENT = { id: "evt-1", user_id: "user-123", category: "Cardiologia", event_date: EVENT_DATE };
 const REVIEW_PENDING = { id: "rev-1", user_id: "user-123", event_id: "evt-1", status: "pending", session_id: null };
 
 test("fluxo completo: Compromisso → Sessão → Questões → Revisões → SessionFinished mantém uma única sessão consistente", async (t) => {
