@@ -259,7 +259,6 @@ test("BUG 07: restoring a paused session (reload/navigation) freezes the chronom
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ss-time").textContent, "05:00");
-  assert.strictEqual(document.getElementById("ss-ind-net").textContent, "05:00");
 });
 
 test("resuming a paused session switches back to running", async (t) => {
@@ -1130,7 +1129,6 @@ test("a standalone session shows an explicit 'Sem compromisso vinculado' label i
   assert.strictEqual(document.getElementById("ss-objective"), null, "a linha 'Objetivo' sempre exibia '—' (sem campo no domínio) e foi removida (auditoria UX #06)");
   assert.strictEqual(document.getElementById("ss-content").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("ss-date").textContent, "Sem compromisso vinculado");
-  assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Sem compromisso vinculado");
 });
 
 test("a linked event still shows a plain dash for its own empty fields, not the standalone label", async (t) => {
@@ -1143,10 +1141,9 @@ test("a linked event still shows a plain dash for its own empty fields, not the 
 
   assert.strictEqual(document.getElementById("ss-category").textContent, "—");
   assert.strictEqual(document.getElementById("ss-date").textContent, "—");
-  assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Aula");
 });
 
-test("the context panel shows the event date and the session's current status", async (t) => {
+test("the context panel shows the event date, and the session status lives only in the badge", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60, event_date: "2026-07-09" }),
@@ -1155,22 +1152,26 @@ test("the context panel shows the event date and the session's current status", 
   await mod.initStudySessionView();
 
   assert.strictEqual(document.getElementById("ss-date").textContent, "09/07/2026");
-  assert.strictEqual(document.getElementById("ss-status-text").textContent, "Pausada");
-  assert.strictEqual(document.getElementById("ss-ind-status").textContent, "Pausada");
+  assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Pausada");
+  // A linha "Status" do contexto duplicava o badge (auditoria UX #07).
+  assert.strictEqual(document.getElementById("ss-status-text"), null);
 });
 
-test("the quick indicators mirror the started time, net time and linked event without any new computation", async (t) => {
-  const startedAt = new Date().toISOString();
+test("UX #07 — the quick-indicators block no longer exists: timer, badge and context panel are the single sources", async (t) => {
   const { mod } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: startedAt, event_id: "evt-1" }),
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Revisar sepse", duration_minutes: 60, event_date: "2026-07-09" }),
   });
 
   await mod.initStudySessionView();
 
-  assert.strictEqual(document.getElementById("ss-ind-started").textContent, document.getElementById("ss-started-at").textContent);
-  assert.strictEqual(document.getElementById("ss-ind-net").textContent, document.getElementById("ss-time").textContent);
-  assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Plantão UTI");
+  assert.strictEqual(document.querySelector(".ss-indicators"), null);
+  for (const id of ["ss-ind-started", "ss-ind-net", "ss-ind-status", "ss-ind-event"]) {
+    assert.strictEqual(document.getElementById(id), null, `${id} duplicava timer/badge/painel de contexto`);
+  }
+  // Os dados continuam disponíveis uma única vez cada.
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Plantão UTI");
+  assert.notStrictEqual(document.getElementById("ss-started-at").textContent, "—");
 });
 
 test("resetStudySessionView() clears the page back to the empty state and unsubscribes from the bus (used on sign-out)", async (t) => {

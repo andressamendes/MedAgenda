@@ -62,14 +62,15 @@ const QUESTION_DIFFICULTY_LABELS = {
 
 let emptyEl, emptyMessageEl, btnStartStandalone;
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
-let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl, statusTextEl;
+let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let btnPause, btnResume, btnCancel, btnFinish;
 
 // Painel de Contexto (F7.6) — barra de progresso temporal (só quando o
-// compromisso tem tempo previsto) e indicadores rápidos. Nenhum cálculo novo:
-// os mesmos valores (started_at, duration_minutes) já usados em _render().
+// compromisso tem tempo previsto). Nenhum cálculo novo: os mesmos valores
+// (started_at, duration_minutes) já usados em _render(). Os "indicadores
+// rápidos" e a linha "Status" do contexto foram removidos na auditoria UX
+// #07 — repetiam badge/timer/painel na mesma tela.
 let progressEl, progressBarEl, progressTextEl;
-let indStartedEl, indNetEl, indStatusEl, indEventEl;
 
 const NO_EVENT_TEXT = "Sem compromisso vinculado";
 
@@ -139,16 +140,10 @@ function _queryElements() {
   dateEl               = document.getElementById("ss-date");
   startedAtEl          = document.getElementById("ss-started-at");
   expectedDurationEl   = document.getElementById("ss-expected-duration");
-  statusTextEl         = document.getElementById("ss-status-text");
 
   progressEl      = document.getElementById("ss-progress");
   progressBarEl   = document.getElementById("ss-progress-bar");
   progressTextEl  = document.getElementById("ss-progress-text");
-
-  indStartedEl = document.getElementById("ss-ind-started");
-  indNetEl     = document.getElementById("ss-ind-net");
-  indStatusEl  = document.getElementById("ss-ind-status");
-  indEventEl   = document.getElementById("ss-ind-event");
 
   btnPause  = document.getElementById("ss-btn-pause");
   btnResume = document.getElementById("ss-btn-resume");
@@ -280,7 +275,6 @@ function _renderTime() {
   const elapsedMs = Date.now() - new Date(_session.started_at).getTime() - totalPausedMs;
   const elapsedText = _formatElapsed(elapsedMs);
   timeEl.textContent = elapsedText;
-  indNetEl.textContent = elapsedText;
   _renderProgress(elapsedMs);
 }
 
@@ -329,20 +323,12 @@ function _render() {
 
   pauseNoteEl.hidden = status !== "paused";
 
-  const statusLabel = status === "running" ? "Executando" : "Pausada";
-
   titleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
   categoryEl.textContent = _eventFieldText(_eventMeta?.category);
   contentEl.textContent  = _eventFieldText(_eventMeta?.description);
   dateEl.textContent      = _eventFieldText(_formatEventDate(_eventMeta?.event_date));
   startedAtEl.textContent = _formatClockTime(_session.started_at);
   expectedDurationEl.textContent = _formatExpectedDuration(_eventMeta?.duration_minutes);
-  statusTextEl.textContent = statusLabel;
-
-  // Indicadores rápidos (F7.6, escopo 3) — mesmos dados acima, só resumidos.
-  indStartedEl.textContent = _formatClockTime(_session.started_at);
-  indStatusEl.textContent  = statusLabel;
-  indEventEl.textContent   = _eventMeta?.title || NO_EVENT_TEXT;
 
   if (status === "running") {
     _startTicking();
@@ -917,8 +903,7 @@ export function resetStudySessionView() {
   // ficariam presentes no DOM (embora ocultos) até o próximo login. Mesma
   // simetria init/reset da auditoria A1.3: o texto do usuário anterior não
   // pode sobreviver no DOM, mesmo dentro de uma seção hidden.
-  [titleEl, categoryEl, contentEl, dateEl, startedAtEl,
-   expectedDurationEl, statusTextEl, indStartedEl, indStatusEl, indEventEl]
+  [titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (timeEl) timeEl.textContent = "";
   if (statusBadgeEl) { statusBadgeEl.textContent = ""; statusBadgeEl.className = "ss-status-badge"; }

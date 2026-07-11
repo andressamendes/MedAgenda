@@ -2976,38 +2976,6 @@ textarea { resize: vertical; }
   color: var(--gray-500);
 }
 
-/* ── Indicadores rápidos da sessão (F7.6) ── */
-.ss-indicators {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: .75rem;
-  padding: .75rem;
-  background: var(--gray-50, #f9fafb);
-  border-radius: var(--radius);
-}
-
-.ss-indicator {
-  display: flex;
-  flex-direction: column;
-  gap: .15rem;
-  text-align: center;
-}
-
-.ss-indicator-label {
-  font-size: .7rem;
-  color: var(--gray-500);
-  text-transform: uppercase;
-  letter-spacing: .03em;
-}
-
-.ss-indicator-value {
-  font-size: .85rem;
-  font-weight: 600;
-  color: var(--gray-800);
-  overflow-wrap: break-word;
-}
-
 .ss-context {
   width: 100%;
   margin: 0;
