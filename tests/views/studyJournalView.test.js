@@ -1316,3 +1316,106 @@ test("AUD-002 — a load error for the batched extras falls back to empty quest�
   const detailEl = item.querySelector(".sj-entry-detail");
   assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
 });
+
+// ── Aviso de filtragem parcial (auditoria UX #02) ────────────────────────
+// Os filtros operam só sobre as sessões já carregadas em memória (F8.4/F8.8);
+// com filtro ativo e páginas ainda não carregadas no servidor (hasMore), o
+// aviso torna a parcialidade explícita — sem ele, as contagens do card de
+// estatísticas parecem totais.
+
+function partialNotice() {
+  return document.getElementById("sj-filter-partial-notice");
+}
+
+test("UX #02 — with an active filter and more pages on the server, shows the partial-filtering notice", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 25, hasMore: true }),
+  });
+
+  await mod.initStudyJournalView();
+
+  // Sem filtro ativo, nada de aviso — a lista é sabidamente parcial, mas
+  // nenhuma contagem filtrada está sendo exibida como se fosse total.
+  assert.strictEqual(partialNotice().hidden, true);
+
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+
+  assert.strictEqual(partialNotice().hidden, false);
+  assert.match(partialNotice().textContent, /1 sessão\(ões\) já carregada/);
+  assert.match(partialNotice().textContent, /Carregar mais/);
+});
+
+test("UX #02 — the notice disappears when the filter is cleared", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 25, hasMore: true }),
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-notes").checked = true;
+  document.getElementById("sj-filter-notes").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(partialNotice().hidden, false);
+
+  document.getElementById("sj-filter-notes").checked = false;
+  document.getElementById("sj-filter-notes").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(partialNotice().hidden, true);
+});
+
+test("UX #02 — with an active filter but no more pages on the server, no notice is shown", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+
+  assert.strictEqual(partialNotice().hidden, true);
+});
+
+test("UX #02 — loading the last page while a filter is active hides the notice", async (t) => {
+  const iso = (i) => `2026-03-1${i}T08:00:00.000Z`;
+  let call = 0;
+  const { mod } = await loadView(t, {
+    listSessions: async () => {
+      call += 1;
+      return call === 1
+        ? { sessions: [{ id: "sess-1", status: "finished", started_at: iso(0), ended_at: iso(0), duration_minutes: 30 }], total: 2, hasMore: true }
+        : { sessions: [{ id: "sess-2", status: "finished", started_at: iso(1), ended_at: iso(1), duration_minutes: 30 }], total: 2, hasMore: false };
+    },
+  });
+
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-period").value = "all"; // valor padrão — usa busca textual como filtro ativo
+  document.getElementById("sj-filter-search").value = "sessão";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+  assert.strictEqual(partialNotice().hidden, false);
+
+  document.getElementById("sj-load-more").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(partialNotice().hidden, true, "com todas as páginas carregadas o filtro deixa de ser parcial");
+});
+
+test("UX #02 — resetStudyJournalView() hides the notice (no leftover between users)", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 25, hasMore: true }),
+  });
+
+  await mod.initStudyJournalView();
+  document.getElementById("sj-filter-reviews").checked = true;
+  document.getElementById("sj-filter-reviews").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(partialNotice().hidden, false);
+
+  mod.resetStudyJournalView();
+
+  assert.strictEqual(partialNotice().hidden, true);
+  assert.strictEqual(partialNotice().textContent, "");
+});

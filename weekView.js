@@ -452,6 +452,10 @@ function scrollToTime() {
   const scroll = _el.querySelector("#wk-scroll");
   if (!scroll) return;
   requestAnimationFrame(() => {
+    // A view pode ter sido destruída (logout/troca de usuário — ver
+    // destroyWeekView) entre o agendamento deste frame e sua execução:
+    // _el/_mon já estarão nulos e sameWeek(now, null) lançaria TypeError.
+    if (!_el || !_mon) return;
     const now  = new Date();
     const mins = sameWeek(now, _mon)
       ? now.getHours() * 60 + now.getMinutes()
