@@ -2431,6 +2431,17 @@ textarea { resize: vertical; }
 
 .wk-event:hover { filter: brightness(1.1); }
 
+/* Auditoria UX #03 — eventos/chips das grades são focáveis por teclado
+   (role="button" + tabindex, ver weekView.js/calendar.js): o foco precisa
+   ser visível com o mesmo anel usado nos demais controles do app. */
+.wk-event:focus-visible,
+.wk-allday-chip:focus-visible,
+.cal-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  z-index: 3;
+}
+
 .wk-ev-title {
   display: block;
   font-weight: 700;
