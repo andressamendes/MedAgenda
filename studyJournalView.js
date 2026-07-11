@@ -120,13 +120,14 @@ const REVIEW_STATUS_LABELS = {
   skipped:   "Pulada",
 };
 
-let listEl, emptyEl, loadMoreBtn, statsEl;
+let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
 let periodSelect, subjectSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
 
 let _offset  = 0;
 let _loading = false;
+let _hasMore = false; // ainda existem sessões no servidor além das carregadas (auditoria UX #02)
 
 // Resolvido uma única vez por página carregada (não por cartão) — mesma
 // otimização N+1 de activityHistoryView.js/_loadLookups().
@@ -684,6 +685,25 @@ function _renderSearchStats(filteredEntries) {
   `;
 }
 
+// ── Aviso de filtragem parcial (auditoria UX #02) ────────────────────────
+// Os filtros (F8.4/F8.8) operam exclusivamente sobre `_allEntries` — as
+// sessões já carregadas via "Carregar mais". Com filtro ativo e páginas
+// ainda não carregadas no servidor (_hasMore), as contagens exibidas (card
+// de estatísticas, grupos, resumos) são parciais sem que nada indique isso.
+// Este aviso torna a parcialidade explícita; nenhuma consulta nova é feita.
+function _hasActiveFilters() {
+  return Object.keys(_DEFAULT_FILTERS).some(key => _filters[key] !== _DEFAULT_FILTERS[key]);
+}
+
+function _updatePartialNotice() {
+  if (!partialNoticeEl) return;
+  const show = _hasMore && _hasActiveFilters();
+  partialNoticeEl.hidden = !show;
+  partialNoticeEl.textContent = show
+    ? `Filtros aplicados somente às ${_allEntries.length} sessão(ões) já carregada(s) — os totais podem estar incompletos. Use "Carregar mais" para incluir sessões mais antigas.`
+    : "";
+}
+
 // ── Renderização (F8.3 + F8.4 + F8.8) ────────────────────────────────────
 // Reconstrói a lista inteira a partir de `_searchIndex` filtrado — mesma
 // ordem started_at desc já devolvida por listSessions(), então o
@@ -696,6 +716,7 @@ function _renderSearchStats(filteredEntries) {
 // nenhuma consulta nova a nenhum service.
 function _render() {
   listEl.innerHTML = "";
+  _updatePartialNotice();
   const preFiltered = _searchIndex.filter(record => _matchesBaseFilters(record.entry));
   const filtered = searchEntries(preFiltered, _filters);
 
@@ -781,16 +802,19 @@ async function _loadPage(reset) {
     _offset = 0;
     _allEntries = [];
     _searchIndex = [];
+    _hasMore = false;
     listEl.innerHTML = "";
     emptyEl.hidden = true;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
     loadMoreBtn.hidden = true;
+    if (partialNoticeEl) partialNoticeEl.hidden = true;
   }
 
   try {
     const { sessions, hasMore } = await listSessions({ status: "finished", limit: PAGE_SIZE, offset: _offset });
     _offset += sessions.length;
+    _hasMore = hasMore;
 
     if (reset && sessions.length === 0) {
       emptyEl.hidden = false;
@@ -823,6 +847,7 @@ export async function initStudyJournalView() {
     emptyEl     = document.getElementById("sj-list-empty");
     loadMoreBtn = document.getElementById("sj-load-more");
     statsEl     = document.getElementById("sj-search-stats");
+    partialNoticeEl = document.getElementById("sj-filter-partial-notice");
 
     periodSelect   = document.getElementById("sj-filter-period");
     subjectSelect  = document.getElementById("sj-filter-subject");
@@ -871,6 +896,7 @@ export function resetStudyJournalView() {
   _offset = 0;
   _allEntries = [];
   _searchIndex = [];
+  _hasMore = false;
   _eventsById = new Map();
 
   if (listEl) listEl.innerHTML = "";
@@ -881,6 +907,7 @@ export function resetStudyJournalView() {
   }
   if (statsEl) statsEl.hidden = true;
   if (loadMoreBtn) loadMoreBtn.hidden = true;
+  if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
   // entre usuários diferentes na mesma sessão do navegador.

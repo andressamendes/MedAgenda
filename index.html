@@ -745,6 +745,11 @@
             </label>
           </div>
           <div id="sj-search-stats" class="sj-search-stats" hidden></div>
+          <!-- Auditoria UX #02: os filtros do Diário operam só sobre as
+               sessões já carregadas em memória (F8.4/F8.8) — quando há filtro
+               ativo e ainda existem páginas no servidor, este aviso impede o
+               usuário de tomar contagens parciais como totais. -->
+          <p id="sj-filter-partial-notice" class="insights-block-notice" hidden></p>
           <p id="sj-list-empty" class="list-empty" hidden></p>
           <ul id="sj-list" class="sj-list"></ul>
           <button type="button" id="sj-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
