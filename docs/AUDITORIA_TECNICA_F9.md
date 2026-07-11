@@ -14,7 +14,7 @@
 - **Nenhum problema P0** (que quebre um fluxo principal hoje) foi encontrado.
 - **3 problemas P1**, **6 problemas P2** e **10 problemas P3** catalogados abaixo.
 - Três domínios inteiros (Study Streak, Subject Progress, Achievements) existem como serviços testados, porém **sem nenhum consumidor de UI** — o fluxo A7 "… → Subject Progress → Achievements → …" não é executável ponta a ponta no app.
-- A documentação de banco (`DATA_MODEL.md`, `DATABASE.md`, `BANCO_DE_DADOS.md`) **parou nas migrations 07–10**; as migrations 11–18 (activity_sessions, metas, reviews, questions, vínculo revisão↔sessão, pausas, reflections) não estão documentadas.
+- A documentação de banco (`DATA_MODEL.md`, `DATABASE.md`, `BANCO_DE_DADOS.md`) **parou nas migrations 07–10**; as migrations 11–18 (activity_sessions, metas, reviews, questions, vínculo revisão↔sessão, pausas, reflections) não estão documentadas. **Resolvido em PR6** — ver AUD-015 abaixo.
 
 ---
 
@@ -176,13 +176,15 @@ Dashboard, Histórico, Diário e Insights **não têm estado de loading**: entre
 ### AUD-014 · Event bus / Publicações duplicadas · **P3**
 Toda transição publica **dois eventos** (o específico + `SessionUpdated`, dentro de `updateActivitySession`). As views coalescem via `_scheduleReload`, mas `studySessionView._handleBusEvent` executa duas vezes por transição vinda de outra aba — com **dois** `getEventById()` cada. `aiContextService` também assina os três eventos redundantemente (documentado como intencional). **Arquivos:** `activitySessionService.js` (50–62), `studySessionView.js` (733–748). **Estratégia:** debounce no `_handleBusEvent` (mesmo padrão `_scheduleReload`) ou cache curto de `getEventById`.
 
-### AUD-015 · Documentação desatualizada · **P3**
+### AUD-015 · Documentação desatualizada · **P3** — **Resolvido em PR6 (consolidação de documentação técnica)**
 - `docs/DATA_MODEL.md` e `docs/DATABASE.md` cobrem só até a migration 10 — não mencionam `activity_sessions` (11), metas (12), `reviews` (13), `schema_version` (14), `questions` (15), vínculo revisão↔sessão (16), pausas (17) nem `reflections` (18).
 - `docs/BANCO_DE_DADOS.md` cita apenas até `sql/07_academic_calendar.sql`.
 - Duplicação PT/EN com conteúdo divergente: `ARQUITETURA.md` × `ARCHITECTURE.md`, `BANCO_DE_DADOS.md` × `DATABASE.md` × `DATA_MODEL.md` — três fontes concorrentes para o mesmo assunto, nenhuma completa.
 - Comentário incorreto: `reviewService.list()` diz "mais recente prevista primeiro" mas ordena `ascending: true`.
 - `README.md` não menciona o pré-requisito `config.js` deduzível só pelo `.gitignore`/deploy (verificar seção de setup).
 **Estratégia:** eleger um documento canônico por assunto (e idioma), atualizar até a migration 18, e apontar os demais para ele.
+
+**Resolução (PR6):** `docs/DATABASE.md` passou a ser o documento canônico de schema, atualizado até a migration `20` (inclui `activity_sessions`, `reviews`, `questions`, `reflections`, `schema_version` e as metas de tempo em `profiles`). `docs/ARCHITECTURE.md` passou a ser o documento canônico de arquitetura, com as seções novas "Modelo de Domínio", "Session Event Bus", "Fluxo da Sessão de Estudo" e "Diário de Estudos". `docs/ARQUITETURA.md`, `docs/BANCO_DE_DADOS.md` e `docs/DATA_MODEL.md` foram convertidos em redirecionamentos para os documentos canônicos. O comentário incorreto em `reviewService.list()` e a ausência de menção a `config.js` no `README.md` não fazem parte do escopo desta PR (documentação apenas) e permanecem em aberto.
 
 ### AUD-016 · Estado / Filtro de categorias da lista · **P3**
 `_syncCategoryFilter()` (script.js) restaura `filterCategorySelect.value = current` após reconstruir as opções; se a categoria filtrada deixou de existir (excluída/renomeada), o select volta a "Todas" **mas a lista já foi renderizada com o filtro antigo** — lista vazia sob um select que diz "Todas as categorias" até a próxima interação. **Arquivos:** `script.js` (343–359). **Estratégia:** se o valor não existir mais nas opções, re-renderizar a lista com filtro limpo.

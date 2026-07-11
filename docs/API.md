@@ -1,6 +1,8 @@
 # API do MedAgenda
 
 > Documentação oficial da API interna do MedAgenda: como o Frontend, os Services, o cliente Supabase, o banco PostgreSQL e as Edge Functions se comunicam. Este documento reflete exatamente a implementação atual do código (`*.js` na raiz, `services/`, `supabase.js`, `supabase/functions/`). Não descreve comportamento planejado nem sugere mudanças.
+>
+> **Escopo:** cobre o padrão geral View → Service → Supabase SDK, usando os Services de Planejamento (`eventService.js`, `categoryService.js` etc.) como exemplo. Os Services do domínio de Execução de Estudo (`activitySessionService.js`, `questionService.js`, `reviewService.js`, `studyReflectionService.js` etc.) seguem o mesmo padrão de comunicação com o Supabase descrito aqui, com a adição do Session Event Bus como canal de propagação de eventos entre módulos — ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para o detalhamento desses Services e dos seis eventos que publicam.
 
 ---
 
