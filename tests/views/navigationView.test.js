@@ -97,3 +97,13 @@ test("clicking a [data-page] nav button navigates via showPage()", () => {
 
   assert.strictEqual(document.getElementById("page-calendar").hidden, false);
 });
+
+test("UX #09 — os itens que abrem modais (Calendários/Categorias) ficam num grupo 'Gerenciar' separado, sem misturar com páginas", () => {
+  const manageGroup = document.querySelector('.sidebar-nav-group[aria-label="Gerenciar"]');
+  assert.ok(manageGroup, "grupo 'Gerenciar' existe na sidebar");
+  assert.ok(manageGroup.querySelector(".sidebar-group-label"), "grupo tem rótulo visível");
+  assert.ok(manageGroup.querySelector("#btn-academic-cals"), "'Calendários' está no grupo Gerenciar");
+  assert.ok(manageGroup.querySelector("#btn-categories"), "'Categorias' está no grupo Gerenciar");
+  // Nenhum destino de navegação (data-page) convive no grupo de modais.
+  assert.strictEqual(manageGroup.querySelector(".nav-item[data-page]"), null);
+});
