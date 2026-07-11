@@ -1,5 +1,9 @@
 /**
- * Tests for insightsView.js — Central de Insights: Infraestrutura (F2.4).
+ * Tests for insightsView.js — blocos de Insights do Dashboard (F2.4).
+ * Após a consolidação da Central de Insights no Dashboard (auditoria UX #01),
+ * a view renderiza apenas os blocos Revisões e Produtividade — Execução e
+ * Metas continuam vindo de insightsService (contrato intacto) mas só são
+ * exibidos pelos cards do próprio Dashboard (activityDashboardView.js).
  * insightsService/activitySessionService/reviewService/profileService are
  * mocked: this exercises only rendering, per-block error isolation, and the
  * auto-refresh subscriptions against the real DOM (index.html) — not the
@@ -82,17 +86,13 @@ afterEach(() => {
   clearEventBus();
 });
 
-test("renders all four blocks with their cards when every source succeeds", async (t) => {
+test("renders both blocks with their cards when every source succeeds", async (t) => {
   const { mod } = await loadView(t);
   await mod.initInsightsView();
 
-  assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, false);
-  assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
   assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
   assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 
-  assert.strictEqual(document.getElementById("insights-execucao-cards").children.length, 6);
-  assert.strictEqual(document.getElementById("insights-metas-cards").children.length, 3);
   assert.strictEqual(document.getElementById("insights-revisoes-cards").children.length, 2);
   assert.strictEqual(document.getElementById("insights-produtividade-cards").children.length, 2);
 
@@ -113,34 +113,32 @@ test("with no data at all, blocks render their zero/empty values instead of brea
 
   await mod.initInsightsView();
 
-  assert.match(document.getElementById("insights-execucao-cards").textContent, /0min/);
   assert.match(document.getElementById("insights-revisoes-cards").textContent, /Revisões pendentes/);
+  assert.match(document.getElementById("insights-revisoes-cards").textContent, /0/);
   assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
 
 test("a block in 'error' state hides its cards and shows the friendly message with retry", async (t) => {
   const { mod } = await loadView(t, {
     getInsightsData: async () => ({
-      execucao: { status: "error", data: null, error: new Error("network down") },
+      execucao: OK_EXECUCAO,
       metas: OK_METAS,
       revisoes: OK_REVISOES,
-      produtividade: OK_PRODUTIVIDADE,
+      produtividade: { status: "error", data: null, error: new Error("network down") },
     }),
     friendlyMessage: "Sem conexão com a internet.",
   });
 
   await mod.initInsightsView();
 
-  const errorEl = document.getElementById("insights-execucao-error");
+  const errorEl = document.getElementById("insights-produtividade-error");
   assert.strictEqual(errorEl.hidden, false);
   assert.match(errorEl.textContent, /Sem conexão com a internet\./);
   assert.ok(errorEl.querySelector(".list-error-retry"));
-  assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, true);
+  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, true);
 
   // Other blocks are unaffected — the screen never breaks entirely.
-  assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
   assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
-  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
 
 // ── F4.1 — Fluxo Unificado de Sessão Expirada ───────────────────────────────
@@ -148,10 +146,10 @@ test("a block in 'error' state hides its cards and shows the friendly message wi
 test("a block failing with a session-expired (auth) error shows 'Sessão expirada' and 'Entrar novamente', never a retry button", async (t) => {
   const { mod } = await loadView(t, {
     getInsightsData: async () => ({
-      execucao: { status: "error", data: null, error: new Error("JWT expired") },
+      execucao: OK_EXECUCAO,
       metas: OK_METAS,
       revisoes: OK_REVISOES,
-      produtividade: OK_PRODUTIVIDADE,
+      produtividade: { status: "error", data: null, error: new Error("JWT expired") },
     }),
     category: "auth",
     friendlyMessage: "Sua sessão expirou. Faça login novamente.",
@@ -159,7 +157,7 @@ test("a block failing with a session-expired (auth) error shows 'Sessão expirad
 
   await mod.initInsightsView();
 
-  const errorEl = document.getElementById("insights-execucao-error");
+  const errorEl = document.getElementById("insights-produtividade-error");
   assert.strictEqual(errorEl.hidden, false);
   assert.match(errorEl.textContent, /Sessão expirada/);
   assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
@@ -168,7 +166,7 @@ test("a block failing with a session-expired (auth) error shows 'Sessão expirad
 
   // Every other block keeps using the exact same component — no divergent
   // messages for the same kind of failure (ETAPA 6).
-  assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
 });
 
 test("clicking 'Entrar novamente' on a session-expired insights block runs the official reauth flow, not a data retry", async (t) => {
@@ -182,8 +180,8 @@ test("clicking 'Entrar novamente' on a session-expired insights block runs the o
     getInsightsData: async () => {
       loadCalls++;
       return {
-        execucao: { status: "error", data: null, error: new Error("JWT expired") },
-        metas: OK_METAS, revisoes: OK_REVISOES, produtividade: OK_PRODUTIVIDADE,
+        execucao: OK_EXECUCAO, metas: OK_METAS, revisoes: OK_REVISOES,
+        produtividade: { status: "error", data: null, error: new Error("JWT expired") },
       };
     },
     category: "auth",
@@ -192,7 +190,7 @@ test("clicking 'Entrar novamente' on a session-expired insights block runs the o
   await mod.initInsightsView();
   const callsAfterLoad = loadCalls;
 
-  document.getElementById("insights-execucao-error").querySelector(".state-block-action")
+  document.getElementById("insights-produtividade-error").querySelector(".state-block-action")
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -251,7 +249,7 @@ test("Revisões: when only one of its two sources fails with a session-expired e
 
   // Os outros blocos continuam intactos — a falha de uma fonte de Revisões
   // não derruba o resto da tela.
-  assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
 
 test("a 'partial' block whose failing source is NOT a session issue (e.g. real RLS/permission error) keeps the passive notice, unchanged", async (t) => {
@@ -279,21 +277,21 @@ test("retrying after a block error clears the error state on success", async (t)
     getInsightsData: async () => {
       attempt += 1;
       if (attempt === 1) {
-        return { execucao: { status: "error", data: null, error: new Error("boom") }, metas: OK_METAS, revisoes: OK_REVISOES, produtividade: OK_PRODUTIVIDADE };
+        return { execucao: OK_EXECUCAO, metas: OK_METAS, revisoes: OK_REVISOES, produtividade: { status: "error", data: null, error: new Error("boom") } };
       }
       return EMPTY_INSIGHTS;
     },
   });
 
   await mod.initInsightsView();
-  const retryBtn = document.querySelector("#insights-execucao-error .list-error-retry");
+  const retryBtn = document.querySelector("#insights-produtividade-error .list-error-retry");
   assert.ok(retryBtn);
 
   retryBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  assert.strictEqual(document.getElementById("insights-execucao-error").hidden, true);
-  assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-produtividade-error").hidden, true);
+  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
 
 // ── Sincronização com o barramento de eventos (F6.5) ────────────────────────
@@ -464,20 +462,20 @@ test("resetInsightsView() also unsubscribes onReviewStatusChanged/onProfileUpdat
   assert.strictEqual(calls, 1); // no reload after reset
 });
 
-test("resetInsightsView() clears the rendered cards of all four blocks (no data survives logout)", async (t) => {
+test("resetInsightsView() clears the rendered cards of every block (no data survives logout)", async (t) => {
   const { mod } = await loadView(t, { getInsightsData: async () => EMPTY_INSIGHTS });
 
   await mod.initInsightsView();
 
   // Sanity: dados do usuário estão renderizados antes do logout.
-  assert.notStrictEqual(document.getElementById("insights-execucao-cards").innerHTML, "");
+  assert.notStrictEqual(document.getElementById("insights-produtividade-cards").innerHTML, "");
   assert.notStrictEqual(document.getElementById("insights-revisoes-cards").innerHTML, "");
 
   mod.resetInsightsView();
 
   // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
-  // após o logout, em nenhum dos quatro blocos.
-  for (const cardsId of ["insights-execucao-cards", "insights-metas-cards", "insights-revisoes-cards", "insights-produtividade-cards"]) {
+  // após o logout, em nenhum dos blocos.
+  for (const cardsId of ["insights-revisoes-cards", "insights-produtividade-cards"]) {
     assert.strictEqual(document.getElementById(cardsId).innerHTML, "", `${cardsId} must be empty after logout`);
   }
 });
@@ -508,20 +506,18 @@ test("after an automatic reload triggered by the event bus, a block error state 
     getInsightsData: async () => {
       attempt += 1;
       if (attempt === 1) return EMPTY_INSIGHTS;
-      return { execucao: { status: "error", data: null, error: new Error("boom") }, metas: OK_METAS, revisoes: OK_REVISOES, produtividade: OK_PRODUTIVIDADE };
+      return { execucao: OK_EXECUCAO, metas: OK_METAS, revisoes: OK_REVISOES, produtividade: { status: "error", data: null, error: new Error("boom") } };
     },
   });
 
   await mod.initInsightsView();
-  assert.strictEqual(document.getElementById("insights-execucao-error").hidden, true);
+  assert.strictEqual(document.getElementById("insights-produtividade-error").hidden, true);
 
   publish(SESSION_EVENTS.FINISHED, { id: "s1" });
   await tick();
 
-  assert.strictEqual(document.getElementById("insights-execucao-error").hidden, false);
-  assert.strictEqual(document.getElementById("insights-metas-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-produtividade-error").hidden, false);
   assert.strictEqual(document.getElementById("insights-revisoes-cards").hidden, false);
-  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
 
 test("after an automatic reload triggered by the event bus, a block partial state (with notice) is preserved", async (t) => {
@@ -587,7 +583,7 @@ test("a catastrophic failure of getInsightsData itself still renders every block
 
   await mod.initInsightsView();
 
-  for (const id of ["insights-execucao-error", "insights-metas-error", "insights-revisoes-error", "insights-produtividade-error"]) {
+  for (const id of ["insights-revisoes-error", "insights-produtividade-error"]) {
     assert.strictEqual(document.getElementById(id).hidden, false);
   }
 });

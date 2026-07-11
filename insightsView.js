@@ -1,10 +1,14 @@
-// ── insightsView.js — Central de Insights: Infraestrutura (F2.4) ────────────
-// Tela de apenas leitura, organizada em quatro blocos (Execução / Metas /
-// Revisões / Produtividade). Nenhum cálculo mora aqui — toda a consolidação
-// vem de insightsService.getInsightsData(), que já busca as quatro fontes em
-// paralelo e devolve cada bloco com seu próprio estado ("ok" | "partial" |
-// "error"). Esta view só formata e decide, bloco a bloco, o que exibir —
-// nunca combina dados de serviços diferentes manualmente.
+// ── insightsView.js — Blocos de Insights do Dashboard (F2.4) ────────────────
+// Blocos de apenas leitura (Revisões / Produtividade), renderizados dentro da
+// página Dashboard. A antiga página "Central de Insights" foi consolidada no
+// Dashboard (auditoria UX #01): os blocos de Execução e Metas eram cards
+// idênticos aos já exibidos por activityDashboardView.js e deixaram de ser
+// renderizados — só os blocos exclusivos permanecem. Nenhum cálculo mora
+// aqui — toda a consolidação vem de insightsService.getInsightsData()
+// (contrato intacto, ainda devolve os quatro blocos), e cada bloco chega com
+// seu próprio estado ("ok" | "partial" | "error"). Esta view só formata e
+// decide, bloco a bloco, o que exibir — nunca combina dados de serviços
+// diferentes manualmente.
 //
 // Sem gráficos, sem barras, sem animações: só cards simples, mesmo padrão de
 // activityDashboardView.js.
@@ -21,51 +25,10 @@ import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
-function _formatDuration(minutes) {
-  const total = Math.max(0, Math.round(minutes || 0));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h <= 0) return `${m}min`;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
-
-// ── Metas de Tempo — mesma formatação de activityDashboardView.js (F2.2):
-// o progresso já vem pronto de timeGoals.calculateGoalProgress(); aqui só se
-// formata o texto do card.
-const GOAL_STATE_LABEL = {
-  no_goal:  "Sem meta configurada.",
-  partial:  "Meta parcialmente atingida.",
-  achieved: "Meta atingida.",
-  exceeded: "Meta ultrapassada.",
-};
-
-function _formatGoalValue(progress) {
-  return progress.configured ? `${progress.percentage}%` : "—";
-}
-
-function _formatGoalDesc(progress) {
-  if (!progress.configured) return GOAL_STATE_LABEL.no_goal;
-  const meta      = _formatDuration(progress.goalMinutes);
-  const realizado = _formatDuration(progress.actualMinutes);
-  return `Meta: ${meta} · Realizado: ${realizado}. ${GOAL_STATE_LABEL[progress.state]}`;
-}
-
-// ── Definição dos blocos (ETAPA 4) — ordem = ordem pedida na auditoria ──────
-
-const EXECUCAO_CARD_DEFS = [
-  { title: "Tempo estudado hoje",           value: d => _formatDuration(d.todayMinutes), desc: () => "Soma das sessões finalizadas hoje." },
-  { title: "Tempo estudado esta semana",    value: d => _formatDuration(d.weekMinutes),  desc: () => "Soma das sessões finalizadas desde segunda-feira." },
-  { title: "Tempo estudado este mês",       value: d => _formatDuration(d.monthMinutes), desc: () => "Soma das sessões finalizadas neste mês." },
-  { title: "Sessões concluídas hoje",       value: d => String(d.todaySessionsCount), desc: () => "Quantidade de sessões finalizadas hoje." },
-  { title: "Sessões concluídas na semana",  value: d => String(d.weekSessionsCount),  desc: () => "Quantidade de sessões finalizadas nesta semana." },
-  { title: "Sessões concluídas no mês",     value: d => String(d.monthSessionsCount), desc: () => "Quantidade de sessões finalizadas neste mês." },
-];
-
-const METAS_CARD_DEFS = [
-  { title: "Meta diária",   value: d => _formatGoalValue(d.dailyGoal),   desc: d => _formatGoalDesc(d.dailyGoal) },
-  { title: "Meta semanal",  value: d => _formatGoalValue(d.weeklyGoal),  desc: d => _formatGoalDesc(d.weeklyGoal) },
-  { title: "Meta mensal",   value: d => _formatGoalValue(d.monthlyGoal), desc: d => _formatGoalDesc(d.monthlyGoal) },
-];
+// ── Definição dos blocos (ETAPA 4) — Execução e Metas não são mais
+// renderizados aqui: seus cards eram idênticos aos do Dashboard
+// (activityDashboardView.js), que agora é a única fonte visual deles
+// (auditoria UX #01). ──────────────────────────────────────────────────────
 
 const REVISOES_CARD_DEFS = [
   {
@@ -86,8 +49,6 @@ const PRODUTIVIDADE_CARD_DEFS = [
 ];
 
 const BLOCK_DEFS = [
-  { key: "execucao",      cardDefs: EXECUCAO_CARD_DEFS,      cardsId: "insights-execucao-cards",      errorId: "insights-execucao-error",      noticeId: "insights-execucao-notice" },
-  { key: "metas",         cardDefs: METAS_CARD_DEFS,         cardsId: "insights-metas-cards",         errorId: "insights-metas-error",         noticeId: "insights-metas-notice" },
   { key: "revisoes",      cardDefs: REVISOES_CARD_DEFS,      cardsId: "insights-revisoes-cards",      errorId: "insights-revisoes-error",      noticeId: "insights-revisoes-notice" },
   { key: "produtividade", cardDefs: PRODUTIVIDADE_CARD_DEFS, cardsId: "insights-produtividade-cards", errorId: "insights-produtividade-error", noticeId: "insights-produtividade-notice" },
 ];
@@ -97,10 +58,10 @@ let _unsubscribeProfile = null;
 let _loading = false;
 
 // ── Sincronização com o barramento de eventos (F6.5) ────────────────────────
-// A Central assina SessionFinished/Cancelled/Updated diretamente no
+// Esta view assina SessionFinished/Cancelled/Updated diretamente no
 // barramento (F6.2) — nunca conhece activitySessionService — e recarrega
-// getInsightsData() sempre que uma sessão muda de estado. Os quatro blocos
-// (execução, metas, revisões, produtividade) são todos derivados de sessões
+// getInsightsData() sempre que uma sessão muda de estado. Os blocos
+// (revisões, produtividade) são todos derivados de sessões
 // *finalizadas* (activityDashboardService.computeDashboardIndicators() e
 // activitySessionStats usam apenas status "finished"; produtividade usa
 // hasFinishedSession) — nenhum deles reflete uma sessão apenas iniciada.
@@ -212,7 +173,8 @@ async function _load() {
 }
 
 /**
- * Monta a Central de Insights (uma única vez) e carrega os indicadores.
+ * Monta os blocos de Insights do Dashboard (uma única vez) e carrega os
+ * indicadores.
  * Assina o barramento de eventos da sessão (F6.5) e
  * onReviewStatusChanged()/onProfileUpdated() para recalcular automaticamente
  * sempre que uma sessão, revisão ou meta mudar — sem exigir reload da página
@@ -227,10 +189,10 @@ export async function initInsightsView() {
 
 /**
  * Desfaz a assinatura do barramento de eventos e demais listeners, além de
- * qualquer recarga pendente, e descarta o DOM renderizado dos quatro blocos.
+ * qualquer recarga pendente, e descarta o DOM renderizado dos blocos.
  * Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut) — sem
  * isso, os listeners registrados em _subscribeToEventBus() sobreviveriam à
- * troca de sessão e recarregariam a Central de Insights com o usuário
+ * troca de sessão e recarregariam os blocos de Insights com o usuário
  * errado, e os cards do usuário anterior permaneceriam visíveis no DOM
  * durante a janela entre o logout e o próximo login (SPA sem reload de
  * página — mesma simetria init/reset da auditoria A1.3).

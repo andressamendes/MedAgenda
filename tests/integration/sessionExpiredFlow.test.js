@@ -88,5 +88,5 @@ test("Revisões: a real refresh-token-expired error from Supabase, hitting both 
 
   // Os outros blocos continuam intactos — a falha de Revisões não derruba o
   // resto da tela (ETAPA 7).
-  assert.strictEqual(document.getElementById("insights-execucao-cards").hidden, false);
+  assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
