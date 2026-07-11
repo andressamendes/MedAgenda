@@ -77,7 +77,7 @@ const NO_EVENT_TEXT = "Sem compromisso vinculado";
 // Modal de encerramento (F7.3) — resumo somente leitura + confirmação, entre
 // clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
 let finishModalEl, finishModal;
-let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl;
+let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl;
 let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
 
 // Cadastro de Questões Resolvidas (F7.4) — lista editável no próprio resumo,
@@ -157,7 +157,6 @@ function _queryElements() {
   ssfStartedAtEl       = document.getElementById("ssf-started-at");
   ssfEndedAtEl         = document.getElementById("ssf-ended-at");
   ssfNetTimeEl         = document.getElementById("ssf-net-time");
-  ssfTotalDurationEl   = document.getElementById("ssf-total-duration");
   ssfNotesEl           = document.getElementById("ssf-notes");
   ssfBtnBack           = document.getElementById("ssf-btn-back");
   ssfBtnConfirm        = document.getElementById("ssf-btn-confirm");
@@ -629,8 +628,7 @@ function _openFinishModal() {
   ssfContentEl.textContent  = _eventMeta?.description || "—";
   ssfStartedAtEl.textContent     = _formatClockTime(_session.started_at);
   ssfEndedAtEl.textContent       = _formatClockTime(_pendingEndedAt.toISOString());
-  ssfNetTimeEl.textContent       = _formatExpectedDuration(netMinutes);
-  ssfTotalDurationEl.textContent = _formatExpectedDuration(netMinutes);
+  ssfNetTimeEl.textContent = _formatExpectedDuration(netMinutes);
   ssfNotesEl.value = "";
   ssfBtnConfirm.disabled = false;
   ssfBtnBack.disabled = false;
@@ -913,7 +911,7 @@ export function resetStudySessionView() {
   // fechar por logout — o resumo e as listas de questões/revisões do usuário
   // anterior ficariam presentes no DOM enquanto o modal permanece fechado.
   [ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl,
-   ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl]
+   ssfEndedAtEl, ssfNetTimeEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (ssfNotesEl) ssfNotesEl.value = "";
   if (ssfQuestionsListEl) _renderQuestionsList();
