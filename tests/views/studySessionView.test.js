@@ -1127,6 +1127,7 @@ test("a standalone session shows an explicit 'Sem compromisso vinculado' label i
 
   assert.strictEqual(document.getElementById("ss-category").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("ss-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
+  assert.strictEqual(document.getElementById("ss-objective"), null, "a linha 'Objetivo' sempre exibia '—' (sem campo no domínio) e foi removida (auditoria UX #06)");
   assert.strictEqual(document.getElementById("ss-content").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("ss-date").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Sem compromisso vinculado");

@@ -62,7 +62,7 @@ const QUESTION_DIFFICULTY_LABELS = {
 
 let emptyEl, emptyMessageEl, btnStartStandalone;
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
-let titleEl, categoryEl, contentEl, objectiveEl, dateEl, startedAtEl, expectedDurationEl, statusTextEl;
+let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl, statusTextEl;
 let btnPause, btnResume, btnCancel, btnFinish;
 
 // Painel de Contexto (F7.6) — barra de progresso temporal (só quando o
@@ -136,7 +136,6 @@ function _queryElements() {
   titleEl              = document.getElementById("ss-event-title");
   categoryEl           = document.getElementById("ss-category");
   contentEl            = document.getElementById("ss-content");
-  objectiveEl          = document.getElementById("ss-objective");
   dateEl               = document.getElementById("ss-date");
   startedAtEl          = document.getElementById("ss-started-at");
   expectedDurationEl   = document.getElementById("ss-expected-duration");
@@ -335,7 +334,6 @@ function _render() {
   titleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
   categoryEl.textContent = _eventFieldText(_eventMeta?.category);
   contentEl.textContent  = _eventFieldText(_eventMeta?.description);
-  objectiveEl.textContent = "—"; // sem campo de objetivo no domínio atual — reservado para etapa futura
   dateEl.textContent      = _eventFieldText(_formatEventDate(_eventMeta?.event_date));
   startedAtEl.textContent = _formatClockTime(_session.started_at);
   expectedDurationEl.textContent = _formatExpectedDuration(_eventMeta?.duration_minutes);
@@ -919,7 +917,7 @@ export function resetStudySessionView() {
   // ficariam presentes no DOM (embora ocultos) até o próximo login. Mesma
   // simetria init/reset da auditoria A1.3: o texto do usuário anterior não
   // pode sobreviver no DOM, mesmo dentro de uma seção hidden.
-  [titleEl, categoryEl, contentEl, objectiveEl, dateEl, startedAtEl,
+  [titleEl, categoryEl, contentEl, dateEl, startedAtEl,
    expectedDurationEl, statusTextEl, indStartedEl, indStatusEl, indEventEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (timeEl) timeEl.textContent = "";
