@@ -84,6 +84,13 @@ let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
 let ssfQuestionsListEl, ssfQuestionsEmptyEl;
 let ssfQTypeEl, ssfQStatusEl, ssfQDifficultyEl, ssfQSubjectEl, ssfQTopicEl, ssfBtnAddQuestion;
 
+// Seções colapsáveis do resumo (auditoria UX #04) — Questões e Revisões são
+// etapas opcionais e nascem fechadas a cada abertura do resumo, para que o
+// essencial (resumo + Confirmar) fique visível sem rolagem; o contador no
+// título reflete o que já foi adicionado sem precisar expandir.
+let ssfQuestionsToggleEl, ssfQuestionsBodyEl, ssfQuestionsCountEl;
+let ssfReviewsToggleEl, ssfReviewsBodyEl, ssfReviewsCountEl;
+
 // Revisões do pós-sessão (F7.5) — etapa opcional entre Questões e Confirmar.
 // Toda persistência passa por reviewService.js (criação) e
 // reviewSessionService.associateReview() (vínculo) — nenhum session_id é
@@ -165,6 +172,12 @@ function _queryElements() {
 
   ssfQuestionsListEl   = document.getElementById("ssf-questions-list");
   ssfQuestionsEmptyEl  = document.getElementById("ssf-questions-empty");
+  ssfQuestionsToggleEl = document.getElementById("ssf-questions-toggle");
+  ssfQuestionsBodyEl   = document.getElementById("ssf-questions-body");
+  ssfQuestionsCountEl  = document.getElementById("ssf-questions-count");
+  ssfReviewsToggleEl   = document.getElementById("ssf-reviews-toggle");
+  ssfReviewsBodyEl     = document.getElementById("ssf-reviews-body");
+  ssfReviewsCountEl    = document.getElementById("ssf-reviews-count");
   ssfQTypeEl           = document.getElementById("ssf-q-type");
   ssfQStatusEl         = document.getElementById("ssf-q-status");
   ssfQDifficultyEl     = document.getElementById("ssf-q-difficulty");
@@ -202,6 +215,10 @@ function _bindEvents() {
   });
 
   ssfBtnBack.addEventListener("click", () => _closeFinishModal());
+  ssfQuestionsToggleEl.addEventListener("click", () =>
+    _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, ssfQuestionsBodyEl.hidden));
+  ssfReviewsToggleEl.addEventListener("click", () =>
+    _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, ssfReviewsBodyEl.hidden));
   ssfBtnAddQuestion.addEventListener("click", () => _addOrUpdatePendingQuestion());
   ssfBtnAssociateReview.addEventListener("click", () => _addPendingReviewAssociation());
   ssfBtnCreateReview.addEventListener("click", () => _addPendingReviewCreation());
@@ -426,6 +443,14 @@ function _minutesBetween(session, endedAtDate) {
 // Todo acesso ao domínio de Questões passa exclusivamente por
 // sessionQuestionsService.js (nunca questionService.js diretamente aqui).
 
+// Expande/colapsa uma seção opcional do resumo (auditoria UX #04) — mesmo
+// padrão aria-expanded + hidden do "Detalhar" do Diário (studyJournalView).
+function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
+  bodyEl.hidden = !expanded;
+  toggleBtn.setAttribute("aria-expanded", String(expanded));
+  toggleBtn.textContent = expanded ? "Ocultar" : "Mostrar";
+}
+
 function _resetQuestionForm() {
   ssfQTypeEl.value       = "multiple_choice";
   ssfQStatusEl.value     = "pending";
@@ -439,6 +464,9 @@ function _resetQuestionForm() {
 function _renderQuestionsList() {
   ssfQuestionsListEl.innerHTML = "";
   ssfQuestionsEmptyEl.hidden = _pendingQuestions.length > 0;
+  if (ssfQuestionsCountEl) {
+    ssfQuestionsCountEl.textContent = _pendingQuestions.length ? ` (${_pendingQuestions.length})` : "";
+  }
 
   _pendingQuestions.forEach(q => {
     const li = document.createElement("li");
@@ -518,6 +546,9 @@ function _formatReviewDate(dateStr) {
 function _renderReviewsList() {
   ssfReviewsListEl.innerHTML = "";
   ssfReviewsEmptyEl.hidden = _pendingReviews.length > 0;
+  if (ssfReviewsCountEl) {
+    ssfReviewsCountEl.textContent = _pendingReviews.length ? ` (${_pendingReviews.length})` : "";
+  }
 
   _pendingReviews.forEach(r => {
     const li = document.createElement("li");
@@ -627,6 +658,11 @@ function _openFinishModal() {
   _pendingQuestions = [];
   _resetQuestionForm();
   _renderQuestionsList();
+
+  // Auditoria UX #04: as etapas opcionais sempre nascem colapsadas — quem só
+  // quer confirmar o encerramento não atravessa os formulários delas.
+  _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, false);
+  _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, false);
 
   // Revisões (F7.5): criar exige um compromisso (reviewService.create() valida
   // event_id), então a linha de criação só aparece em sessões vinculadas.
@@ -903,4 +939,6 @@ export function resetStudySessionView() {
   if (ssfNotesEl) ssfNotesEl.value = "";
   if (ssfQuestionsListEl) _renderQuestionsList();
   if (ssfReviewsListEl) _renderReviewsList();
+  if (ssfQuestionsToggleEl) _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, false);
+  if (ssfReviewsToggleEl)   _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, false);
 }

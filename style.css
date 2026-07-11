@@ -3078,6 +3078,23 @@ textarea { resize: vertical; }
   color: var(--gray-700);
 }
 
+/* Auditoria UX #04 — cabeçalho das seções opcionais colapsáveis do
+   encerramento (Questões/Revisões): título + contador à esquerda,
+   Mostrar/Ocultar à direita. */
+.ss-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.ss-collapsible-header .ss-questions-title { margin: 0; }
+
+.ss-section-count {
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
 .ss-questions-empty {
   margin: 0 0 .6rem;
   font-size: .85rem;

@@ -1296,3 +1296,66 @@ test("choosing 'cancel' in the abandoned-session dialog calls exactly activitySe
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
+
+// ── Seções colapsáveis do resumo de encerramento (auditoria UX #04) ────────
+// Questões e Revisões são etapas opcionais: nascem fechadas a cada abertura
+// do resumo (o essencial — resumo + Confirmar — fica visível sem rolagem) e
+// o contador no título reflete o que foi adicionado sem precisar expandir.
+
+test("UX #04 — Questões e Revisões abrem colapsadas, com aria-expanded=false, a cada abertura do resumo", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-questions-body").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-reviews-body").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-questions-toggle").getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("ssf-reviews-toggle").getAttribute("aria-expanded"), "false");
+
+  // Expande, fecha o resumo e reabre — a seção volta fechada (nunca herda o
+  // estado da abertura anterior).
+  document.getElementById("ssf-questions-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-body").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-questions-toggle").getAttribute("aria-expanded"), "true");
+  assert.strictEqual(document.getElementById("ssf-questions-toggle").textContent, "Ocultar");
+
+  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-questions-body").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-questions-toggle").textContent, "Mostrar");
+});
+
+test("UX #04 — o contador do título reflete questões/revisões adicionadas sem expandir a seção", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, "");
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, " (1)");
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, " (2)");
+
+  document.getElementById("ssf-questions-list").querySelector("[data-question-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, " (1)");
+
+  document.getElementById("ssf-r-date").value = "2099-01-10";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-reviews-count").textContent, " (1)");
+});
