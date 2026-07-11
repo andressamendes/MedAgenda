@@ -159,6 +159,21 @@ async function fetchExecutionSummaries(events) {
 
 // ── Grade ──────────────────────────────────────────────────────────────────
 
+// Chips de evento são <div>s — para serem operáveis por teclado (auditoria
+// UX #03), cada chip clicável recebe role="button", entra na ordem de Tab e
+// ativa com Enter/Espaço, espelhando o clique. Mesmo helper local em
+// weekView.js (padrão do app: helpers pequenos são duplicados entre views).
+function bindActivate(el, handler) {
+  el.setAttribute("role", "button");
+  el.tabIndex = 0;
+  el.addEventListener("click", handler);
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    handler(e);
+  });
+}
+
 function renderGrid(byDate, summaries = {}) {
   const body = container.querySelector("#cal-body");
   if (!body) return;
@@ -211,13 +226,13 @@ function renderGrid(byDate, summaries = {}) {
 
       if (!isAcademic && callbacks?.onEventClick) {
         chip.classList.add("cal-chip-clickable");
-        chip.addEventListener("click", (e) => {
+        bindActivate(chip, (e) => {
           e.stopPropagation();
           callbacks.onEventClick(ev);
         });
       } else if (isAcademic && callbacks?.onAcademicEventClick) {
         chip.classList.add("cal-chip-clickable");
-        chip.addEventListener("click", (e) => {
+        bindActivate(chip, (e) => {
           e.stopPropagation();
           callbacks.onAcademicEventClick(ev);
         });

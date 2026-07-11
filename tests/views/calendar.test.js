@@ -285,3 +285,39 @@ test("a failure fetching execution summaries does not break the calendar", async
   assert.ok(chip, "event chip should still render even if summaries fail");
   assert.strictEqual(chip.textContent, "Prova de Anatomia");
 });
+
+// ── Acessibilidade por teclado (auditoria UX #03) ────────────────────────
+// Chips de evento eram <div>s só com listener de click — invisíveis para o
+// Tab e inertes ao Enter/Espaço. Agora recebem role="button" + tabindex e
+// ativam por teclado espelhando o clique (mesmo contrato de weekView.js).
+
+test("UX #03 — an event chip is keyboard-operable: role=button, tabindex 0, Enter and Space trigger onEventClick", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: day15, recurrence_type: "none" };
+  mockEventService(t, { events: [ev] });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+
+  const clicks = [];
+  let dayClicks = 0;
+  await initCalendar(container, {
+    onEventClick: (e) => { clicks.push(e); },
+    onDayClick: () => { dayClicks++; },
+  });
+
+  const chip = findCellByDayNum(15).querySelector(".cal-chip");
+  assert.strictEqual(chip.getAttribute("role"), "button");
+  assert.strictEqual(chip.tabIndex, 0);
+
+  chip.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  assert.strictEqual(clicks.length, 1);
+  assert.strictEqual(clicks[0].id, "evt-1");
+
+  chip.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", bubbles: true }));
+  assert.strictEqual(clicks.length, 2);
+
+  // Outras teclas não ativam, e a ativação por teclado do chip nunca vaza
+  // para o clique da célula (criar compromisso no dia).
+  chip.dispatchEvent(new window.KeyboardEvent("keydown", { key: "a", bubbles: true }));
+  assert.strictEqual(clicks.length, 2);
+  assert.strictEqual(dayClicks, 0);
+});

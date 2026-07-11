@@ -2431,6 +2431,17 @@ textarea { resize: vertical; }
 
 .wk-event:hover { filter: brightness(1.1); }
 
+/* Auditoria UX #03 — eventos/chips das grades são focáveis por teclado
+   (role="button" + tabindex, ver weekView.js/calendar.js): o foco precisa
+   ser visível com o mesmo anel usado nos demais controles do app. */
+.wk-event:focus-visible,
+.wk-allday-chip:focus-visible,
+.cal-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  z-index: 3;
+}
+
 .wk-ev-title {
   display: block;
   font-weight: 700;
@@ -3065,6 +3076,23 @@ textarea { resize: vertical; }
   font-size: .9rem;
   font-weight: 600;
   color: var(--gray-700);
+}
+
+/* Auditoria UX #04 — cabeçalho das seções opcionais colapsáveis do
+   encerramento (Questões/Revisões): título + contador à esquerda,
+   Mostrar/Ocultar à direita. */
+.ss-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.ss-collapsible-header .ss-questions-title { margin: 0; }
+
+.ss-section-count {
+  color: var(--gray-600);
+  font-weight: 600;
 }
 
 .ss-questions-empty {

@@ -423,3 +423,34 @@ test("navigating between weeks does not re-fetch the tip/plan decisions (no dupl
 
   assert.strictEqual(decisionCalls, callsAfterInit, "navigating weeks must not re-fetch the Decision Engine");
 });
+
+// ── Acessibilidade por teclado (auditoria UX #03) ────────────────────────
+// Blocos de evento eram <div>s só com listener de click — invisíveis para o
+// Tab e inertes ao Enter/Espaço. Agora recebem role="button" + tabindex e
+// ativam por teclado espelhando o clique.
+
+test("UX #03 — an event block is keyboard-operable: role=button, tabindex 0, Enter and Space trigger onEventClick", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [ev] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  const clicks = [];
+  await initWeekView(container, { onEventClick: (e) => { clicks.push(e); } });
+
+  const block = container.querySelector("#wk-col-0 .wk-event");
+  assert.strictEqual(block.getAttribute("role"), "button");
+  assert.strictEqual(block.tabIndex, 0);
+
+  block.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  assert.strictEqual(clicks.length, 1);
+  assert.strictEqual(clicks[0].id, "evt-1");
+
+  block.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", bubbles: true }));
+  assert.strictEqual(clicks.length, 2);
+
+  // Outras teclas não ativam.
+  block.dispatchEvent(new window.KeyboardEvent("keydown", { key: "a", bubbles: true }));
+  assert.strictEqual(clicks.length, 2);
+});

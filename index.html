@@ -489,8 +489,16 @@
                 <label for="ssf-notes" class="ss-notes-label">Observações da sessão</label>
                 <textarea id="ssf-notes" class="ss-notes-textarea" rows="3" placeholder="Dificuldades encontradas, pontos importantes, lembretes…"></textarea>
 
+                <!-- Auditoria UX #04: Questões e Revisões são etapas opcionais
+                     do encerramento — nascem colapsadas para que o resumo e o
+                     botão Confirmar fiquem visíveis sem rolagem; o contador no
+                     título mostra o que já foi preenchido sem expandir. -->
                 <div class="ss-questions-block">
-                  <h3 class="ss-questions-title">Questões Resolvidas</h3>
+                  <div class="ss-collapsible-header">
+                    <h3 class="ss-questions-title">Questões Resolvidas<span id="ssf-questions-count" class="ss-section-count"></span></h3>
+                    <button type="button" class="btn btn-ghost btn-sm" id="ssf-questions-toggle" aria-expanded="false" aria-controls="ssf-questions-body">Mostrar</button>
+                  </div>
+                  <div id="ssf-questions-body" hidden>
 
                   <ul id="ssf-questions-list" class="ss-questions-list"></ul>
                   <p id="ssf-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
@@ -528,11 +536,17 @@
                     </div>
                     <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-add-question">Adicionar questão</button>
                   </div>
+
+                  </div>
                 </div>
 
                 <!-- Revisões do pós-sessão (F7.5) — etapa opcional, entre Questões e Confirmar -->
                 <div class="ss-questions-block">
-                  <h3 class="ss-questions-title">Revisões</h3>
+                  <div class="ss-collapsible-header">
+                    <h3 class="ss-questions-title">Revisões<span id="ssf-reviews-count" class="ss-section-count"></span></h3>
+                    <button type="button" class="btn btn-ghost btn-sm" id="ssf-reviews-toggle" aria-expanded="false" aria-controls="ssf-reviews-body">Mostrar</button>
+                  </div>
+                  <div id="ssf-reviews-body" hidden>
                   <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
 
                   <ul id="ssf-reviews-list" class="ss-questions-list"></ul>
@@ -549,6 +563,7 @@
                       <input type="date" id="ssf-r-date">
                       <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-create-review">Criar revisão</button>
                     </div>
+                  </div>
                   </div>
                 </div>
               </div>

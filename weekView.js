@@ -345,6 +345,22 @@ async function fetchExecutionSummaries(events) {
   }
 }
 
+// Blocos/chips de evento são <div>s posicionados — para serem operáveis por
+// teclado (auditoria UX #03), cada elemento clicável recebe role="button",
+// entra na ordem de Tab e ativa com Enter/Espaço, espelhando o clique.
+// Mesmo helper local em calendar.js (padrão do app: helpers pequenos são
+// duplicados entre views em vez de virar módulo compartilhado).
+function bindActivate(el, handler) {
+  el.setAttribute("role", "button");
+  el.tabIndex = 0;
+  el.addEventListener("click", handler);
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    handler(e);
+  });
+}
+
 function renderEvents(events, summaries = {}) {
   events.forEach(ev => {
     if (!ev.start_time) return;
@@ -373,7 +389,7 @@ function renderEvents(events, summaries = {}) {
     `;
 
     if (_cbs.onEventClick) {
-      block.addEventListener("click", e => {
+      bindActivate(block, e => {
         e.stopPropagation();
         _cbs.onEventClick(ev);
       });
@@ -398,7 +414,7 @@ function renderAcademicEvents(events) {
       chip.title = `[${ev._calendarName}] ${ev.title}`;
       chip.textContent = ev.title;
       if (_cbs.onAcademicEventClick) {
-        chip.addEventListener("click", e => { e.stopPropagation(); _cbs.onAcademicEventClick(ev); });
+        bindActivate(chip, e => { e.stopPropagation(); _cbs.onAcademicEventClick(ev); });
       }
       col.appendChild(chip);
     } else if (ev.start_time) {
@@ -421,7 +437,7 @@ function renderAcademicEvents(events) {
       `;
 
       if (_cbs.onAcademicEventClick) {
-        block.addEventListener("click", e => { e.stopPropagation(); _cbs.onAcademicEventClick(ev); });
+        bindActivate(block, e => { e.stopPropagation(); _cbs.onAcademicEventClick(ev); });
       }
 
       _el.querySelector(`#wk-col-${colIdx}`)?.appendChild(block);
