@@ -421,6 +421,17 @@ body {
   margin: .4rem .25rem;
 }
 
+/* Rótulo do grupo de ações de gerenciamento (auditoria UX #09) — separa
+   visualmente os itens que abrem modais dos que trocam de página. */
+.sidebar-group-label {
+  padding: .25rem .85rem .1rem;
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
 /* ── Nav items ── */
 .nav-item {
   display: flex;
