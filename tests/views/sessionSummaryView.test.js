@@ -39,7 +39,7 @@ test("openSessionSummary() renders every field from the data it receives, nothin
   assert.strictEqual(document.getElementById("ss-summary-modal").hidden, false);
   assert.strictEqual(document.getElementById("sss-event-title").textContent, "Cardiologia — aula 3");
   assert.strictEqual(document.getElementById("sss-category").textContent, "Cardiologia");
-  assert.strictEqual(document.getElementById("sss-subject").textContent, "Cardiologia");
+  assert.strictEqual(document.getElementById("sss-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
   assert.strictEqual(document.getElementById("sss-content").textContent, "Insuficiência cardíaca");
   assert.strictEqual(document.getElementById("sss-card-net-time").textContent, "1h 30min");
   assert.strictEqual(document.getElementById("sss-card-questions").textContent, "3");

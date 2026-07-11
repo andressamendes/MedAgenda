@@ -29,13 +29,15 @@
 // contagem de sessões e tempo líquido do cabeçalho diário são derivados em
 // memória das sessões já carregadas na página atual.
 //
-// F8.4 — filtros e navegação: período, matéria, categoria e busca textual
+// F8.4 — filtros e navegação: período, categoria e busca textual (o filtro
+// de matéria foi removido na auditoria UX #05 — era sempre idêntico ao de
+// categoria, pois o domínio não tem campo próprio de matéria)
 // operam inteiramente sobre `_allEntries`, o acumulado em memória das
 // sessões (+ metadados do compromisso + questões/revisões/reflexão) já
 // carregadas via "Carregar mais" — trocar um filtro nunca dispara uma nova
 // chamada a listSessions()/getEvents()/listQuestionsBySessions()/
 // listBySessions(); apenas re-renderiza o mesmo array já resolvido. As opções
-// de matéria/categoria dos <select> são derivadas do próprio conjunto
+// de categoria do <select> são derivadas do próprio conjunto
 // carregado (nenhuma consulta a subjectProgressService/categoryService).
 //
 // F8.5 — Linha do Tempo da Evolução: cartões de resumo diário/semanal e
@@ -73,7 +75,7 @@
 // responsável só por capturar os filtros, montar/reaproveitar o índice
 // (buildSearchIndex — reconstruído apenas quando `_allEntries` muda, nunca
 // a cada troca de filtro) e renderizar `searchEntries()` — nenhuma lógica
-// de busca vive aqui. período/matéria/categoria continuam sendo aplicados
+// de busca vive aqui. período/categoria continuam sendo aplicados
 // pela própria View (F8.4, inalterado) antes de studySearchService, na
 // mesma passada — todos os filtros são combinados juntos, sem prioridade
 // entre eles.
@@ -121,7 +123,7 @@ const REVIEW_STATUS_LABELS = {
 };
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
-let periodSelect, subjectSelect, categorySelect, searchInput;
+let periodSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
 
@@ -148,7 +150,7 @@ let _allEntries = [];
 let _searchIndex = [];
 
 const _DEFAULT_FILTERS = {
-  period: "all", subject: "", category: "", search: "",
+  period: "all", category: "", search: "",
   onlyWithReflection: false, onlyWithNotes: false, onlyWithReviews: false,
   onlyWithQuestions: false, onlyWithoutQuestions: false,
   onlyLong: false, onlyShort: false,
@@ -187,9 +189,12 @@ async function _loadEventsLookup() {
   }
 }
 
-// Mesmo mapeamento de sessionSummaryView.js/_render (F7.10): "matéria"
-// reaproveita a mesma categoria do compromisso — o domínio ainda não tem um
-// campo próprio de matéria (ver subjectProgressService.js).
+// `subject` reaproveita a mesma categoria do compromisso — o domínio ainda
+// não tem um campo próprio de matéria (ver subjectProgressService.js). A UI
+// não exibe mais um rótulo "Matéria" separado (auditoria UX #05), mas os
+// serviços puros de resumo/busca (studySummaryService/studySearchService)
+// continuam lendo meta.subject — o campo permanece no meta para preservar
+// esses contratos.
 function _resolveMeta(session) {
   const event = session.event_id ? _eventsById.get(session.event_id) : null;
   if (session.event_id && !event) {
@@ -557,7 +562,6 @@ function _buildEntryEl(entry) {
       <span>${_formatDuration(s.duration_minutes)}</span>
     </div>
     <div class="session-history-row session-history-meta">
-      <span>Matéria: ${meta.subject ? highlightMatches(meta.subject, query) : "—"}</span>
       <span>Conteúdo: ${meta.content ? highlightMatches(meta.content, query) : "—"}</span>
     </div>
     <div class="session-history-row session-history-meta">
@@ -596,7 +600,7 @@ function _periodStart(period) {
   return null; // "all"
 }
 
-// Período/matéria/categoria continuam sendo aplicados aqui (F8.4,
+// Período/categoria continuam sendo aplicados aqui (F8.4,
 // inalterado) — busca textual composta e os demais filtros novos
 // (reflexão/observações/revisões/questões/duração/tipo/status/dificuldade)
 // vivem em studySearchService.js (F8.8) e são aplicados em _render() sobre
@@ -607,13 +611,12 @@ function _matchesBaseFilters(entry) {
   const periodStart = _periodStart(_filters.period);
   if (periodStart && new Date(s.started_at) < periodStart) return false;
 
-  if (_filters.subject && meta.subject !== _filters.subject) return false;
   if (_filters.category && meta.category !== _filters.category) return false;
 
   return true;
 }
 
-// Opções de matéria/categoria derivadas do próprio conjunto já carregado —
+// Opções de categoria derivadas do próprio conjunto já carregado —
 // nenhuma consulta a categoryService/subjectProgressService.
 function _collectFieldValues(field) {
   const values = new Set();
@@ -632,14 +635,12 @@ function _populateSelect(selectEl, values, allLabel) {
 }
 
 function _refreshFilterOptions() {
-  _populateSelect(subjectSelect, _collectFieldValues("subject"), "Todas as matérias");
   _populateSelect(categorySelect, _collectFieldValues("category"), "Todas as categorias");
 }
 
 function _onFilterChange() {
   _filters = {
     period: periodSelect.value,
-    subject: subjectSelect.value,
     category: categorySelect.value,
     search: searchInput.value.trim(),
     onlyWithReflection: Boolean(reflectionCheck?.checked),
@@ -658,7 +659,6 @@ function _onFilterChange() {
 
 function _bindFilters() {
   periodSelect?.addEventListener("change", _onFilterChange);
-  subjectSelect?.addEventListener("change", _onFilterChange);
   categorySelect?.addEventListener("change", _onFilterChange);
   searchInput?.addEventListener("input", _onFilterChange);
   questionTypeSelect?.addEventListener("change", _onFilterChange);
@@ -709,7 +709,7 @@ function _updatePartialNotice() {
 // ordem started_at desc já devolvida por listSessions(), então o
 // agrupamento por dia continua correto mesmo após um filtro remover
 // sessões de um grupo (o grupo simplesmente não é recriado). Período/
-// matéria/categoria (F8.4) são aplicados primeiro sobre o índice já pronto
+// categoria (F8.4) são aplicados primeiro sobre o índice já pronto
 // (_matchesBaseFilters); busca textual composta e os demais filtros novos
 // (F8.8) são então aplicados de uma vez por searchEntries()
 // (studySearchService.js) — todos combinados, sem prioridade entre eles,
@@ -850,7 +850,6 @@ export async function initStudyJournalView() {
     partialNoticeEl = document.getElementById("sj-filter-partial-notice");
 
     periodSelect   = document.getElementById("sj-filter-period");
-    subjectSelect  = document.getElementById("sj-filter-subject");
     categorySelect = document.getElementById("sj-filter-category");
     searchInput    = document.getElementById("sj-filter-search");
 
@@ -913,7 +912,6 @@ export function resetStudyJournalView() {
   // entre usuários diferentes na mesma sessão do navegador.
   _filters = { ..._DEFAULT_FILTERS };
   if (periodSelect)   periodSelect.value = "all";
-  if (subjectSelect)  subjectSelect.value = "";
   if (categorySelect) categorySelect.value = "";
   if (searchInput)    searchInput.value = "";
   if (questionTypeSelect)       questionTypeSelect.value = "";

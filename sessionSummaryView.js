@@ -16,7 +16,7 @@ import { pad } from "./utils.js";
 const NO_EVENT_TEXT = "Sem compromisso vinculado";
 
 let modalEl, modal;
-let titleEl, categoryEl, subjectEl, contentEl, startedAtEl, endedAtEl;
+let titleEl, categoryEl, contentEl, startedAtEl, endedAtEl;
 let cardNetTimeEl, cardQuestionsEl, cardReviewsEl, cardStatusEl;
 let notesBlockEl, notesEl;
 let btnDashboard, btnHistory;
@@ -31,7 +31,6 @@ function _queryElements() {
 
   titleEl     = document.getElementById("sss-event-title");
   categoryEl  = document.getElementById("sss-category");
-  subjectEl   = document.getElementById("sss-subject");
   contentEl   = document.getElementById("sss-content");
   startedAtEl = document.getElementById("sss-started-at");
   endedAtEl   = document.getElementById("sss-ended-at");
@@ -97,7 +96,6 @@ export function openSessionSummary(data) {
 
   titleEl.textContent    = eventMeta?.title || "Sessão avulsa";
   categoryEl.textContent = _fieldText(eventMeta?.category, eventMeta);
-  subjectEl.textContent  = _fieldText(eventMeta?.category, eventMeta); // mesmo placeholder do resumo de encerramento — domínio ainda não tem campo próprio de matéria
   contentEl.textContent  = _fieldText(eventMeta?.description, eventMeta);
 
   startedAtEl.textContent = _formatClockTime(data.startedAt);

@@ -62,7 +62,7 @@ const QUESTION_DIFFICULTY_LABELS = {
 
 let emptyEl, emptyMessageEl, btnStartStandalone;
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
-let titleEl, categoryEl, subjectEl, contentEl, objectiveEl, dateEl, startedAtEl, expectedDurationEl, statusTextEl;
+let titleEl, categoryEl, contentEl, objectiveEl, dateEl, startedAtEl, expectedDurationEl, statusTextEl;
 let btnPause, btnResume, btnCancel, btnFinish;
 
 // Painel de Contexto (F7.6) — barra de progresso temporal (só quando o
@@ -76,7 +76,7 @@ const NO_EVENT_TEXT = "Sem compromisso vinculado";
 // Modal de encerramento (F7.3) — resumo somente leitura + confirmação, entre
 // clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
 let finishModalEl, finishModal;
-let ssfTitleEl, ssfCategoryEl, ssfSubjectEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl;
+let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl;
 let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
 
 // Cadastro de Questões Resolvidas (F7.4) — lista editável no próprio resumo,
@@ -135,7 +135,6 @@ function _queryElements() {
 
   titleEl              = document.getElementById("ss-event-title");
   categoryEl           = document.getElementById("ss-category");
-  subjectEl            = document.getElementById("ss-subject");
   contentEl            = document.getElementById("ss-content");
   objectiveEl          = document.getElementById("ss-objective");
   dateEl               = document.getElementById("ss-date");
@@ -160,7 +159,6 @@ function _queryElements() {
   finishModalEl      = document.getElementById("ss-finish-modal");
   ssfTitleEl          = document.getElementById("ssf-event-title");
   ssfCategoryEl        = document.getElementById("ssf-category");
-  ssfSubjectEl         = document.getElementById("ssf-subject");
   ssfContentEl         = document.getElementById("ssf-content");
   ssfStartedAtEl       = document.getElementById("ssf-started-at");
   ssfEndedAtEl         = document.getElementById("ssf-ended-at");
@@ -336,7 +334,6 @@ function _render() {
 
   titleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
   categoryEl.textContent = _eventFieldText(_eventMeta?.category);
-  subjectEl.textContent  = _eventFieldText(_eventMeta?.category); // domínio ainda não tem campo próprio de matéria (ver subjectProgressService.js)
   contentEl.textContent  = _eventFieldText(_eventMeta?.description);
   objectiveEl.textContent = "—"; // sem campo de objetivo no domínio atual — reservado para etapa futura
   dateEl.textContent      = _eventFieldText(_formatEventDate(_eventMeta?.event_date));
@@ -645,7 +642,6 @@ function _openFinishModal() {
 
   ssfTitleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
   ssfCategoryEl.textContent = _eventMeta?.category || "—";
-  ssfSubjectEl.textContent  = _eventMeta?.category || "—"; // ver studySessionView.js:_render — domínio ainda não tem campo próprio de matéria
   ssfContentEl.textContent  = _eventMeta?.description || "—";
   ssfStartedAtEl.textContent     = _formatClockTime(_session.started_at);
   ssfEndedAtEl.textContent       = _formatClockTime(_pendingEndedAt.toISOString());
@@ -923,7 +919,7 @@ export function resetStudySessionView() {
   // ficariam presentes no DOM (embora ocultos) até o próximo login. Mesma
   // simetria init/reset da auditoria A1.3: o texto do usuário anterior não
   // pode sobreviver no DOM, mesmo dentro de uma seção hidden.
-  [titleEl, categoryEl, subjectEl, contentEl, objectiveEl, dateEl, startedAtEl,
+  [titleEl, categoryEl, contentEl, objectiveEl, dateEl, startedAtEl,
    expectedDurationEl, statusTextEl, indStartedEl, indStatusEl, indEventEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (timeEl) timeEl.textContent = "";
@@ -933,7 +929,7 @@ export function resetStudySessionView() {
   // sempre os reconstrói do zero antes de reabrir, mas nada os limpava ao
   // fechar por logout — o resumo e as listas de questões/revisões do usuário
   // anterior ficariam presentes no DOM enquanto o modal permanece fechado.
-  [ssfTitleEl, ssfCategoryEl, ssfSubjectEl, ssfContentEl, ssfStartedAtEl,
+  [ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl,
    ssfEndedAtEl, ssfNetTimeEl, ssfTotalDurationEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (ssfNotesEl) ssfNotesEl.value = "";
