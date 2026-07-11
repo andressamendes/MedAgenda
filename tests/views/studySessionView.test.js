@@ -342,7 +342,8 @@ test("the summary modal shows the session's read-only data, sourced from the exi
   assert.notStrictEqual(document.getElementById("ssf-started-at").textContent, "—");
   assert.notStrictEqual(document.getElementById("ssf-ended-at").textContent, "—");
   assert.notStrictEqual(document.getElementById("ssf-net-time").textContent, "—");
-  assert.notStrictEqual(document.getElementById("ssf-total-duration").textContent, "—");
+  // A linha "Duração total" recebia o mesmo netMinutes de "Tempo líquido" e foi removida (auditoria UX #08).
+  assert.strictEqual(document.getElementById("ssf-total-duration"), null);
 });
 
 test("the summary modal has an Observações field and starts with no questions registered", async (t) => {
