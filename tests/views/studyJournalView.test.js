@@ -129,7 +129,7 @@ test("empty journal shows the empty-state message and no entries", async (t) => 
   assert.strictEqual(document.getElementById("sj-load-more").hidden, true);
 });
 
-test("a single session renders compromisso, categoria, matéria, conteúdo, data, horário, tempo líquido e contagens", async (t) => {
+test("a single session renders compromisso, categoria, conteúdo, data, horário, tempo líquido e contagens", async (t) => {
   const session = {
     id: "sess-1", event_id: "event-1", status: "finished",
     started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:30:00.000Z",
@@ -152,6 +152,8 @@ test("a single session renders compromisso, categoria, matéria, conteúdo, data
   assert.match(item.textContent, /1h 30min/);
   assert.match(item.textContent, /1 questão\(ões\)/);
   assert.match(item.textContent, /1 revisão\(ões\)/);
+  // A linha "Matéria:" duplicava a categoria já exibida no título (auditoria UX #05).
+  assert.doesNotMatch(item.textContent, /Matéria:/);
   assert.strictEqual(document.getElementById("sj-list-empty").hidden, true);
 });
 
@@ -631,7 +633,7 @@ test("period filter (Últimos 7 dias / Últimos 30 dias) bound sessions by a rol
   assert.strictEqual(entries().length, 3);
 });
 
-test("subject and category filter options are derived from the loaded sessions, and filtering by them narrows the list", async (t) => {
+test("category filter options are derived from the loaded sessions, and filtering by them narrows the list", async (t) => {
   const sessions = [
     { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
     { id: "sess-2", event_id: "ev-2", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
@@ -646,15 +648,15 @@ test("subject and category filter options are derived from the loaded sessions, 
 
   await mod.initStudyJournalView();
 
-  const subjectSelect = document.getElementById("sj-filter-subject");
+  // O filtro de matéria (sempre idêntico ao de categoria) foi removido — auditoria UX #05.
+  assert.strictEqual(document.getElementById("sj-filter-subject"), null);
+
   const categorySelect = document.getElementById("sj-filter-category");
-  const subjectOptions = Array.from(subjectSelect.options).map(o => o.value).filter(Boolean);
   const categoryOptions = Array.from(categorySelect.options).map(o => o.value).filter(Boolean);
-  assert.deepStrictEqual(subjectOptions.sort(), ["Farmacologia", "SOI II"]);
   assert.deepStrictEqual(categoryOptions.sort(), ["Farmacologia", "SOI II"]);
 
-  subjectSelect.value = "SOI II";
-  subjectSelect.dispatchEvent(new window.Event("change"));
+  categorySelect.value = "SOI II";
+  categorySelect.dispatchEvent(new window.Event("change"));
 
   assert.strictEqual(entries().length, 1);
   assert.match(document.getElementById("sj-list").textContent, /Aula SOI II/);
@@ -680,7 +682,7 @@ test("text search matches compromisso, conteúdo, observações and reflexão, c
   assert.match(document.getElementById("sj-list").textContent, /FARMACOLOGIA renal/);
 });
 
-test("combining period + matéria + busca applies all filters simultaneously", async (t) => {
+test("combining period + categoria + busca applies all filters simultaneously", async (t) => {
   const now = new Date();
   const recentIso = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 9, 0, 0).toISOString();
   const oldIso = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60, 9, 0, 0).toISOString();
@@ -702,8 +704,8 @@ test("combining period + matéria + busca applies all filters simultaneously", a
 
   document.getElementById("sj-filter-period").value = "30d";
   document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
-  document.getElementById("sj-filter-subject").value = "SOI II";
-  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-category").value = "SOI II";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
   document.getElementById("sj-filter-search").value = "farmacologia";
   document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
 
@@ -727,8 +729,8 @@ test("a day group with no sessions left after filtering disappears from the time
   await mod.initStudyJournalView();
   assert.strictEqual(groups().length, 2);
 
-  document.getElementById("sj-filter-subject").value = "SOI II";
-  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-category").value = "SOI II";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
 
   assert.strictEqual(groups().length, 1);
   assert.match(groups()[0].querySelector(".sj-day-header-date").textContent, /10\/03\/2026/);
@@ -801,8 +803,8 @@ test("load-more appends to the already-filtered set without resetting the active
 
   await mod.initStudyJournalView();
 
-  document.getElementById("sj-filter-subject").value = "SOI II";
-  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-category").value = "SOI II";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
   assert.strictEqual(entries().length, 1);
 
   document.getElementById("sj-load-more").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -821,12 +823,12 @@ test("re-initializing (new login) resets filters back to defaults", async (t) =>
   });
 
   await mod.initStudyJournalView();
-  document.getElementById("sj-filter-subject").value = "SOI II";
-  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-category").value = "SOI II";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
   assert.strictEqual(entries().length, 1);
 
   mod.resetStudyJournalView();
-  assert.strictEqual(document.getElementById("sj-filter-subject").value, "");
+  assert.strictEqual(document.getElementById("sj-filter-category").value, "");
 });
 
 test("re-initializing does not register duplicate listeners", async (t) => {
@@ -1010,8 +1012,8 @@ test("summaries recompute over only the currently filtered/visible sessions, wit
   assert.match(dailySummaries()[0].textContent, /1h 0min líquidos/);
   calls.length = 0;
 
-  document.getElementById("sj-filter-subject").value = "SOI II";
-  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-category").value = "SOI II";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
 
   assert.strictEqual(calls.length, 0, "trocar o filtro não deve chamar listSessions() novamente");
   assert.strictEqual(dailySummaries().length, 1);
@@ -1066,8 +1068,8 @@ test("the weekly narrative only considers the currently visible (filtered) entri
   });
 
   await mod.initStudyJournalView();
-  document.getElementById("sj-filter-subject").value = "Cardiologia";
-  document.getElementById("sj-filter-subject").dispatchEvent(new window.Event("change"));
+  document.getElementById("sj-filter-category").value = "Cardiologia";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
 
   const text = weekSummaries()[0].querySelector(".sj-week-narrative-text").textContent;
   assert.match(text, /Nesta semana você realizou 1 sessão/);

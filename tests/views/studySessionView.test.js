@@ -338,7 +338,7 @@ test("the summary modal shows the session's read-only data, sourced from the exi
 
   assert.strictEqual(document.getElementById("ssf-event-title").textContent, "Plantão UTI");
   assert.strictEqual(document.getElementById("ssf-category").textContent, "Plantão");
-  assert.strictEqual(document.getElementById("ssf-subject").textContent, "Plantão");
+  assert.strictEqual(document.getElementById("ssf-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
   assert.strictEqual(document.getElementById("ssf-content").textContent, "Revisar sepse");
   assert.notStrictEqual(document.getElementById("ssf-started-at").textContent, "—");
   assert.notStrictEqual(document.getElementById("ssf-ended-at").textContent, "—");
@@ -1126,7 +1126,7 @@ test("a standalone session shows an explicit 'Sem compromisso vinculado' label i
   await mod.initStudySessionView();
 
   assert.strictEqual(document.getElementById("ss-category").textContent, "Sem compromisso vinculado");
-  assert.strictEqual(document.getElementById("ss-subject").textContent, "Sem compromisso vinculado");
+  assert.strictEqual(document.getElementById("ss-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
   assert.strictEqual(document.getElementById("ss-content").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("ss-date").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("ss-ind-event").textContent, "Sem compromisso vinculado");
