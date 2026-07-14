@@ -1445,3 +1445,81 @@ test("UX #20 — shows a 'Carregando…' indicator while sessions are being fetc
   assert.strictEqual(emptyEl.hidden, true, "the loading indicator is gone once the sessions arrive");
   assert.strictEqual(document.getElementById("sj-list").children.length > 0, true);
 });
+
+// ── Auditoria UX #21: filtros avançados recolhidos por padrão ───────────────
+
+test("UX #21 — advanced filters (category, question filters, 'Somente' checkboxes) start collapsed; period and search stay visible", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-filter-period").closest("#sj-advanced-filters"), null, "período continua sempre visível");
+  assert.strictEqual(document.getElementById("sj-filter-search").closest("#sj-advanced-filters"), null, "busca continua sempre visível");
+
+  const advanced = document.getElementById("sj-advanced-filters");
+  assert.strictEqual(advanced.hidden, true, "filtros avançados nascem recolhidos");
+  assert.ok(advanced.contains(document.getElementById("sj-filter-category")));
+  assert.ok(advanced.contains(document.getElementById("sj-filter-reflection")));
+
+  const toggle = document.getElementById("sj-advanced-filters-toggle");
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+test("UX #21 — clicking 'Filtros avançados' expands the panel, and it can be collapsed again", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  const toggle   = document.getElementById("sj-advanced-filters-toggle");
+  const advanced = document.getElementById("sj-advanced-filters");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(advanced.hidden, false);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(advanced.hidden, true);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+test("UX #21 — the toggle shows a count of active advanced filters, without counting period/search", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  const countEl = document.getElementById("sj-advanced-filters-count");
+  assert.strictEqual(countEl.textContent, "", "no filter active, no count shown");
+
+  document.getElementById("sj-filter-period").value = "7d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(countEl.textContent, "", "período não conta como filtro avançado");
+
+  document.getElementById("sj-filter-reflection").checked = true;
+  document.getElementById("sj-filter-reflection").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(countEl.textContent, " (1)");
+
+  document.getElementById("sj-filter-notes").checked = true;
+  document.getElementById("sj-filter-notes").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(countEl.textContent, " (2)");
+
+  document.getElementById("sj-filter-reflection").checked = false;
+  document.getElementById("sj-filter-reflection").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(countEl.textContent, " (1)");
+});
+
+test("UX #21 — resetStudyJournalView() collapses the panel and clears the count (no leftover between users)", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  const toggle   = document.getElementById("sj-advanced-filters-toggle");
+  const advanced = document.getElementById("sj-advanced-filters");
+  const countEl  = document.getElementById("sj-advanced-filters-count");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("sj-filter-reflection").checked = true;
+  document.getElementById("sj-filter-reflection").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(countEl.textContent, " (1)");
+
+  mod.resetStudyJournalView();
+
+  assert.strictEqual(advanced.hidden, true);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+  assert.strictEqual(countEl.textContent, "");
+});
