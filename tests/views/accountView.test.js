@@ -90,6 +90,19 @@ test("opening the account modal via btn-my-account loads and renders the profile
   assert.strictEqual(document.getElementById("account-overlay").hidden, false);
 });
 
+// ── Auditoria UX #24: card "Sem meta configurada" do Dashboard passa a abrir
+// o modal já na seção de Metas de Tempo, em vez de deixar o usuário procurar.
+
+test("UX #24 — open({ focusSection: 'goals' }) renders the profile and focuses the daily goal field", async (t) => {
+  const view = await loadAccountView(t);
+  view.initAccountView("user-1");
+
+  await view.open({ focusSection: "goals" });
+
+  assert.strictEqual(document.getElementById("account-overlay").hidden, false);
+  assert.strictEqual(document.activeElement, document.getElementById("acc-goal-daily"));
+});
+
 test("calling initAccountView again (second login, no page reload) does not register a duplicate open listener", async (t) => {
   let getProfileCalls = 0;
   const view = await loadAccountView(t, { onGetProfile: () => { getProfileCalls++; } });
