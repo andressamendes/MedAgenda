@@ -60,7 +60,11 @@ export function resetAccountView() {
   if (body) body.innerHTML = '';
 }
 
-export async function open() {
+// Auditoria UX #24: o card "Sem meta configurada" do Dashboard não tinha
+// nenhum caminho para a configuração (que vive aqui, na seção Metas de
+// Tempo). `focusSection: "goals"` permite abrir o modal já rolado até essa
+// seção, com foco no primeiro campo — sem criar uma tela nova.
+export async function open({ focusSection } = {}) {
   if (!_overlay) return;
   _renderSkeleton();
   _modal.open();
@@ -68,6 +72,10 @@ export async function open() {
   try {
     _profile = await getProfile();
     _renderProfile(_profile);
+    if (focusSection === 'goals') {
+      document.getElementById('account-section-goals')?.scrollIntoView?.({ block: 'start' });
+      document.getElementById('acc-goal-daily')?.focus();
+    }
   } catch (err) {
     handleError(err, { context: 'accountView.loadProfile', silent: true });
     toast.error('Não foi possível carregar o perfil.');
@@ -153,7 +161,7 @@ function _renderProfile(p) {
     </div>
 
     <!-- Metas de Tempo (F2.2) — apenas informativas, exibidas no Dashboard -->
-    <div class="account-section">
+    <div class="account-section" id="account-section-goals">
       <h3 class="account-section-title">Metas de Tempo</h3>
       <p class="account-hint">Metas pessoais de estudo, em minutos. Deixe em branco para não definir uma meta.</p>
       <div class="field-row">

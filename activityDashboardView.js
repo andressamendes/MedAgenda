@@ -8,6 +8,7 @@
 
 import { getDashboardData } from "./activityDashboardService.js";
 import { getAchievementSummary } from "./achievementService.js";
+import { open as openAccountModal } from "./accountView.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { getDecisions } from "./decisionEngine.js";
@@ -56,21 +57,29 @@ function _formatGoalDesc(progress) {
   return `Meta: ${meta} · Realizado: ${realizado}. ${GOAL_STATE_LABEL[progress.state]}`;
 }
 
+// Auditoria UX #24: sem meta configurada, o card só dizia "Sem meta
+// configurada." sem nenhum caminho até a tela onde ela é configurável (Minha
+// Conta → Metas de Tempo). `goalKey` identifica, para cada card, qual chave
+// de `data` checar — usado só por _renderCards() para decidir se mostra o
+// link "Configurar meta".
 const GOAL_CARD_DEFS = [
   {
     title: "Meta diária",
     value: d => _formatGoalValue(d.dailyGoal),
     desc:  d => _formatGoalDesc(d.dailyGoal),
+    goalKey: "dailyGoal",
   },
   {
     title: "Meta semanal",
     value: d => _formatGoalValue(d.weeklyGoal),
     desc:  d => _formatGoalDesc(d.weeklyGoal),
+    goalKey: "weeklyGoal",
   },
   {
     title: "Meta mensal",
     value: d => _formatGoalValue(d.monthlyGoal),
     desc:  d => _formatGoalDesc(d.monthlyGoal),
+    goalKey: "monthlyGoal",
   },
 ];
 
@@ -176,13 +185,29 @@ function _renderCards(data) {
   errorEl.innerHTML = "";
   clearStateBlock(errorEl);
   cardsEl.hidden = false;
-  cardsEl.innerHTML = CARD_DEFS.map(def => `
+  cardsEl.innerHTML = CARD_DEFS.map(def => {
+    const noGoal = def.goalKey && !data[def.goalKey]?.configured;
+    const configureLink = noGoal
+      ? '<button type="button" class="link-btn" data-action="configure-goal">Configurar meta</button>'
+      : "";
+    return `
     <div class="dashboard-card">
       <span class="dashboard-card-title">${def.title}</span>
       <span class="dashboard-card-value">${def.value(data)}</span>
       <p class="dashboard-card-desc">${def.desc(data)}</p>
+      ${configureLink}
     </div>
-  `).join("");
+  `;
+  }).join("");
+}
+
+// Auditoria UX #24 — um único listener delegado no container, montado uma
+// vez em initActivityDashboardView() (os cards são recriados via innerHTML a
+// cada _load(), então um listener por botão se perderia a cada recarga).
+function _onCardsClick(ev) {
+  if (ev.target.closest('[data-action="configure-goal"]')) {
+    openAccountModal({ focusSection: "goals" });
+  }
 }
 
 function _renderError({ state, message }) {
@@ -249,6 +274,7 @@ export async function initActivityDashboardView() {
     cardsEl     = document.getElementById("dash-cards");
     errorEl     = document.getElementById("dash-error");
     smartTipsEl = document.getElementById("dash-smart-tips");
+    cardsEl.addEventListener("click", _onCardsClick);
   }
   _subscribeToEventBus();
   if (!_unsubscribeReview)  _unsubscribeReview  = onReviewStatusChanged(() => _loadSmartTips());

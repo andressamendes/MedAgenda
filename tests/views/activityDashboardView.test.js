@@ -15,6 +15,7 @@ const ACHIEVEMENT_SERVICE_SPECIFIER = new URL("../../achievementService.js", imp
 const REVIEW_SERVICE_SPECIFIER     = new URL("../../reviewService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
 const DECISION_ENGINE_SPECIFIER    = new URL("../../decisionEngine.js", import.meta.url).href;
+const ACCOUNT_VIEW_SPECIFIER       = new URL("../../accountView.js", import.meta.url).href;
 const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
@@ -77,9 +78,14 @@ function loadView(t, overrides = {}) {
     namedExports: { getAchievementSummary: overrides.getAchievementSummary ?? (async () => EMPTY_ACHIEVEMENTS) },
   });
 
+  const openAccountCalls = [];
+  t.mock.module(ACCOUNT_VIEW_SPECIFIER, {
+    namedExports: { open: (opts) => { openAccountCalls.push(opts); } },
+  });
+
   return import(`../../activityDashboardView.js?t=${Math.random()}`)
     .then(mod => ({
-      mod, handleErrorCalls,
+      mod, handleErrorCalls, openAccountCalls,
       triggerReviewStatusChanged: (review) => reviewChangedCallback?.(review),
       triggerProfileUpdated: (profile) => profileUpdatedCallback?.(profile),
     }));
@@ -137,6 +143,37 @@ test("with no goals configured, the three goal cards show 'Sem meta configurada'
   assert.match(text, /Meta semanal/);
   assert.match(text, /Meta mensal/);
   assert.strictEqual((text.match(/Sem meta configurada/g) || []).length, 3);
+});
+
+// ── Auditoria UX #24: "Configurar meta" — sem meta configurada, o card antes
+// não tinha nenhum caminho até a configuração (Minha Conta → Metas de Tempo).
+
+test("UX #24 — an unconfigured goal card shows a 'Configurar meta' link that opens Minha Conta on the goals section", async (t) => {
+  const { mod, openAccountCalls } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+
+  await mod.initActivityDashboardView();
+
+  const cards = document.getElementById("dash-cards");
+  const links = cards.querySelectorAll('[data-action="configure-goal"]');
+  assert.strictEqual(links.length, 3); // uma por meta (diária/semanal/mensal)
+
+  links[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(openAccountCalls.length, 1);
+  assert.deepStrictEqual(openAccountCalls[0], { focusSection: "goals" });
+});
+
+test("UX #24 — a configured goal card does NOT show the 'Configurar meta' link", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      dailyGoal: { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const cards = document.getElementById("dash-cards");
+  assert.strictEqual(cards.querySelectorAll('[data-action="configure-goal"]').length, 2); // só semanal/mensal seguem sem meta
 });
 
 test("a partially reached goal shows the percentage and remaining-time message", async (t) => {
