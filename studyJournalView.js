@@ -126,6 +126,7 @@ let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
 let periodSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
+let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
 
 let _offset  = 0;
 let _loading = false;
@@ -161,6 +162,10 @@ const _DEFAULT_FILTERS = {
 // persistido. `search` já normalizado (trim) ao ser lido do input —
 // studySearchService.js normaliza caixa/acentos/espaços internamente.
 let _filters = { ..._DEFAULT_FILTERS };
+
+// Filtros que vivem atrás de "Filtros avançados" (auditoria UX #21) — todos
+// exceto período/busca, que continuam sempre visíveis na toolbar principal.
+const ADVANCED_FILTER_KEYS = Object.keys(_DEFAULT_FILTERS).filter(k => k !== "period" && k !== "search");
 
 function _scheduleReload() {
   if (_reloadTimer) return;
@@ -654,7 +659,23 @@ function _onFilterChange() {
     questionStatus: questionStatusSelect?.value || "",
     questionDifficulty: questionDifficultySelect?.value || "",
   };
+  _updateAdvancedFiltersCount();
   _render();
+}
+
+// Contador em "Filtros avançados" (auditoria UX #21) — quantos dos filtros
+// escondidos estão ativos, para que o usuário não precise abrir o painel só
+// para conferir.
+function _updateAdvancedFiltersCount() {
+  if (!advancedCountEl) return;
+  const active = ADVANCED_FILTER_KEYS.filter(key => _filters[key] !== _DEFAULT_FILTERS[key]).length;
+  advancedCountEl.textContent = active > 0 ? ` (${active})` : "";
+}
+
+function _toggleAdvancedFilters() {
+  const expand = advancedFiltersEl.hidden;
+  advancedFiltersEl.hidden = !expand;
+  advancedToggleBtn.setAttribute("aria-expanded", String(expand));
 }
 
 function _bindFilters() {
@@ -666,6 +687,7 @@ function _bindFilters() {
   questionDifficultySelect?.addEventListener("change", _onFilterChange);
   [reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck]
     .forEach(el => el?.addEventListener("change", _onFilterChange));
+  advancedToggleBtn?.addEventListener("click", _toggleAdvancedFilters);
 }
 
 // ── Estatísticas da busca (F8.8) ─────────────────────────────────────────
@@ -868,6 +890,10 @@ export async function initStudyJournalView() {
     longCheck        = document.getElementById("sj-filter-long");
     shortCheck       = document.getElementById("sj-filter-short");
 
+    advancedToggleBtn = document.getElementById("sj-advanced-filters-toggle");
+    advancedFiltersEl = document.getElementById("sj-advanced-filters");
+    advancedCountEl   = document.getElementById("sj-advanced-filters-count");
+
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
     _bindFilters();
   }
@@ -922,4 +948,7 @@ export function resetStudyJournalView() {
   if (questionDifficultySelect) questionDifficultySelect.value = "";
   [reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck]
     .forEach(el => { if (el) el.checked = false; });
+  _updateAdvancedFiltersCount();
+  if (advancedFiltersEl)  advancedFiltersEl.hidden = true;
+  if (advancedToggleBtn)  advancedToggleBtn.setAttribute("aria-expanded", "false");
 }
