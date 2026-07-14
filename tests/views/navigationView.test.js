@@ -47,6 +47,23 @@ test("showPage() shows the history page (F1.8) and hides the others", () => {
   assert.strictEqual(historyBtn.classList.contains("nav-item--active"), true);
 });
 
+test("UX #11 — Histórico e Diário têm descrições distintas e um link cruzado que navega via showPage()", () => {
+  nav.showPage("history");
+  const historyDesc = document.querySelector("#page-history .page-description");
+  assert.ok(historyDesc, "Histórico tem um texto explicando seu papel");
+  assert.match(historyDesc.textContent, /canceladas/i);
+
+  const toJournalBtn = document.querySelector('#page-history .page-description-link[data-page="journal"]');
+  assert.ok(toJournalBtn, "Histórico tem um link para o Diário");
+  toJournalBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-journal").hidden, false);
+
+  const journalDesc = document.querySelector("#page-journal .page-description");
+  assert.ok(journalDesc, "Diário tem um texto explicando seu papel");
+  const toHistoryBtn = document.querySelector('#page-journal .page-description-link[data-page="history"]');
+  assert.ok(toHistoryBtn, "Diário tem um link de volta para o Histórico");
+});
+
 test("showPage() with an unknown page name falls back to agenda", () => {
   nav.showPage("nonexistent-page");
   assert.strictEqual(document.getElementById("page-agenda").hidden, false);
