@@ -136,3 +136,14 @@ test("UX #10 — rótulos 'Semana'/'Mês'/'Calendários Acadêmicos' não se con
   assert.strictEqual(document.getElementById("page-agenda").querySelector(".page-title").textContent, "Semana");
   assert.strictEqual(document.getElementById("page-calendar").querySelector(".page-title").textContent, "Mês");
 });
+
+test("UX #18 — o bottom nav do mobile abre a Sessão de Estudo diretamente, em vez de Compromissos (redundante com Semana/Mês)", () => {
+  const sessionBtn = document.querySelector('.bottom-nav-item[data-page="study-session"]');
+  assert.ok(sessionBtn, "o bottom nav tem um item para a Sessão de Estudo");
+  assert.strictEqual(sessionBtn.querySelector(".bottom-nav-label").textContent, "Sessão");
+  assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="appointments"]'), null);
+
+  sessionBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-study-session").hidden, false);
+  assert.strictEqual(sessionBtn.classList.contains("bottom-nav-item--active"), true);
+});
