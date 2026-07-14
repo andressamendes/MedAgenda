@@ -1502,8 +1502,9 @@ textarea { resize: vertical; }
 
 .event-card-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: .4rem;
-  flex-shrink: 0;
 }
 
 .event-card-meta {
