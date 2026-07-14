@@ -346,6 +346,59 @@ test("an event with no sessions shows a friendly empty state", async (t) => {
   assert.strictEqual(document.getElementById("session-stats").hidden, true);
 });
 
+// ── Auditoria UX #26: histórico/estatísticas colapsados por padrão — o modal
+// de edição não deve mais abrir direto num relatório inteiro.
+
+test("UX #26 — the session history/stats body starts collapsed, behind a 'Ver histórico deste compromisso' toggle", async (t) => {
+  mockEventService(t, {
+    sessionHistory: [{
+      id: "sess-1", status: "finished", source: "event",
+      started_at: "2026-08-12T08:00:00.000Z", ended_at: "2026-08-12T09:30:00.000Z",
+      duration_minutes: 90, notes: null,
+    }],
+  });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+
+  const toggle = document.getElementById("session-history-toggle");
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("session-history-body").hidden, true);
+  // Os dados já foram carregados (F1.5/F1.6) — só a exibição fica colapsada.
+  assert.strictEqual(document.querySelectorAll("#session-history-list .session-history-item").length, 1);
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
+  assert.strictEqual(document.getElementById("session-history-body").hidden, false);
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("session-history-body").hidden, true);
+});
+
+test("UX #26 — closing and reopening the edit modal (even for a different event) always starts the history toggle collapsed again", async (t) => {
+  mockEventService(t, { sessionHistory: [] });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12" });
+  await flush();
+  document.getElementById("session-history-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("session-history-body").hidden, false);
+
+  document.getElementById("btn-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  openEventForm({ id: "evt-2", title: "Aula de Cardio", event_date: "2026-08-13" });
+  await flush();
+
+  assert.strictEqual(document.getElementById("session-history-toggle").getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("session-history-body").hidden, true);
+});
+
 test("an event with one finished session shows its date, times, duration, status and source", async (t) => {
   mockEventService(t, {
     sessionHistory: [{

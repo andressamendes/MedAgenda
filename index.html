@@ -909,32 +909,42 @@
         <div id="event-insights" class="smart-cards" hidden></div>
 
         <div id="session-history" class="session-history" hidden>
-          <div id="session-stats" class="session-stats" hidden>
-            <div class="session-stat">
-              <span class="session-stat-label">Tempo executado</span>
-              <span class="session-stat-value" id="stat-total"></span>
-            </div>
-            <div class="session-stat">
-              <span class="session-stat-label">Sessões</span>
-              <span class="session-stat-value" id="stat-count"></span>
-            </div>
-            <div class="session-stat">
-              <span class="session-stat-label">Última sessão</span>
-              <span class="session-stat-value" id="stat-last"></span>
-            </div>
-            <div class="session-stat">
-              <span class="session-stat-label">Maior sessão</span>
-              <span class="session-stat-value" id="stat-longest"></span>
-            </div>
-            <div class="session-stat">
-              <span class="session-stat-label">Média</span>
-              <span class="session-stat-value" id="stat-average"></span>
-            </div>
+          <!-- Auditoria UX #26: estatísticas + histórico de sessões competiam
+               visualmente com o formulário de edição — quem só quer mudar o
+               horário atravessava um relatório inteiro. Colapsado por padrão;
+               os dados continuam carregados normalmente (F1.5/F1.6), só a
+               exibição fica atrás do toggle. -->
+          <div class="ss-collapsible-header">
+            <h3 class="session-history-title">Sessões realizadas</h3>
+            <button type="button" class="btn btn-ghost btn-sm" id="session-history-toggle" aria-expanded="false" aria-controls="session-history-body">Ver histórico deste compromisso</button>
           </div>
+          <div id="session-history-body" hidden>
+            <div id="session-stats" class="session-stats" hidden>
+              <div class="session-stat">
+                <span class="session-stat-label">Tempo executado</span>
+                <span class="session-stat-value" id="stat-total"></span>
+              </div>
+              <div class="session-stat">
+                <span class="session-stat-label">Sessões</span>
+                <span class="session-stat-value" id="stat-count"></span>
+              </div>
+              <div class="session-stat">
+                <span class="session-stat-label">Última sessão</span>
+                <span class="session-stat-value" id="stat-last"></span>
+              </div>
+              <div class="session-stat">
+                <span class="session-stat-label">Maior sessão</span>
+                <span class="session-stat-value" id="stat-longest"></span>
+              </div>
+              <div class="session-stat">
+                <span class="session-stat-label">Média</span>
+                <span class="session-stat-value" id="stat-average"></span>
+              </div>
+            </div>
 
-          <h3 class="session-history-title">Sessões realizadas</h3>
-          <p id="session-history-empty" class="session-history-empty" hidden></p>
-          <ul id="session-history-list" class="session-history-list"></ul>
+            <p id="session-history-empty" class="session-history-empty" hidden></p>
+            <ul id="session-history-list" class="session-history-list"></ul>
+          </div>
         </div>
       </div>
     </div>
