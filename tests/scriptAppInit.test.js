@@ -35,7 +35,6 @@ const SPECIFIERS = {
   diagnosticService: new URL("../diagnosticService.js", import.meta.url).href,
   accountView: new URL("../accountView.js", import.meta.url).href,
   academicCalendarView: new URL("../academicCalendarView.js", import.meta.url).href,
-  assistantView: new URL("../assistantView.js", import.meta.url).href,
   aiPanelView: new URL("../aiPanelView.js", import.meta.url).href,
   confirmDialog: new URL("../confirmDialog.js", import.meta.url).href,
   navigationView: new URL("../navigationView.js", import.meta.url).href,
@@ -118,9 +117,6 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
       renderFilterBar: () => {}, getAcademicEventProvider: () => () => Promise.resolve([]),
       isPersonalVisible: () => true, resetAcademicCalendarView: () => {},
     },
-  });
-  t.mock.module(SPECIFIERS.assistantView, {
-    namedExports: { initAssistantView: () => {}, renderAssistant: () => {}, resetAssistant: () => {} },
   });
   t.mock.module(SPECIFIERS.aiPanelView, { namedExports: { initAIPanel: () => {}, resetAIPanel: () => {} } });
   t.mock.module(SPECIFIERS.confirmDialog, {

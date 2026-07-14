@@ -12,9 +12,7 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 
 const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
 const ACHIEVEMENT_SERVICE_SPECIFIER = new URL("../../achievementService.js", import.meta.url).href;
-const REVIEW_SERVICE_SPECIFIER     = new URL("../../reviewService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
-const DECISION_ENGINE_SPECIFIER    = new URL("../../decisionEngine.js", import.meta.url).href;
 const ACCOUNT_VIEW_SPECIFIER       = new URL("../../accountView.js", import.meta.url).href;
 const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
 
@@ -26,13 +24,6 @@ const EMPTY_DATA = {
   averageMinutes: 0, longestSession: null,
   dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
 };
-
-// Cards inteligentes (F3.5, consumindo o Decision Engine — F3.7):
-// decisionEngine.js é mockado por inteiro aqui — a consolidação em si (multi-
-// motor, deduplicação, prioridade) já é coberta isoladamente em
-// tests/decisionEngine.test.js; estes testes só verificam que a view chama
-// getDecisions() uma vez e renderiza exatamente o que ele devolve.
-const EMPTY_DECISIONS = { decisions: [], planning: [], unavailable: [] };
 
 // Auditoria UX #23 — achievementService.js mockado por inteiro (mesmo padrão
 // de decisionEngine.js acima): a derivação de conquistas em si já é coberta
@@ -56,22 +47,11 @@ function loadView(t, overrides = {}) {
     },
   });
 
-  let reviewChangedCallback = null;
-  t.mock.module(REVIEW_SERVICE_SPECIFIER, {
-    namedExports: {
-      onReviewStatusChanged: (cb) => { reviewChangedCallback = cb; return () => {}; },
-    },
-  });
-
   let profileUpdatedCallback = null;
   t.mock.module(PROFILE_SERVICE_SPECIFIER, {
     namedExports: {
       onProfileUpdated: (cb) => { profileUpdatedCallback = cb; return () => {}; },
     },
-  });
-
-  t.mock.module(DECISION_ENGINE_SPECIFIER, {
-    namedExports: { getDecisions: overrides.getDecisions ?? (async () => EMPTY_DECISIONS) },
   });
 
   t.mock.module(ACHIEVEMENT_SERVICE_SPECIFIER, {
@@ -86,21 +66,12 @@ function loadView(t, overrides = {}) {
   return import(`../../activityDashboardView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls, openAccountCalls,
-      triggerReviewStatusChanged: (review) => reviewChangedCallback?.(review),
       triggerProfileUpdated: (profile) => profileUpdatedCallback?.(profile),
     }));
 }
 
 function tick() {
   return new Promise(resolve => setTimeout(resolve, 0));
-}
-
-function decision({ origem = "recommendation", origemTipo = "empty_week", prioridade = "informativo", mensagem, assunto }) {
-  return {
-    origem, origemTipo, prioridade, mensagem,
-    assunto: assunto ?? `${origem}:${origemTipo}`,
-    confianca: "alta", dadosUtilizados: {}, acaoSugerida: null,
-  };
 }
 
 beforeEach(() => {
@@ -553,113 +524,24 @@ test("resetActivityDashboardView() clears the rendered cards (no data survives l
   mod.resetActivityDashboardView();
 
   // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
-  // após o logout — cards de execução e cards inteligentes voltam ao estado
-  // de uma aplicação recém-aberta.
+  // após o logout — cards de execução voltam ao estado de uma aplicação
+  // recém-aberta.
   assert.strictEqual(document.getElementById("dash-cards").innerHTML, "", "logout must leave no rendered data behind");
-  assert.strictEqual(document.getElementById("dash-smart-tips").innerHTML, "");
 });
 
-// ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7)
-// A view só chama decisionEngine.getDecisions() uma vez e renderiza o que
-// vier — nenhum cálculo, priorização ou deduplicação mora aqui (isso já é
-// coberto isoladamente em tests/decisionEngine.test.js). Isolado do
-// carregamento principal: nunca esconde os cards de execução.
-
-test("a decision from the Decision Engine renders as a smart card", async (t) => {
-  const { mod } = await loadView(t, {
-    getDecisions: async () => ({
-      decisions: [decision({ origemTipo: "empty_week", mensagem: "Sua semana está vazia." })],
-      planning: [], unavailable: [],
-    }),
+test("subscribes to onProfileUpdated on init: a profile (goal) update triggers a reload", async (t) => {
+  let calls = 0;
+  const { mod, triggerProfileUpdated } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
   });
 
   await mod.initActivityDashboardView();
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  const tips = document.getElementById("dash-smart-tips");
-  assert.strictEqual(tips.hidden, false);
-  assert.match(tips.textContent, /Sua semana está vazia/);
-});
-
-test("a reflection-origin decision ('Você concluiu X% do planejamento') renders as a smart card", async (t) => {
-  const { mod } = await loadView(t, {
-    getDecisions: async () => ({
-      decisions: [decision({ origem: "reflection", origemTipo: "plan_completion", prioridade: "importante", mensagem: "Você concluiu 82% do planejamento nos últimos 7 dias." })],
-      planning: [], unavailable: [],
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  const tips = document.getElementById("dash-smart-tips");
-  assert.match(tips.textContent, /Você concluiu 82% do planejamento/);
-});
-
-test("an empty decision list never produces an invented card", async (t) => {
-  const { mod } = await loadView(t); // getDecisions padrão devolve uma lista vazia
-
-  await mod.initActivityDashboardView();
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  assert.strictEqual(document.getElementById("dash-smart-tips").hidden, true);
-});
-
-test("smart tips stay discreet: at most 3 cards even with several decisions", async (t) => {
-  const { mod } = await loadView(t, {
-    getDecisions: async () => ({
-      decisions: [
-        decision({ origemTipo: "overdue_events", prioridade: "urgente", mensagem: "Você tem 1 compromisso atrasado." }),
-        decision({ origemTipo: "pending_reviews", prioridade: "urgente", mensagem: "Você possui 3 revisões pendentes." }),
-        decision({ origemTipo: "heavy_week", prioridade: "importante", mensagem: "Sua semana está muito carregada." }),
-        decision({ origemTipo: "goals_nearly_met", prioridade: "recomendado", mensagem: "Você está perto de bater sua meta." }),
-        decision({ origem: "reflection", origemTipo: "plan_completion", prioridade: "importante", mensagem: "Você concluiu 82% do planejamento." }),
-      ],
-      planning: [], unavailable: [],
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  const cards = document.getElementById("dash-smart-tips").querySelectorAll(".smart-card");
-  assert.ok(cards.length <= 3);
-});
-
-test("smart tips never break the dashboard when the Decision Engine fails", async (t) => {
-  const { mod, handleErrorCalls } = await loadView(t, {
-    getDecisions: async () => { throw new Error("network down"); },
-  });
-
-  await assert.doesNotReject(() => mod.initActivityDashboardView());
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  // Cards de execução continuam de pé mesmo com a fonte de cards inteligentes fora do ar.
-  assert.strictEqual(document.getElementById("dash-cards").hidden, false);
-  assert.strictEqual(document.getElementById("dash-smart-tips").hidden, true);
-  assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.smartTips" && c.context.silent === true));
-});
-
-test("smart tips refresh automatically when a review is completed/skipped or a goal (profile) is updated", async (t) => {
-  let decisionCalls = 0;
-  const { mod, triggerReviewStatusChanged, triggerProfileUpdated } = await loadView(t, {
-    getDecisions: async () => {
-      decisionCalls += 1;
-      return { decisions: [], planning: [], unavailable: [] };
-    },
-  });
-
-  await mod.initActivityDashboardView();
-  await new Promise(resolve => setTimeout(resolve, 0));
-  assert.strictEqual(decisionCalls, 1);
-
-  triggerReviewStatusChanged({ id: "r1", status: "completed" });
-  await new Promise(resolve => setTimeout(resolve, 0));
-  assert.strictEqual(decisionCalls, 2);
+  assert.strictEqual(calls, 1);
 
   triggerProfileUpdated({ weekly_goal_minutes: 300 });
-  await new Promise(resolve => setTimeout(resolve, 0));
-  assert.strictEqual(decisionCalls, 3);
+  await tick();
+
+  assert.strictEqual(calls, 2);
 });
 
 // ── Auditoria UX #20: loading inconsistente — tela em branco durante a carga

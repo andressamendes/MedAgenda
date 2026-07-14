@@ -28,7 +28,6 @@ O **MedAgenda** é uma Progressive Web App (PWA) de gerenciamento de agenda proj
 ### IA
 - Google Gemini API (modelo `gemini-2.5-flash`)
 - Acesso exclusivamente via Edge Function (chave API nunca exposta no frontend)
-- Assistente local baseado em regras como fallback (`smartAssistant.js`)
 
 ### Infraestrutura
 - GitHub Pages (hospedagem do frontend, HTTPS gratuito)
@@ -279,8 +278,6 @@ MedAgenda/
 | Módulo | Responsabilidade |
 |--------|-----------------|
 | `recurrence.js` | Re-exporta `recurrence-core.js` — expansão de eventos recorrentes |
-| `smartAssistant.js` | Análise local baseada em regras: conflitos, plantões longos, dias sobrecarregados, sugestões de estudo |
-| `analytics.js` | Cálculo de estatísticas mensais (total de horas, distribuição por categoria) |
 | `icsImporter.js` | Parser RFC 5545 para importação de arquivos `.ics` |
 | `icsExporter.js` | Geração de arquivos `.ics` para exportação de eventos |
 | `timeGoals.js` | Validação e limites das Metas de Tempo (`profiles.daily/weekly/monthly_goal_minutes`) |
@@ -341,7 +338,6 @@ MedAgenda/
 | `academicCalendarEventsView.js` | Gerenciamento de eventos dentro de um calendário acadêmico |
 | `academicCalendarICSView.js` | UI de importação e exportação ICS para calendários acadêmicos |
 | `academicCalendarFilter.js` | Barra de filtros para visibilidade dos calendários |
-| `assistantView.js` | Exibição de alertas e sugestões do assistente inteligente local |
 | `aiPanelView.js` | Drawer do chat com Gemini: resumo semanal, sugestões de estudo, análise de conflitos |
 | `calendar.js` | Renderização do calendário mensal com sobreposição de calendários acadêmicos |
 | `weekView.js` | Grade semanal com slots de tempo (7h–23h), 7 dias |
@@ -465,8 +461,6 @@ MedAgenda/
 5. Edge Function valida JWT, constrói prompt, chama Gemini, retorna resposta
 6. Resposta exibida no drawer em português
 
-Se Gemini indisponível, `smartAssistant.js` oferece análise local baseada em regras diretamente no `#page-agenda`.
-
 ### Push Notifications
 
 1. Usuário ativa notificações em Configurações
@@ -554,8 +548,6 @@ aiPanelView.js
 ```
 
 **Privacidade:** somente título, data, hora, duração e categoria dos eventos são enviados ao Gemini. Descrição, localização detalhada e IDs nunca são transmitidos. Não há histórico de conversa armazenado.
-
-**Fallback local:** se a Edge Function estiver indisponível, `smartAssistant.js` executa análise baseada em regras diretamente no navegador, sem chamadas externas.
 
 ---
 
