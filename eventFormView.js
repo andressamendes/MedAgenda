@@ -153,12 +153,15 @@ export function initEventForm(onSave) {
   // Auditoria UX #12: excluir só existia na página "Compromissos" — o
   // usuário tinha que fechar o modal de edição e reencontrar o item na
   // lista. Mesmo fluxo de confirmação/exclusão já usado lá (script.js/
-  // handleDelete), sem distinção de série recorrente por ora (#14).
+  // handleDelete).
   deleteBtn?.addEventListener("click", async () => {
     if (!editingId) return;
+    const isRecurring = _editingEvent?.recurrence_type && _editingEvent.recurrence_type !== "none";
     const ok = await confirmDialog({
       title:   "Excluir compromisso",
-      message: "Tem certeza que deseja excluir este compromisso?",
+      message: isRecurring
+        ? "Este é um evento recorrente. Isso excluirá toda a série. Deseja continuar?"
+        : "Tem certeza que deseja excluir este compromisso?",
       danger:  true,
     });
     if (!ok) return;

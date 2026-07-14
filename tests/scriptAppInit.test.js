@@ -60,15 +60,22 @@ let authCallbacks;
 let openAcademicCalendarModalCalls;
 let startSessionForEventCalls;
 let showPageCalls;
+let confirmDialogCalls;
+let deleteEventCalls;
 
-function mockScriptDependencies(t, { events = [], startSessionResult = false } = {}) {
+function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true } = {}) {
   authCallbacks = null;
   openAcademicCalendarModalCalls = 0;
   startSessionForEventCalls = [];
   showPageCalls = [];
+  confirmDialogCalls = [];
+  deleteEventCalls = [];
 
   t.mock.module(SPECIFIERS.eventService, {
-    namedExports: { getEvents: async () => events, getEventById: async () => null, deleteEvent: async () => {} },
+    namedExports: {
+      getEvents: async () => events, getEventById: async () => null,
+      deleteEvent: async (id) => { deleteEventCalls.push(id); },
+    },
   });
   t.mock.module(SPECIFIERS.calendar, {
     namedExports: {
@@ -116,7 +123,9 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false } =
     namedExports: { initAssistantView: () => {}, renderAssistant: () => {}, resetAssistant: () => {} },
   });
   t.mock.module(SPECIFIERS.aiPanelView, { namedExports: { initAIPanel: () => {}, resetAIPanel: () => {} } });
-  t.mock.module(SPECIFIERS.confirmDialog, { namedExports: { confirmDialog: async () => true } });
+  t.mock.module(SPECIFIERS.confirmDialog, {
+    namedExports: { confirmDialog: async (opts) => { confirmDialogCalls.push(opts); return confirmResult; } },
+  });
   t.mock.module(SPECIFIERS.navigationView, {
     namedExports: {
       initNavigation: () => {}, restoreLastPage: () => {}, restoreSidebarState: () => {},
@@ -261,4 +270,43 @@ test("UX #13 — when startSessionForEvent() declines (e.g. another session alre
   assert.strictEqual(startSessionForEventCalls.length, 1);
   assert.strictEqual(showPageCalls.includes("study-session"), false);
   assert.strictEqual(btn.disabled, false, "the button is re-enabled after the attempt");
+});
+
+// ── Auditoria UX #14: excluir evento recorrente não avisava sobre a série ──
+
+const RECURRING_EVENT = {
+  id: "evt-2", title: "Aula semanal", event_date: "2026-08-12",
+  start_time: "08:00:00", duration_minutes: 60, recurrence_type: "weekly",
+};
+
+test("UX #14 — deleting a recurring appointment from the list warns that it deletes the whole series", async (t) => {
+  mockScriptDependencies(t, { events: [RECURRING_EVENT] });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const btn = document.querySelector("#event-list .btn-delete");
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(confirmDialogCalls.length, 1);
+  assert.match(confirmDialogCalls[0].message, /série/i, "the confirm dialog must mention that the whole series is deleted");
+  assert.deepStrictEqual(deleteEventCalls, ["evt-2"]);
+});
+
+test("UX #14 — deleting a non-recurring appointment keeps the plain confirmation message", async (t) => {
+  mockScriptDependencies(t, { events: [SAMPLE_EVENT] });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const btn = document.querySelector("#event-list .btn-delete");
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(confirmDialogCalls.length, 1);
+  assert.doesNotMatch(confirmDialogCalls[0].message, /série/i);
+  assert.deepStrictEqual(deleteEventCalls, ["evt-1"]);
 });
