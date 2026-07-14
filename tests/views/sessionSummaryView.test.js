@@ -86,7 +86,7 @@ test("empty notes hide the observações block instead of showing a blank one", 
   assert.strictEqual(document.getElementById("sss-notes-block").hidden, true);
 });
 
-test('"Voltar ao Dashboard" closes the summary and navigates to the dashboard page', async () => {
+test('"Ver Dashboard" closes the summary and navigates to the dashboard page', async () => {
   const mod = await loadSessionSummaryView();
 
   mod.openSessionSummary({
@@ -112,6 +112,23 @@ test('"Ir para Histórico de Sessões" closes the summary and navigates to the h
 
   assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true);
   assert.strictEqual(document.getElementById("page-history").hidden, false);
+});
+
+// ── Auditoria UX #16: "Fechar" sem navegar ──────────────────────────────────
+
+test('UX #16 — "Fechar" just closes the summary, without navigating anywhere', async () => {
+  const mod = await loadSessionSummaryView();
+
+  mod.openSessionSummary({
+    eventMeta: null, startedAt: null, endedAt: null, netMinutes: 0,
+    status: "finished", questionsCount: 0, reviewsCount: 0, notes: "",
+  });
+
+  document.getElementById("sss-btn-close").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true);
+  assert.strictEqual(document.getElementById("page-dashboard").hidden, true);
+  assert.strictEqual(document.getElementById("page-history").hidden, true);
 });
 
 test("a cancelled session shows the matching status label", async () => {

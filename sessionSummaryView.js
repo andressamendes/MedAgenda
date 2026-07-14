@@ -19,7 +19,7 @@ let modalEl, modal;
 let titleEl, categoryEl, contentEl, startedAtEl, endedAtEl;
 let cardNetTimeEl, cardQuestionsEl, cardReviewsEl, cardStatusEl;
 let notesBlockEl, notesEl;
-let btnDashboard, btnHistory;
+let btnClose, btnDashboard, btnHistory;
 
 const STATUS_LABELS = {
   finished:  "Concluída",
@@ -43,6 +43,7 @@ function _queryElements() {
   notesBlockEl = document.getElementById("sss-notes-block");
   notesEl      = document.getElementById("sss-notes");
 
+  btnClose     = document.getElementById("sss-btn-close");
   btnDashboard = document.getElementById("sss-btn-dashboard");
   btnHistory   = document.getElementById("sss-btn-history");
 
@@ -50,6 +51,7 @@ function _queryElements() {
 }
 
 function _bindEvents() {
+  btnClose.addEventListener("click",     () => { _close(); });
   btnDashboard.addEventListener("click", () => { _close(); showPage("dashboard"); });
   btnHistory.addEventListener("click",   () => { _close(); showPage("history"); });
 }
