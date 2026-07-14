@@ -107,3 +107,15 @@ test("UX #09 — os itens que abrem modais (Calendários/Categorias) ficam num g
   // Nenhum destino de navegação (data-page) convive no grupo de modais.
   assert.strictEqual(manageGroup.querySelector(".nav-item[data-page]"), null);
 });
+
+test("UX #10 — rótulos 'Semana'/'Mês'/'Calendários Acadêmicos' não se confundem mais entre si", () => {
+  const weekLabel = document.querySelector('.nav-item[data-page="agenda"] .nav-label').textContent;
+  const monthLabel = document.querySelector('.nav-item[data-page="calendar"] .nav-label').textContent;
+  const academicLabel = document.getElementById("btn-academic-cals").querySelector(".nav-label").textContent;
+
+  assert.strictEqual(weekLabel, "Semana");
+  assert.strictEqual(monthLabel, "Mês");
+  assert.strictEqual(academicLabel, "Calendários Acadêmicos");
+  assert.strictEqual(document.getElementById("page-agenda").querySelector(".page-title").textContent, "Semana");
+  assert.strictEqual(document.getElementById("page-calendar").querySelector(".page-title").textContent, "Mês");
+});
