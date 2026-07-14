@@ -59,7 +59,7 @@ export function confirmDialog({ title = '', message = '', confirmText = 'Confirm
   cancelBtn.textContent  = cancelText;
   confirmBtn.className   = `btn ${danger ? 'btn-danger' : 'btn-primary'}`;
 
-  modal.open(cancelBtn);
+  modal.open(danger ? cancelBtn : confirmBtn);
 
   return new Promise(res => { _resolve = res; });
 }
