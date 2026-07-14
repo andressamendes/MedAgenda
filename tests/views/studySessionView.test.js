@@ -387,6 +387,44 @@ test("adding a question in the summary appends it to the local list, without per
   assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão adicionada/);
 });
 
+// ── Auditoria UX #25: cadastro de questões campo a campo — defaults
+// inteligentes (repete matéria/tópico) e foco automático de volta ao
+// primeiro campo, para permitir cadência rápida ao lançar várias questões.
+
+test("UX #25 — adding a question repeats the subject/topic in the form for the next one", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-q-topic").value = "Insuficiência cardíaca";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ssf-q-subject").value, "Cardiologia", "matéria não deve ser limpa após adicionar");
+  assert.strictEqual(document.getElementById("ssf-q-topic").value, "Insuficiência cardíaca");
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 2, "a segunda questão herda matéria/tópico sem redigitar");
+});
+
+test("UX #25 — after adding a question, focus returns to the first field (Tipo) for rapid keyboard entry", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.activeElement, document.getElementById("ssf-q-type"));
+});
+
 test("removing a question from the local list drops it before confirmation", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
