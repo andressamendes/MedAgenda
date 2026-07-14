@@ -8,8 +8,13 @@
  * content is irrelevant since mock.module() fully replaces the exports.
  *
  * ensureTestConfig() never overwrites a real local config.js a contributor
- * may already have — it only creates one if missing, and only removes the
- * one it created.
+ * may already have — it only creates one if missing. It never deletes it
+ * either: `npm test` runs every test file that calls this in parallel
+ * (auth.test.js, scriptAppInit.test.js, settingsModal.test.js), each in its
+ * own process but sharing this same on-disk path, so one file's cleanup
+ * could delete the placeholder while another was still mid-run (intermittent
+ * ERR_MODULE_NOT_FOUND). The placeholder is gitignored and self-labeled
+ * "safe to delete", so leaving it behind is harmless.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -25,11 +30,12 @@ const PLACEHOLDER =
   "export const APP_URL = \"http://localhost:8080\";\n" +
   "export const VAPID_PUBLIC_KEY = \"\";\n";
 
-/** Returns a restore() function — call it after the test run completes. */
+/**
+ * Returns a restore() function for symmetry with the previous cleanup-based
+ * API (existing before/after hooks keep working unchanged) — it is now a
+ * no-op, kept on purpose (see comment above).
+ */
 export function ensureTestConfig() {
-  if (fs.existsSync(CONFIG_PATH)) return () => {};
-  fs.writeFileSync(CONFIG_PATH, PLACEHOLDER);
-  return () => {
-    try { fs.unlinkSync(CONFIG_PATH); } catch { /* already gone */ }
-  };
+  if (!fs.existsSync(CONFIG_PATH)) fs.writeFileSync(CONFIG_PATH, PLACEHOLDER);
+  return () => {};
 }
