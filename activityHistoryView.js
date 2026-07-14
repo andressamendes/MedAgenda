@@ -24,9 +24,9 @@ const SESSION_STATUS_LABELS = {
   cancelled: "Cancelada",
 };
 const SESSION_SOURCE_LABELS = {
-  manual: "Manual",
-  event:  "Compromisso",
-  quick:  "Rápida",
+  manual: "Sessão manual",
+  event:  "Iniciada pela agenda",
+  quick:  "Sessão rápida",
 };
 
 let tabsEl, listEl, emptyEl, loadMoreBtn;
@@ -129,7 +129,7 @@ function _resolveMeta(session) {
       : { title: "Compromisso removido", category: null };
   }
   const cat = session.category_id ? _categoriesById.get(session.category_id) : null;
-  return { title: "Sessão avulsa", category: cat?.name || null };
+  return { title: "Sessão sem compromisso", category: cat?.name || null };
 }
 
 function _formatDate(iso) {

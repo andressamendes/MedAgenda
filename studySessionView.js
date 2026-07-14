@@ -329,7 +329,7 @@ function _render() {
 
   pauseNoteEl.hidden = status !== "paused";
 
-  titleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
+  titleEl.textContent    = _eventMeta?.title || "Sessão sem compromisso";
   categoryEl.textContent = _eventFieldText(_eventMeta?.category);
   contentEl.textContent  = _eventFieldText(_eventMeta?.description);
   dateEl.textContent      = _eventFieldText(_formatEventDate(_eventMeta?.event_date));
@@ -647,7 +647,7 @@ function _openFinishModal() {
   const netMinutes = _minutesBetween(_session, _pendingEndedAt);
   _pendingNetMinutes = netMinutes;
 
-  ssfTitleEl.textContent    = _eventMeta?.title || "Sessão avulsa";
+  ssfTitleEl.textContent    = _eventMeta?.title || "Sessão sem compromisso";
   ssfCategoryEl.textContent = _eventMeta?.category || "—";
   ssfContentEl.textContent  = _eventMeta?.description || "—";
   ssfStartedAtEl.textContent     = _formatClockTime(_session.started_at);

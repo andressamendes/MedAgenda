@@ -63,7 +63,7 @@ test("a standalone session (no linked event) shows the placeholder fields instea
     notes: "",
   });
 
-  assert.strictEqual(document.getElementById("sss-event-title").textContent, "Sessão avulsa");
+  assert.strictEqual(document.getElementById("sss-event-title").textContent, "Sessão sem compromisso");
   assert.strictEqual(document.getElementById("sss-category").textContent, "Sem compromisso vinculado");
   assert.strictEqual(document.getElementById("sss-card-questions").textContent, "0");
   assert.strictEqual(document.getElementById("sss-card-reviews").textContent, "0");

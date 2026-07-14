@@ -165,7 +165,7 @@ test("a manual session with no linked event shows a generic label", async (t) =>
 
   await mod.initStudyJournalView();
 
-  assert.match(document.getElementById("sj-list").textContent, /Sessão avulsa/);
+  assert.match(document.getElementById("sj-list").textContent, /Sessão sem compromisso/);
 });
 
 test("detail region starts hidden and toggling reveals Questões, Revisões e Observações", async (t) => {
@@ -881,7 +881,7 @@ test("a day group ends with an automatic daily summary: tempo líquido, sessões
   const summaries = dailySummaries();
   assert.strictEqual(summaries.length, 1, "um único grupo de dia deve gerar um único resumo diário");
   const text = summaries[0].textContent;
-  assert.match(text, /1h 15min líquidos/);
+  assert.match(text, /1h 15min estudados/);
   assert.match(text, /2 sessão\(ões\)/);
   assert.match(text, /3 questão\(ões\) resolvida\(s\)/);
   assert.match(text, /1 revisão\(ões\)/);
@@ -1012,7 +1012,7 @@ test("summaries recompute over only the currently filtered/visible sessions, wit
 
   await mod.initStudyJournalView();
   assert.match(dailySummaries()[0].textContent, /2 sessão\(ões\)/);
-  assert.match(dailySummaries()[0].textContent, /1h 0min líquidos/);
+  assert.match(dailySummaries()[0].textContent, /1h 0min estudados/);
   calls.length = 0;
 
   document.getElementById("sj-filter-category").value = "SOI II";
@@ -1021,7 +1021,7 @@ test("summaries recompute over only the currently filtered/visible sessions, wit
   assert.strictEqual(calls.length, 0, "trocar o filtro não deve chamar listSessions() novamente");
   assert.strictEqual(dailySummaries().length, 1);
   assert.match(dailySummaries()[0].textContent, /1 sessão\(ões\)/);
-  assert.match(dailySummaries()[0].textContent, /30min líquidos/);
+  assert.match(dailySummaries()[0].textContent, /30min estudados/);
   assert.match(dailySummaries()[0].textContent, /SOI II/);
   assert.doesNotMatch(dailySummaries()[0].textContent, /Anatomia/);
 });
