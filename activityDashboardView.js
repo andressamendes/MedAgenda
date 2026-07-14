@@ -7,6 +7,7 @@
 // Sem gráficos, sem barras, sem animações: só números para leitura rápida.
 
 import { getDashboardData } from "./activityDashboardService.js";
+import { getAchievementSummary } from "./achievementService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { getDecisions } from "./decisionEngine.js";
@@ -119,6 +120,17 @@ const CARD_DEFS = [
       ? `Sessão finalizada em ${_formatDate(d.longestSession.started_at)}.`
       : "Nenhuma sessão finalizada neste mês.",
   },
+  // Auditoria UX #23 — achievementService.js já existia, completo e testado,
+  // mas nenhuma view o consumia. Card único no Dashboard consolidado (opção
+  // "sem criar tela nova" da auditoria), no mesmo padrão dos demais: só
+  // formata o que getAchievementSummary() já devolve pronto.
+  {
+    title: "Conquistas recentes",
+    value: d => d.achievements ? `${d.achievements.completed}/${d.achievements.total}` : "—",
+    desc:  d => d.achievements
+      ? `${d.achievements.completed > 0 ? `${d.achievements.completed} conquista(s) concluída(s)` : "Nenhuma conquista concluída ainda"}. Progresso geral: ${Math.round(d.achievements.overallProgress * 100)}%.`
+      : "Não foi possível carregar este indicador.",
+  },
 ];
 
 let cardsEl, errorEl, smartTipsEl;
@@ -206,8 +218,17 @@ async function _load() {
   cardsEl.hidden = false;
   cardsEl.innerHTML = '<p class="list-empty" style="grid-column:1/-1">Carregando…</p>';
   try {
-    const data = await getDashboardData();
-    _renderCards(data);
+    const [data, achievements] = await Promise.all([
+      getDashboardData(),
+      // Isolado do carregamento principal: uma falha aqui vira "—" no card
+      // de Conquistas (mesmo padrão de fallback parcial do bloco Revisões em
+      // insightsView.js), nunca esconde os demais dez cards de execução.
+      getAchievementSummary().catch(err => {
+        handleError(err, { context: "activityDashboardView.achievements", silent: true });
+        return null;
+      }),
+    ]);
+    _renderCards({ ...data, achievements });
   } catch (err) {
     _renderError(errorToState(handleError(err, { context: "activityDashboardView.load", silent: true })));
   } finally {
