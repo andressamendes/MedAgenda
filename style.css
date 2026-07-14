@@ -399,12 +399,6 @@ body {
   transition: width .2s ease;
 }
 
-.sidebar-filter-wrap {
-  padding: .35rem .25rem .5rem;
-  border-bottom: 1px solid var(--gray-200);
-  margin-bottom: .25rem;
-}
-
 .sidebar-nav-group {
   display: flex;
   flex-direction: column;
@@ -503,7 +497,6 @@ body {
 }
 
 .app-sidebar.sidebar-collapsed .nav-label,
-.app-sidebar.sidebar-collapsed .sidebar-filter-wrap,
 .app-sidebar.sidebar-collapsed .sidebar-divider,
 .app-sidebar.sidebar-collapsed .sidebar-nav-group--secondary {
   display: none;
@@ -564,11 +557,12 @@ body {
   border-radius: 2px;
 }
 
-/* ── Filter section (in sidebar) ── */
 .filter-section {
   margin-bottom: .25rem;
 }
 
+/* ── Filter bar (auditoria UX #31) — na toolbar de Semana/Mês/Compromissos,
+   as únicas visões que o filtro "Exibir: Pessoais" afeta. ── */
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
@@ -746,7 +740,6 @@ body {
   }
 
   .app-sidebar.sidebar-collapsed .nav-label,
-  .app-sidebar.sidebar-collapsed .sidebar-filter-wrap,
   .app-sidebar.sidebar-collapsed .sidebar-divider,
   .app-sidebar.sidebar-collapsed .sidebar-nav-group--secondary {
     display: revert;
