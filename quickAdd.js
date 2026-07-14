@@ -18,7 +18,7 @@ function init() {
   overlay.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <span class="modal-date" id="qa-date-label"></span>
+        <h2 class="modal-title" id="qa-date-label"></h2>
         <button class="modal-close" id="qa-close" aria-label="Fechar">✕</button>
       </div>
       <div class="modal-body">

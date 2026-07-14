@@ -30,7 +30,7 @@ function init() {
   overlay.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <span class="modal-date" id="asd-title">Sessão interrompida</span>
+        <h2 class="modal-title" id="asd-title">Sessão interrompida</h2>
       </div>
       <div class="modal-body">
         <p id="asd-message" style="margin:0;color:var(--gray-700);font-size:.9rem;line-height:1.5;white-space:pre-wrap"></p>

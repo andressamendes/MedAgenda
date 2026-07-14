@@ -1906,7 +1906,7 @@ textarea { resize: vertical; }
   border-bottom: 1px solid var(--color-border);
 }
 
-.modal-date {
+.modal-title {
   font-size: .9rem;
   font-weight: 700;
   color: var(--gray-800);
