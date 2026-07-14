@@ -45,7 +45,7 @@ const REVISOES_CARD_DEFS = [
 
 const PRODUTIVIDADE_CARD_DEFS = [
   { title: "Compromissos executados",         value: d => String(d.executedCount),      desc: () => "Compromissos com ao menos uma sessão finalizada." },
-  { title: "Compromissos nunca executados",   value: d => String(d.neverExecutedCount), desc: () => "Compromissos sem nenhuma sessão finalizada." },
+  { title: "Compromissos sem sessão registrada",   value: d => String(d.neverExecutedCount), desc: () => "Compromissos sem nenhuma sessão finalizada." },
 ];
 
 const BLOCK_DEFS = [

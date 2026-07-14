@@ -96,7 +96,7 @@ test("a single session renders title, category, date, times, duration, status, s
   assert.match(item.textContent, /Estágio/);
   assert.match(item.textContent, /1h 30min/);
   assert.match(item.textContent, /Concluída/);
-  assert.match(item.textContent, /Compromisso/);
+  assert.match(item.textContent, /Iniciada pela agenda/);
   assert.match(item.textContent, /Revisão de cardiologia/);
   assert.strictEqual(document.getElementById("ah-list-empty").hidden, true);
 });
@@ -126,7 +126,7 @@ test("a manual session with no linked event shows a generic label instead of a t
 
   await mod.initActivityHistoryView();
 
-  assert.match(document.getElementById("ah-list").textContent, /Sessão avulsa/);
+  assert.match(document.getElementById("ah-list").textContent, /Sessão sem compromisso/);
 });
 
 test("clicking a filter tab reloads with the matching status and marks it active", async (t) => {

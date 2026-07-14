@@ -152,7 +152,7 @@ test("clicking 'Iniciar sessão avulsa' starts a session and switches to the run
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Executando");
-  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Sessão avulsa");
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Sessão sem compromisso");
 });
 
 test("executando: only Pausar and Finalizar are shown — never Continuar/Cancelar", async (t) => {

@@ -207,7 +207,7 @@ function _resolveMeta(session) {
     return { title: "Compromisso removido", category: null, subject: null, content: null };
   }
   return {
-    title:   event?.title || "Sessão avulsa",
+    title:   event?.title || "Sessão sem compromisso",
     category: event?.category || null,
     subject:  event?.category || null,
     content:  event?.description || null,
@@ -484,7 +484,7 @@ function _appendDailySummary(dayGroup, summary, comparison) {
   div.className = "sj-daily-summary";
   div.innerHTML = `
     <div class="sj-daily-summary-stats">
-      <span>${_formatDuration(summary.totalMinutes)} líquidos</span>
+      <span>${_formatDuration(summary.totalMinutes)} estudados</span>
       <span>${summary.sessionsCount} sessão(ões)</span>
       <span>${summary.questionsCount} questão(ões) resolvida(s)</span>
       <span>${summary.reviewsCount} revisão(ões)</span>

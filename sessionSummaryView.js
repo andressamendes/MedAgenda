@@ -96,7 +96,7 @@ export function openSessionSummary(data) {
 
   const eventMeta = data.eventMeta || null;
 
-  titleEl.textContent    = eventMeta?.title || "Sessão avulsa";
+  titleEl.textContent    = eventMeta?.title || "Sessão sem compromisso";
   categoryEl.textContent = _fieldText(eventMeta?.category, eventMeta);
   contentEl.textContent  = _fieldText(eventMeta?.description, eventMeta);
 
