@@ -641,6 +641,10 @@
           <div class="page-header">
             <h1 class="page-title">Histórico de Sessões</h1>
           </div>
+          <!-- auditoria UX #11: Histórico e Diário listam as mesmas sessões
+               concluídas; este texto e o link abaixo diferenciam o papel de
+               cada tela sem unificá-las (alternativa mínima da auditoria). -->
+          <p class="page-description">Registro simples de todas as sessões, incluindo as <strong>canceladas</strong>. Para filtros avançados, busca, resumos e reflexões, use o <button type="button" class="page-description-link" data-page="journal">Diário de Estudos</button>.</p>
           <div class="ah-filter-tabs" id="ah-filter-tabs" role="tablist" aria-label="Filtrar histórico de sessões">
             <button type="button" class="ah-filter-tab ah-filter-tab--active" data-status="all" role="tab" aria-selected="true">Todos</button>
             <button type="button" class="ah-filter-tab" data-status="finished" role="tab" aria-selected="false">Finalizadas</button>
@@ -656,6 +660,8 @@
           <div class="page-header">
             <h1 class="page-title">Diário de Estudos</h1>
           </div>
+          <!-- auditoria UX #11: ver comentário equivalente em page-history. -->
+          <p class="page-description">Registro completo das sessões finalizadas, com filtros, busca, resumos e reflexões. Sessões <strong>canceladas</strong> ficam no <button type="button" class="page-description-link" data-page="history">Histórico de Sessões</button>.</p>
           <div class="appointments-toolbar">
             <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
             <div class="toolbar-filters">
