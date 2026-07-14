@@ -438,12 +438,19 @@ function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
   toggleBtn.textContent = expanded ? "Ocultar" : "Mostrar";
 }
 
-function _resetQuestionForm() {
+// Auditoria UX #25: `keepSubjectTopic` repete a matéria/tópico da última
+// questão adicionada — quem resolveu um bloco inteiro de uma mesma
+// matéria/tópico não precisa redigitar a cada questão. Tipo/status/
+// dificuldade já voltam a um default razoável (não em branco), por isso só
+// matéria/tópico precisam desse tratamento especial.
+function _resetQuestionForm({ keepSubjectTopic = false } = {}) {
   ssfQTypeEl.value       = "multiple_choice";
   ssfQStatusEl.value     = "pending";
   ssfQDifficultyEl.value = "medium";
-  ssfQSubjectEl.value    = "";
-  ssfQTopicEl.value      = "";
+  if (!keepSubjectTopic) {
+    ssfQSubjectEl.value = "";
+    ssfQTopicEl.value   = "";
+  }
   _editingQuestionLocalId = null;
   ssfBtnAddQuestion.textContent = "Adicionar questão";
 }
@@ -494,13 +501,17 @@ function _addOrUpdatePendingQuestion() {
     _pendingQuestions.push({ localId: _nextQuestionLocalId++, ...fields });
   }
 
-  _resetQuestionForm();
+  _resetQuestionForm({ keepSubjectTopic: true });
   _renderQuestionsList();
   // Auditoria UX #22: antes, a única confirmação era a lista crescendo —
   // fácil de não notar numa lista já longa. Microfeedback (duração curta):
   // várias questões podem ser adicionadas em sequência no mesmo formulário,
   // então um toast com a duração padrão acumularia na tela.
   toast.info(wasEditing ? "Questão atualizada." : "Questão adicionada.", 2000);
+  // Auditoria UX #25: foco de volta ao primeiro campo permite cadência rápida
+  // por teclado ao lançar várias questões em sequência (ex.: resolveu um
+  // bloco inteiro de uma prova), sem precisar clicar de volta no formulário.
+  ssfQTypeEl.focus();
 }
 
 function _editPendingQuestion(localId) {
