@@ -186,6 +186,17 @@ async function _checkSchemaGate() {
   }
 }
 
+// Auditoria UX #31: o filtro "Exibir: Pessoais" só afeta Semana, Mês e
+// Compromissos — cada página tem sua própria instância na toolbar (em vez de
+// uma única barra fixa no topo da sidebar, visível mesmo nas páginas onde não
+// faz nada). As três leem/escrevem o mesmo estado (academicCalendarFilter.js),
+// então são recriadas juntas a cada mudança para permanecerem sincronizadas.
+function _renderAllFilterBars() {
+  renderFilterBar("filter-bar-agenda");
+  renderFilterBar("filter-bar-calendar");
+  renderFilterBar("filter-bar-appointments");
+}
+
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
 // Inicialização do app após autenticação bem-sucedida.
 // Esta função é passada como callback onSignedIn ao initAuthView() e é chamada
@@ -218,7 +229,7 @@ async function _initApp(session) {
     try {
       await initAcademicCalendarView(() => {
         // Called whenever calendars change — refresh filters and views
-        renderFilterBar("filter-bar");
+        _renderAllFilterBars();
         refreshAll();
       });
     } catch (err) {
@@ -227,7 +238,7 @@ async function _initApp(session) {
       // mês e lista de compromissos de carregarem normalmente.
       handleError(err, { context: "initApp.academicCalendar" });
     }
-    renderFilterBar("filter-bar");
+    _renderAllFilterBars();
 
     const academicProvider = getAcademicEventProvider();
     setCalendarAcademicProvider(academicProvider);

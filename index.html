@@ -222,17 +222,6 @@
       <!-- Sidebar navigation -->
       <nav class="app-sidebar" id="app-sidebar" aria-label="Navegação principal">
 
-        <!-- Filter bar -->
-        <div class="sidebar-filter-wrap">
-          <div class="filter-bar" id="filter-bar">
-            <span class="filter-label">Exibir:</span>
-            <label class="filter-toggle">
-              <input type="checkbox" id="chk-personal" checked>
-              <span>Pessoais</span>
-            </label>
-          </div>
-        </div>
-
         <!-- Primary nav -->
         <div class="sidebar-nav-group">
           <button class="nav-item nav-item--active" data-page="agenda">
@@ -304,6 +293,11 @@
             <button id="btn-new-event" class="btn btn-primary btn-sm">+ Novo compromisso</button>
           </div>
 
+          <!-- Auditoria UX #31: filtro "Exibir: Pessoais" morava fixo no topo
+               da sidebar, visível em todas as páginas mesmo só afetando
+               Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
+          <div class="filter-bar" id="filter-bar-agenda"></div>
+
           <!-- Weekly view -->
           <section class="week-section" id="week-container"></section>
         </div>
@@ -314,6 +308,7 @@
             <h1 class="page-title">Mês</h1>
             <button id="btn-new-event-cal" class="btn btn-primary btn-sm">+ Novo compromisso</button>
           </div>
+          <div class="filter-bar" id="filter-bar-calendar"></div>
           <section class="calendar-section" id="calendar-container"></section>
         </div>
 
@@ -335,6 +330,7 @@
                 <option value="title">Título A–Z</option>
               </select>
             </div>
+            <div class="filter-bar" id="filter-bar-appointments"></div>
           </div>
           <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
           <div id="event-list"></div>
