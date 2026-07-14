@@ -16,12 +16,11 @@
  *   [6]  categorias       — Modal de gerenciamento de categorias → extraído para categoryView.js
  *   [7]  configurações    — Modal de configurações (notificações locais e push) → extraído para settingsModal.js
  *   [8]  diagnóstico      — Overlay de diagnóstico de serviços → extraído para diagnosticModal.js
- *   [9]  assistente       — Assistente inteligente → extraído para assistantView.js
- *   [10] painelIA         — Painel Gemini → extraído para aiPanelView.js
- *   [11] navegação        — Páginas, sidebar, user menu, bottom nav → extraído para navigationView.js
+ *   [9]  painelIA         — Painel Gemini → extraído para aiPanelView.js
+ *   [10] navegação        — Páginas, sidebar, user menu, bottom nav → extraído para navigationView.js
  *
  * Estado compartilhado entre domínios:
- *   - allEvents        → produzido por: lista; consumido por: assistente (via renderAssistant())
+ *   - allEvents        → produzido por: lista; consumido internamente (filtro, categorias)
  *
  * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
  */
@@ -45,7 +44,6 @@ import {
   getAcademicEventProvider, isPersonalVisible,
   resetAcademicCalendarView,
 } from "./academicCalendarView.js";
-import { initAssistantView, renderAssistant, resetAssistant } from "./assistantView.js";
 import { initAIPanel, resetAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, restoreLastPage, restoreSidebarState, showPage } from "./navigationView.js";
@@ -109,10 +107,10 @@ const sortSelect           = document.getElementById("sort-appointments");
 // ── Estado compartilhado entre domínios ───────────────────────────────────
 // allEvents precisará de uma estratégia de compartilhamento quando os domínios
 // dependentes forem extraídos. editingId → interno ao: formulário (eventFormView.js)
-let allEvents = [];    // compartilhado: lista → assistente, painelIA
+let allEvents = [];    // compartilhado: lista → painelIA
 
 // Chamado no logout (ver initAuthView() abaixo) — allEvents e a lista
-// renderizada são estado compartilhado entre domínios (lista → assistente,
+// renderizada são estado compartilhado entre domínios (lista →
 // painelIA); sem este reset, a lista do usuário anterior continuaria em
 // memória e na tela (mesmo escondida) até o próximo loadEvents() da nova
 // sessão, e um filtro/busca digitado pelo usuário anterior sobreviveria à
@@ -323,7 +321,6 @@ async function loadEvents() {
     allEvents = events;
     renderFilteredList();
     scheduleReminders(events);
-    renderAssistant(events);
   } catch (err) {
     // Um erro (rede, banco, sessão expirada, etc.) nunca pode parecer uma
     // agenda vazia — a mensagem exibida é a mesma categorizada pelo
@@ -504,9 +501,6 @@ safeInit("diagnóstico", initDiagnosticModal);
 // ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
 safeInit("formulário de compromisso", () => initEventForm(refreshAll));
 
-// ── [DOMAIN: assistente inteligente] — extraído para assistantView.js ────────
-safeInit("assistente", initAssistantView);
-
 // ── [DOMAIN: painel ia (gemini)] — extraído para aiPanelView.js ──────────────
 safeInit("painel de IA", initAIPanel);
 
@@ -522,7 +516,6 @@ safeInit("painel de IA", initAIPanel);
 initAuthView({
   onSignedIn:      _initApp,
   onBeforeSignOut: () => {
-    resetAssistant();
     resetNotifications();
     resetStudySessionView();
     resetActivityHistoryView();

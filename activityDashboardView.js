@@ -9,18 +9,11 @@
 import { getDashboardData } from "./activityDashboardService.js";
 import { getAchievementSummary } from "./achievementService.js";
 import { open as openAccountModal } from "./accountView.js";
-import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
-import { getDecisions } from "./decisionEngine.js";
-import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { pad } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
-
-// Discreto: no máximo 3 sugestões contextuais por vez (ETAPA 3), mesma ideia
-// de "sempre discreta" do enunciado — não é uma segunda central de insights.
-const MAX_SMART_TIPS = 3;
 
 function _formatDuration(minutes) {
   const total = Math.max(0, Math.round(minutes || 0));
@@ -142,8 +135,7 @@ const CARD_DEFS = [
   },
 ];
 
-let cardsEl, errorEl, smartTipsEl;
-let _unsubscribeReview  = null;
+let cardsEl, errorEl;
 let _unsubscribeProfile = null;
 let _loading = false;
 
@@ -217,23 +209,6 @@ function _renderError({ state, message }) {
   renderStateBlock(errorEl, { state, message, onRetry: () => _load() });
 }
 
-// ── Cards inteligentes (F3.5, ETAPA 3/7; consumindo o Decision Engine — F3.7) ─
-// Nenhuma decisão é tomada aqui: decisionEngine.getDecisions() já roda
-// Recommendation/Planning/Reflection Engine uma única vez e devolve a lista
-// final, priorizada e sem duplicidade, via decisionEngine.js. Esta view só
-// converte as primeiras decisões em cards visuais — isolado do carregamento
-// principal: uma falha aqui nunca esconde os cards de execução (ETAPA 9).
-async function _loadSmartTips() {
-  if (!smartTipsEl) return;
-  try {
-    const { decisions } = await getDecisions();
-    renderSmartCards(smartTipsEl, decisions.slice(0, MAX_SMART_TIPS).map(decisionToCard));
-  } catch (err) {
-    handleError(err, { context: "activityDashboardView.smartTips", silent: true });
-    renderSmartCards(smartTipsEl, []);
-  }
-}
-
 async function _load() {
   if (_loading) return;
   _loading = true;
@@ -259,34 +234,30 @@ async function _load() {
   } finally {
     _loading = false;
   }
-  await _loadSmartTips();
 }
 
 /**
  * Monta o dashboard (uma única vez) e carrega os indicadores. Assina o
- * barramento de eventos da sessão (F6.4) e onReviewStatusChanged()/
- * onProfileUpdated() para recalcular automaticamente — cards de execução e
- * cards inteligentes — sempre que uma sessão, revisão ou meta mudar, sem
- * exigir reload da página nem polling.
+ * barramento de eventos da sessão (F6.4) e onProfileUpdated() para
+ * recalcular automaticamente os cards de execução sempre que uma sessão ou
+ * meta mudar, sem exigir reload da página nem polling.
  */
 export async function initActivityDashboardView() {
   if (!cardsEl) {
     cardsEl     = document.getElementById("dash-cards");
     errorEl     = document.getElementById("dash-error");
-    smartTipsEl = document.getElementById("dash-smart-tips");
     cardsEl.addEventListener("click", _onCardsClick);
   }
   _subscribeToEventBus();
-  if (!_unsubscribeReview)  _unsubscribeReview  = onReviewStatusChanged(() => _loadSmartTips());
   if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
   await _load();
 }
 
 /**
  * Desfaz a assinatura do barramento de eventos e demais listeners, além de
- * qualquer recarga pendente, e descarta o DOM renderizado (cards de execução
- * e cards inteligentes). Chamada no logout/troca de usuário (ver
- * script.js/onBeforeSignOut) — sem isso, os listeners registrados em
+ * qualquer recarga pendente, e descarta o DOM renderizado (cards de
+ * execução). Chamada no logout/troca de usuário (ver script.js/
+ * onBeforeSignOut) — sem isso, os listeners registrados em
  * _subscribeToEventBus() sobreviveriam à troca de sessão e recarregariam o
  * dashboard com o usuário errado, e os indicadores do usuário anterior
  * permaneceriam visíveis no DOM durante a janela entre o logout e o próximo
@@ -300,7 +271,6 @@ export function resetActivityDashboardView() {
     clearTimeout(_reloadTimer);
     _reloadTimer = null;
   }
-  if (_unsubscribeReview)  { _unsubscribeReview();  _unsubscribeReview  = null; }
   if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
   if (cardsEl) cardsEl.innerHTML = "";
   if (errorEl) {
@@ -308,6 +278,5 @@ export function resetActivityDashboardView() {
     errorEl.innerHTML = "";
     clearStateBlock(errorEl);
   }
-  if (smartTipsEl) smartTipsEl.innerHTML = "";
   _loading = false;
 }
