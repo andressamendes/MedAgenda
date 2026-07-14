@@ -14,7 +14,7 @@ function init() {
   overlay.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <span class="modal-date" id="cd-title"></span>
+        <h2 class="modal-title" id="cd-title"></h2>
       </div>
       <div class="modal-body">
         <p id="cd-message" style="margin:0;color:var(--gray-700);font-size:.9rem;line-height:1.5;white-space:pre-wrap"></p>
