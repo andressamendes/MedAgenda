@@ -528,3 +528,27 @@ test("pagination continues to work normally alongside the event-bus subscription
   assert.strictEqual(document.getElementById("ah-list").children.length, 2);
   assert.strictEqual(loadMoreBtn.hidden, true);
 });
+
+// ── Auditoria UX #20: loading inconsistente — tela em branco durante a carga
+
+test("UX #20 — shows a 'Carregando…' indicator while sessions are being fetched, instead of staying blank", async (t) => {
+  let resolveSessions;
+  const sessionsPromise = new Promise(r => { resolveSessions = r; });
+  const { mod } = await loadView(t, { listSessions: () => sessionsPromise });
+
+  const pending = mod.initActivityHistoryView();
+  await tick();
+
+  const emptyEl = document.getElementById("ah-list-empty");
+  assert.strictEqual(emptyEl.hidden, false, "a loading indicator is shown instead of a blank list");
+  assert.strictEqual(emptyEl.textContent, "Carregando…");
+
+  resolveSessions({
+    sessions: [{ id: "sess-1", status: "finished", source: "manual", started_at: "2026-01-01T08:00:00.000Z", ended_at: "2026-01-01T08:30:00.000Z", duration_minutes: 30 }],
+    total: 1, hasMore: false,
+  });
+  await pending;
+
+  assert.strictEqual(emptyEl.hidden, true, "the loading indicator is gone once the sessions arrive");
+  assert.strictEqual(document.getElementById("ah-list").children.length, 1);
+});

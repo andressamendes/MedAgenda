@@ -155,6 +155,15 @@ function _renderBlock(blockDef, block) {
 async function _load() {
   if (_loading) return;
   _loading = true;
+  // Auditoria UX #20 — sem isto, os blocos ficavam hidden (tela em branco)
+  // durante a carga, diferente do Calendário (calendar.js/showLoading()).
+  for (const blockDef of BLOCK_DEFS) {
+    const cardsEl = document.getElementById(blockDef.cardsId);
+    const errorEl = document.getElementById(blockDef.errorId);
+    errorEl.hidden = true;
+    cardsEl.hidden = false;
+    cardsEl.innerHTML = '<p class="list-empty" style="grid-column:1/-1">Carregando…</p>';
+  }
   try {
     const data = await getInsightsData();
     for (const blockDef of BLOCK_DEFS) {

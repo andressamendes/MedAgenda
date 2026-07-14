@@ -1421,3 +1421,27 @@ test("UX #02 — resetStudyJournalView() hides the notice (no leftover between u
   assert.strictEqual(partialNotice().hidden, true);
   assert.strictEqual(partialNotice().textContent, "");
 });
+
+// ── Auditoria UX #20: loading inconsistente — tela em branco durante a carga
+
+test("UX #20 — shows a 'Carregando…' indicator while sessions are being fetched, instead of staying blank", async (t) => {
+  let resolveSessions;
+  const sessionsPromise = new Promise(r => { resolveSessions = r; });
+  const { mod } = await loadView(t, { listSessions: () => sessionsPromise });
+
+  const pending = mod.initStudyJournalView();
+  await tick();
+
+  const emptyEl = document.getElementById("sj-list-empty");
+  assert.strictEqual(emptyEl.hidden, false, "a loading indicator is shown instead of a blank list");
+  assert.strictEqual(emptyEl.textContent, "Carregando…");
+
+  resolveSessions({
+    sessions: [{ id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 }],
+    total: 1, hasMore: false,
+  });
+  await pending;
+
+  assert.strictEqual(emptyEl.hidden, true, "the loading indicator is gone once the sessions arrive");
+  assert.strictEqual(document.getElementById("sj-list").children.length > 0, true);
+});

@@ -63,7 +63,7 @@ let showPageCalls;
 let confirmDialogCalls;
 let deleteEventCalls;
 
-function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true } = {}) {
+function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true, getEventsImpl } = {}) {
   authCallbacks = null;
   openAcademicCalendarModalCalls = 0;
   startSessionForEventCalls = [];
@@ -73,7 +73,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
 
   t.mock.module(SPECIFIERS.eventService, {
     namedExports: {
-      getEvents: async () => events, getEventById: async () => null,
+      getEvents: getEventsImpl || (async () => events), getEventById: async () => null,
       deleteEvent: async (id) => { deleteEventCalls.push(id); },
     },
   });
@@ -309,4 +309,27 @@ test("UX #14 — deleting a non-recurring appointment keeps the plain confirmati
   assert.strictEqual(confirmDialogCalls.length, 1);
   assert.doesNotMatch(confirmDialogCalls[0].message, /série/i);
   assert.deepStrictEqual(deleteEventCalls, ["evt-1"]);
+});
+
+// ── Auditoria UX #20: loading inconsistente — telas em branco durante a carga
+
+test("UX #20 — the appointments list shows a 'Carregando…' indicator while events are being fetched, instead of staying blank", async (t) => {
+  let resolveEvents;
+  const eventsPromise = new Promise(r => { resolveEvents = r; });
+  mockScriptDependencies(t, { getEventsImpl: () => eventsPromise });
+
+  await import(`../script.js?t=${Math.random()}`);
+  const pending = authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const listEmpty = document.getElementById("list-empty");
+  assert.strictEqual(listEmpty.hidden, false, "a loading indicator is shown instead of a blank list");
+  assert.strictEqual(listEmpty.textContent, "Carregando…");
+
+  resolveEvents([SAMPLE_EVENT]);
+  await pending;
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(listEmpty.hidden, true, "the loading indicator is gone once the events arrive");
+  assert.ok(document.querySelector("#event-list .event-card"), "the fetched event is rendered");
 });

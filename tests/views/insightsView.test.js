@@ -587,3 +587,27 @@ test("a catastrophic failure of getInsightsData itself still renders every block
     assert.strictEqual(document.getElementById(id).hidden, false);
   }
 });
+
+// ── Auditoria UX #20: loading inconsistente — tela em branco durante a carga
+
+test("UX #20 — both blocks show a 'Carregando…' indicator while insights data is being fetched, instead of staying blank", async (t) => {
+  let resolveData;
+  const dataPromise = new Promise(r => { resolveData = r; });
+  const { mod } = await loadView(t, { getInsightsData: () => dataPromise });
+
+  const pending = mod.initInsightsView();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const revisoesCards      = document.getElementById("insights-revisoes-cards");
+  const produtividadeCards = document.getElementById("insights-produtividade-cards");
+  assert.strictEqual(revisoesCards.hidden, false, "a loading indicator is shown instead of a blank/hidden block");
+  assert.match(revisoesCards.textContent, /Carregando/);
+  assert.strictEqual(produtividadeCards.hidden, false);
+  assert.match(produtividadeCards.textContent, /Carregando/);
+
+  resolveData(EMPTY_INSIGHTS);
+  await pending;
+
+  assert.strictEqual(revisoesCards.children.length, 2, "the real cards replace the loading indicator once data arrives");
+  assert.strictEqual(produtividadeCards.children.length, 2);
+});

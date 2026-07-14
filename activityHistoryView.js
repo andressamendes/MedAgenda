@@ -187,9 +187,12 @@ async function _loadPage(reset) {
   if (reset) {
     _offset = 0;
     listEl.innerHTML = "";
-    emptyEl.hidden = true;
+    // Auditoria UX #20 — sem isto, a lista ficava em branco durante a
+    // carga, diferente do Calendário (calendar.js/showLoading()).
+    emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
+    emptyEl.textContent = "Carregando…";
     loadMoreBtn.hidden = true;
   }
 
@@ -202,6 +205,7 @@ async function _loadPage(reset) {
       emptyEl.hidden = false;
       emptyEl.textContent = "Nenhuma sessão encontrada.";
     } else {
+      emptyEl.hidden = true;
       _renderSessions(sessions);
     }
     loadMoreBtn.hidden = !hasMore;
