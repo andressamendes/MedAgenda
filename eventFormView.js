@@ -1,6 +1,6 @@
 // ── eventFormView.js — Modal de criação e edição de compromissos ─────────────
 
-import { createEvent, updateEvent } from "./eventService.js";
+import { createEvent, updateEvent, deleteEvent } from "./eventService.js";
 import { listByEvent } from "./activitySessionService.js";
 import { computeSessionStats } from "./activitySessionStats.js";
 import { confirmDialog } from "./confirmDialog.js";
@@ -58,6 +58,7 @@ let eventIdField       = null;
 let saveBtn            = null;
 let startSessionBtn    = null;
 let cancelBtn          = null;
+let deleteBtn           = null;
 let historySection     = null;
 let historyEmpty       = null;
 let historyList        = null;
@@ -97,6 +98,7 @@ export function initEventForm(onSave) {
   saveBtn             = document.getElementById("btn-save");
   startSessionBtn     = document.getElementById("btn-start-session");
   cancelBtn           = document.getElementById("btn-cancel");
+  deleteBtn           = document.getElementById("btn-delete-event");
   historySection      = document.getElementById("session-history");
   historyEmpty        = document.getElementById("session-history-empty");
   historyList         = document.getElementById("session-history-list");
@@ -147,6 +149,38 @@ export function initEventForm(onSave) {
   });
 
   cancelBtn?.addEventListener("click", _handleModalClose);
+
+  // Auditoria UX #12: excluir só existia na página "Compromissos" — o
+  // usuário tinha que fechar o modal de edição e reencontrar o item na
+  // lista. Mesmo fluxo de confirmação/exclusão já usado lá (script.js/
+  // handleDelete), sem distinção de série recorrente por ora (#14).
+  deleteBtn?.addEventListener("click", async () => {
+    if (!editingId) return;
+    const ok = await confirmDialog({
+      title:   "Excluir compromisso",
+      message: "Tem certeza que deseja excluir este compromisso?",
+      danger:  true,
+    });
+    if (!ok) return;
+
+    const generation = _formGeneration;
+    deleteBtn.disabled = true;
+    try {
+      await deleteEvent(editingId);
+      track(EVENTS.APPOINTMENT_DELETED);
+      toast.success("Compromisso excluído.");
+      if (generation === _formGeneration) {
+        _clearForm();
+        _closeEventModal();
+      }
+      if (_onSave) await _onSave();
+    } catch (err) {
+      handleError(err, { context: "eventFormView.delete", silent: true });
+      toast.error(err.message || "Não foi possível excluir. Tente novamente.");
+    } finally {
+      deleteBtn.disabled = false;
+    }
+  });
 
   startSessionBtn?.addEventListener("click", async () => {
     if (!_editingEvent) return;
@@ -278,6 +312,7 @@ function _clearForm() {
   editingId      = null;
   _editingEvent  = null;
   startSessionBtn.hidden = true;
+  deleteBtn.hidden        = true;
   _historyRequestId++; // invalida qualquer busca de histórico ainda em andamento
   historySection.hidden = true;
   historyList.innerHTML = "";
@@ -309,6 +344,7 @@ function _populateForm(ev) {
   editingId             = ev.id;
   _editingEvent         = ev;
   startSessionBtn.hidden = false;
+  deleteBtn.hidden        = false;
   historySection.hidden  = false;
   _loadSessionHistory(ev.id);
   _loadInsights(ev);
