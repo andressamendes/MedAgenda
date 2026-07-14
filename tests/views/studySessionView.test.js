@@ -286,6 +286,9 @@ test("clicking Cancelar asks for confirmation and only cancels when confirmed", 
   assert.strictEqual(confirmDialogCalls.length, 1);
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
+  // Auditoria UX #22: cancelar não deixava nenhum rastro além do sumiço da
+  // tela — diferente de finalizar, que abre o resumo (F7.3).
+  assert.match(document.querySelector("#toast-container .toast-message").textContent, /cancelada/i);
 });
 
 test("declining the Cancelar confirmation keeps the session paused", async (t) => {
@@ -379,6 +382,9 @@ test("adding a question in the summary appends it to the local list, without per
   assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
   assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, true);
   assert.strictEqual(addQuestionCalls.length, 0, "addQuestion must not be called before confirmation");
+  // Auditoria UX #22: antes, a lista crescendo era o único sinal — fácil de
+  // não notar numa lista já longa.
+  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão adicionada/);
 });
 
 test("removing a question from the local list drops it before confirmation", async (t) => {
@@ -422,6 +428,9 @@ test("editing a question in the local list updates it in place instead of duplic
 
   assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "editing must not duplicate the item");
   assert.ok(document.getElementById("ssf-questions-list").textContent.includes("Nefrologia"));
+  // Auditoria UX #22: editar tem seu próprio microfeedback, distinto de adicionar.
+  const toasts = document.querySelectorAll("#toast-container .toast-message");
+  assert.match(toasts[toasts.length - 1].textContent, /Questão atualizada/);
 });
 
 test("cancelling the finish flow (Voltar) never registers pending questions", async (t) => {

@@ -6,11 +6,13 @@ const TYPES = {
 };
 
 const MAX_TOASTS = 5;
-let _container = null;
 
+// Sem cache: em produção o documento nunca muda, então isto sempre resolveu
+// para o mesmo nó — mas cachear a referência presumia essa identidade estável
+// de `document`, que os testes (installDom()/uninstallDom() por teste) não
+// garantem. getElementById() é barato e chamado só uma vez por toast.
 function getContainer() {
-  if (!_container) _container = document.getElementById('toast-container');
-  return _container;
+  return document.getElementById('toast-container');
 }
 
 export function showToast(message, type = 'info', duration = 4500) {
