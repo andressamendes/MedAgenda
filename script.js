@@ -57,7 +57,7 @@ import { assertSchemaCompatible } from "./schemaService.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
-import { initStudySessionView, resetStudySessionView } from "./studySessionView.js";
+import { initStudySessionView, resetStudySessionView, startSessionForEvent } from "./studySessionView.js";
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
@@ -412,6 +412,7 @@ function renderList(events) {
       <div class="event-card-header">
         <span class="event-card-title">${escapeHtml(ev.title)}</span>
         <div class="event-card-actions">
+          <button class="btn btn-sm btn-primary btn-start-session">Iniciar sessão</button>
           <button class="btn btn-sm btn-ghost btn-edit">Editar</button>
           <button class="btn btn-sm btn-danger btn-delete">Excluir</button>
         </div>
@@ -427,6 +428,7 @@ function renderList(events) {
 
     card.querySelector(".btn-edit").addEventListener("click", () => handleEventClick(ev));
     card.querySelector(".btn-delete").addEventListener("click", () => handleDelete(ev.id, card));
+    card.querySelector(".btn-start-session").addEventListener("click", (e) => handleStartSession(ev, e.currentTarget));
     eventList.appendChild(card);
   });
 }
@@ -441,6 +443,20 @@ function renderListError({ state, message }) {
   listEmpty.hidden     = false;
   listEmpty.classList.add("list-error");
   renderStateBlock(listEmpty, { state, message, onRetry: loadEvents });
+}
+
+// Auditoria UX #13: "Iniciar Sessão" só existia dentro do modal de edição —
+// um contexto de escrita — para a ação mais valiosa do produto. Reaproveita
+// startSessionForEvent() (mesma função que eventFormView.js já usa), que
+// cuida sozinha do caso de já haver outra sessão em andamento.
+async function handleStartSession(ev, btn) {
+  btn.disabled = true;
+  try {
+    const started = await startSessionForEvent(ev);
+    if (started) showPage("study-session");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function handleDelete(id, card) {

@@ -58,13 +58,17 @@ const SPECIFIERS = {
 let container;
 let authCallbacks;
 let openAcademicCalendarModalCalls;
+let startSessionForEventCalls;
+let showPageCalls;
 
-function mockScriptDependencies(t) {
+function mockScriptDependencies(t, { events = [], startSessionResult = false } = {}) {
   authCallbacks = null;
   openAcademicCalendarModalCalls = 0;
+  startSessionForEventCalls = [];
+  showPageCalls = [];
 
   t.mock.module(SPECIFIERS.eventService, {
-    namedExports: { getEvents: async () => [], getEventById: async () => null, deleteEvent: async () => {} },
+    namedExports: { getEvents: async () => events, getEventById: async () => null, deleteEvent: async () => {} },
   });
   t.mock.module(SPECIFIERS.calendar, {
     namedExports: {
@@ -114,7 +118,10 @@ function mockScriptDependencies(t) {
   t.mock.module(SPECIFIERS.aiPanelView, { namedExports: { initAIPanel: () => {}, resetAIPanel: () => {} } });
   t.mock.module(SPECIFIERS.confirmDialog, { namedExports: { confirmDialog: async () => true } });
   t.mock.module(SPECIFIERS.navigationView, {
-    namedExports: { initNavigation: () => {}, restoreLastPage: () => {}, restoreSidebarState: () => {}, showPage: () => {} },
+    namedExports: {
+      initNavigation: () => {}, restoreLastPage: () => {}, restoreSidebarState: () => {},
+      showPage: (name) => { showPageCalls.push(name); },
+    },
   });
   t.mock.module(SPECIFIERS.categoryView, {
     namedExports: { initCategoryView: () => {}, initCategories: async () => {}, categoryColor: () => "#3b82f6", resetCategories: () => {} },
@@ -141,7 +148,10 @@ function mockScriptDependencies(t) {
   t.mock.module(SPECIFIERS.settingsModal, { namedExports: { initSettingsModal: () => {} } });
   t.mock.module(SPECIFIERS.diagnosticModal, { namedExports: { initDiagnosticModal: () => {} } });
   t.mock.module(SPECIFIERS.studySessionView, {
-    namedExports: { initStudySessionView: async () => false, resetStudySessionView: () => {} },
+    namedExports: {
+      initStudySessionView: async () => false, resetStudySessionView: () => {},
+      startSessionForEvent: async (ev) => { startSessionForEventCalls.push(ev); return startSessionResult; },
+    },
   });
   t.mock.module(SPECIFIERS.activityHistoryView, {
     namedExports: { initActivityHistoryView: async () => {}, resetActivityHistoryView: () => {} },
@@ -210,4 +220,45 @@ test("btn-academic-cals gets exactly one click listener across multiple login/lo
 
   btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(openAcademicCalendarModalCalls, 1, "a single click opens the modal exactly once");
+});
+
+// ── Auditoria UX #13: "Iniciar sessão" no card da lista de Compromissos ────
+
+const SAMPLE_EVENT = {
+  id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12",
+  start_time: "08:00:00", duration_minutes: 60,
+};
+
+test("UX #13 — clicking 'Iniciar sessão' on an event card starts the session and navigates to the study page", async (t) => {
+  mockScriptDependencies(t, { events: [SAMPLE_EVENT], startSessionResult: true });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const btn = document.querySelector("#event-list .btn-start-session");
+  assert.ok(btn, "the appointment card has a quick 'Iniciar sessão' button");
+
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionForEventCalls.length, 1);
+  assert.strictEqual(startSessionForEventCalls[0].id, "evt-1");
+  assert.ok(showPageCalls.includes("study-session"), "navigates to the study session page once started");
+});
+
+test("UX #13 — when startSessionForEvent() declines (e.g. another session already running), no navigation happens", async (t) => {
+  mockScriptDependencies(t, { events: [SAMPLE_EVENT], startSessionResult: false });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const btn = document.querySelector("#event-list .btn-start-session");
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionForEventCalls.length, 1);
+  assert.strictEqual(showPageCalls.includes("study-session"), false);
+  assert.strictEqual(btn.disabled, false, "the button is re-enabled after the attempt");
 });
