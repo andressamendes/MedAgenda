@@ -11,6 +11,7 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEventBus.js";
 
 const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
+const ACHIEVEMENT_SERVICE_SPECIFIER = new URL("../../achievementService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER     = new URL("../../reviewService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
 const DECISION_ENGINE_SPECIFIER    = new URL("../../decisionEngine.js", import.meta.url).href;
@@ -31,6 +32,11 @@ const EMPTY_DATA = {
 // tests/decisionEngine.test.js; estes testes só verificam que a view chama
 // getDecisions() uma vez e renderiza exatamente o que ele devolve.
 const EMPTY_DECISIONS = { decisions: [], planning: [], unavailable: [] };
+
+// Auditoria UX #23 — achievementService.js mockado por inteiro (mesmo padrão
+// de decisionEngine.js acima): a derivação de conquistas em si já é coberta
+// isoladamente em tests/services/achievementService.test.js.
+const EMPTY_ACHIEVEMENTS = { total: 5, completed: 0, inProgress: 5, overallProgress: 0 };
 
 function loadView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -67,6 +73,10 @@ function loadView(t, overrides = {}) {
     namedExports: { getDecisions: overrides.getDecisions ?? (async () => EMPTY_DECISIONS) },
   });
 
+  t.mock.module(ACHIEVEMENT_SERVICE_SPECIFIER, {
+    namedExports: { getAchievementSummary: overrides.getAchievementSummary ?? (async () => EMPTY_ACHIEVEMENTS) },
+  });
+
   return import(`../../activityDashboardView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls,
@@ -100,14 +110,14 @@ afterEach(() => {
   clearEventBus();
 });
 
-test("with no sessions, all eleven cards render with empty/zero/no-goal values", async (t) => {
+test("with no sessions, all twelve cards render with empty/zero/no-goal values", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
 
   const cards = document.getElementById("dash-cards");
   assert.strictEqual(cards.hidden, false);
-  assert.strictEqual(cards.children.length, 11);
+  assert.strictEqual(cards.children.length, 12);
   assert.match(cards.textContent, /Tempo estudado hoje/);
   assert.match(cards.textContent, /Sessões no mês/);
   assert.match(cards.textContent, /Maior sessão/);
@@ -632,5 +642,48 @@ test("UX #20 — shows a 'Carregando…' indicator while the dashboard data is b
   resolveData(EMPTY_DATA);
   await pending;
 
-  assert.strictEqual(cards.children.length, 11, "the real cards replace the loading indicator once data arrives");
+  assert.strictEqual(cards.children.length, 12, "the real cards replace the loading indicator once data arrives");
+});
+
+// ── Auditoria UX #23: Conquistas construídas e invisíveis — expostas como um
+// card no Dashboard consolidado, usando achievementService.getAchievementSummary()
+// já pronto e testado (nenhuma agregação nova).
+
+test("UX #23 — the 'Conquistas recentes' card renders the completed/total count and overall progress", async (t) => {
+  const { mod } = await loadView(t, {
+    getAchievementSummary: async () => ({ total: 5, completed: 2, inProgress: 3, overallProgress: 0.4 }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const text = document.getElementById("dash-cards").textContent;
+  assert.match(text, /Conquistas recentes/);
+  assert.match(text, /2\/5/);
+  assert.match(text, /2 conquista\(s\) concluída\(s\)/);
+  assert.match(text, /40%/);
+});
+
+test("UX #23 — with no achievements completed yet, the card shows a neutral message instead of '0 conquista(s)'", async (t) => {
+  const { mod } = await loadView(t, {
+    getAchievementSummary: async () => EMPTY_ACHIEVEMENTS,
+  });
+
+  await mod.initActivityDashboardView();
+
+  assert.match(document.getElementById("dash-cards").textContent, /Nenhuma conquista concluída ainda/);
+});
+
+test("UX #23 — a failure fetching achievements never breaks the other execution cards (falls back to '—')", async (t) => {
+  const { mod, handleErrorCalls } = await loadView(t, {
+    getAchievementSummary: async () => { throw new Error("network down"); },
+  });
+
+  await assert.doesNotReject(() => mod.initActivityDashboardView());
+
+  const cards = document.getElementById("dash-cards");
+  assert.strictEqual(cards.hidden, false);
+  assert.strictEqual(cards.children.length, 12);
+  assert.match(cards.textContent, /Tempo estudado hoje/); // demais cards seguem de pé
+  assert.match(cards.textContent, /Não foi possível carregar este indicador\./);
+  assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
 });
