@@ -288,6 +288,37 @@ test("UX #12 — a deletion error keeps the modal open and shows an error toast"
   assert.strictEqual(document.getElementById("btn-delete-event").disabled, false);
 });
 
+// ── Auditoria UX #14: excluir evento recorrente não avisava sobre a série ──
+
+test("UX #14 — deleting a recurring event from the edit modal warns that it deletes the whole series", async (t) => {
+  mockEventService(t);
+  const confirmCalls = mockConfirmDialog(t, true);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Aula semanal", event_date: "2026-08-12", start_time: "08:00:00", recurrence_type: "weekly" });
+  document.getElementById("btn-delete-event").click();
+  await flush();
+
+  assert.strictEqual(confirmCalls.length, 1);
+  assert.match(confirmCalls[0].message, /série/i);
+  assert.deepStrictEqual(serviceCalls[0], { fn: "deleteEvent", id: "evt-1" });
+});
+
+test("UX #14 — deleting a non-recurring event keeps the plain confirmation message", async (t) => {
+  mockEventService(t);
+  const confirmCalls = mockConfirmDialog(t, true);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00", recurrence_type: "none" });
+  document.getElementById("btn-delete-event").click();
+  await flush();
+
+  assert.strictEqual(confirmCalls.length, 1);
+  assert.doesNotMatch(confirmCalls[0].message, /série/i);
+});
+
 // ── F1.5: Histórico de Sessões do compromisso ───────────────────────────────
 
 test("a new event never shows the session history section", async (t) => {

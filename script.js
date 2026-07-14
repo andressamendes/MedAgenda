@@ -427,7 +427,7 @@ function renderList(events) {
     `;
 
     card.querySelector(".btn-edit").addEventListener("click", () => handleEventClick(ev));
-    card.querySelector(".btn-delete").addEventListener("click", () => handleDelete(ev.id, card));
+    card.querySelector(".btn-delete").addEventListener("click", () => handleDelete(ev.id, card, isRecurring));
     card.querySelector(".btn-start-session").addEventListener("click", (e) => handleStartSession(ev, e.currentTarget));
     eventList.appendChild(card);
   });
@@ -459,10 +459,12 @@ async function handleStartSession(ev, btn) {
   }
 }
 
-async function handleDelete(id, card) {
+async function handleDelete(id, card, isRecurring) {
   const ok = await confirmDialog({
     title:   'Excluir compromisso',
-    message: 'Tem certeza que deseja excluir este compromisso?',
+    message: isRecurring
+      ? 'Este é um evento recorrente. Isso excluirá toda a série. Deseja continuar?'
+      : 'Tem certeza que deseja excluir este compromisso?',
     danger:  true,
   });
   if (!ok) return;
