@@ -29,7 +29,7 @@ const EMPTY_AI_CONTEXT = {
 let serviceCalls;
 let startSessionForEventCalls;
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, deleteError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
@@ -42,6 +42,10 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
         serviceCalls.push({ fn: "updateEvent", id, fields });
         if (updateError) throw updateError;
         return updateResult ?? { id, ...fields };
+      },
+      deleteEvent: async (id) => {
+        serviceCalls.push({ fn: "deleteEvent", id });
+        if (deleteError) throw deleteError;
       },
     },
   });
@@ -221,6 +225,67 @@ test("openEventForm(event) populates the fields for editing, and submitting call
   assert.strictEqual(serviceCalls[0].fn, "updateEvent");
   assert.strictEqual(serviceCalls[0].id, "evt-1");
   assert.strictEqual(serviceCalls[0].fields.title, "Plantão UPA");
+});
+
+// ── Auditoria UX #12: excluir a partir do modal de edição ──────────────────
+
+test("UX #12 — the delete button is hidden for a new event and shown when editing an existing one", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  document.getElementById("btn-new-event").click();
+  assert.strictEqual(document.getElementById("btn-delete-event").hidden, true);
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" });
+  assert.strictEqual(document.getElementById("btn-delete-event").hidden, false);
+});
+
+test("UX #12 — clicking Excluir asks for confirmation, deletes the event, closes the modal and refreshes", async (t) => {
+  mockEventService(t);
+  const confirmCalls = mockConfirmDialog(t, true);
+  let refreshCalls = 0;
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm(async () => { refreshCalls++; });
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" });
+  document.getElementById("btn-delete-event").click();
+  await flush();
+
+  assert.strictEqual(confirmCalls.length, 1);
+  assert.strictEqual(confirmCalls[0].danger, true);
+  assert.strictEqual(serviceCalls.length, 1);
+  assert.deepStrictEqual(serviceCalls[0], { fn: "deleteEvent", id: "evt-1" });
+  assert.strictEqual(document.getElementById("event-modal").hidden, true);
+  assert.strictEqual(refreshCalls, 1);
+});
+
+test("UX #12 — declining the confirmation keeps the modal open and never calls deleteEvent", async (t) => {
+  mockEventService(t);
+  mockConfirmDialog(t, false);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" });
+  document.getElementById("btn-delete-event").click();
+  await flush();
+
+  assert.strictEqual(serviceCalls.length, 0);
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
+});
+
+test("UX #12 — a deletion error keeps the modal open and shows an error toast", async (t) => {
+  mockEventService(t, { deleteError: new Error("Não foi possível excluir. Tente novamente.") });
+  mockConfirmDialog(t, true);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" });
+  document.getElementById("btn-delete-event").click();
+  await flush();
+
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
+  assert.strictEqual(document.getElementById("btn-delete-event").disabled, false);
 });
 
 // ── F1.5: Histórico de Sessões do compromisso ───────────────────────────────
@@ -613,6 +678,7 @@ test("a save still in flight when the user cancels and opens a different event d
         serviceCalls.push({ fn: "updateEvent", id, fields });
         return new Promise((resolve) => { resolveUpdate = () => resolve({ id, ...fields }); });
       },
+      deleteEvent: async (id) => { serviceCalls.push({ fn: "deleteEvent", id }); },
     },
   });
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
@@ -722,7 +788,7 @@ test("resetEventForm() (called on logout / user switch) closes the modal and cle
 test("resetEventForm() invalidates any in-flight session-history/insights request from the event being edited at logout time", async (t) => {
   let resolveHistory;
   serviceCalls = [];
-  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { createEvent: async () => {}, updateEvent: async () => {} } });
+  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { createEvent: async () => {}, updateEvent: async () => {}, deleteEvent: async () => {} } });
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
   t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
     namedExports: {
