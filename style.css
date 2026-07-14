@@ -2540,50 +2540,13 @@ textarea { resize: vertical; }
   .week-section { padding: 1rem .75rem; }
 }
 
-/* ── Visualização semanal: mobile — grade encolhe para caber na tela,
-   eliminando o scroll horizontal obrigatório (min-width fixo removido) ── */
-@media (max-width: 767px) {
-  .wk-head-row,
-  .wk-allday-row {
-    grid-template-columns: 34px repeat(7, minmax(0, 1fr));
-    min-width: 0;
-  }
-
-  .wk-body {
-    min-width: 0;
-  }
-
-  .wk-time-col {
-    flex: 0 0 34px;
-  }
-
-  .wk-day-head {
-    padding: .35rem .1rem .3rem;
-    font-size: .6rem;
-  }
-
-  .wk-day-num {
-    width: 1.35rem;
-    height: 1.35rem;
-    font-size: .7rem;
-  }
-
-  .wk-gutter-allday {
-    font-size: .52rem;
-    padding-right: .2rem;
-  }
-
-  .wk-hour-label {
-    font-size: .55rem;
-    right: 3px;
-  }
-
-  .wk-ev-title,
-  .wk-ev-cat,
-  .wk-ev-time {
-    font-size: .58rem;
-  }
-}
+/* ── Visualização semanal: mobile (auditoria UX #19) — a grade encolhia
+   para caber na tela sem scroll horizontal (min-width removido, colunas
+   minmax(0,1fr), fontes a .52–.6rem), abaixo de qualquer limiar de
+   legibilidade. .wk-scroll já tem overflow-x: auto e os grids (.wk-head-row/
+   .wk-allday-row/.wk-body) já têm min-width: 480px para telas estreitas —
+   bastava não sobrescrever isso: a grade volta a ter fonte legível e rola
+   horizontalmente por gesto, como qualquer tabela larga do app. */
 
 /* ── Recorrência — campos extras no formulário ── */
 #recurrence-extra {
