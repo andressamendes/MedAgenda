@@ -310,6 +310,14 @@ if ("serviceWorker" in navigator) {
 // ── [DOMAIN: lista de compromissos] ───────────────────────────────────────
 // ── Lista ──────────────────────────────────────────────────────────────────
 async function loadEvents() {
+  // Auditoria UX #20 — sem isto, a lista ficava em branco durante a
+  // carga (rede lenta), diferente do Calendário (calendar.js/showLoading()),
+  // que já mostra "Carregando…" antes de cada busca.
+  eventList.innerHTML = "";
+  listEmpty.hidden = false;
+  listEmpty.classList.remove("list-error");
+  clearStateBlock(listEmpty);
+  listEmpty.textContent = "Carregando…";
   try {
     const events = isPersonalVisible() ? await getEvents() : [];
     allEvents = events;

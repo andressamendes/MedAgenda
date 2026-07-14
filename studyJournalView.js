@@ -804,9 +804,12 @@ async function _loadPage(reset) {
     _searchIndex = [];
     _hasMore = false;
     listEl.innerHTML = "";
-    emptyEl.hidden = true;
+    // Auditoria UX #20 — sem isto, a lista ficava em branco durante a
+    // carga, diferente do Calendário (calendar.js/showLoading()).
+    emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
+    emptyEl.textContent = "Carregando…";
     loadMoreBtn.hidden = true;
     if (partialNoticeEl) partialNoticeEl.hidden = true;
   }

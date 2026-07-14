@@ -614,3 +614,23 @@ test("smart tips refresh automatically when a review is completed/skipped or a g
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.strictEqual(decisionCalls, 3);
 });
+
+// ── Auditoria UX #20: loading inconsistente — tela em branco durante a carga
+
+test("UX #20 — shows a 'Carregando…' indicator while the dashboard data is being fetched, instead of staying blank", async (t) => {
+  let resolveData;
+  const dataPromise = new Promise(r => { resolveData = r; });
+  const { mod } = await loadView(t, { getDashboardData: () => dataPromise });
+
+  const pending = mod.initActivityDashboardView();
+  await tick();
+
+  const cards = document.getElementById("dash-cards");
+  assert.strictEqual(cards.hidden, false, "a loading indicator is shown instead of a blank/hidden block");
+  assert.match(cards.textContent, /Carregando/);
+
+  resolveData(EMPTY_DATA);
+  await pending;
+
+  assert.strictEqual(cards.children.length, 11, "the real cards replace the loading indicator once data arrives");
+});
