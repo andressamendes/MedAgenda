@@ -60,6 +60,8 @@ let startSessionBtn    = null;
 let cancelBtn          = null;
 let deleteBtn           = null;
 let historySection     = null;
+let historyToggle      = null;
+let historyBody        = null;
 let historyEmpty       = null;
 let historyList        = null;
 let statsSection       = null;
@@ -100,6 +102,8 @@ export function initEventForm(onSave) {
   cancelBtn           = document.getElementById("btn-cancel");
   deleteBtn           = document.getElementById("btn-delete-event");
   historySection      = document.getElementById("session-history");
+  historyToggle       = document.getElementById("session-history-toggle");
+  historyBody         = document.getElementById("session-history-body");
   historyEmpty        = document.getElementById("session-history-empty");
   historyList         = document.getElementById("session-history-list");
   statsSection        = document.getElementById("session-stats");
@@ -149,6 +153,16 @@ export function initEventForm(onSave) {
   });
 
   cancelBtn?.addEventListener("click", _handleModalClose);
+
+  // Auditoria UX #26: estatísticas/histórico de sessões colapsados por
+  // padrão — mesmo padrão aria-expanded + hidden já usado no encerramento
+  // de sessão (studySessionView.js/_setSectionExpanded) e no Diário
+  // (studyJournalView.js/_toggleEntry).
+  historyToggle?.addEventListener("click", () => {
+    const expand = historyBody.hidden;
+    historyBody.hidden = !expand;
+    historyToggle.setAttribute("aria-expanded", String(expand));
+  });
 
   // Auditoria UX #12: excluir só existia na página "Compromissos" — o
   // usuário tinha que fechar o modal de edição e reencontrar o item na
@@ -318,6 +332,8 @@ function _clearForm() {
   deleteBtn.hidden        = true;
   _historyRequestId++; // invalida qualquer busca de histórico ainda em andamento
   historySection.hidden = true;
+  historyBody.hidden = true;
+  historyToggle.setAttribute("aria-expanded", "false");
   historyList.innerHTML = "";
   historyEmpty.hidden = true;
   statsSection.hidden = true;
