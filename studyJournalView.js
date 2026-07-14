@@ -87,6 +87,7 @@ import { listBySessions as listReviewsBySessions } from "./reviewSessionService.
 import { listBySessions as listReflectionsBySessions, saveReflection } from "./studyReflectionService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { toast } from "./toastService.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import {
@@ -332,6 +333,9 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
       entry.extras.reflection = saved;
       _searchIndex = buildSearchIndex(_allEntries);
       _renderReflectionView(sectionEl, entry, saved, _filters.search);
+      // Auditoria UX #22: salvar reflexão só fazia o texto reaparecer
+      // renderizado — sem toast, era a única escrita da tela sem confirmação.
+      toast.success("Reflexão salva.");
     } catch (err) {
       const { friendly } = handleError(err, { context: "studyJournalView.saveReflection", silent: true });
       errorEl.textContent = friendly;

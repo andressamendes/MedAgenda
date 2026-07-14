@@ -285,6 +285,9 @@ test("adding a reflection: filling the textarea and saving calls saveReflection(
   assert.deepStrictEqual(saveReflectionCalls[0], { sessionId: "sess-1", content: "O que aprendi hoje." });
   assert.match(reflectionEl.textContent, /O que aprendi hoje\./);
   assert.ok(reflectionEl.querySelector(".sj-reflection-toggle").textContent.includes("Editar reflexão"));
+  // Auditoria UX #22: salvar reflexão era a única escrita da tela sem toast
+  // — o texto só reaparecia renderizado, fácil de confundir com "não salvou".
+  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Reflexão salva/);
 });
 
 test("cancelling the reflection form discards edits and keeps the previous state", async (t) => {

@@ -30,6 +30,7 @@ import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
 import { initModal } from "./modalController.js";
 import { openSessionSummary } from "./sessionSummaryView.js";
 import { handleError } from "./errorService.js";
+import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
@@ -202,7 +203,13 @@ function _bindEvents() {
       cancelText:  "Voltar",
       danger:      true,
     });
-    if (shouldCancel) await _run(() => cancelSession(_session.id));
+    if (shouldCancel) {
+      await _run(() => cancelSession(_session.id));
+      // Auditoria UX #22: ao contrário de finalizar (que abre o resumo — F7.3
+      // — e por isso já comunica o resultado), cancelar só fazia a tela
+      // voltar ao estado ocioso, sem nenhum sinal de que a ação funcionou.
+      toast.success("Sessão cancelada.");
+    }
   });
 
   ssfBtnBack.addEventListener("click", () => _closeFinishModal());
@@ -479,7 +486,8 @@ function _addOrUpdatePendingQuestion() {
     topic:         ssfQTopicEl.value.trim() || null,
   };
 
-  if (_editingQuestionLocalId !== null) {
+  const wasEditing = _editingQuestionLocalId !== null;
+  if (wasEditing) {
     const idx = _pendingQuestions.findIndex(q => q.localId === _editingQuestionLocalId);
     if (idx !== -1) _pendingQuestions[idx] = { ..._pendingQuestions[idx], ...fields };
   } else {
@@ -488,6 +496,11 @@ function _addOrUpdatePendingQuestion() {
 
   _resetQuestionForm();
   _renderQuestionsList();
+  // Auditoria UX #22: antes, a única confirmação era a lista crescendo —
+  // fácil de não notar numa lista já longa. Microfeedback (duração curta):
+  // várias questões podem ser adicionadas em sequência no mesmo formulário,
+  // então um toast com a duração padrão acumularia na tela.
+  toast.info(wasEditing ? "Questão atualizada." : "Questão adicionada.", 2000);
 }
 
 function _editPendingQuestion(localId) {
