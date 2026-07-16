@@ -294,7 +294,10 @@ async function _initApp(session) {
     // prevalece sobre a última página salva — nunca inicia nem finaliza nada
     // automaticamente, só leva o usuário direto para onde pode decidir
     // continuar, cancelar ou finalizar.
-    if (hasActiveStudySession) showPage("study-session");
+    if (hasActiveStudySession) {
+      showPage("study-session");
+      toast.info("Você tem uma sessão de estudo em andamento.");
+    }
   } catch (err) {
     // Última rede de segurança: qualquer falha não tratada nas etapas acima
     // não pode deixar o usuário numa tela parcialmente carregada sem aviso.
