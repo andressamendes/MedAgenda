@@ -87,6 +87,8 @@ let fRecurrenceUntil   = null;
 let fRecurrenceInterval = null;
 let recurrenceExtra    = null;
 let recurrenceCustom   = null;
+let recurrenceToggleBtn = null;
+let recurrenceWrap     = null;
 let modal              = null;
 
 export function initEventForm(onSave) {
@@ -129,6 +131,8 @@ export function initEventForm(onSave) {
   fRecurrenceInterval = document.getElementById("f-recurrence-interval");
   recurrenceExtra     = document.getElementById("recurrence-extra");
   recurrenceCustom    = document.getElementById("recurrence-custom");
+  recurrenceToggleBtn = document.getElementById("btn-recurrence-toggle");
+  recurrenceWrap      = document.getElementById("f-recurrence-wrap");
 
   if (eventModal) modal = initModal(eventModal, _handleModalClose);
 
@@ -147,6 +151,12 @@ export function initEventForm(onSave) {
     recurrenceExtra.hidden  = v === "none";
     recurrenceCustom.hidden = v !== "custom";
   });
+
+  // Auditoria UX F10 #1.1: repetição nasce escondida atrás de um toggle —
+  // a maioria dos compromissos não é recorrente, então o select não precisa
+  // ocupar espaço/atenção por padrão (mesmo princípio de progressive
+  // disclosure já aplicado ao histórico de sessões abaixo).
+  recurrenceToggleBtn?.addEventListener("click", () => _showRecurrenceField({ focus: true }));
 
   document.querySelectorAll(".day-btn").forEach(btn => {
     btn.addEventListener("click", () => btn.classList.toggle("day-btn-active"));
@@ -350,6 +360,8 @@ function _clearForm() {
   fRecurrenceUntil.value    = "";
   recurrenceExtra.hidden    = true;
   recurrenceCustom.hidden   = true;
+  recurrenceWrap.hidden       = true;
+  recurrenceToggleBtn.hidden  = false;
   _setSelectedDays("");
   formTitle.textContent = "Novo compromisso";
   saveBtn.disabled       = false;
@@ -381,12 +393,19 @@ function _populateForm(ev) {
   fRecurrenceInterval.value = ev.recurrence_interval       || 1;
   fRecurrenceUntil.value    = ev.recurrence_until          || "";
   _setSelectedDays(ev.recurrence_days_of_week || "");
+  if (fRecurrence.value !== "none") _showRecurrenceField();
   fRecurrence.dispatchEvent(new Event("change"));
   formTitle.textContent = "Editar compromisso";
   saveBtn.disabled       = false;
   saveBtn.textContent   = "Atualizar compromisso";
   cancelBtn.hidden      = false;
   formError.textContent = "";
+}
+
+function _showRecurrenceField({ focus = false } = {}) {
+  recurrenceWrap.hidden      = false;
+  recurrenceToggleBtn.hidden = true;
+  if (focus) fRecurrence.focus();
 }
 
 function _populateReminder(minutes) {

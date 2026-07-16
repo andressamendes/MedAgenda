@@ -835,18 +835,21 @@
                 <input type="number" id="f-reminder-custom" placeholder="Minutos antes" min="1" class="reminder-custom-input" />
               </div>
             </div>
-            <div class="field">
-              <label for="f-recurrence">Repetição</label>
-              <select id="f-recurrence">
-                <option value="none">Nunca</option>
-                <option value="daily">Diariamente</option>
-                <option value="weekdays">Dias úteis (Seg–Sex)</option>
-                <option value="weekly">Semanalmente</option>
-                <option value="biweekly">Quinzenalmente</option>
-                <option value="monthly">Mensalmente</option>
-                <option value="yearly">Anualmente</option>
-                <option value="custom">Personalizada</option>
-              </select>
+            <div class="field" id="f-recurrence-field">
+              <button type="button" id="btn-recurrence-toggle" class="btn btn-ghost btn-sm">+ Repetir</button>
+              <div id="f-recurrence-wrap" hidden>
+                <label for="f-recurrence">Repetição</label>
+                <select id="f-recurrence">
+                  <option value="none">Nunca</option>
+                  <option value="daily">Diariamente</option>
+                  <option value="weekdays">Dias úteis (Seg–Sex)</option>
+                  <option value="weekly">Semanalmente</option>
+                  <option value="biweekly">Quinzenalmente</option>
+                  <option value="monthly">Mensalmente</option>
+                  <option value="yearly">Anualmente</option>
+                  <option value="custom">Personalizada</option>
+                </select>
+              </div>
             </div>
           </div>
 
