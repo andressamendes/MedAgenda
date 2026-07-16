@@ -960,8 +960,9 @@ test("a weekly summary card appears when a new week starts, summarizing the week
     // com dois dias consecutivos estudados.
     { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
     { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
-    // semana de 2026-03-09 (segunda) — mais antiga, ainda em exibição mas
-    // sem uma semana seguinte no conjunto filtrado, então não ganha cartão.
+    // semana de 2026-03-09 (segunda) — mais antiga, sem uma semana seguinte
+    // no conjunto filtrado. Mesmo assim ganha cartão (auditoria UX #32): é a
+    // última semana visível, fechada fora do laço ao fim de _render().
     { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
   ];
   const { mod } = await loadView(t, {
@@ -976,7 +977,7 @@ test("a weekly summary card appears when a new week starts, summarizing the week
   await mod.initStudyJournalView();
 
   const weeks = weekSummaries();
-  assert.strictEqual(weeks.length, 1, "só a semana com uma semana mais antiga seguinte no conjunto visível ganha um cartão");
+  assert.strictEqual(weeks.length, 2, "a semana concluída e a última semana visível (mesmo sem semana seguinte) ganham cartão");
   const text = weeks[0].textContent;
   assert.match(text, /Semana de 16\/03 a 22\/03/);
   assert.match(text, /2 sessão\(ões\)/);
@@ -985,15 +986,25 @@ test("a weekly summary card appears when a new week starts, summarizing the week
   assert.match(text, /2 matéria\(s\)/);
   assert.match(text, /Maior sequência de estudos: 2 dia\(s\)/);
 
-  // o cartão semanal aparece entre os grupos de dia, antes do grupo mais antigo da semana seguinte.
+  const lastWeekText = weeks[1].textContent;
+  assert.match(lastWeekText, /Semana de 09\/03 a 15\/03/);
+  assert.match(lastWeekText, /1 sessão\(ões\)/);
+
+  // o primeiro cartão semanal aparece entre os grupos de dia, antes do grupo
+  // mais antigo da semana seguinte; o segundo (última semana visível) fecha
+  // a lista, depois do último grupo de dia.
   const listChildren = Array.from(document.getElementById("sj-list").children);
-  const weekIndex = listChildren.findIndex(el => el.classList.contains("sj-week-summary"));
+  const weekIndexes = listChildren
+    .map((el, i) => ({ el, i }))
+    .filter(({ el }) => el.classList.contains("sj-week-summary"))
+    .map(({ i }) => i);
   const groupIndexes = listChildren
     .map((el, i) => ({ el, i }))
     .filter(({ el }) => el.classList.contains("sj-day-group"))
     .map(({ i }) => i);
   assert.strictEqual(groupIndexes.length, 3);
-  assert.ok(weekIndex > groupIndexes[1] && weekIndex < groupIndexes[2], "o card semanal fica entre o último dia da semana concluída e o primeiro dia da semana seguinte");
+  assert.ok(weekIndexes[0] > groupIndexes[1] && weekIndexes[0] < groupIndexes[2], "o primeiro card semanal fica entre o último dia da semana concluída e o primeiro dia da semana seguinte");
+  assert.strictEqual(weekIndexes[1], listChildren.length - 1, "o card da última semana visível fecha a lista");
 });
 
 test("summaries recompute over only the currently filtered/visible sessions, without a new listSessions() call", async (t) => {
