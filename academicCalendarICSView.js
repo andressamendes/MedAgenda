@@ -5,6 +5,7 @@ import { parseICS, deduplicateEvents } from "./icsImporter.js";
 import { exportToICS, downloadICS } from "./icsExporter.js";
 import { toast } from "./toastService.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { handleError } from "./errorService.js";
 
 // ── Module deps — set via initICSView ─────────────────────────────────────
 
@@ -78,7 +79,8 @@ async function handleICSImport(calId, file) {
       await _showCalendarList();
     }
   } catch (err) {
-    toast.error(err.message || "Erro ao importar eventos.");
+    const { friendly } = handleError(err, { context: 'academicCalendarICSView.import', silent: true, fallbackMessage: "Erro ao importar eventos." });
+    toast.error(friendly);
   }
 }
 
@@ -93,6 +95,7 @@ export async function handleICSExport(calId) {
     downloadICS(content, cal.name);
     toast.success(`Calendário "${cal.name}" exportado.`);
   } catch (err) {
-    toast.error(err.message || "Erro ao exportar calendário.");
+    const { friendly } = handleError(err, { context: 'academicCalendarICSView.export', silent: true, fallbackMessage: "Erro ao exportar calendário." });
+    toast.error(friendly);
   }
 }

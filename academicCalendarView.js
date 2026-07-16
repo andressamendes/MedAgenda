@@ -262,8 +262,8 @@ async function handleCalendarCreate() {
     _onChange?.();
     await showCalendarList();
   } catch (err) {
-    handleError(err, { context: 'academicCalendarView.create', silent: true });
-    errEl.textContent = err.message || "Erro ao criar calendário.";
+    const { friendly } = handleError(err, { context: 'academicCalendarView.create', silent: true, fallbackMessage: "Erro ao criar calendário." });
+    errEl.textContent = friendly;
   }
 }
 
@@ -313,8 +313,8 @@ async function showCalendarEditForm(calId) {
       _onChange?.();
       await showCalendarList();
     } catch (err) {
-      handleError(err, { context: 'academicCalendarView.update', silent: true });
-      errEl.textContent = err.message || "Erro ao atualizar.";
+      const { friendly } = handleError(err, { context: 'academicCalendarView.update', silent: true, fallbackMessage: "Erro ao atualizar." });
+      errEl.textContent = friendly;
     }
   });
   document.getElementById("acal-cancel-edit").addEventListener("click", showCalendarList);
@@ -335,7 +335,7 @@ async function handleCalendarDelete(calId) {
     _onChange?.();
     await showCalendarList();
   } catch (err) {
-    handleError(err, { context: 'academicCalendarView.delete', silent: true });
-    toast.error(err.message || "Erro ao excluir.");
+    const { friendly } = handleError(err, { context: 'academicCalendarView.delete', silent: true, fallbackMessage: "Erro ao excluir." });
+    toast.error(friendly);
   }
 }

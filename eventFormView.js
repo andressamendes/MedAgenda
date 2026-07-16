@@ -192,8 +192,8 @@ export function initEventForm(onSave) {
       }
       if (_onSave) await _onSave();
     } catch (err) {
-      handleError(err, { context: "eventFormView.delete", silent: true });
-      toast.error(err.message || "Não foi possível excluir. Tente novamente.");
+      const { friendly } = handleError(err, { context: "eventFormView.delete", silent: true, fallbackMessage: "Não foi possível excluir. Tente novamente." });
+      toast.error(friendly);
     } finally {
       deleteBtn.disabled = false;
     }
@@ -264,9 +264,9 @@ export function initEventForm(onSave) {
       }
       if (_onSave) await _onSave();
     } catch (err) {
-      handleError(err, { context: wasEditingId ? 'eventFormView.update' : 'eventFormView.create', silent: true });
+      const { friendly } = handleError(err, { context: wasEditingId ? 'eventFormView.update' : 'eventFormView.create', silent: true, fallbackMessage: "Não foi possível salvar. Tente novamente." });
       if (generation === _formGeneration) {
-        formError.textContent = err.message || "Não foi possível salvar. Tente novamente.";
+        formError.textContent = friendly;
       }
     } finally {
       if (generation === _formGeneration) {

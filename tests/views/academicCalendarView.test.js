@@ -134,6 +134,41 @@ test("creating a calendar re-renders the list with the new entry", async (t) => 
   assert.strictEqual(document.querySelectorAll(".acal-row").length, 1);
 });
 
+// ── Auditoria UX #37: escritas mostravam err.message cru, não a mensagem
+// categorizada de errorService (ex.: offline virava "Failed to fetch" em
+// inglês, em vez de "Sem conexão com a internet...") ────────────────────────
+
+test("UX #37 — creating a calendar while offline shows the network-specific message, not the raw fetch error", async (t) => {
+  t.mock.module(SERVICE_SPECIFIER, {
+    namedExports: {
+      getCalendars: async () => [],
+      createCalendar: async () => { throw new TypeError("Failed to fetch"); },
+      updateCalendar: async () => { throw new Error("not used in this test"); },
+      deleteCalendar: async () => { throw new Error("not used in this test"); },
+      getAcademicEventsByRange: async () => [],
+      expandAcademicEvents: () => [],
+      getAcademicEvents: async () => [],
+      createAcademicEvent: async () => { throw new Error("not used in this test"); },
+      updateAcademicEvent: async () => { throw new Error("not used in this test"); },
+      deleteAcademicEvent: async () => { throw new Error("not used in this test"); },
+      bulkInsertAcademicEvents: async () => [],
+    },
+  });
+  view = await import(`../../academicCalendarView.js?t=${Math.random()}`);
+  view.initAcademicModal();
+  await view.openAcademicCalendarModal();
+
+  document.getElementById("acal-new-name").value = "Residência";
+  document.getElementById("acal-add").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(
+    document.getElementById("acal-error").textContent,
+    "Sem conexão com a internet. Verifique sua rede e tente novamente.",
+    "shows errorService's categorized network message instead of the raw 'Failed to fetch' error"
+  );
+});
+
 test("creating a calendar without a name shows a validation error", async (t) => {
   mockService(t, { calendars: [] });
   view = await import(`../../academicCalendarView.js?t=${Math.random()}`);

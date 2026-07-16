@@ -93,8 +93,8 @@ async function handleSave() {
     close();
     if (onSaveCallback) await onSaveCallback();
   } catch (err) {
-    handleError(err, { context: 'quickAdd.createEvent', silent: true });
-    errorEl.textContent = err.message || "Erro ao salvar.";
+    const { friendly } = handleError(err, { context: 'quickAdd.createEvent', silent: true, fallbackMessage: "Erro ao salvar." });
+    errorEl.textContent = friendly;
     saveBtn.disabled    = false;
     saveBtn.textContent = "Salvar";
   }
