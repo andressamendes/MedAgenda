@@ -94,9 +94,9 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
         await subscribeToPush();
       }
     } catch (err) {
-      handleError(err, { context: 'settingsModal.pushToggle', silent: true });
+      const { friendly } = handleError(err, { context: 'settingsModal.pushToggle', silent: true, fallbackMessage: "Erro ao configurar notificações push." });
       pushErrorHint.hidden      = false;
-      pushErrorHint.textContent = err.message || "Erro ao configurar notificações push.";
+      pushErrorHint.textContent = friendly;
     } finally {
       btnPushToggle.disabled = false;
     }

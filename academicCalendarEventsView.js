@@ -114,8 +114,8 @@ export async function showEventList(calId) {
         _getOnChange()?.();
         await showEventList(calId);
       } catch (err) {
-        handleError(err, { context: 'academicCalendarEventsView.delete', silent: true });
-        toast.error(err.message || "Erro ao excluir evento.");
+        const { friendly } = handleError(err, { context: 'academicCalendarEventsView.delete', silent: true, fallbackMessage: "Erro ao excluir evento." });
+        toast.error(friendly);
       }
     });
   });
@@ -202,8 +202,8 @@ async function handleEventCreate(calId) {
     _getOnChange()?.();
     await showEventList(calId);
   } catch (err) {
-    handleError(err, { context: 'academicCalendarEventsView.create', silent: true });
-    errEl.textContent = err.message || "Erro ao criar evento.";
+    const { friendly } = handleError(err, { context: 'academicCalendarEventsView.create', silent: true, fallbackMessage: "Erro ao criar evento." });
+    errEl.textContent = friendly;
   }
 }
 
@@ -231,8 +231,8 @@ function showEventEditForm(ev) {
       _getOnChange()?.();
       await showEventList(calId);
     } catch (err) {
-      handleError(err, { context: 'academicCalendarEventsView.update', silent: true });
-      errEl.textContent = err.message || "Erro ao atualizar.";
+      const { friendly } = handleError(err, { context: 'academicCalendarEventsView.update', silent: true, fallbackMessage: "Erro ao atualizar." });
+      errEl.textContent = friendly;
     }
   });
   document.getElementById("acev-cancel").addEventListener("click", () => showEventList(calId));
