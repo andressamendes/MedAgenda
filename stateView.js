@@ -29,6 +29,7 @@
 // handler uma única vez, no bootstrap, via setReauthHandler().
 
 import { escapeHtml } from "./utils.js";
+import { iconLock, iconWifiOff, iconAlertTriangle, iconDatabase } from "./icons.js";
 
 export const STATES = {
   SESSION_EXPIRED: "session_expired",
@@ -46,25 +47,25 @@ export const STATES = {
 // quatro elementos, sempre os mesmos, em qualquer tela.
 const STATE_DEFS = {
   [STATES.SESSION_EXPIRED]: {
-    icon:        "🔒",
+    icon:        iconLock,
     title:       "Sessão expirada",
     actionLabel: "Entrar novamente",
     retryable:   false,
   },
   [STATES.NETWORK]: {
-    icon:        "📡",
+    icon:        iconWifiOff,
     title:       "Sem conexão",
     actionLabel: "Tentar novamente",
     retryable:   true,
   },
   [STATES.SERVER]: {
-    icon:        "⚠️",
+    icon:        iconAlertTriangle,
     title:       "Erro ao comunicar com o servidor",
     actionLabel: "Tentar novamente",
     retryable:   true,
   },
   [STATES.SCHEMA_MISMATCH]: {
-    icon:        "🗄️",
+    icon:        iconDatabase,
     title:       "Banco de dados desatualizado",
     actionLabel: "Recarregar",
     retryable:   false,
@@ -131,7 +132,7 @@ export function renderStateBlock(container, { state, message, onRetry } = {}) {
   const icon = document.createElement("span");
   icon.className = "state-block-icon";
   icon.setAttribute("aria-hidden", "true");
-  icon.textContent = def.icon;
+  icon.innerHTML = def.icon;
 
   const title = document.createElement("strong");
   title.className = "state-block-title";

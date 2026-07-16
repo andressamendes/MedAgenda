@@ -48,7 +48,7 @@ test("renderStateBlock renders icon, title, description and action for session_e
     onRetry: () => { retried = true; },
   });
 
-  assert.match(container.querySelector(".state-block-icon").textContent, /🔒/);
+  assert.ok(container.querySelector(".state-block-icon svg"), "session_expired renders a lock icon (SVG, auditoria UX #33)");
   assert.strictEqual(container.querySelector(".state-block-title").textContent, "Sessão expirada");
   assert.strictEqual(container.querySelector(".state-block-desc").textContent, "Sua sessão expirou. Faça login novamente.");
   const btn = container.querySelector(".state-block-action");
