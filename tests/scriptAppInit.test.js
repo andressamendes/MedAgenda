@@ -61,14 +61,16 @@ let startSessionForEventCalls;
 let showPageCalls;
 let confirmDialogCalls;
 let deleteEventCalls;
+let toastInfoCalls;
 
-function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true, getEventsImpl } = {}) {
+function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true, getEventsImpl, hasActiveStudySession = false } = {}) {
   authCallbacks = null;
   openAcademicCalendarModalCalls = 0;
   startSessionForEventCalls = [];
   showPageCalls = [];
   confirmDialogCalls = [];
   deleteEventCalls = [];
+  toastInfoCalls = [];
 
   t.mock.module(SPECIFIERS.eventService, {
     namedExports: {
@@ -97,7 +99,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
   });
   t.mock.module(SPECIFIERS.config, { namedExports: { VAPID_PUBLIC_KEY: "" } });
   t.mock.module(SPECIFIERS.toastService, {
-    namedExports: { toast: { error: () => {}, success: () => {}, info: () => {} } },
+    namedExports: { toast: { error: () => {}, success: () => {}, info: (msg) => { toastInfoCalls.push(msg); } } },
   });
   t.mock.module(SPECIFIERS.telemetryService, {
     namedExports: { initTelemetry: () => {}, setTelemetryDevMode: () => {}, track: () => {}, EVENTS: {} },
@@ -154,7 +156,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
   t.mock.module(SPECIFIERS.diagnosticModal, { namedExports: { initDiagnosticModal: () => {} } });
   t.mock.module(SPECIFIERS.studySessionView, {
     namedExports: {
-      initStudySessionView: async () => false, resetStudySessionView: () => {},
+      initStudySessionView: async () => hasActiveStudySession, resetStudySessionView: () => {},
       startSessionForEvent: async (ev) => { startSessionForEventCalls.push(ev); return startSessionResult; },
     },
   });
@@ -266,6 +268,31 @@ test("UX #13 — when startSessionForEvent() declines (e.g. another session alre
   assert.strictEqual(startSessionForEventCalls.length, 1);
   assert.strictEqual(showPageCalls.includes("study-session"), false);
   assert.strictEqual(btn.disabled, false, "the button is re-enabled after the attempt");
+});
+
+// ── Auditoria UX #34: redirecionamento silencioso p/ sessão ativa ──────────
+
+test("UX #34 — opening the app with an active study session (running/paused) redirects to it AND shows an informative toast", async (t) => {
+  mockScriptDependencies(t, { hasActiveStudySession: true });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.ok(showPageCalls.includes("study-session"), "still redirects to the study session page (F7.8 behavior kept)");
+  assert.strictEqual(toastInfoCalls.length, 1, "shows exactly one informative toast explaining the redirect");
+  assert.match(toastInfoCalls[0], /sessão de estudo em andamento/i);
+});
+
+test("UX #34 — opening the app with no active study session does not show the redirect toast", async (t) => {
+  mockScriptDependencies(t, { hasActiveStudySession: false });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(showPageCalls.includes("study-session"), false);
+  assert.strictEqual(toastInfoCalls.length, 0);
 });
 
 // ── Auditoria UX #14: excluir evento recorrente não avisava sobre a série ──
