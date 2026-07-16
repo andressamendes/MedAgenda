@@ -57,6 +57,67 @@ test("opening the modal lists the user's existing calendars", async (t) => {
   assert.strictEqual(document.querySelector(".acal-row-name").textContent, "Medicina 2026");
 });
 
+// ── Auditoria UX #36: 5 botões por linha → "Eventos" + menu "⋯" ────────────
+
+test("UX #36 — a calendar row shows 'Eventos' as the primary action and the rest (Importar/Exportar/Editar/Excluir) inside a collapsed '⋯' menu", async (t) => {
+  mockService(t, { calendars: [{ id: "cal-1", name: "Medicina 2026", color: "#7c3aed" }] });
+  view = await import(`../../academicCalendarView.js?t=${Math.random()}`);
+  view.initAcademicModal();
+  await view.openAcademicCalendarModal();
+
+  const row = document.querySelector(".acal-row");
+  assert.ok(row.querySelector(".btn-acal-events"), "'Eventos' stays visible as the primary action");
+  assert.ok(row.querySelector(".acal-row-menu-btn"), "the row has a '⋯' toggle for the remaining actions");
+
+  const dropdown = row.querySelector(".acal-row-menu-dropdown");
+  assert.ok(dropdown, "the row has a collapsed dropdown");
+  assert.strictEqual(dropdown.hidden, true, "the dropdown starts collapsed");
+  assert.ok(dropdown.querySelector(".btn-acal-import"));
+  assert.ok(dropdown.querySelector(".btn-acal-export"));
+  assert.ok(dropdown.querySelector(".btn-acal-edit"));
+  assert.ok(dropdown.querySelector(".btn-acal-delete"));
+});
+
+test("UX #36 — clicking the '⋯' button opens the row's menu, and clicking outside closes it again", async (t) => {
+  mockService(t, { calendars: [{ id: "cal-1", name: "Medicina 2026", color: "#7c3aed" }] });
+  view = await import(`../../academicCalendarView.js?t=${Math.random()}`);
+  view.initAcademicModal();
+  await view.openAcademicCalendarModal();
+
+  const menuBtn = document.querySelector(".acal-row-menu-btn");
+  const dropdown = document.querySelector(".acal-row-menu-dropdown");
+
+  menuBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(dropdown.hidden, false, "opens on click");
+  assert.strictEqual(menuBtn.getAttribute("aria-expanded"), "true");
+
+  document.body.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(dropdown.hidden, true, "closes when clicking outside the menu");
+  assert.strictEqual(menuBtn.getAttribute("aria-expanded"), "false");
+});
+
+test("UX #36 — opening one row's menu closes any other row's menu already open", async (t) => {
+  mockService(t, {
+    calendars: [
+      { id: "cal-1", name: "Medicina 2026", color: "#7c3aed" },
+      { id: "cal-2", name: "Residência", color: "#10b981" },
+    ],
+  });
+  view = await import(`../../academicCalendarView.js?t=${Math.random()}`);
+  view.initAcademicModal();
+  await view.openAcademicCalendarModal();
+
+  const [menuBtn1, menuBtn2] = document.querySelectorAll(".acal-row-menu-btn");
+  const [dropdown1, dropdown2] = document.querySelectorAll(".acal-row-menu-dropdown");
+
+  menuBtn1.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(dropdown1.hidden, false);
+
+  menuBtn2.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(dropdown2.hidden, false, "the clicked row's menu opens");
+  assert.strictEqual(dropdown1.hidden, true, "the previously open row's menu closes");
+});
+
 test("creating a calendar re-renders the list with the new entry", async (t) => {
   const created = { id: "cal-2", name: "Residência", color: "#10b981" };
   mockService(t, { calendars: [], createResult: created });

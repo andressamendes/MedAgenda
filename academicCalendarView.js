@@ -14,6 +14,7 @@ import { initICSView, triggerICSImport, handleICSExport } from "./academicCalend
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
+import { iconMoreHorizontal } from "./icons.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,31 @@ export function initAcademicModal() {
 
   document.getElementById("academic-close")?.addEventListener("click", closeModal);
   if (_modalOverlay) _modal = initModal(_modalOverlay, closeModal);
+
+  // Menu "⋯" por calendário (auditoria UX #36) — delegado em _modalBody, que
+  // é o mesmo nó em todos os re-renders de showCalendarList(), então um único
+  // par de listeners (aqui, dentro da mesma guarda acima) basta para toda a
+  // vida da página, sem precisar re-registrar a cada renderização da lista.
+  _modalBody?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".acal-row-menu-btn");
+    if (!btn) return;
+    e.stopPropagation();
+    const dropdown = btn.nextElementSibling;
+    const wasHidden = dropdown?.hidden;
+    _closeAllRowMenus();
+    if (dropdown && wasHidden) {
+      dropdown.hidden = false;
+      btn.setAttribute("aria-expanded", "true");
+    }
+  });
+  document.addEventListener("click", _closeAllRowMenus);
+}
+
+function _closeAllRowMenus() {
+  _modalBody?.querySelectorAll(".acal-row-menu-dropdown:not([hidden])").forEach(dropdown => {
+    dropdown.hidden = true;
+    dropdown.previousElementSibling?.setAttribute("aria-expanded", "false");
+  });
 }
 
 /**
@@ -155,11 +181,17 @@ async function showCalendarList() {
             ${c.academic_year ? `<span class="acal-row-sub">${escapeHtml(c.academic_year)}</span>` : ""}
           </div>
           <div class="acal-row-actions">
-            <button class="btn btn-sm btn-ghost btn-acal-events"  data-id="${escapeHtml(c.id)}">Eventos</button>
-            <button class="btn btn-sm btn-ghost btn-acal-import"  data-id="${escapeHtml(c.id)}">Importar ICS</button>
-            <button class="btn btn-sm btn-ghost btn-acal-export"  data-id="${escapeHtml(c.id)}">Exportar ICS</button>
-            <button class="btn btn-sm btn-ghost btn-acal-edit"    data-id="${escapeHtml(c.id)}">Editar</button>
-            <button class="btn btn-sm btn-danger btn-acal-delete" data-id="${escapeHtml(c.id)}">Excluir</button>
+            <button class="btn btn-sm btn-primary btn-acal-events" data-id="${escapeHtml(c.id)}">Eventos</button>
+            <div class="user-menu-wrap acal-row-menu-wrap">
+              <button type="button" class="btn-icon btn-icon-sm acal-row-menu-btn" data-id="${escapeHtml(c.id)}" aria-haspopup="true" aria-expanded="false" aria-label="Mais ações para ${escapeHtml(c.name)}">${iconMoreHorizontal}</button>
+              <div class="user-menu-dropdown acal-row-menu-dropdown" hidden role="menu">
+                <button class="user-menu-item btn-acal-import" data-id="${escapeHtml(c.id)}" role="menuitem">Importar ICS</button>
+                <button class="user-menu-item btn-acal-export" data-id="${escapeHtml(c.id)}" role="menuitem">Exportar ICS</button>
+                <button class="user-menu-item btn-acal-edit"   data-id="${escapeHtml(c.id)}" role="menuitem">Editar</button>
+                <div class="user-menu-divider"></div>
+                <button class="user-menu-item user-menu-item--danger btn-acal-delete" data-id="${escapeHtml(c.id)}" role="menuitem">Excluir</button>
+              </div>
+            </div>
           </div>
         </div>
       `).join("");
