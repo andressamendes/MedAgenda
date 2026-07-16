@@ -807,6 +807,15 @@ function _render() {
     const previousSummary = index + 1 < dayBuckets.length ? daySummaries[index + 1] : null;
     _appendDailySummary(dayGroup, daySummaries[index], compareDailySummaries(daySummaries[index], previousSummary));
   });
+
+  // Auditoria UX #32: o laço acima só fecha o resumo de uma semana quando a
+  // semana seguinte (mais antiga) começa — a última semana visível nunca
+  // disparava essa troca e ficava sem cartão até "Carregar mais" alcançar a
+  // semana anterior. Fecha aqui também, fora do laço, para a última semana
+  // visível sempre ganhar seu resumo.
+  if (currentWeekKey !== null) {
+    _appendWeekSummary(currentWeekKey, weekBuckets, weekEntries);
+  }
 }
 
 async function _loadEntriesData(sessions) {
