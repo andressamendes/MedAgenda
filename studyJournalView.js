@@ -99,6 +99,7 @@ import {
 } from "./studyTimelineService.js";
 import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
+import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 
 const PAGE_SIZE = 10;
@@ -426,15 +427,15 @@ function _createDayGroup(iso) {
 }
 
 // ── Marcos da Evolução (F8.7) ────────────────────────────────────────────
-// Glifos já existentes no app (nav-icon de index.html) reaproveitados como
-// "ícone" de cada marco — nenhum SVG, imagem ou biblioteca de ícones novos,
-// apenas os mesmos caracteres Unicode já usados na barra lateral.
+// Ícones SVG já usados na navegação (icons.js, auditoria UX #33)
+// reaproveitados como "ícone" de cada marco — mesma fonte, sem duplicar
+// desenhos novos por marco.
 const MILESTONE_ICON_GLYPHS = {
-  "check-circle": "\u{1F4CB}", // 📋 — mesmo glifo do nav "Compromissos"
-  clock:          "⏳",     // ⏳ — mesmo glifo do nav "Sessão de Estudo"
-  target:         "\u{1F4CA}", // 📊 — mesmo glifo do nav "Dashboard"
-  flame:          "✨",     // ✨ — mesmo glifo do nav "Assistente IA"
-  book:           "\u{1F4DA}", // 📚 — mesmo glifo do nav "Calendários"
+  "check-circle": iconClipboard, // mesmo ícone do nav "Compromissos"
+  clock:          iconClock,     // mesmo ícone do nav "Sessão de Estudo"
+  target:         iconBarChart,  // mesmo ícone do nav "Dashboard"
+  flame:          iconSparkle,   // mesmo ícone do nav "Assistente IA"
+  book:           iconLayers,    // mesmo ícone do nav "Calendários Acadêmicos"
 };
 
 // Inserido como o primeiro <li> da lista, antes de qualquer grupo de dia —

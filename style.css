@@ -462,11 +462,14 @@ body {
 }
 
 .nav-icon {
-  font-size: 1rem;
   flex-shrink: 0;
   width: 1.2rem;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+.nav-icon svg { width: 18px; height: 18px; }
 
 .nav-label { flex: 1; }
 
@@ -714,7 +717,8 @@ body {
   border-radius: var(--radius-sm);
 }
 
-.bottom-nav-icon { font-size: 1.1rem; line-height: 1; }
+.bottom-nav-icon { display: flex; align-items: center; justify-content: center; }
+.bottom-nav-icon svg { width: 20px; height: 20px; }
 
 .bottom-nav-label { font-size: .62rem; font-weight: 600; }
 
@@ -1199,9 +1203,12 @@ textarea { resize: vertical; }
 }
 
 .state-block-icon {
-  font-size: 1.4rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+.state-block-icon svg { width: 28px; height: 28px; }
 
 .state-block-title {
   font-weight: 600;
@@ -1790,9 +1797,11 @@ textarea { resize: vertical; }
 .sj-milestone-item--warning { border-left-color: var(--color-warning); }
 
 .sj-milestone-icon {
-  font-size: 1.1rem;
-  line-height: 1.4;
+  display: flex;
+  align-items: center;
 }
+
+.sj-milestone-icon svg { width: 20px; height: 20px; flex-shrink: 0; }
 
 .sj-milestone-body {
   display: flex;
