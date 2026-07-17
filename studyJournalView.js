@@ -516,6 +516,14 @@ function _appendDailySummary(dayGroup, summary, comparison) {
 // filtradas/visíveis dessa semana, o mesmo subconjunto que alimentou
 // summarizeWeekGroups) — nenhuma consulta nova, nenhum dado além do que já
 // está em `_allEntries`.
+//
+// F10 #1.4 — a narrativa vem dentro de um <details> nativo, recolhida por
+// padrão: o texto corrido competia visualmente com os números do cartão
+// (que já respondem "quanto"/"quantas vezes") em toda semana renderizada.
+// <details>/<summary> foi escolhido em vez de um toggle próprio (como em
+// #1.1/#1.3) por ser puramente apresentacional — sem estado para persistir
+// entre buscas/filtros — e por manter o texto no DOM (querySelector nos
+// testes continua funcionando independente de aberto/fechado).
 function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
   const summary = summarizeWeekGroups(weekDayGroups);
   const narrative = buildWeeklySummary(weekEntries);
@@ -530,10 +538,10 @@ function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
       <span>${summary.subjectsCount} matéria(s)</span>
       <span>Maior sequência de estudos: ${summary.longestStreak} dia(s)</span>
     </div>
-    <div class="sj-week-narrative">
-      <h3 class="sj-week-narrative-title">Resumo da Semana</h3>
+    <details class="sj-week-narrative">
+      <summary class="sj-week-narrative-title">Resumo da Semana</summary>
       <p class="sj-week-narrative-text">${escapeHtml(narrative.text).replace(/\n\n/g, "</p><p class=\"sj-week-narrative-text\">")}</p>
-    </div>
+    </details>
   `;
   listEl.appendChild(li);
 }

@@ -1758,9 +1758,6 @@ textarea { resize: vertical; }
 .sj-week-narrative {
   border-top: 1px dashed var(--gray-200);
   padding-top: .5rem;
-  display: flex;
-  flex-direction: column;
-  gap: .3rem;
 }
 
 .sj-week-narrative-title {
@@ -1770,10 +1767,12 @@ textarea { resize: vertical; }
   letter-spacing: .02em;
   color: var(--gray-500);
   margin: 0;
+  cursor: pointer;
+  list-style: revert;
 }
 
 .sj-week-narrative-text {
-  margin: 0;
+  margin: .4rem 0 0;
   font-size: .82rem;
   line-height: 1.5;
   color: var(--gray-700);
