@@ -76,6 +76,7 @@ const APP_SHELL = [
   './sessionQuestionsService.js',
   './sessionSummaryView.js',
   './settingsModal.js',
+  './skeletonView.js',
   './smartCardView.js',
   './stateView.js',
   './studyJournalView.js',
