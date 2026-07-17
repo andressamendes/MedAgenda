@@ -85,6 +85,11 @@ let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
 // só persistida via sessionQuestionsService.addQuestion() na confirmação.
 let ssfQuestionsListEl, ssfQuestionsEmptyEl;
 let ssfQTypeEl, ssfQStatusEl, ssfQDifficultyEl, ssfQSubjectEl, ssfQTopicEl, ssfBtnAddQuestion;
+// F10 #3.3 — o formulário de adicionar/editar questão nasce oculto atrás de
+// "+ Adicionar questão"; só aparece ao abrir (ssfBtnToggleQuestionForm), ao
+// editar um item da lista (_editPendingQuestion) ou permanece aberto entre
+// adições consecutivas (auditoria UX #25) até "Cancelar" fechá-lo de volta.
+let ssfQuestionFormEl, ssfBtnToggleQuestionForm, ssfBtnCancelQuestion;
 
 // Seções colapsáveis do resumo (auditoria UX #04) — Questões e Revisões são
 // etapas opcionais e nascem fechadas a cada abertura do resumo, para que o
@@ -100,6 +105,9 @@ let ssfReviewsToggleEl, ssfReviewsBodyEl, ssfReviewsCountEl;
 let ssfReviewsListEl, ssfReviewsEmptyEl;
 let ssfReviewAssociateRowEl, ssfReviewCreateRowEl;
 let ssfRExistingEl, ssfRDateEl, ssfBtnAssociateReview, ssfBtnCreateReview;
+// F10 #3.3 — mesmo padrão do formulário de questão: oculto atrás de
+// "+ Adicionar revisão", só reaparece ao abrir ou ao "Cancelar" ser clicado.
+let ssfReviewFormEl, ssfBtnToggleReviewForm, ssfBtnCancelReview;
 
 let _session   = null; // fonte da verdade: a última linha conhecida do banco
 let _eventMeta = null; // { title, category, duration_minutes } — só para exibição
@@ -176,6 +184,9 @@ function _queryElements() {
   ssfQSubjectEl        = document.getElementById("ssf-q-subject");
   ssfQTopicEl          = document.getElementById("ssf-q-topic");
   ssfBtnAddQuestion    = document.getElementById("ssf-btn-add-question");
+  ssfQuestionFormEl        = document.getElementById("ssf-question-form");
+  ssfBtnToggleQuestionForm = document.getElementById("ssf-btn-toggle-question-form");
+  ssfBtnCancelQuestion     = document.getElementById("ssf-btn-cancel-question");
 
   ssfReviewsListEl        = document.getElementById("ssf-reviews-list");
   ssfReviewsEmptyEl       = document.getElementById("ssf-reviews-empty");
@@ -185,6 +196,9 @@ function _queryElements() {
   ssfRDateEl              = document.getElementById("ssf-r-date");
   ssfBtnAssociateReview   = document.getElementById("ssf-btn-associate-review");
   ssfBtnCreateReview      = document.getElementById("ssf-btn-create-review");
+  ssfReviewFormEl        = document.getElementById("ssf-review-form");
+  ssfBtnToggleReviewForm = document.getElementById("ssf-btn-toggle-review-form");
+  ssfBtnCancelReview     = document.getElementById("ssf-btn-cancel-review");
 
   finishModal = initModal(finishModalEl, _closeFinishModal);
 }
@@ -221,6 +235,21 @@ function _bindEvents() {
   ssfBtnAssociateReview.addEventListener("click", () => _addPendingReviewAssociation());
   ssfBtnCreateReview.addEventListener("click", () => _addPendingReviewCreation());
   ssfBtnConfirm.addEventListener("click", () => _confirmFinish());
+
+  ssfBtnToggleQuestionForm.addEventListener("click", () => {
+    _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, true);
+    ssfQTypeEl.focus();
+  });
+  ssfBtnCancelQuestion.addEventListener("click", () => {
+    _resetQuestionForm();
+    _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
+  });
+  ssfBtnToggleReviewForm.addEventListener("click", () =>
+    _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, true));
+  ssfBtnCancelReview.addEventListener("click", () => {
+    ssfRDateEl.value = "";
+    _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, false);
+  });
 }
 
 function _formatElapsed(ms) {
@@ -438,6 +467,16 @@ function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
   toggleBtn.textContent = expanded ? "Ocultar" : "Mostrar";
 }
 
+// F10 #3.3 — o formulário de adicionar questão/revisão e o botão
+// "+ Adicionar..." que o revela nunca ficam visíveis ao mesmo tempo: a
+// lista compacta (já existente) passa a ser o que aparece por padrão dentro
+// de cada seção opcional, com o formulário só surgindo sob demanda.
+function _setInlineFormVisible(formEl, toggleBtn, visible) {
+  formEl.hidden = !visible;
+  toggleBtn.hidden = visible;
+  toggleBtn.setAttribute("aria-expanded", String(visible));
+}
+
 // Auditoria UX #25: `keepSubjectTopic` repete a matéria/tópico da última
 // questão adicionada — quem resolveu um bloco inteiro de uma mesma
 // matéria/tópico não precisa redigitar a cada questão. Tipo/status/
@@ -524,11 +563,15 @@ function _editPendingQuestion(localId) {
   ssfQTopicEl.value      = q.topic || "";
   _editingQuestionLocalId = localId;
   ssfBtnAddQuestion.textContent = "Salvar alteração";
+  _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, true);
 }
 
 function _removePendingQuestion(localId) {
   _pendingQuestions = _pendingQuestions.filter(q => q.localId !== localId);
-  if (_editingQuestionLocalId === localId) _resetQuestionForm();
+  if (_editingQuestionLocalId === localId) {
+    _resetQuestionForm();
+    _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
+  }
   _renderQuestionsList();
 }
 
@@ -660,6 +703,9 @@ function _openFinishModal() {
   _pendingQuestions = [];
   _resetQuestionForm();
   _renderQuestionsList();
+  // F10 #3.3 — o formulário nasce oculto atrás de "+ Adicionar questão";
+  // só a lista compacta (vazia neste ponto) fica visível.
+  _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
 
   // Auditoria UX #04: as etapas opcionais sempre nascem colapsadas — quem só
   // quer confirmar o encerramento não atravessa os formulários delas.
@@ -673,6 +719,7 @@ function _openFinishModal() {
   ssfReviewCreateRowEl.hidden = !_session.event_id;
   ssfReviewAssociateRowEl.hidden = true; // reaparece se _loadReviewOptions() encontrar pendentes
   _renderReviewsList();
+  _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, false);
   _loadReviewOptions();
 
   finishModal.open(ssfBtnBack);
@@ -942,4 +989,6 @@ export function resetStudySessionView() {
   if (ssfReviewsListEl) _renderReviewsList();
   if (ssfQuestionsToggleEl) _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, false);
   if (ssfReviewsToggleEl)   _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, false);
+  if (ssfQuestionFormEl) _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
+  if (ssfReviewFormEl)   _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, false);
 }
