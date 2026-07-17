@@ -1586,6 +1586,45 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+/* ── Dashboard em níveis (F10 #3.1) — "Hoje" sempre visível; o resto vive
+   atrás de abas para não competir por atenção a cada carregamento. ── */
+.dash-tier-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--gray-700);
+  margin: 0 0 .6rem;
+}
+
+.dash-tabs {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  margin: 1.4rem 0 1rem;
+}
+
+.dash-tab {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  padding: .35rem .9rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.dash-tab:hover:not(.dash-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
+
+.dash-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.dash-tab--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
 /* ── Central de Insights (F2.4) ── */
 .insights-block + .insights-block {
   margin-top: 1.6rem;

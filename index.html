@@ -592,32 +592,55 @@
           </div>
         </div>
 
-        <!-- Page: Dashboard de Execução (F2.1) -->
+        <!-- Page: Dashboard de Execução (F2.1; reestruturado em níveis — F10
+             #3.1). Antes, até 15 cards apareciam juntos, sem nenhuma
+             hierarquia — "Hoje" (o que a maioria consulta) tinha o mesmo peso
+             visual que recordes históricos e conquistas raramente checadas.
+             Agora só o nível "Hoje" é sempre visível; o resto vive atrás de
+             abas (Semana/Mês, Recordes e Conquistas) — sem reduzir nenhum
+             dado, só a quantidade exibida de uma vez. -->
         <div id="page-dashboard" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Dashboard</h1>
           </div>
           <p id="dash-error" class="list-empty list-error" hidden></p>
-          <div id="dash-cards" class="dashboard-cards" hidden></div>
 
-          <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
-               renderizados por insightsView.js. Execução e Metas não existem
-               mais lá: eram cards idênticos aos do Dashboard acima (auditoria
-               UX #01); só os blocos exclusivos (Revisões e Produtividade)
-               foram incorporados aqui. -->
-          <section class="insights-block" aria-labelledby="insights-revisoes-title">
-            <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
-            <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
-            <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
-            <div id="insights-revisoes-cards" class="dashboard-cards" hidden></div>
-          </section>
+          <h2 class="dash-tier-title">Hoje</h2>
+          <div id="dash-cards-today" class="dashboard-cards" hidden></div>
 
-          <section class="insights-block" aria-labelledby="insights-produtividade-title">
-            <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
-            <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
-            <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
-            <div id="insights-produtividade-cards" class="dashboard-cards" hidden></div>
-          </section>
+          <div class="dash-tabs" id="dash-tabs" role="tablist" aria-label="Mais indicadores do Dashboard">
+            <button type="button" class="dash-tab dash-tab--active" data-panel="week-month" role="tab" aria-selected="true">Semana/Mês</button>
+            <button type="button" class="dash-tab" data-panel="records" role="tab" aria-selected="false">Recordes e Conquistas</button>
+          </div>
+
+          <div id="dash-panel-week-month" class="dash-tab-panel">
+            <div id="dash-cards-weekmonth" class="dashboard-cards" hidden></div>
+          </div>
+
+          <div id="dash-panel-records" class="dash-tab-panel" hidden>
+            <div id="dash-cards-records" class="dashboard-cards" hidden></div>
+
+            <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
+                 renderizados por insightsView.js. Execução e Metas não existem
+                 mais lá: eram cards idênticos aos do Dashboard acima (auditoria
+                 UX #01); só os blocos exclusivos (Revisões e Produtividade)
+                 foram incorporados aqui. Movidos para dentro da aba "Recordes
+                 e Conquistas" (F10 #3.1) — mesmo id, mesmo módulo, nenhuma
+                 mudança em insightsView.js. -->
+            <section class="insights-block" aria-labelledby="insights-revisoes-title">
+              <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
+              <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
+              <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
+              <div id="insights-revisoes-cards" class="dashboard-cards" hidden></div>
+            </section>
+
+            <section class="insights-block" aria-labelledby="insights-produtividade-title">
+              <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
+              <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
+              <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
+              <div id="insights-produtividade-cards" class="dashboard-cards" hidden></div>
+            </section>
+          </div>
         </div>
 
         <!-- Page: Histórico de Sessões -->
