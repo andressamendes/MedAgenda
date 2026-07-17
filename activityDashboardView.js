@@ -77,15 +77,32 @@ const GOAL_CARD_DEFS = [
   },
 ];
 
-// Ordem de exibição = ordem pedida na ETAPA 3. Cada card só mostra
-// título/valor/descrição — nada de gráfico, barra ou ícone de tendência.
-const CARD_DEFS = [
-  ...GOAL_CARD_DEFS,
+// F10 #3.1 — Reestruturação em níveis: até 11 cards apareciam juntos, sem
+// nenhuma hierarquia entre "o que a maioria consulta todo dia" (hoje) e
+// "recordes/histórico raramente checados". Os mesmos CARD_DEFS de sempre,
+// só reagrupados em três níveis (cada card continua definido uma única vez,
+// nenhuma duplicação):
+//   - TODAY: sempre visível — o nível 1, o que se consulta com mais frequência.
+//   - WEEK_MONTH / RECORDS: nível 2, atrás das abas "Semana/Mês" e "Recordes
+//     e Conquistas" (ver initActivityDashboardView) — mesmos dados de
+//     sempre, só não competem visualmente com "Hoje" a cada carregamento.
+const TODAY_CARD_DEFS = [
+  GOAL_CARD_DEFS[0], // Meta diária
   {
     title: "Tempo estudado hoje",
     value: d => _formatDuration(d.todayMinutes),
     desc:  () => "Soma das sessões finalizadas hoje.",
   },
+  {
+    title: "Sessões hoje",
+    value: d => String(d.todaySessionsCount),
+    desc:  () => "Quantidade de sessões finalizadas hoje.",
+  },
+];
+
+const WEEK_MONTH_CARD_DEFS = [
+  GOAL_CARD_DEFS[1], // Meta semanal
+  GOAL_CARD_DEFS[2], // Meta mensal
   {
     title: "Tempo estudado esta semana",
     value: d => _formatDuration(d.weekMinutes),
@@ -95,11 +112,6 @@ const CARD_DEFS = [
     title: "Tempo estudado este mês",
     value: d => _formatDuration(d.monthMinutes),
     desc:  () => "Soma das sessões finalizadas neste mês.",
-  },
-  {
-    title: "Sessões hoje",
-    value: d => String(d.todaySessionsCount),
-    desc:  () => "Quantidade de sessões finalizadas hoje.",
   },
   {
     title: "Sessões na semana",
@@ -116,6 +128,9 @@ const CARD_DEFS = [
     value: d => _formatDuration(d.averageMinutes),
     desc:  () => "Média de duração das sessões finalizadas neste mês.",
   },
+];
+
+const RECORDS_CARD_DEFS = [
   {
     title: "Maior sessão",
     value: d => d.longestSession ? _formatDuration(d.longestSession.duration_minutes) : "—",
@@ -136,7 +151,15 @@ const CARD_DEFS = [
   },
 ];
 
-let cardsEl, errorEl;
+const CARD_GROUPS = [
+  { defs: TODAY_CARD_DEFS,      containerId: "dash-cards-today" },
+  { defs: WEEK_MONTH_CARD_DEFS, containerId: "dash-cards-weekmonth" },
+  { defs: RECORDS_CARD_DEFS,    containerId: "dash-cards-records" },
+];
+
+let cardsElByGroup = [];
+let errorEl;
+let tabsEl, panelWeekMonthEl, panelRecordsEl;
 let _unsubscribeProfile = null;
 let _loading = false;
 
@@ -173,12 +196,8 @@ function _subscribeToEventBus() {
   ];
 }
 
-function _renderCards(data) {
-  errorEl.hidden = true;
-  errorEl.innerHTML = "";
-  clearStateBlock(errorEl);
-  cardsEl.hidden = false;
-  cardsEl.innerHTML = CARD_DEFS.map(def => {
+function _cardsMarkup(defs, data) {
+  return defs.map(def => {
     const noGoal = def.goalKey && !data[def.goalKey]?.configured;
     const configureLink = noGoal
       ? '<button type="button" class="link-btn" data-action="configure-goal">Configurar meta</button>'
@@ -194,7 +213,17 @@ function _renderCards(data) {
   }).join("");
 }
 
-// Auditoria UX #24 — um único listener delegado no container, montado uma
+function _renderCards(data) {
+  errorEl.hidden = true;
+  errorEl.innerHTML = "";
+  clearStateBlock(errorEl);
+  cardsElByGroup.forEach(({ defs, el }) => {
+    el.hidden = false;
+    el.innerHTML = _cardsMarkup(defs, data);
+  });
+}
+
+// Auditoria UX #24 — um único listener delegado por container, montado uma
 // vez em initActivityDashboardView() (os cards são recriados via innerHTML a
 // cada _load(), então um listener por botão se perderia a cada recarga).
 function _onCardsClick(ev) {
@@ -203,9 +232,24 @@ function _onCardsClick(ev) {
   }
 }
 
+// F10 #3.1 — Abas "Semana/Mês" / "Recordes e Conquistas": puramente
+// apresentacional, sem re-fetch — os dados dos dois níveis já foram
+// carregados juntos em _load(), só a visibilidade do painel muda. A aba
+// "Semana/Mês" começa ativa em toda visita à tela (sem persistência):
+// diferente do tema (F10 #2.4), aqui não há uma escolha estável para
+// lembrar — os dois painéis são igualmente prováveis de interessar.
+function _setActiveTab(panel) {
+  tabsEl?.querySelectorAll(".dash-tab").forEach(btn => {
+    const active = btn.dataset.panel === panel;
+    btn.classList.toggle("dash-tab--active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+  if (panelWeekMonthEl) panelWeekMonthEl.hidden = panel !== "week-month";
+  if (panelRecordsEl)   panelRecordsEl.hidden   = panel !== "records";
+}
+
 function _renderError({ state, message }) {
-  cardsEl.hidden = true;
-  cardsEl.innerHTML = "";
+  cardsElByGroup.forEach(({ el }) => { el.hidden = true; el.innerHTML = ""; });
   errorEl.hidden = false;
   renderStateBlock(errorEl, { state, message, onRetry: () => _load() });
 }
@@ -216,8 +260,10 @@ async function _load() {
   // Auditoria UX #20 — sem isto, os cards ficavam hidden (tela em branco)
   // durante a carga, diferente do Calendário (calendar.js/showLoading()).
   errorEl.hidden = true;
-  cardsEl.hidden = false;
-  cardsEl.innerHTML = skeletonCardsMarkup(6);
+  cardsElByGroup.forEach(({ defs, el }) => {
+    el.hidden = false;
+    el.innerHTML = skeletonCardsMarkup(defs.length);
+  });
   try {
     const [data, achievements] = await Promise.all([
       getDashboardData(),
@@ -244,11 +290,23 @@ async function _load() {
  * meta mudar, sem exigir reload da página nem polling.
  */
 export async function initActivityDashboardView() {
-  if (!cardsEl) {
-    cardsEl     = document.getElementById("dash-cards");
-    errorEl     = document.getElementById("dash-error");
-    cardsEl.addEventListener("click", _onCardsClick);
+  if (cardsElByGroup.length === 0) {
+    errorEl         = document.getElementById("dash-error");
+    tabsEl          = document.getElementById("dash-tabs");
+    panelWeekMonthEl = document.getElementById("dash-panel-week-month");
+    panelRecordsEl   = document.getElementById("dash-panel-records");
+
+    cardsElByGroup = CARD_GROUPS.map(({ defs, containerId }) => {
+      const el = document.getElementById(containerId);
+      el.addEventListener("click", _onCardsClick);
+      return { defs, el };
+    });
+
+    tabsEl?.querySelectorAll(".dash-tab").forEach(btn => {
+      btn.addEventListener("click", () => _setActiveTab(btn.dataset.panel));
+    });
   }
+  _setActiveTab("week-month");
   _subscribeToEventBus();
   if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
   await _load();
@@ -273,7 +331,7 @@ export function resetActivityDashboardView() {
     _reloadTimer = null;
   }
   if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
-  if (cardsEl) cardsEl.innerHTML = "";
+  cardsElByGroup.forEach(({ el }) => { el.innerHTML = ""; });
   if (errorEl) {
     errorEl.hidden = true;
     errorEl.innerHTML = "";

@@ -74,6 +74,34 @@ function tick() {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
 
+// F10 #3.1 — o Dashboard passou de um único container (#dash-cards) para
+// três níveis (#dash-cards-today sempre visível; #dash-cards-weekmonth e
+// #dash-cards-records atrás de abas). Os testes abaixo, em sua maioria,
+// não precisam saber em qual nível um card específico caiu — só que os 12
+// cards de sempre continuam todos lá, com os mesmos dados. Estes helpers
+// tratam os três containers como um só para esse propósito.
+const CARD_GROUP_IDS = ["dash-cards-today", "dash-cards-weekmonth", "dash-cards-records"];
+
+function cardGroupEls() {
+  return CARD_GROUP_IDS.map(id => document.getElementById(id));
+}
+
+function allCardsText() {
+  return cardGroupEls().map(el => el.textContent).join(" ");
+}
+
+function allCardsHtml() {
+  return cardGroupEls().map(el => el.innerHTML).join("");
+}
+
+function totalCardsCount() {
+  return cardGroupEls().reduce((sum, el) => sum + el.children.length, 0);
+}
+
+function allConfigureLinks() {
+  return cardGroupEls().flatMap(el => Array.from(el.querySelectorAll('[data-action="configure-goal"]')));
+}
+
 beforeEach(() => {
   installDom();
 });
@@ -92,13 +120,13 @@ test("with no sessions, all twelve cards render with empty/zero/no-goal values",
 
   await mod.initActivityDashboardView();
 
-  const cards = document.getElementById("dash-cards");
-  assert.strictEqual(cards.hidden, false);
-  assert.strictEqual(cards.children.length, 12);
-  assert.match(cards.textContent, /Tempo estudado hoje/);
-  assert.match(cards.textContent, /Sessões no mês/);
-  assert.match(cards.textContent, /Maior sessão/);
-  assert.match(cards.textContent, /—/); // sem sessão mais longa
+  cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
+  assert.strictEqual(totalCardsCount(), 12);
+  const text = allCardsText();
+  assert.match(text, /Tempo estudado hoje/);
+  assert.match(text, /Sessões no mês/);
+  assert.match(text, /Maior sessão/);
+  assert.match(text, /—/); // sem sessão mais longa
   assert.strictEqual(document.getElementById("dash-error").hidden, true);
 });
 
@@ -109,7 +137,7 @@ test("with no goals configured, the three goal cards show 'Sem meta configurada'
 
   await mod.initActivityDashboardView();
 
-  const text = document.getElementById("dash-cards").textContent;
+  const text = allCardsText();
   assert.match(text, /Meta diária/);
   assert.match(text, /Meta semanal/);
   assert.match(text, /Meta mensal/);
@@ -124,8 +152,7 @@ test("UX #24 — an unconfigured goal card shows a 'Configurar meta' link that o
 
   await mod.initActivityDashboardView();
 
-  const cards = document.getElementById("dash-cards");
-  const links = cards.querySelectorAll('[data-action="configure-goal"]');
+  const links = allConfigureLinks();
   assert.strictEqual(links.length, 3); // uma por meta (diária/semanal/mensal)
 
   links[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -143,8 +170,7 @@ test("UX #24 — a configured goal card does NOT show the 'Configurar meta' link
 
   await mod.initActivityDashboardView();
 
-  const cards = document.getElementById("dash-cards");
-  assert.strictEqual(cards.querySelectorAll('[data-action="configure-goal"]').length, 2); // só semanal/mensal seguem sem meta
+  assert.strictEqual(allConfigureLinks().length, 2); // só semanal/mensal seguem sem meta
 });
 
 test("a partially reached goal shows the percentage and remaining-time message", async (t) => {
@@ -157,7 +183,7 @@ test("a partially reached goal shows the percentage and remaining-time message",
 
   await mod.initActivityDashboardView();
 
-  const text = document.getElementById("dash-cards").textContent;
+  const text = allCardsText();
   assert.match(text, /50%/);
   assert.match(text, /Meta parcialmente atingida/);
 });
@@ -172,7 +198,7 @@ test("a goal reached exactly shows 'Meta atingida'", async (t) => {
 
   await mod.initActivityDashboardView();
 
-  assert.match(document.getElementById("dash-cards").textContent, /Meta atingida/);
+  assert.match(allCardsText(), /Meta atingida/);
 });
 
 test("a goal exceeded shows 'Meta ultrapassada'", async (t) => {
@@ -185,7 +211,7 @@ test("a goal exceeded shows 'Meta ultrapassada'", async (t) => {
 
   await mod.initActivityDashboardView();
 
-  const text = document.getElementById("dash-cards").textContent;
+  const text = allCardsText();
   assert.match(text, /125%/);
   assert.match(text, /Meta ultrapassada/);
 });
@@ -201,9 +227,9 @@ test("today's indicator renders the formatted duration and count", async (t) => 
 
   await mod.initActivityDashboardView();
 
-  const cards = document.getElementById("dash-cards");
-  assert.match(cards.textContent, /1h 30min/);
-  assert.match(cards.textContent, /Sessões hoje/);
+  const text = allCardsText();
+  assert.match(text, /1h 30min/);
+  assert.match(text, /Sessões hoje/);
 });
 
 test("week's indicator renders the formatted duration and count", async (t) => {
@@ -217,7 +243,7 @@ test("week's indicator renders the formatted duration and count", async (t) => {
 
   await mod.initActivityDashboardView();
 
-  assert.match(document.getElementById("dash-cards").textContent, /4h 5min/);
+  assert.match(allCardsText(), /4h 5min/);
 });
 
 test("month's indicator renders the formatted duration and count", async (t) => {
@@ -231,7 +257,7 @@ test("month's indicator renders the formatted duration and count", async (t) => 
 
   await mod.initActivityDashboardView();
 
-  assert.match(document.getElementById("dash-cards").textContent, /20h 30min/);
+  assert.match(allCardsText(), /20h 30min/);
 });
 
 test("average duration renders the average minutes formatted", async (t) => {
@@ -241,7 +267,7 @@ test("average duration renders the average minutes formatted", async (t) => {
 
   await mod.initActivityDashboardView();
 
-  assert.match(document.getElementById("dash-cards").textContent, /42min/);
+  assert.match(allCardsText(), /42min/);
 });
 
 test("longest session renders its duration and date", async (t) => {
@@ -254,7 +280,7 @@ test("longest session renders its duration and date", async (t) => {
 
   await mod.initActivityDashboardView();
 
-  const text = document.getElementById("dash-cards").textContent;
+  const text = allCardsText();
   assert.match(text, /2h 30min/);
   assert.match(text, /05\/07\/2026/);
 });
@@ -271,7 +297,7 @@ test("a load error shows the friendly message with a retry button", async (t) =>
   assert.strictEqual(errorEl.hidden, false);
   assert.match(errorEl.textContent, /Sem conexão com a internet\./);
   assert.ok(errorEl.querySelector(".list-error-retry"));
-  assert.strictEqual(document.getElementById("dash-cards").hidden, true);
+  cardGroupEls().forEach(el => assert.strictEqual(el.hidden, true));
 });
 
 // ── F4.1 — Fluxo Unificado de Sessão Expirada ───────────────────────────────
@@ -291,7 +317,7 @@ test("a session-expired error (auth category) shows 'Sessão expirada' with an '
   assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
   const actionBtn = errorEl.querySelector(".state-block-action");
   assert.strictEqual(actionBtn.textContent, "Entrar novamente");
-  assert.strictEqual(document.getElementById("dash-cards").hidden, true);
+  cardGroupEls().forEach(el => assert.strictEqual(el.hidden, true));
 });
 
 test("clicking 'Entrar novamente' on a session-expired dashboard error runs the official reauth flow, not a data retry", async (t) => {
@@ -335,7 +361,7 @@ test("retrying after a load error clears the error state on success", async (t) 
   await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.strictEqual(document.getElementById("dash-error").hidden, true);
-  assert.strictEqual(document.getElementById("dash-cards").hidden, false);
+  cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
 });
 
 // ── Sincronização com o barramento de eventos (F6.4) ────────────────────────
@@ -360,7 +386,7 @@ test("subscribes to the event bus on init: publishing SessionStarted triggers a 
   await tick();
 
   assert.strictEqual(calls, 2);
-  assert.match(document.getElementById("dash-cards").textContent, /25min/);
+  assert.match(allCardsText(), /25min/);
 });
 
 test("publishing SessionFinished triggers a reload", async (t) => {
@@ -374,13 +400,13 @@ test("publishing SessionFinished triggers a reload", async (t) => {
 
   await mod.initActivityDashboardView();
   assert.strictEqual(calls, 1);
-  assert.doesNotMatch(document.getElementById("dash-cards").textContent, /25min/);
+  assert.doesNotMatch(allCardsText(), /25min/);
 
   publish(SESSION_EVENTS.FINISHED, { id: "s1", status: "finished" });
   await tick();
 
   assert.strictEqual(calls, 2);
-  assert.match(document.getElementById("dash-cards").textContent, /25min/);
+  assert.match(allCardsText(), /25min/);
 });
 
 test("publishing SessionCancelled triggers a reload", async (t) => {
@@ -519,14 +545,14 @@ test("resetActivityDashboardView() clears the rendered cards (no data survives l
   await mod.initActivityDashboardView();
 
   // Sanity: dados do usuário estão renderizados antes do logout.
-  assert.match(document.getElementById("dash-cards").textContent, /1h 30min/);
+  assert.match(allCardsText(), /1h 30min/);
 
   mod.resetActivityDashboardView();
 
   // Simetria A1.3: nenhum dado do usuário anterior pode sobreviver no DOM
   // após o logout — cards de execução voltam ao estado de uma aplicação
   // recém-aberta.
-  assert.strictEqual(document.getElementById("dash-cards").innerHTML, "", "logout must leave no rendered data behind");
+  assert.strictEqual(allCardsHtml(), "", "logout must leave no rendered data behind");
 });
 
 test("subscribes to onProfileUpdated on init: a profile (goal) update triggers a reload", async (t) => {
@@ -554,14 +580,13 @@ test("UX #20 — shows a 'Carregando…' indicator while the dashboard data is b
   const pending = mod.initActivityDashboardView();
   await tick();
 
-  const cards = document.getElementById("dash-cards");
-  assert.strictEqual(cards.hidden, false, "a loading indicator is shown instead of a blank/hidden block");
-  assert.match(cards.textContent, /Carregando/);
+  cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false, "a loading indicator is shown instead of a blank/hidden block"));
+  assert.match(allCardsText(), /Carregando/);
 
   resolveData(EMPTY_DATA);
   await pending;
 
-  assert.strictEqual(cards.children.length, 12, "the real cards replace the loading indicator once data arrives");
+  assert.strictEqual(totalCardsCount(), 12, "the real cards replace the loading indicator once data arrives");
 });
 
 // ── Auditoria UX #23: Conquistas construídas e invisíveis — expostas como um
@@ -575,7 +600,7 @@ test("UX #23 — the 'Conquistas recentes' card renders the completed/total coun
 
   await mod.initActivityDashboardView();
 
-  const text = document.getElementById("dash-cards").textContent;
+  const text = allCardsText();
   assert.match(text, /Conquistas recentes/);
   assert.match(text, /2\/5/);
   assert.match(text, /2 conquista\(s\) concluída\(s\)/);
@@ -589,7 +614,7 @@ test("UX #23 — with no achievements completed yet, the card shows a neutral me
 
   await mod.initActivityDashboardView();
 
-  assert.match(document.getElementById("dash-cards").textContent, /Nenhuma conquista concluída ainda/);
+  assert.match(allCardsText(), /Nenhuma conquista concluída ainda/);
 });
 
 test("UX #23 — a failure fetching achievements never breaks the other execution cards (falls back to '—')", async (t) => {
@@ -599,10 +624,87 @@ test("UX #23 — a failure fetching achievements never breaks the other executio
 
   await assert.doesNotReject(() => mod.initActivityDashboardView());
 
-  const cards = document.getElementById("dash-cards");
-  assert.strictEqual(cards.hidden, false);
-  assert.strictEqual(cards.children.length, 12);
-  assert.match(cards.textContent, /Tempo estudado hoje/); // demais cards seguem de pé
-  assert.match(cards.textContent, /Não foi possível carregar este indicador\./);
+  cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
+  assert.strictEqual(totalCardsCount(), 12);
+  const text = allCardsText();
+  assert.match(text, /Tempo estudado hoje/); // demais cards seguem de pé
+  assert.match(text, /Não foi possível carregar este indicador\./);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
+});
+
+// F10 #3.1 — reestruturação em níveis: "Hoje" sempre visível; "Semana/Mês" e
+// "Recordes e Conquistas" atrás de abas (puramente apresentacional — os
+// dados dos dois níveis já chegam juntos em uma única _load()).
+
+test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always visible", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+
+  await mod.initActivityDashboardView();
+
+  const today = document.getElementById("dash-cards-today");
+  assert.strictEqual(today.hidden, false);
+  assert.strictEqual(today.children.length, 3);
+  assert.match(today.textContent, /Meta diária/);
+  assert.match(today.textContent, /Tempo estudado hoje/);
+  assert.match(today.textContent, /Sessões hoje/);
+});
+
+test("F10 #3.1 — 'Semana/Mês' tab is active by default; 'Recordes e Conquistas' panel starts hidden", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+
+  await mod.initActivityDashboardView();
+
+  const weekMonthTab  = document.querySelector('#dash-tabs .dash-tab[data-panel="week-month"]');
+  const recordsTab    = document.querySelector('#dash-tabs .dash-tab[data-panel="records"]');
+  assert.strictEqual(weekMonthTab.getAttribute("aria-selected"), "true");
+  assert.ok(weekMonthTab.classList.contains("dash-tab--active"));
+  assert.strictEqual(recordsTab.getAttribute("aria-selected"), "false");
+
+  assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, false);
+  assert.strictEqual(document.getElementById("dash-panel-records").hidden, true);
+
+  const weekMonth = document.getElementById("dash-cards-weekmonth");
+  assert.strictEqual(weekMonth.children.length, 7);
+  assert.match(weekMonth.textContent, /Meta semanal/);
+  assert.match(weekMonth.textContent, /Tempo médio por sessão/);
+});
+
+test("F10 #3.1 — clicking 'Recordes e Conquistas' switches panels without re-fetching", async (t) => {
+  let calls = 0;
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.strictEqual(calls, 1);
+
+  document.querySelector('#dash-tabs .dash-tab[data-panel="records"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("dash-panel-records").hidden, false);
+  assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, true);
+  assert.strictEqual(
+    document.querySelector('#dash-tabs .dash-tab[data-panel="records"]').getAttribute("aria-selected"),
+    "true"
+  );
+  assert.strictEqual(calls, 1, "switching tabs never re-fetches — both levels loaded together");
+
+  const records = document.getElementById("dash-cards-records");
+  assert.strictEqual(records.children.length, 2);
+  assert.match(records.textContent, /Maior sessão/);
+  assert.match(records.textContent, /Conquistas recentes/);
+});
+
+test("F10 #3.1 — re-opening the dashboard resets to the 'Semana/Mês' tab", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+
+  await mod.initActivityDashboardView();
+  document.querySelector('#dash-tabs .dash-tab[data-panel="records"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("dash-panel-records").hidden, false);
+
+  await mod.initActivityDashboardView();
+
+  assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, false);
+  assert.strictEqual(document.getElementById("dash-panel-records").hidden, true);
 });
