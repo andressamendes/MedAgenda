@@ -104,6 +104,45 @@ test("openSettings() shows the overlay with current notification/push state", as
   assert.strictEqual(document.getElementById("push-status-text").textContent, "Push não é suportado neste navegador.");
 });
 
+// F10 #2.4 — theme picker in Settings; getTheme()/setTheme() come from
+// themeService.js, the same module the standalone bootstrap call
+// (initTheme(), script.js) uses to apply the theme before the app renders.
+test("openSettings() marks the currently active theme tab as selected", async (t) => {
+  mockServices(t);
+  const { setTheme } = await import(`../../themeService.js?t=${Math.random()}`);
+  setTheme("dark");
+  const { settings, diagnostic } = await loadModules();
+  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  diagnostic.initDiagnosticModal();
+
+  settings.openSettings();
+
+  const darkTab  = document.querySelector('#theme-tabs .theme-tab[data-theme="dark"]');
+  const lightTab = document.querySelector('#theme-tabs .theme-tab[data-theme="light"]');
+  assert.strictEqual(darkTab.getAttribute("aria-selected"), "true");
+  assert.ok(darkTab.classList.contains("theme-tab--active"));
+  assert.strictEqual(lightTab.getAttribute("aria-selected"), "false");
+});
+
+test("clicking a theme tab switches the theme, persists it, and updates the selected tab", async (t) => {
+  mockServices(t);
+  const { settings, diagnostic } = await loadModules();
+  const { getTheme } = await import(`../../themeService.js?t=${Math.random()}`);
+  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  diagnostic.initDiagnosticModal();
+
+  settings.openSettings();
+  document.querySelector('#theme-tabs .theme-tab[data-theme="dark"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(getTheme(), "dark");
+  assert.strictEqual(document.documentElement.getAttribute("data-theme"), "dark");
+  assert.strictEqual(
+    document.querySelector('#theme-tabs .theme-tab[data-theme="dark"]').getAttribute("aria-selected"),
+    "true"
+  );
+});
+
 test("closeSettings() hides the overlay", async (t) => {
   mockServices(t);
   const { settings, diagnostic } = await loadModules();

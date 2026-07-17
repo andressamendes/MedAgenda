@@ -63,6 +63,13 @@ import { initActivityDashboardView, resetActivityDashboardView } from "./activit
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { resetAIContextService } from "./aiContextService.js";
 import { iconMoreHorizontal } from "./icons.js";
+import { initTheme } from "./themeService.js";
+
+// F10 #2.4: aplica o tema salvo (ou "auto") o quanto antes — primeira linha
+// executada do bootstrap, antes de qualquer outra inicialização — para
+// minimizar o flash de tema errado no primeiro paint (a CSP do app não
+// permite script inline para fazer isto ainda mais cedo; ver themeService.js).
+initTheme();
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
