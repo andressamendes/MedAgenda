@@ -57,15 +57,21 @@
 // (studySummaryService.js — função pura, sem I/O, sem IA). Nenhuma consulta
 // nova, nenhuma persistência, nenhum outro domínio tocado.
 //
-// F8.7 — Marcos da Evolução: acrescenta, antes dos grupos de dia, uma
-// timeline somente-leitura com os acontecimentos importantes da jornada
-// (primeira sessão, limiares de tempo/questões/matérias, recordes,
-// constância), produzida por buildMilestones() (studyMilestoneService.js —
-// função pura, sem I/O, sem IA) sobre `filtered` — o mesmo array já
-// filtrado pelo F8.4. Recalculado a cada _render(), então os marcos também
-// só consideram as sessões atualmente visíveis; nenhuma consulta nova,
-// nenhum dado persistido, nenhum outro domínio (Dashboard, Insights,
-// Conquistas) tocado.
+// F8.7 — Marcos da Evolução: timeline somente-leitura com os acontecimentos
+// importantes da jornada (primeira sessão, limiares de tempo/questões/
+// matérias, recordes, constância), produzida por buildMilestones()
+// (studyMilestoneService.js — função pura, sem I/O, sem IA) sobre `filtered`
+// — o mesmo array já filtrado pelo F8.4. Recalculado a cada _render(), então
+// os marcos também só consideram as sessões atualmente visíveis; nenhuma
+// consulta nova, nenhum dado persistido, nenhum outro domínio (Dashboard,
+// Insights, Conquistas) tocado.
+//
+// F10 #3.2 — Movido para fora da lista de sessões: antes era o primeiro
+// <li> de #sj-list, competindo visualmente com a própria timeline de
+// sessões logo abaixo dele. Agora vive em #sj-milestones-panel, um
+// <details> recolhido por padrão (mesmo padrão do F10 #1.4 — sj-week-
+// narrative), separado da lista e sem concorrer pela atenção do usuário ao
+// abrir o Diário. buildMilestones() e os dados considerados não mudaram.
 //
 // F8.8 — Busca Avançada e Linha do Tempo Inteligente: substitui a busca
 // textual simples do F8.4 (só compromisso/conteúdo/observações/reflexão,
@@ -126,6 +132,7 @@ const REVIEW_STATUS_LABELS = {
 };
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
+let milestonesPanelEl, milestonesListEl;
 let periodSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
@@ -440,34 +447,32 @@ const MILESTONE_ICON_GLYPHS = {
   book:           iconLayers,    // mesmo ícone do nav "Calendários Acadêmicos"
 };
 
-// Inserido como o primeiro <li> da lista, antes de qualquer grupo de dia —
+// Preenche o painel recolhível #sj-milestones-panel, separado de #sj-list —
 // somente leitura, recalculado a cada _render() a partir de `filtered` (o
 // mesmo array já filtrado pelo F8.4) via buildMilestones()
-// (studyMilestoneService.js, função pura). Sem marcos, nada é inserido.
-function _appendMilestonesTimeline(filteredEntries) {
+// (studyMilestoneService.js, função pura). Sem marcos, o painel fica oculto.
+function _renderMilestonesPanel(filteredEntries) {
+  if (!milestonesPanelEl || !milestonesListEl) return;
   const milestones = buildMilestones(filteredEntries);
-  if (milestones.length === 0) return;
+  if (milestones.length === 0) {
+    milestonesPanelEl.hidden = true;
+    milestonesListEl.innerHTML = "";
+    return;
+  }
 
-  const li = document.createElement("li");
-  li.className = "sj-milestones";
-  li.innerHTML = `
-    <h3 class="sj-milestones-title">Marcos da Evolução</h3>
-    <ul class="sj-milestones-list">
-      ${milestones.map(m => `
-        <li class="sj-milestone-item sj-milestone-item--${escapeHtml(m.severity)}">
-          <span class="sj-milestone-icon" aria-hidden="true">${MILESTONE_ICON_GLYPHS[m.icon] || ""}</span>
-          <div class="sj-milestone-body">
-            <div class="sj-milestone-header">
-              <span class="sj-milestone-item-title">${escapeHtml(m.title)}</span>
-              <span class="sj-milestone-date">${_formatDate(m.date)}</span>
-            </div>
-            <p class="sj-milestone-description">${escapeHtml(m.description)}</p>
-          </div>
-        </li>
-      `).join("")}
-    </ul>
-  `;
-  listEl.appendChild(li);
+  milestonesPanelEl.hidden = false;
+  milestonesListEl.innerHTML = milestones.map(m => `
+    <li class="sj-milestone-item sj-milestone-item--${escapeHtml(m.severity)}">
+      <span class="sj-milestone-icon" aria-hidden="true">${MILESTONE_ICON_GLYPHS[m.icon] || ""}</span>
+      <div class="sj-milestone-body">
+        <div class="sj-milestone-header">
+          <span class="sj-milestone-item-title">${escapeHtml(m.title)}</span>
+          <span class="sj-milestone-date">${_formatDate(m.date)}</span>
+        </div>
+        <p class="sj-milestone-description">${escapeHtml(m.description)}</p>
+      </div>
+    </li>
+  `).join("");
 }
 
 // ── Resumo diário e indicadores de evolução (F8.5) ──────────────────────
@@ -766,6 +771,7 @@ function _render() {
 
   if (filtered.length === 0) {
     if (statsEl) statsEl.hidden = true;
+    _renderMilestonesPanel([]);
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
@@ -778,9 +784,9 @@ function _render() {
   emptyEl.hidden = true;
   _renderSearchStats(filtered);
 
-  // F8.7 — Marcos da Evolução: bloco somente-leitura inserido antes de
-  // qualquer grupo de dia, derivado das mesmas entradas filtradas.
-  _appendMilestonesTimeline(filtered);
+  // F8.7 — Marcos da Evolução: painel recolhível separado da lista,
+  // derivado das mesmas entradas filtradas (ver F10 #3.2 acima).
+  _renderMilestonesPanel(filtered);
 
   // Primeiro passo: agrupa as entradas filtradas por dia, na mesma ordem
   // started_at desc já garantida por listSessions()/F8.3 — puramente em
@@ -865,6 +871,7 @@ async function _loadPage(reset) {
     emptyEl.innerHTML = skeletonRowsMarkup(4);
     loadMoreBtn.hidden = true;
     if (partialNoticeEl) partialNoticeEl.hidden = true;
+    if (milestonesPanelEl) milestonesPanelEl.hidden = true;
   }
 
   try {
@@ -904,6 +911,8 @@ export async function initStudyJournalView() {
     loadMoreBtn = document.getElementById("sj-load-more");
     statsEl     = document.getElementById("sj-search-stats");
     partialNoticeEl = document.getElementById("sj-filter-partial-notice");
+    milestonesPanelEl = document.getElementById("sj-milestones-panel");
+    milestonesListEl  = document.getElementById("sj-milestones-list");
 
     periodSelect   = document.getElementById("sj-filter-period");
     categorySelect = document.getElementById("sj-filter-category");
@@ -970,6 +979,8 @@ export function resetStudyJournalView() {
   if (statsEl) statsEl.hidden = true;
   if (loadMoreBtn) loadMoreBtn.hidden = true;
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
+  if (milestonesPanelEl) milestonesPanelEl.hidden = true;
+  if (milestonesListEl) milestonesListEl.innerHTML = "";
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
   // entre usuários diferentes na mesma sessão do navegador.

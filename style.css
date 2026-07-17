@@ -1955,21 +1955,28 @@ textarea { resize: vertical; }
 }
 
 /* ── Marcos da Evolução (F8.7) ── */
-.sj-milestones {
+/* F10 #3.2 — painel <details> separado da lista de sessões (ver
+   studyJournalView.js), recolhido por padrão; mesmo espírito visual do
+   .sj-week-narrative (marcador nativo do <summary>, sem toggle próprio). */
+.sj-milestones-panel {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .7rem .9rem;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   background: var(--gray-50, transparent);
+  margin: 0 0 var(--space-3);
 }
 
-.sj-milestones-title {
+.sj-milestones-panel[open] .sj-milestones-panel-title {
+  margin-bottom: var(--space-2);
+}
+
+.sj-milestones-panel-title {
   margin: 0;
   font-size: .9rem;
   font-weight: 700;
   color: var(--gray-800);
+  cursor: pointer;
+  list-style: revert;
 }
 
 .sj-milestones-list {

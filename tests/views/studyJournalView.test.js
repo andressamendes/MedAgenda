@@ -1092,7 +1092,7 @@ test("the weekly narrative only considers the currently visible (filtered) entri
 
 // ── Marcos da Evolução (F8.7) ───────────────────────────────────────────
 
-test("F8.7 — a first-session milestone renders as a read-only card before any day group", async (t) => {
+test("F10 #3.2 — a first-session milestone renders in the collapsible panel, separate from the session list", async (t) => {
   const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -1101,15 +1101,13 @@ test("F8.7 — a first-session milestone renders as a read-only card before any 
 
   await mod.initStudyJournalView();
 
-  const milestonesEl = document.querySelector("#sj-list .sj-milestones");
-  assert.ok(milestonesEl, "bloco de marcos deve ser renderizado");
-  assert.match(milestonesEl.textContent, /Primeira sessão/);
-
-  const listChildren = Array.from(document.getElementById("sj-list").children);
-  assert.strictEqual(listChildren[0], milestonesEl, "marcos aparecem antes de qualquer grupo de dia");
+  const panelEl = document.getElementById("sj-milestones-panel");
+  assert.strictEqual(panelEl.hidden, false, "painel de marcos deve ficar visível quando há marcos");
+  assert.match(panelEl.textContent, /Primeira sessão/);
+  assert.strictEqual(document.querySelector("#sj-list .sj-milestones"), null, "marcos não aparecem mais dentro da lista de sessões");
 });
 
-test("F8.7 — milestones are recalculated from the filtered subset and disappear naturally when a filter removes every visible session", async (t) => {
+test("F10 #3.2 — milestones are recalculated from the filtered subset and the panel hides naturally when a filter removes every visible session", async (t) => {
   const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -1117,14 +1115,14 @@ test("F8.7 — milestones are recalculated from the filtered subset and disappea
   });
 
   await mod.initStudyJournalView();
-  assert.ok(document.querySelector("#sj-list .sj-milestones"));
+  assert.strictEqual(document.getElementById("sj-milestones-panel").hidden, false);
 
   document.getElementById("sj-filter-search").value = "termo-que-nao-existe-em-nenhum-campo";
   document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
 
   assert.strictEqual(
-    document.querySelectorAll("#sj-list .sj-milestones").length, 0,
-    "sem sessões visíveis após o filtro, nenhum marco (nunca persistido) é exibido"
+    document.getElementById("sj-milestones-panel").hidden, true,
+    "sem sessões visíveis após o filtro, o painel de marcos (nunca persistido) fica oculto"
   );
 });
 
