@@ -697,16 +697,23 @@
                 <span>Com reflexão</span>
               </label>
               <label class="filter-toggle">
-                <input type="checkbox" id="sj-filter-notes" />
-                <span>Com observações</span>
+                <input type="checkbox" id="sj-filter-questions" />
+                <span>Com questões</span>
               </label>
               <label class="filter-toggle">
                 <input type="checkbox" id="sj-filter-reviews" />
                 <span>Com revisões</span>
               </label>
+              <!-- F10 #1.3: dos 7 filtros "Somente", só os 3 mais usados ficam
+                   sempre visíveis aqui — os demais (opostos/complementares a
+                   estes) ficam atrás de "+ Mais filtros", mesmo padrão de
+                   disclosure aninhado já usado por "Filtros avançados" acima. -->
+              <button type="button" class="btn btn-ghost btn-sm" id="sj-more-flags-toggle" aria-expanded="false" aria-controls="sj-more-flags">+ Mais filtros</button>
+            </div>
+            <div class="filter-bar" id="sj-more-flags" hidden>
               <label class="filter-toggle">
-                <input type="checkbox" id="sj-filter-questions" />
-                <span>Com questões</span>
+                <input type="checkbox" id="sj-filter-notes" />
+                <span>Com observações</span>
               </label>
               <label class="filter-toggle">
                 <input type="checkbox" id="sj-filter-no-questions" />
