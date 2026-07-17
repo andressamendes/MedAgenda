@@ -254,10 +254,6 @@
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="20" x2="6" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/></svg></span>
             <span class="nav-label">Dashboard</span>
           </button>
-          <button class="nav-item" data-page="history">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg></span>
-            <span class="nav-label">Histórico</span>
-          </button>
           <button class="nav-item" data-page="journal">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
             <span class="nav-label">Diário de Estudos</span>
@@ -587,32 +583,34 @@
           </div>
         </div>
 
-        <!-- Page: Histórico de Sessões -->
-        <div id="page-history" class="app-page" hidden>
-          <div class="page-header">
-            <h1 class="page-title">Histórico de Sessões</h1>
-          </div>
-          <!-- auditoria UX #11: Histórico e Diário listam as mesmas sessões
-               concluídas; este texto e o link abaixo diferenciam o papel de
-               cada tela sem unificá-las (alternativa mínima da auditoria). -->
-          <p class="page-description">Registro simples de todas as sessões, incluindo as <strong>canceladas</strong>. Para filtros avançados, busca, resumos e reflexões, use o <button type="button" class="page-description-link" data-page="journal">Diário de Estudos</button>.</p>
-          <div class="ah-filter-tabs" id="ah-filter-tabs" role="tablist" aria-label="Filtrar histórico de sessões">
-            <button type="button" class="ah-filter-tab ah-filter-tab--active" data-status="all" role="tab" aria-selected="true">Todos</button>
-            <button type="button" class="ah-filter-tab" data-status="finished" role="tab" aria-selected="false">Finalizadas</button>
-            <button type="button" class="ah-filter-tab" data-status="cancelled" role="tab" aria-selected="false">Canceladas</button>
-          </div>
-          <p id="ah-list-empty" class="list-empty" hidden></p>
-          <ul id="ah-list" class="session-history-list"></ul>
-          <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
-        </div>
-
         <!-- Page: Diário de Estudos (F8.1) -->
+        <!-- F10 #4.2 — o Histórico de Sessões (antes uma página própria,
+             #page-history) foi absorvido aqui como a aba "Canceladas"/
+             "Todas" abaixo. #sj-status-tabs alterna entre a visão rica de
+             "Concluídas" (#sj-finished-view — este módulo, com agrupamento
+             por dia/resumos/marcos/busca) e a visão compacta reaproveitada
+             de activityHistoryView.js sem nenhuma mudança de lógica
+             (#sj-other-view — sessões canceladas nunca passam pelos
+             cálculos de studyTimelineService/studyMilestoneService/
+             studySummaryService, que presumem sessão concluída). -->
         <div id="page-journal" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Diário de Estudos</h1>
           </div>
-          <!-- auditoria UX #11: ver comentário equivalente em page-history. -->
-          <p class="page-description">Registro completo das sessões finalizadas, com filtros, busca, resumos e reflexões. Sessões <strong>canceladas</strong> ficam no <button type="button" class="page-description-link" data-page="history">Histórico de Sessões</button>.</p>
+          <p class="page-description">Registro de todas as sessões de estudo. Use as abas abaixo para ver as sessões <strong>concluídas</strong> (com filtros, busca, resumos e reflexões), as <strong>canceladas</strong> ou <strong>todas</strong> juntas.</p>
+          <div class="ah-filter-tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
+            <button type="button" class="ah-filter-tab ah-filter-tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
+            <button type="button" class="ah-filter-tab" data-status="cancelled" role="tab" aria-selected="false">Canceladas</button>
+            <button type="button" class="ah-filter-tab" data-status="all" role="tab" aria-selected="false">Todas</button>
+          </div>
+
+          <div id="sj-other-view" hidden>
+            <p id="ah-list-empty" class="list-empty" hidden></p>
+            <ul id="ah-list" class="session-history-list"></ul>
+            <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
+          </div>
+
+          <div id="sj-finished-view">
           <div class="appointments-toolbar">
             <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
             <div class="toolbar-filters">
@@ -710,6 +708,7 @@
           <p id="sj-list-empty" class="list-empty" hidden></p>
           <ul id="sj-list" class="sj-list"></ul>
           <button type="button" id="sj-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
+          </div>
         </div>
 
       </main>

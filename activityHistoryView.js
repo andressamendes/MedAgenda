@@ -6,6 +6,16 @@
 //
 // Sem dashboard, sem gráficos, sem estatísticas agregadas: essa é a base que
 // etapas futuras (dashboard/analytics/IA) vão consultar.
+//
+// F10 #4.2 — deixou de ser uma página própria (#page-history removido de
+// index.html): agora é a visão "Canceladas"/"Todas" embutida dentro do
+// Diário de Estudos (studyJournalView.js), que decide quando mostrar
+// #sj-other-view (onde #ah-list/#ah-list-empty/#ah-load-more agora vivem)
+// e controla o status exibido via setHistoryStatus(), exportada abaixo.
+// Nenhuma lógica de carregamento/paginação/cache de eventos mudou — só o
+// <div class="ah-filter-tabs"> próprio (com Todos/Finalizadas/Canceladas)
+// foi removido e substituído pelo tab bar único do Diário, que nunca
+// repassa "finished" para cá (essa é a visão rica do próprio Diário).
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents, getEventById } from "./eventService.js";
@@ -30,7 +40,7 @@ const SESSION_SOURCE_LABELS = {
   quick:  "Sessão rápida",
 };
 
-let tabsEl, listEl, emptyEl, loadMoreBtn;
+let listEl, emptyEl, loadMoreBtn;
 
 let _status  = "all";  // "all" | "finished" | "cancelled"
 let _offset  = 0;
@@ -224,14 +234,12 @@ async function _loadPage(reset) {
   }
 }
 
-function _setStatus(status) {
+// Chamada pelo Diário (studyJournalView.js) ao trocar de aba para
+// "Canceladas"/"Todas" — nunca chamada com "finished" (essa é a visão rica
+// do próprio Diário, que nem importa este módulo para isso).
+export function setHistoryStatus(status) {
   if (status === _status) return;
   _status = status;
-  tabsEl.querySelectorAll(".ah-filter-tab").forEach(btn => {
-    const active = btn.dataset.status === status;
-    btn.classList.toggle("ah-filter-tab--active", active);
-    btn.setAttribute("aria-selected", String(active));
-  });
   _loadPage(true);
 }
 
@@ -244,14 +252,10 @@ function _setStatus(status) {
  */
 export async function initActivityHistoryView() {
   if (!listEl) {
-    tabsEl      = document.getElementById("ah-filter-tabs");
     listEl      = document.getElementById("ah-list");
     emptyEl     = document.getElementById("ah-list-empty");
     loadMoreBtn = document.getElementById("ah-load-more");
 
-    tabsEl?.querySelectorAll(".ah-filter-tab").forEach(btn => {
-      btn.addEventListener("click", () => _setStatus(btn.dataset.status));
-    });
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
   }
 

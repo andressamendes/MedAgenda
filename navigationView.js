@@ -1,6 +1,10 @@
 // ── navigationView.js — Navegação entre páginas, sidebar e bottom nav ────────
 
-const APP_PAGES = ['agenda', 'calendar', 'appointments', 'study-session', 'history', 'journal', 'dashboard'];
+// F10 #4.2 — 'history' removido: a página própria (#page-history) foi
+// absorvida como abas dentro de 'journal' (ver studyJournalView.js/
+// activityHistoryView.js). showPage('history') agora cai no fallback
+// 'agenda' (ver abaixo), já que "history" deixou de ser um destino válido.
+const APP_PAGES = ['agenda', 'calendar', 'appointments', 'study-session', 'journal', 'dashboard'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 

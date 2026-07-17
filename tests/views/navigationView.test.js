@@ -38,30 +38,26 @@ test("showPage() marks the matching nav item as active with aria-current", () =>
   assert.strictEqual(agendaBtn.hasAttribute("aria-current"), false);
 });
 
-test("showPage() shows the history page (F1.8) and hides the others", () => {
+// F10 #4.2 — o Histórico de Sessões deixou de ser uma página própria
+// (#page-history removido); foi absorvido como as abas "Canceladas"/"Todas"
+// de #sj-status-tabs, dentro da própria página do Diário. "history" não é
+// mais um nome de página válido — cai no fallback de showPage() para
+// "agenda", como qualquer outro nome desconhecido (ver teste abaixo).
+test("F10 #4.2 — showPage('history') falls back to agenda: 'history' is no longer a valid page", () => {
   nav.showPage("history");
 
-  assert.strictEqual(document.getElementById("page-history").hidden, false);
-  assert.strictEqual(document.getElementById("page-agenda").hidden, true);
-  const historyBtn = document.querySelector('.nav-item[data-page="history"]');
-  assert.strictEqual(historyBtn.classList.contains("nav-item--active"), true);
+  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-journal").hidden, true);
+  assert.strictEqual(document.getElementById("page-history"), null, "a página própria do Histórico não existe mais no DOM");
 });
 
-test("UX #11 — Histórico e Diário têm descrições distintas e um link cruzado que navega via showPage()", () => {
-  nav.showPage("history");
-  const historyDesc = document.querySelector("#page-history .page-description");
-  assert.ok(historyDesc, "Histórico tem um texto explicando seu papel");
-  assert.match(historyDesc.textContent, /canceladas/i);
+test("F10 #4.2 — o Diário de Estudos tem as abas Concluídas/Canceladas/Todas que absorveram o Histórico", () => {
+  nav.showPage("journal");
 
-  const toJournalBtn = document.querySelector('#page-history .page-description-link[data-page="journal"]');
-  assert.ok(toJournalBtn, "Histórico tem um link para o Diário");
-  toJournalBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("page-journal").hidden, false);
-
-  const journalDesc = document.querySelector("#page-journal .page-description");
-  assert.ok(journalDesc, "Diário tem um texto explicando seu papel");
-  const toHistoryBtn = document.querySelector('#page-journal .page-description-link[data-page="history"]');
-  assert.ok(toHistoryBtn, "Diário tem um link de volta para o Histórico");
+  const tabs = Array.from(document.querySelectorAll("#sj-status-tabs .ah-filter-tab"));
+  const labels = tabs.map(btn => btn.textContent);
+  assert.deepStrictEqual(labels, ["Concluídas", "Canceladas", "Todas"]);
+  assert.strictEqual(document.querySelector('.nav-item[data-page="history"]'), null, "o item de navegação do Histórico não existe mais na sidebar");
 });
 
 test("showPage() with an unknown page name falls back to agenda", () => {

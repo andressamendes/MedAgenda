@@ -16,6 +16,12 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 
 const SESSION_SPECIFIER  = new URL("../../activitySessionService.js", import.meta.url).href;
 const EVENT_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
+// F10 #4.2 — studyJournalView.js agora importa activityHistoryView.js (aba
+// "Canceladas"/"Todas") só para chamar setHistoryStatus(); mockado como
+// qualquer outra dependência — sem isto, o import real arrastaria
+// categoryService.js/supabase.js (CDN de verdade) para dentro deste teste,
+// que nunca precisou conhecer esse módulo antes.
+const ACTIVITY_HISTORY_SPECIFIER = new URL("../../activityHistoryView.js", import.meta.url).href;
 const QUESTIONS_SPECIFIER = new URL("../../sessionQuestionsService.js", import.meta.url).href;
 const REVIEWS_SPECIFIER  = new URL("../../reviewSessionService.js", import.meta.url).href;
 const REFLECTION_SPECIFIER = new URL("../../studyReflectionService.js", import.meta.url).href;
@@ -52,6 +58,14 @@ function loadView(t, overrides = {}) {
 
   t.mock.module(EVENT_SPECIFIER, {
     namedExports: { getEvents: overrides.getEvents ?? (async () => []) },
+  });
+
+  const setHistoryStatusCalls = [];
+  t.mock.module(ACTIVITY_HISTORY_SPECIFIER, {
+    namedExports: {
+      initActivityHistoryView: overrides.initActivityHistoryView ?? (async () => {}),
+      setHistoryStatus: overrides.setHistoryStatus ?? ((status) => { setHistoryStatusCalls.push(status); }),
+    },
   });
 
   const questionsCalls = [];
@@ -93,7 +107,7 @@ function loadView(t, overrides = {}) {
   });
 
   return import(`../../studyJournalView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls }));
+    .then(mod => ({ mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls, setHistoryStatusCalls }));
 }
 
 beforeEach(() => {
@@ -1534,4 +1548,105 @@ test("UX #21 — resetStudyJournalView() collapses the panel and clears the coun
   assert.strictEqual(advanced.hidden, true);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
   assert.strictEqual(countEl.textContent, "");
+});
+
+// ── Histórico absorvido como abas Concluídas/Canceladas/Todas (F10 #4.2) ────
+// O Histórico de Sessões (activityHistoryView.js) deixou de ser uma página
+// própria: agora vive dentro do Diário, como as abas "Canceladas"/"Todas" ao
+// lado de "Concluídas" (a visão rica de sempre, inalterada). Trocar de aba só
+// alterna qual <div> fica visível — nenhuma sessão não concluída chega a
+// _allEntries/filtered deste módulo.
+
+test("F10 #4.2 — 'Concluídas' é a aba ativa por padrão, mostrando a visão rica e ocultando a compacta", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
+  const finishedTab = document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]');
+  assert.strictEqual(finishedTab.classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(finishedTab.getAttribute("aria-selected"), "true");
+});
+
+// activityHistoryView.js é mockado (ver ACTIVITY_HISTORY_SPECIFIER acima) —
+// exatamente como activitySessionService.js/eventService.js/etc.: estes
+// testes verificam que studyJournalView.js chama setHistoryStatus() com o
+// status certo e alterna a visibilidade certa, não o comportamento interno
+// de activityHistoryView.js (já coberto por activityHistoryView.test.js).
+
+test("F10 #4.2 — clicking 'Canceladas' shows the compact view and calls setHistoryStatus('cancelled')", async (t) => {
+  const { mod, setHistoryStatusCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
+  assert.deepStrictEqual(setHistoryStatusCalls, ["cancelled"]);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]').classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), false);
+});
+
+test("F10 #4.2 — clicking 'Todas' shows the compact view and calls setHistoryStatus('all')", async (t) => {
+  const { mod, setHistoryStatusCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="all"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
+  assert.deepStrictEqual(setHistoryStatusCalls, ["all"]);
+});
+
+test("F10 #4.2 — switching back to 'Concluídas' restores the rich view without re-fetching it or calling setHistoryStatus", async (t) => {
+  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const listSessionsCalls = [];
+  const { mod, setHistoryStatusCalls } = await loadView(t, {
+    listSessions: async (opts) => {
+      listSessionsCalls.push(opts);
+      return { sessions: [session], total: 1, hasMore: false };
+    },
+    getEvents: async () => [{ id: "ev-1", title: "Aula Cardio", category: "Cardiologia" }],
+  });
+  await mod.initStudyJournalView();
+  assert.strictEqual(entries().length, 1);
+
+  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="all"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  listSessionsCalls.length = 0;
+  setHistoryStatusCalls.length = 0;
+
+  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
+  assert.strictEqual(entries().length, 1, "the rich list is still the same, already-loaded data");
+  assert.strictEqual(listSessionsCalls.length, 0, "switching back to 'Concluídas' must not re-fetch anything");
+  assert.deepStrictEqual(setHistoryStatusCalls, [], "'finished' never delegates to activityHistoryView.js");
+});
+
+test("F10 #4.2 — resetStudyJournalView() resets the status tab back to 'Concluídas'", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="all"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
+
+  mod.resetStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
 });
