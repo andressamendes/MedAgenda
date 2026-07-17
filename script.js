@@ -62,6 +62,7 @@ import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { resetAIContextService } from "./aiContextService.js";
+import { iconMoreHorizontal } from "./icons.js";
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente
@@ -433,8 +434,13 @@ function renderList(events) {
         <span class="event-card-title">${escapeHtml(ev.title)}</span>
         <div class="event-card-actions">
           <button class="btn btn-sm btn-primary btn-start-session">Iniciar sessão</button>
-          <button class="btn btn-sm btn-ghost btn-edit">Editar</button>
-          <button class="btn btn-sm btn-danger btn-delete">Excluir</button>
+          <div class="user-menu-wrap event-card-menu-wrap">
+            <button type="button" class="btn-icon btn-icon-sm event-card-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Mais ações para ${escapeHtml(ev.title)}">${iconMoreHorizontal}</button>
+            <div class="user-menu-dropdown event-card-menu-dropdown" hidden role="menu">
+              <button type="button" class="user-menu-item btn-edit" role="menuitem">Editar</button>
+              <button type="button" class="user-menu-item user-menu-item--danger btn-delete" role="menuitem">Excluir</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="event-card-meta">
@@ -446,12 +452,41 @@ function renderList(events) {
       </div>
     `;
 
-    card.querySelector(".btn-edit").addEventListener("click", () => handleEventClick(ev));
-    card.querySelector(".btn-delete").addEventListener("click", () => handleDelete(ev.id, card, isRecurring));
+    card.querySelector(".btn-edit").addEventListener("click", () => { _closeAllCardMenus(); handleEventClick(ev); });
+    card.querySelector(".btn-delete").addEventListener("click", () => { _closeAllCardMenus(); handleDelete(ev.id, card, isRecurring); });
     card.querySelector(".btn-start-session").addEventListener("click", (e) => handleStartSession(ev, e.currentTarget));
     eventList.appendChild(card);
   });
 }
+
+// F10 #1.5 — "Iniciar sessão" (ação mais comum, ver Auditoria UX #13) é a
+// única ação sempre visível no card; Editar/Excluir tinham o mesmo peso
+// visual dela (3 botões coloridos lado a lado) e competiam pela atenção sem
+// motivo — nenhuma das duas é usada com a mesma frequência. Ambas passam a
+// viver atrás de um menu "⋯" (btn-icon + user-menu-dropdown, mesmo padrão já
+// usado por academicCalendarView.js/#36), com "Excluir" marcada como
+// .user-menu-item--danger só dentro do menu aberto — não mais um botão
+// vermelho sempre visível na lista.
+function _closeAllCardMenus() {
+  eventList.querySelectorAll(".event-card-menu-dropdown:not([hidden])").forEach(dropdown => {
+    dropdown.hidden = true;
+    dropdown.previousElementSibling?.setAttribute("aria-expanded", "false");
+  });
+}
+
+eventList.addEventListener("click", (e) => {
+  const btn = e.target.closest(".event-card-menu-btn");
+  if (!btn) return;
+  e.stopPropagation();
+  const dropdown = btn.nextElementSibling;
+  const wasHidden = dropdown?.hidden;
+  _closeAllCardMenus();
+  if (dropdown && wasHidden) {
+    dropdown.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+  }
+});
+document.addEventListener("click", _closeAllCardMenus);
 
 // Estado de erro da lista — distinto de "sem compromissos" para que uma
 // falha ao carregar (rede, banco, sessão, etc.) nunca seja confundida com
