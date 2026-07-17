@@ -1300,15 +1300,28 @@ textarea { resize: vertical; }
   margin: .6rem auto 0;
 }
 
-.event-card {
+/* ── Base compartilhada dos cards de conteúdo (F10 #2.3) — .event-card e
+   .dashboard-card repetiam, cada um na sua própria regra, exatamente as
+   mesmas quatro declarações (background/border/border-radius/transition);
+   agrupadas aqui uma única vez, sem mudar nenhum valor computado.
+   `.card` (login/superfícies elevadas — radius/shadow/padding maiores) e
+   `.smart-card` (dica/callout inline — fundo cinza, sem sombra, sem hover)
+   usam valores diferentes de propósito: não são o mesmo padrão visual e
+   continuam com suas próprias regras, sem forçar uma unificação que mudaria
+   como aparecem hoje. ── */
+.event-card,
+.dashboard-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.event-card {
   padding: .9rem 1rem;
   position: relative;
   border-left: 4px solid var(--color-primary);
   box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 
 .event-card:hover {
@@ -1484,14 +1497,10 @@ textarea { resize: vertical; }
 }
 
 .dashboard-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
   padding: 1rem 1.1rem;
   display: flex;
   flex-direction: column;
   gap: .3rem;
-  transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 
 .dashboard-card:hover {
