@@ -947,6 +947,11 @@ body {
   gap: .75rem;
 }
 
+#f-recurrence-field #btn-recurrence-toggle {
+  align-self: flex-start;
+  margin-top: 1.3rem;
+}
+
 label {
   font-size: .78rem;
   font-weight: 600;
@@ -1047,6 +1052,10 @@ textarea { resize: vertical; }
 /* ── Botões (F5.2) — sistema único de variantes/tamanhos/estados, todos
    sobre os tokens do F5.1. Nenhuma página deve definir estilo de botão
    próprio; toda variação nova entra aqui. ── */
+.btn[hidden] {
+  display: none;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
