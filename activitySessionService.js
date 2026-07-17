@@ -161,7 +161,14 @@ export async function startSession(fields = {}) {
   return created;
 }
 
-export async function finishSession(id, endedAt = new Date()) {
+// F10 #3.4 — `notes` (Observações da sessão, digitadas no resumo de
+// encerramento) antes só existiam na variável local de studySessionView.js,
+// nunca gravadas em activity_sessions.notes (coluna já existente desde
+// sql/11_activity_sessions.sql) — o texto era mostrado uma única vez, na
+// tela "Sessão concluída" que este item remove, e depois disso se perdia
+// para sempre. Persistido aqui para que o Diário de Estudos (studyJournalView.js)
+// continue sendo capaz de exibi-lo depois que a tela de resumo deixar de existir.
+export async function finishSession(id, endedAt = new Date(), notes) {
   const session = await getActivitySessionById(id);
   if (!session) {
     throw _domainError("Sessão de atividade não encontrada.", "SESSION_NOT_FOUND");
@@ -192,11 +199,13 @@ export async function finishSession(id, endedAt = new Date()) {
   const totalPausedMs = (session.paused_ms || 0) + currentPauseMs;
   const durationMinutes = Math.max(0, Math.round((rawMs - totalPausedMs) / 60000));
 
+  const trimmedNotes = notes?.trim();
   const finished = await updateActivitySession(id, {
     status: "finished",
     ended_at: endedAtDate.toISOString(),
     duration_minutes: durationMinutes,
     paused_at: null,
+    ...(trimmedNotes ? { notes: trimmedNotes } : {}),
   });
   publish(SESSION_EVENTS.FINISHED, finished);
   return finished;

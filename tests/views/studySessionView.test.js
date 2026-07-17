@@ -590,7 +590,7 @@ test("BUG 08: a failure while persisting a Questão keeps the summary modal open
   assert.strictEqual(handleErrorCalls.length, 1, "the failure must be reported");
   assert.strictEqual(finishCalls.length, 0, "finishSession must never run after a failed step");
   assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false, "the summary must stay open — never close silently on failure");
-  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true, "the final summary must not open when nothing was actually finished");
+  assert.strictEqual(document.querySelectorAll("#toast-container .toast-success").length, 0, "no success confirmation when nothing was actually finished");
   assert.strictEqual(document.getElementById("ss-active").hidden, false, "the session is still active, not left in limbo");
   assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "the pending question must survive the failed attempt so the user can retry");
 });
@@ -610,7 +610,7 @@ test("BUG 08: a failure in finishSession() itself keeps the summary modal open i
 
   assert.strictEqual(handleErrorCalls.length, 1);
   assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false);
-  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true);
+  assert.strictEqual(document.querySelectorAll("#toast-container .toast-success").length, 0);
 });
 
 test("BUG 09: Confirmar encerramento and Voltar are disabled while a confirmation is in flight, and re-enabled after", async (t) => {
@@ -664,9 +664,14 @@ test("prevention of double click: clicking Confirmar encerramento twice in a row
   assert.strictEqual(addQuestionCalls.length, 1, "questions must not be persisted twice");
 });
 
-// ── Resumo Final da Sessão concluída (F7.10) ────────────────────────────────
+// ── Confirmação de encerramento sem tela intermediária (F10 #3.4) ──────────
+// A tela somente-leitura "Sessão concluída" (F7.10) foi removida: confirmar
+// agora fecha o modal de encerramento, mostra um toast de sucesso e navega
+// direto para o Diário de Estudos — onde a sessão finalizada (com Questões,
+// Revisões e Observações já persistidas) aparece normalmente, sem repetir
+// nada numa tela própria.
 
-test("confirming the summary opens the final session summary with the counts and notes just persisted", async (t) => {
+test("confirming the finish modal closes it, shows a success toast, and navigates straight to the Diário — no intermediate summary screen", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: "2026-07-09T13:00:00.000Z", event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Cardiologia — aula 3", category: "Cardiologia", description: "IC", duration_minutes: 60 }),
@@ -687,19 +692,40 @@ test("confirming the summary opens the final session summary with the counts and
   document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true, "the finish confirmation modal closes first");
-  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, false, "the final summary opens right after");
-  assert.strictEqual(document.getElementById("sss-event-title").textContent, "Cardiologia — aula 3");
-  assert.strictEqual(document.getElementById("sss-card-questions").textContent, "1");
-  assert.strictEqual(document.getElementById("sss-card-reviews").textContent, "0");
-  assert.strictEqual(document.getElementById("sss-card-net-time").textContent, "1h 30min");
-  assert.strictEqual(document.getElementById("sss-card-status").textContent, "Concluída");
-  assert.strictEqual(document.getElementById("sss-notes").textContent, "Revisar arritmias amanhã.");
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true, "the finish confirmation modal closes");
+  assert.strictEqual(document.getElementById("ss-summary-modal"), null, "the read-only summary screen no longer exists in the DOM");
+
+  const successToast = document.querySelector("#toast-container .toast-success");
+  assert.ok(successToast, "a success toast confirms the session was recorded");
+  assert.match(successToast.textContent, /Diário/);
+
+  assert.strictEqual(document.getElementById("page-journal").hidden, false, "navigates straight to the Diário");
 });
 
-test("clicking Voltar (cancelling the finish flow) never opens the final summary", async (t) => {
+test("finishSession() receives the typed notes so they end up persisted in activity_sessions.notes", async (t) => {
+  const finishCalls = [];
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id, endedAt, notes) => { finishCalls.push({ id, notes }); return { id, status: "finished" }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-notes").value = "Revisar arritmias amanhã.";
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(finishCalls.length, 1);
+  assert.strictEqual(finishCalls[0].notes, "Revisar arritmias amanhã.");
+});
+
+test("clicking Voltar (cancelling the finish flow) never finishes the session or navigates away", async (t) => {
+  const finishCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
   });
   await mod.initStudySessionView();
 
@@ -709,7 +735,8 @@ test("clicking Voltar (cancelling the finish flow) never opens the final summary
   document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ss-summary-modal").hidden, true);
+  assert.strictEqual(finishCalls.length, 0);
+  assert.strictEqual(document.querySelectorAll("#toast-container .toast-success").length, 0);
 });
 
 test("a domain error (e.g. session already running) is reported via errorService and leaves the page in the empty state", async (t) => {

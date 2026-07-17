@@ -154,14 +154,12 @@ Planejamento (events, academic_calendars)
     ↓  usuário clica "Iniciar Sessão" num compromisso, ou inicia avulsa
 Sessão (activity_sessions: running → paused ⇄ running → finished | cancelled)
     ↓  studySessionView.js — cronômetro, pausa/retomada, Observações (notes)
-Resumo (sessionSummaryView.js — resumo pós-finalização: duração líquida, categoria, observações)
-    ↓
 Questões (questions — resolvidas durante running/paused, via sessionQuestionsService.js)
     ↓
 Revisões (reviews — associadas à Sessão que as executou via reviewSessionService.js)
     ↓
-Finalização (finishSession() — calcula duration_minutes líquido, publica SessionFinished)
-    ↓
+Finalização (finishSession() — persiste notes em activity_sessions.notes, calcula duration_minutes líquido, publica SessionFinished)
+    ↓  toast de confirmação + navegação direta (F10 #3.4 — sem tela intermediária)
 Diário (studyJournalView.js — a sessão finalizada aparece agrupada por dia)
     ↓
 Reflexão (reflections — texto livre sobre o aprendizado, 1:1 com a Sessão, editável a qualquer momento a partir do Diário)
@@ -343,8 +341,7 @@ MedAgenda/
 | `weekView.js` | Grade semanal com slots de tempo (7h–23h), 7 dias |
 | `quickAdd.js` | Criação rápida de evento via clique em slot de tempo |
 | `confirmDialog.js` | Modal de confirmação reutilizável |
-| `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, Observações, adição de Questões; assina todos os 6 eventos do Session Event Bus |
-| `sessionSummaryView.js` | Resumo pós-finalização de uma Sessão (duração líquida, categoria, observações) |
+| `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, Observações, adição de Questões; ao finalizar, confirma com um toast e navega direto ao Diário (F10 #3.4 — sem tela de resumo intermediária); assina todos os 6 eventos do Session Event Bus |
 | `activityDashboardView.js` | Renderiza o Dashboard de Atividade; assina `SessionStarted/Finished/Cancelled/Updated` |
 | `activityHistoryView.js` | Histórico paginado de sessões finalizadas; assina `SessionStarted/Finished/Cancelled/Updated` |
 | `insightsView.js` | Central de Insights (execução, metas, revisões, produtividade); assina `SessionFinished/Cancelled/Updated` |

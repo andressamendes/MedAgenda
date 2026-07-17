@@ -28,7 +28,7 @@ import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
 import { initModal } from "./modalController.js";
-import { openSessionSummary } from "./sessionSummaryView.js";
+import { showPage } from "./navigationView.js";
 import { handleError } from "./errorService.js";
 import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
@@ -747,13 +747,8 @@ async function _confirmFinish() {
   const endedAt = _pendingEndedAt;
   const questions = _pendingQuestions;
   const reviews = _pendingReviews;
-  const eventMeta = _eventMeta;
   const notes = ssfNotesEl.value;
-  const startedAt = _session.started_at; // _session vira null após _run() (sessão finalizada), então precisa ser capturado antes
 
-  // F7.10: capturado só para alimentar o resumo final somente leitura aberto
-  // logo abaixo — o valor vem pronto de finishSession() (activitySessionService,
-  // intocado), nenhum recálculo de duração/status acontece aqui.
   let finishedSession = null;
   ssfBtnConfirm.disabled = true;
   ssfBtnBack.disabled = true;
@@ -783,7 +778,7 @@ async function _confirmFinish() {
         }
         await associateReview(r.reviewId, sessionId);
       }
-      finishedSession = await finishSession(sessionId, endedAt);
+      finishedSession = await finishSession(sessionId, endedAt, notes);
       return finishedSession;
     });
   } finally {
@@ -799,17 +794,16 @@ async function _confirmFinish() {
   // deixar a sessão presa num limbo (nem finalizada, nem com o resumo aberto).
   if (!finishedSession) return;
 
+  // F10 #3.4 — a tela somente-leitura "Sessão concluída" (F7.10) foi removida:
+  // era uma etapa extra que só repetia dados já disponíveis no Diário de
+  // Estudos (compromisso/horários/observações/contagens de questões e
+  // revisões — todos vindos de `sessionQuestionsService`/`reviewSessionService`/
+  // `activitySessionService`, que o Diário já consulta). Em vez de um clique a
+  // mais para dispensá-la, um toast confirma o encerramento e a navegação já
+  // leva direto para onde a sessão finalizada aparece.
   _closeFinishModal();
-  openSessionSummary({
-    eventMeta,
-    startedAt:      finishedSession.started_at ?? startedAt,
-    endedAt:        finishedSession.ended_at ?? endedAt,
-    netMinutes:     finishedSession.duration_minutes ?? _pendingNetMinutes,
-    status:         finishedSession.status,
-    questionsCount: questions.length,
-    reviewsCount:   reviews.length,
-    notes,
-  });
+  toast.success("Sessão encerrada e registrada no Diário de Estudos.");
+  showPage("journal");
 }
 
 // Recarrega a partir de um evento do barramento — nunca assume que o payload

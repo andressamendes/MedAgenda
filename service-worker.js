@@ -74,7 +74,6 @@ const APP_SHELL = [
   './services/ai/providers/geminiProvider.js',
   './sessionEventBus.js',
   './sessionQuestionsService.js',
-  './sessionSummaryView.js',
   './settingsModal.js',
   './skeletonView.js',
   './smartCardView.js',

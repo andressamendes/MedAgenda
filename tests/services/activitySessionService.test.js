@@ -247,6 +247,51 @@ test("finishSession() sets ended_at, status and computes duration_minutes", asyn
   assert.strictEqual(updateCall.args[0].ended_at, "2026-01-01T10:30:00.000Z");
 });
 
+// F10 #3.4 — a tela "Sessão concluída" foi removida; para que as Observações
+// digitadas no resumo de encerramento continuem visíveis em algum lugar (o
+// Diário de Estudos já as exibe via `session.notes`, ver studyJournalView.js/
+// _buildEntryEl), finishSession() passou a persistir o argumento `notes` na
+// coluna `activity_sessions.notes` (já existente desde sql/11_activity_sessions.sql,
+// nunca antes escrita por este service).
+test("finishSession() persists the trimmed notes argument in activity_sessions.notes", async (t) => {
+  const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
+  const updated = { ...session, status: "finished", duration_minutes: 30, notes: "Revisar arritmias amanhã." };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+  });
+
+  await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"), "  Revisar arritmias amanhã.  ");
+
+  const updateCall = supabase._calls.find(c => c.method === "update");
+  assert.strictEqual(updateCall.args[0].notes, "Revisar arritmias amanhã.");
+});
+
+test("finishSession() never writes a blank/whitespace-only notes argument (leaves the column untouched)", async (t) => {
+  const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
+  const updated = { ...session, status: "finished", duration_minutes: 30 };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+  });
+
+  await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"), "   ");
+
+  const updateCall = supabase._calls.find(c => c.method === "update");
+  assert.strictEqual("notes" in updateCall.args[0], false);
+});
+
+test("finishSession() omits notes entirely when called without the argument (existing callers unaffected)", async (t) => {
+  const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
+  const updated = { ...session, status: "finished", duration_minutes: 30 };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+  });
+
+  await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
+
+  const updateCall = supabase._calls.find(c => c.method === "update");
+  assert.strictEqual("notes" in updateCall.args[0], false);
+});
+
 test("finishSession() deducts paused_ms (already-completed pauses) from duration_minutes", async (t) => {
   const session = {
     id: "sess-1",
