@@ -23,6 +23,7 @@ import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
+import { skeletonCardsMarkup } from "./skeletonView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 // ── Definição dos blocos (ETAPA 4) — Execução e Metas não são mais
@@ -162,7 +163,7 @@ async function _load() {
     const errorEl = document.getElementById(blockDef.errorId);
     errorEl.hidden = true;
     cardsEl.hidden = false;
-    cardsEl.innerHTML = '<p class="list-empty" style="grid-column:1/-1">Carregando…</p>';
+    cardsEl.innerHTML = skeletonCardsMarkup(blockDef.cardDefs.length);
   }
   try {
     const data = await getInsightsData();

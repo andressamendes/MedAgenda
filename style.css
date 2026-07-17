@@ -1162,10 +1162,11 @@ textarea { resize: vertical; }
   margin-bottom: .5rem;
 }
 
-/* ── Skeleton (F5.2) — utilitário de carregamento para conteúdo em bloco
-   (linhas de card/lista). Aplicar `.skeleton` num elemento com largura/altura
-   definidas; `.skeleton-text` já traz uma altura de linha de texto pronta.
-   Fundação para as próximas telas — nenhuma tela usa isto ainda. ── */
+/* ── Skeleton (F5.2/F10 #1.2) — utilitário de carregamento para conteúdo em
+   bloco (linhas de card/lista). Aplicar `.skeleton` num elemento com
+   largura/altura definidas; `.skeleton-text` já traz uma altura de linha de
+   texto pronta. Montagem centralizada em skeletonView.js — usado por
+   Dashboard, Insights, Compromissos, Histórico e Diário. ── */
 .skeleton {
   position: relative;
   overflow: hidden;
@@ -1185,6 +1186,24 @@ textarea { resize: vertical; }
 .skeleton-text {
   height: .85em;
   width: 100%;
+}
+
+/* Card/linha prontos para uso direto por skeletonView.js — nenhuma tela deve
+   montar seu próprio tamanho de placeholder. */
+.skeleton-card {
+  height: 92px;
+  border-radius: var(--radius);
+}
+
+.skeleton-row {
+  display: block;
+  height: 2.4rem;
+  margin-bottom: .6rem;
+  border-radius: var(--radius);
+}
+
+.skeleton-row:last-of-type {
+  margin-bottom: 0;
 }
 
 @keyframes skeleton-shimmer {
