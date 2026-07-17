@@ -87,6 +87,7 @@ import { listBySessions as listReviewsBySessions } from "./reviewSessionService.
 import { listBySessions as listReflectionsBySessions, saveReflection } from "./studyReflectionService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { skeletonRowsMarkup } from "./skeletonView.js";
 import { toast } from "./toastService.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
@@ -845,7 +846,7 @@ async function _loadPage(reset) {
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
-    emptyEl.textContent = "Carregando…";
+    emptyEl.innerHTML = skeletonRowsMarkup(4);
     loadMoreBtn.hidden = true;
     if (partialNoticeEl) partialNoticeEl.hidden = true;
   }

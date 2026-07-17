@@ -51,6 +51,7 @@ import { initCategoryView, initCategories, categoryColor, resetCategories } from
 import { initEventForm, openEventForm, handleEventClick, resetEventForm } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
 import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
+import { skeletonRowsMarkup } from "./skeletonView.js";
 import { assertSchemaCompatible } from "./schemaService.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
 import { initSettingsModal } from "./settingsModal.js";
@@ -329,7 +330,7 @@ async function loadEvents() {
   listEmpty.hidden = false;
   listEmpty.classList.remove("list-error");
   clearStateBlock(listEmpty);
-  listEmpty.textContent = "Carregando…";
+  listEmpty.innerHTML = skeletonRowsMarkup(4);
   try {
     const events = isPersonalVisible() ? await getEvents() : [];
     allEvents = events;

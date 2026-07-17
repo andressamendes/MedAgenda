@@ -12,6 +12,7 @@ import { open as openAccountModal } from "./accountView.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { skeletonCardsMarkup } from "./skeletonView.js";
 import { pad } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
@@ -216,7 +217,7 @@ async function _load() {
   // durante a carga, diferente do Calendário (calendar.js/showLoading()).
   errorEl.hidden = true;
   cardsEl.hidden = false;
-  cardsEl.innerHTML = '<p class="list-empty" style="grid-column:1/-1">Carregando…</p>';
+  cardsEl.innerHTML = skeletonCardsMarkup(6);
   try {
     const [data, achievements] = await Promise.all([
       getDashboardData(),

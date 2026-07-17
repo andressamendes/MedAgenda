@@ -12,6 +12,7 @@ import { getEvents, getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { skeletonRowsMarkup } from "./skeletonView.js";
 import { pad, escapeHtml } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
@@ -192,7 +193,7 @@ async function _loadPage(reset) {
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
-    emptyEl.textContent = "Carregando…";
+    emptyEl.innerHTML = skeletonRowsMarkup(4);
     loadMoreBtn.hidden = true;
   }
 
