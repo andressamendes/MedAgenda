@@ -46,10 +46,6 @@ export function initNavigation() {
     }
   });
 
-  document.getElementById('bottom-nav-ai')?.addEventListener('click', () => {
-    document.getElementById('nav-ai-assistant')?.click();
-  });
-
   document.getElementById('bottom-nav-more')?.addEventListener('click', () => {
     openSidebar();
   });

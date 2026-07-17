@@ -137,13 +137,39 @@ test("UX #10 — rótulos 'Semana'/'Mês'/'Calendários Acadêmicos' não se con
   assert.strictEqual(document.getElementById("page-calendar").querySelector(".page-title").textContent, "Mês");
 });
 
-test("UX #18 — o bottom nav do mobile abre a Sessão de Estudo diretamente, em vez de Compromissos (redundante com Semana/Mês)", () => {
+test("UX #18 — o bottom nav do mobile abre a Sessão de Estudo diretamente", () => {
   const sessionBtn = document.querySelector('.bottom-nav-item[data-page="study-session"]');
   assert.ok(sessionBtn, "o bottom nav tem um item para a Sessão de Estudo");
   assert.strictEqual(sessionBtn.querySelector(".bottom-nav-label").textContent, "Sessão");
-  assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="appointments"]'), null);
 
   sessionBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("page-study-session").hidden, false);
   assert.strictEqual(sessionBtn.classList.contains("bottom-nav-item--active"), true);
+});
+
+// F10 #4.4 — reorganiza o bottom nav para refletir a prioridade real de uso
+// (Semana, Compromissos, Sessão, Diário, Mais) em vez de destacar o
+// Assistente IA. Isto substitui a decisão da UX #18 de excluir Compromissos
+// do bottom nav por "redundância com Semana/Mês": a auditoria F10 aponta o
+// oposto — Compromissos é usado com mais frequência que Mês ou o Assistente
+// IA no mobile, então passa a ocupar um dos 4 lugares fixos; Mês e IA
+// continuam a um toque de distância dentro de "Mais" (mesma sidebar do
+// desktop, inalterada).
+test("F10 #4.4 — o bottom nav do mobile reflete Semana/Compromissos/Sessão/Diário/Mais, sem destacar Mês ou o Assistente IA", () => {
+  const items = Array.from(document.querySelectorAll(".bottom-nav-item"));
+  const labels = items.map(el => el.querySelector(".bottom-nav-label").textContent);
+  assert.deepStrictEqual(labels, ["Semana", "Compromissos", "Sessão", "Diário", "Mais"]);
+
+  assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="calendar"]'), null, "Mês não ocupa mais um lugar fixo no bottom nav");
+  assert.strictEqual(document.getElementById("bottom-nav-ai"), null, "o Assistente IA não ocupa mais um lugar fixo no bottom nav");
+
+  const appointmentsBtn = document.querySelector('.bottom-nav-item[data-page="appointments"]');
+  appointmentsBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-appointments").hidden, false);
+  assert.strictEqual(appointmentsBtn.classList.contains("bottom-nav-item--active"), true);
+
+  const journalBtn = document.querySelector('.bottom-nav-item[data-page="journal"]');
+  journalBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-journal").hidden, false);
+  assert.strictEqual(journalBtn.classList.contains("bottom-nav-item--active"), true);
 });
