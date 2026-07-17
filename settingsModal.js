@@ -16,10 +16,12 @@ import { initModal } from "./modalController.js";
 import { openDiagnosticModal } from "./diagnosticModal.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
+import { getTheme, setTheme } from "./themeService.js";
 
 let notifStatusText, btnNotifToggle, notifPermHint;
 let pushStatusText, btnPushToggle, pushErrorHint;
 let btnDevmodeToggle, devmodePanel, devVersion, devEnv;
+let themeTabs = [];
 let settingsModal   = null;
 let _getDevMode     = () => false;
 let _setDevModeImpl = () => {};
@@ -44,8 +46,16 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
   devmodePanel     = document.getElementById("devmode-panel");
   devVersion       = document.getElementById("dev-version");
   devEnv           = document.getElementById("dev-env");
+  themeTabs        = Array.from(document.querySelectorAll("#theme-tabs .theme-tab"));
 
   if (!settingsOverlay) return;
+
+  themeTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      setTheme(tab.dataset.theme);
+      renderThemeState();
+    });
+  });
 
   settingsModal = initModal(settingsOverlay, closeSettings);
 
@@ -113,10 +123,20 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
 }
 
 export function openSettings() {
+  renderThemeState();
   renderSettingsState();
   renderPushState();
   renderDevmodeState();
   settingsModal?.open();
+}
+
+function renderThemeState() {
+  const current = getTheme();
+  themeTabs.forEach(tab => {
+    const active = tab.dataset.theme === current;
+    tab.classList.toggle("theme-tab--active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
 }
 
 export function closeSettings() {

@@ -90,6 +90,7 @@ const APP_SHELL = [
   './subjectProgressService.js',
   './supabase.js',
   './telemetryService.js',
+  './themeService.js',
   './timeGoals.js',
   './toastService.js',
   './userMemoryService.js',
