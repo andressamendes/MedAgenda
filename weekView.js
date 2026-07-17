@@ -8,6 +8,27 @@ import { errorToState, renderStateBlock } from "./stateView.js";
 import { getDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { renderPlanList } from "./planListView.js";
+import { iconCalendarWeek } from "./icons.js";
+
+// F10 #1.6 — Estado vazio didático: um usuário novo, com a agenda ainda sem
+// nenhum compromisso, via só a grade em branco — "zero onboarding hoje"
+// (F10, item 1.6). Mostrado uma única vez, na primeira semana visitada sem
+// nenhum evento (pessoal ou acadêmico); some assim que a semana passar a ter
+// ao menos um evento, ou ao clicar em "Entendi". Reaproveita o mesmo padrão
+// visual (ícone + título + descrição) já usado pelos estados de
+// carregamento em stateView.js — classes `.state-block`/`.state-block-*` —
+// mas não a função renderStateBlock() em si, que é específica de erros
+// (STATES/retry/reautenticação); aqui não há erro nem nova tentativa, só uma
+// dica que se dispensa sozinha.
+const WEEK_INTRO_SEEN_KEY = "medagenda_week_intro_seen";
+
+function _hasSeenWeekIntro() {
+  try { return localStorage.getItem(WEEK_INTRO_SEEN_KEY) === "1"; } catch { return true; }
+}
+
+function _markWeekIntroSeen() {
+  try { localStorage.setItem(WEEK_INTRO_SEEN_KEY, "1"); } catch { /* storage indisponível */ }
+}
 
 let _academicProvider  = null;
 let _showPersonal      = () => true;
@@ -88,6 +109,12 @@ function buildShell() {
       <button class="btn btn-sm btn-ghost" id="wk-next" aria-label="Próxima semana">›</button>
     </div>
     <div class="wk-error" id="wk-error" hidden></div>
+    <div id="wk-empty-tip" class="state-block wk-empty-tip" hidden>
+      <span class="state-block-icon" aria-hidden="true">${iconCalendarWeek}</span>
+      <strong class="state-block-title">Sua semana está vazia</strong>
+      <span class="state-block-desc">Clique em qualquer horário da grade abaixo para criar um compromisso, ou use "+ Novo compromisso".</span>
+      <button type="button" class="btn btn-sm btn-ghost state-block-action" id="wk-empty-tip-dismiss">Entendi</button>
+    </div>
     <div id="wk-tip" class="smart-cards" hidden></div>
     <div class="wk-plan-toggle-row">
       <button type="button" class="btn btn-sm btn-ghost" id="wk-plan-toggle" hidden>Ver plano da semana</button>
@@ -124,6 +151,10 @@ function buildShell() {
   _el.querySelector("#wk-next").addEventListener("click",  () => navigate(1));
   _el.querySelector("#wk-today").addEventListener("click", goToday);
   _el.querySelector("#wk-plan-toggle").addEventListener("click", togglePlan);
+  _el.querySelector("#wk-empty-tip-dismiss").addEventListener("click", () => {
+    _markWeekIntroSeen();
+    _el.querySelector("#wk-empty-tip").hidden = true;
+  });
 
   buildTimeCol();
   buildDayCols();
@@ -205,6 +236,7 @@ async function fetchAndRender() {
     renderEvents(personal, executionSummaries);
     renderAcademicEvents(academicEvents);
     hideWeekError();
+    updateEmptyTip(personal.length + academicEvents.length === 0);
   } catch (err) {
     if (generation !== _fetchGeneration) return;
     // Erro (rede/banco/sessão) não deve ser tratado como "semana sem eventos" —
@@ -223,11 +255,18 @@ function showWeekError({ state, message }) {
   if (!banner) return;
   renderStateBlock(banner, { state, message, onRetry: fetchAndRender });
   banner.hidden = false;
+  updateEmptyTip(false);
 }
 
 function hideWeekError() {
   const banner = _el.querySelector("#wk-error");
   if (banner) banner.hidden = true;
+}
+
+function updateEmptyTip(isEmpty) {
+  const tip = _el?.querySelector("#wk-empty-tip");
+  if (!tip) return;
+  tip.hidden = !isEmpty || _hasSeenWeekIntro();
 }
 
 // ── Dica contextual e plano rápido (F3.5, ETAPA 4/6; consumindo o Decision
