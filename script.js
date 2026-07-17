@@ -195,15 +195,51 @@ async function _checkSchemaGate() {
   }
 }
 
-// Auditoria UX #31: o filtro "Exibir: Pessoais" só afeta Semana, Mês e
-// Compromissos — cada página tem sua própria instância na toolbar (em vez de
-// uma única barra fixa no topo da sidebar, visível mesmo nas páginas onde não
-// faz nada). As três leem/escrevem o mesmo estado (academicCalendarFilter.js),
-// então são recriadas juntas a cada mudança para permanecerem sincronizadas.
+// Auditoria UX #31: o filtro "Exibir: Pessoais" só afeta Agenda (Semana/Mês)
+// e Compromissos — cada página tem sua própria instância na toolbar (em vez
+// de uma única barra fixa no topo da sidebar, visível mesmo nas páginas onde
+// não faz nada). Semana e Mês agora dividem a mesma toolbar (F10 #4.1), então
+// restam duas instâncias, que leem/escrevem o mesmo estado
+// (academicCalendarFilter.js) e por isso são recriadas juntas a cada mudança
+// para permanecerem sincronizadas.
 function _renderAllFilterBars() {
   renderFilterBar("filter-bar-agenda");
-  renderFilterBar("filter-bar-calendar");
   renderFilterBar("filter-bar-appointments");
+}
+
+// F10 #4.1 — Semana e Mês deixaram de ser páginas separadas: são abas dentro
+// da mesma página "Agenda". Nenhuma lógica de calendar.js/weekView.js muda —
+// os dois continuam inicializados normalmente (ver Promise.all em _initApp);
+// isto só alterna qual seção fica visível, e lembra a última aba escolhida
+// entre recarregamentos (mesmo padrão de medagenda_sidebar_collapsed).
+const AGENDA_VIEW_KEY = "medagenda_agenda_view";
+let _agendaViewBound = false;
+
+function _setAgendaView(view) {
+  const weekEl  = document.getElementById("week-container");
+  const monthEl = document.getElementById("calendar-container");
+  if (weekEl)  weekEl.hidden  = view !== "week";
+  if (monthEl) monthEl.hidden = view !== "month";
+
+  document.querySelectorAll("#agenda-view-tabs .ah-filter-tab").forEach(btn => {
+    const active = btn.dataset.view === view;
+    btn.classList.toggle("ah-filter-tab--active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+
+  try { localStorage.setItem(AGENDA_VIEW_KEY, view); } catch { /* storage unavailable */ }
+}
+
+function _initAgendaViewTabs() {
+  if (_agendaViewBound) return;
+  _agendaViewBound = true;
+  document.querySelectorAll("#agenda-view-tabs .ah-filter-tab").forEach(btn => {
+    btn.addEventListener("click", () => _setAgendaView(btn.dataset.view));
+  });
+
+  let saved;
+  try { saved = localStorage.getItem(AGENDA_VIEW_KEY); } catch { /* storage unavailable */ }
+  _setAgendaView(saved === "month" ? "month" : "week");
 }
 
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
@@ -545,6 +581,7 @@ async function handleDelete(id, card, isRecurring) {
 
 // ── [DOMAIN: navegação e layout] — extraído para navigationView.js ──────────
 safeInit("navegação", initNavigation);
+safeInit("abas da agenda (Semana/Mês)", _initAgendaViewTabs);
 
 // ── [DOMAIN: categorias] — extraído para categoryView.js ─────────────────
 safeInit("categorias (modal)", () => initCategoryView(refreshAll));

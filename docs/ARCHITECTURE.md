@@ -337,8 +337,8 @@ MedAgenda/
 | `academicCalendarICSView.js` | UI de importação e exportação ICS para calendários acadêmicos |
 | `academicCalendarFilter.js` | Barra de filtros para visibilidade dos calendários |
 | `aiPanelView.js` | Drawer do chat com Gemini: resumo semanal, sugestões de estudo, análise de conflitos |
-| `calendar.js` | Renderização do calendário mensal com sobreposição de calendários acadêmicos |
-| `weekView.js` | Grade semanal com slots de tempo (7h–23h), 7 dias |
+| `calendar.js` | Renderização do calendário mensal com sobreposição de calendários acadêmicos; renderiza dentro da aba "Mês" da página Agenda (F10 #4.1 — não é mais uma página própria) |
+| `weekView.js` | Grade semanal com slots de tempo (7h–23h), 7 dias; renderiza dentro da aba "Semana" da página Agenda, aba padrão (F10 #4.1) |
 | `quickAdd.js` | Criação rápida de evento via clique em slot de tempo |
 | `confirmDialog.js` | Modal de confirmação reutilizável |
 | `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, Observações, adição de Questões; ao finalizar, confirma com um toast e navega direto ao Diário (F10 #3.4 — sem tela de resumo intermediária); assina todos os 6 eventos do Session Event Bus |

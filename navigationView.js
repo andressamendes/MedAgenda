@@ -4,7 +4,11 @@
 // absorvida como abas dentro de 'journal' (ver studyJournalView.js/
 // activityHistoryView.js). showPage('history') agora cai no fallback
 // 'agenda' (ver abaixo), já que "history" deixou de ser um destino válido.
-const APP_PAGES = ['agenda', 'calendar', 'appointments', 'study-session', 'journal', 'dashboard'];
+// F10 #4.1 — 'calendar' removido pelo mesmo motivo: a página própria
+// (#page-calendar, "Mês") foi absorvida como aba dentro de 'agenda' (ver
+// #agenda-view-tabs em script.js/_setAgendaView). showPage('calendar') cai
+// no mesmo fallback 'agenda'.
+const APP_PAGES = ['agenda', 'appointments', 'study-session', 'journal', 'dashboard'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 

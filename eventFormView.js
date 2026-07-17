@@ -138,7 +138,7 @@ export function initEventForm(onSave) {
 
   document.getElementById("event-modal-close")?.addEventListener("click", _handleModalClose);
 
-  ["btn-new-event", "btn-new-event-cal", "btn-new-event-apt"].forEach(id => {
+  ["btn-new-event", "btn-new-event-apt"].forEach(id => {
     document.getElementById(id)?.addEventListener("click", () => openEventForm());
   });
 

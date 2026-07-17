@@ -224,13 +224,14 @@
 
         <!-- Primary nav -->
         <div class="sidebar-nav-group">
+          <!-- F10 #4.1: Semana e Mês eram dois destinos de navegação
+               separados para o mesmo dado (compromissos), cada um com sua
+               própria página — agora é um único destino "Agenda", com
+               Semana/Mês como abas de visualização dentro da mesma página
+               (ver #agenda-view-tabs em page-agenda). -->
           <button class="nav-item nav-item--active" data-page="agenda">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
-            <span class="nav-label">Semana</span>
-          </button>
-          <button class="nav-item" data-page="calendar">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><circle cx="8" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="18" r="1" fill="currentColor" stroke="none"/></svg></span>
-            <span class="nav-label">Mês</span>
+            <span class="nav-label">Agenda</span>
           </button>
           <button class="nav-item" data-page="appointments">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
@@ -282,10 +283,16 @@
       <!-- Content area -->
       <main class="app-content" id="app-content">
 
-        <!-- Page: Semana (weekly view) -->
+        <!-- Page: Agenda (Semana/Mês) —
+             F10 #4.1: Semana e Mês eram duas páginas separadas mostrando o
+             mesmo dado (compromissos) em duas granularidades — unificadas
+             numa só página "Agenda" com abas de visualização
+             (#agenda-view-tabs), preservando toda a lógica de calendar.js e
+             weekView.js sem alteração: ambos continuam sendo inicializados
+             normalmente, só a visibilidade de suas seções é alternada. -->
         <div id="page-agenda" class="app-page">
           <div class="page-header">
-            <h1 class="page-title">Semana</h1>
+            <h1 class="page-title">Agenda</h1>
             <button id="btn-new-event" class="btn btn-primary btn-sm">+ Novo compromisso</button>
           </div>
 
@@ -294,18 +301,16 @@
                Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
+          <div class="ah-filter-tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana e Mês">
+            <button type="button" class="ah-filter-tab ah-filter-tab--active" data-view="week" role="tab" aria-selected="true">Semana</button>
+            <button type="button" class="ah-filter-tab" data-view="month" role="tab" aria-selected="false">Mês</button>
+          </div>
+
           <!-- Weekly view -->
           <section class="week-section" id="week-container"></section>
-        </div>
 
-        <!-- Page: Mês (monthly) -->
-        <div id="page-calendar" class="app-page" hidden>
-          <div class="page-header">
-            <h1 class="page-title">Mês</h1>
-            <button id="btn-new-event-cal" class="btn btn-primary btn-sm">+ Novo compromisso</button>
-          </div>
-          <div class="filter-bar" id="filter-bar-calendar"></div>
-          <section class="calendar-section" id="calendar-container"></section>
+          <!-- Monthly view -->
+          <section class="calendar-section" id="calendar-container" hidden></section>
         </div>
 
         <!-- Page: Compromissos -->
@@ -720,11 +725,13 @@
          sidebar completa). Antes, "Mês" e "Assistente IA" ocupavam dois dos
          4 lugares fixos, dando à IA mais destaque que Compromissos e Diário
          de Estudos; Mês, IA e o resto continuam a um toque de distância
-         dentro de "Mais" (mesma sidebar já usada no desktop). -->
+         dentro de "Mais" (mesma sidebar já usada no desktop).
+         F10 #4.1: "Semana" virou "Agenda" — a página agora abre com Semana e
+         Mês como abas da mesma tela (ver #agenda-view-tabs). -->
     <nav class="bottom-nav" aria-label="Navegação">
       <button class="bottom-nav-item bottom-nav-item--active" data-page="agenda">
         <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
-        <span class="bottom-nav-label">Semana</span>
+        <span class="bottom-nav-label">Agenda</span>
       </button>
       <button class="bottom-nav-item" data-page="appointments">
         <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
