@@ -107,6 +107,22 @@
      valor visual, só nomeando o que já existia como literal. ── */
   --space-7: 2rem;
 
+  /* ── Breakpoints (F10 #2.2) — registro único dos dois breakpoints
+     compartilhados por mais de uma regra no arquivo, para consulta antes de
+     redigitar um `@media (max-width: ...)` novo e evitar deriva
+     (ex.: 767px vs 768px por engano). Não são custom properties de verdade
+     — `var()` não é válido dentro de `@media`, e usá-lo ali falharia
+     silenciosamente (o media feature inteiro vira inválido e a regra nunca
+     se aplica) — então isto é só a fonte única de referência, documentada
+     aqui e apontada por comentário em cada @media que a usa:
+       - Mobile (sidebar em drawer, bottom nav): max-width 767px
+       - Mobile pequeno (paddings/larguras reduzidas): max-width 480px
+     Breakpoints específicos de um único componente (ex.: 680px em
+     .week-section, 520px no formulário de Calendário Acadêmico) não estão
+     aqui de propósito: não são compartilhados, e forçá-los para um destes
+     dois mudaria a largura real em que cada tela quebra — risco visual que
+     esta formalização deliberadamente não assume. */
+
   /* ── Escala de z-index (F5.3) — só cobre a casca compartilhada (header,
      sidebar, overlay, bottom nav, menu do usuário, tela de carregamento);
      valores idênticos aos já usados, sem reordenar o empilhamento. ── */
@@ -725,7 +741,8 @@ body {
 
 .bottom-nav-label { font-size: .62rem; font-weight: 600; }
 
-/* ── Mobile: sidebar as drawer, bottom nav visible ── */
+/* ── Mobile: sidebar as drawer, bottom nav visible ──
+   Breakpoint "Mobile" do registro (F10 #2.2) — ver :root. */
 @media (max-width: 767px) {
   .app-sidebar {
     position: fixed;
@@ -777,6 +794,7 @@ body {
   }
 }
 
+/* Breakpoint "Mobile pequeno" do registro (F10 #2.2) — ver :root. */
 @media (max-width: 480px) {
   .app-content {
     padding: var(--space-3);
@@ -2362,6 +2380,8 @@ textarea { resize: vertical; }
   background: var(--red);
 }
 
+/* Breakpoint específico da grade Semana (F10 #2.2) — de propósito fora do
+   registro em :root: não é compartilhado com nenhuma outra regra. */
 @media (max-width: 680px) {
   .week-section { padding: 1rem .75rem; }
 }
@@ -3045,6 +3065,7 @@ textarea { resize: vertical; }
 .toast-close { transition: opacity var(--transition-fast); }
 .toast-close:hover { opacity: 1; }
 
+/* Breakpoint "Mobile pequeno" do registro (F10 #2.2) — ver :root. */
 @media (max-width: 480px) {
   .toast-container {
     top: auto;
@@ -3322,6 +3343,8 @@ textarea { resize: vertical; }
   margin-bottom: var(--space-3);
 }
 
+/* Breakpoint específico do formulário de Calendário Acadêmico (F10 #2.2) —
+   de propósito fora do registro em :root: não é compartilhado. */
 @media (max-width: 520px) {
   .acal-form-grid { grid-template-columns: 1fr; }
   .acal-row-actions { gap: .25rem; }
@@ -3777,6 +3800,7 @@ textarea { resize: vertical; }
   text-align: center;
 }
 
+/* Breakpoint "Mobile pequeno" do registro (F10 #2.2) — ver :root. */
 @media (max-width: 480px) {
   .ai-panel { width: 100vw; }
 }
