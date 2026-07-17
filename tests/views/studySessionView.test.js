@@ -1409,3 +1409,103 @@ test("UX #04 — o contador do título reflete questões/revisões adicionadas s
   document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("ssf-reviews-count").textContent, " (1)");
 });
+
+// ── Formulário inline de questão/revisão atrás de "+ Adicionar..." (F10 #3.3) ──
+// Antes, o formulário completo (tipo/status/dificuldade/matéria/tópico ou
+// associar/criar revisão) ficava sempre visível abaixo da lista, mesmo sem
+// nenhuma questão/revisão sendo adicionada naquele momento. Agora ele nasce
+// oculto atrás de um botão "+ Adicionar...", só a lista compacta some por
+// padrão dentro da seção já expandida.
+
+test("F10 #3.3 — o formulário de questão nasce oculto atrás de '+ Adicionar questão', e reabrir o resumo o mantém oculto", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, false);
+
+  document.getElementById("ssf-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-question-form").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, true);
+  assert.strictEqual(document.activeElement, document.getElementById("ssf-q-type"));
+
+  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true, "reabrir o resumo não deve herdar o formulário aberto na sessão anterior");
+  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, false);
+});
+
+test("F10 #3.3 — 'Cancelar' no formulário de questão fecha o formulário e descarta a edição em andamento, sem afetar a lista já adicionada", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "a questão adicionada antes do cancelamento continua na lista");
+
+  document.getElementById("ssf-btn-cancel-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "cancelar não remove nenhuma questão já adicionada");
+});
+
+test("F10 #3.3 — clicar 'Editar' num item da lista reabre o formulário de questão automaticamente", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-q-subject").value = "Cardiologia";
+  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-btn-cancel-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true);
+
+  document.getElementById("ssf-questions-list").querySelector("[data-question-edit]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-question-form").hidden, false, "editar deve reabrir o formulário mesmo se estivesse fechado");
+  assert.strictEqual(document.getElementById("ssf-q-subject").value, "Cardiologia");
+});
+
+test("F10 #3.3 — o formulário de revisão nasce oculto atrás de '+ Adicionar revisão'", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-review-form").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-btn-toggle-review-form").hidden, false);
+
+  document.getElementById("ssf-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-review-form").hidden, false);
+  assert.strictEqual(document.getElementById("ssf-btn-toggle-review-form").hidden, true);
+
+  document.getElementById("ssf-r-date").value = "2099-01-10";
+  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "criar revisão continua funcionando com o formulário revelado");
+
+  document.getElementById("ssf-btn-cancel-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ssf-review-form").hidden, true);
+  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "cancelar não remove a revisão já adicionada");
+});

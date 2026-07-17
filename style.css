@@ -3113,6 +3113,16 @@ textarea { resize: vertical; }
   display: block;
 }
 
+/* F10 #3.3 — o formulário de adicionar questão/revisão nasce oculto atrás
+   de "+ Adicionar questão"/"+ Adicionar revisão" (ver ssf-btn-toggle-
+   question-form/ssf-btn-toggle-review-form em studySessionView.js);
+   .ss-question-form-actions só agrupa os botões de ação do formulário de
+   questão (Adicionar/Salvar + Cancelar) lado a lado. */
+.ss-question-form-actions {
+  display: flex;
+  gap: .5rem;
+}
+
 /* BUG 09 — Resumo/confirmação de encerramento (#ss-finish-modal) e resumo
    final (#ss-summary-modal): conteúdo variável (Questões + Revisões
    adicionadas na hora) podia crescer além da viewport. Como .modal-card só
