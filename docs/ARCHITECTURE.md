@@ -98,8 +98,8 @@ Reflexão (reflections, 1:1)
     ↓
 Projeções (derivadas, nunca persistidas)
     ├── Dashboard          (activityDashboardService.js)
-    ├── Diário de Estudos  (studyJournalView.js + studySummaryService/studyMilestoneService/studyTimelineService)
-    ├── Histórico          (activityHistoryView.js)
+    ├── Diário de Estudos  (studyJournalView.js + studySummaryService/studyMilestoneService/studyTimelineService;
+    │                       inclui as abas "Canceladas"/"Todas" — activityHistoryView.js, F10 #4.2)
     ├── Subject Progress   (subjectProgressService.js)
     ├── Study Streak       (studyStreakService.js)
     └── Achievements       (achievementService.js)
@@ -133,7 +133,7 @@ Cada evento é entregue como `{ session, timestamp, eventType }`. Um listener qu
 | Consumidor | Eventos assinados | Reação |
 |---|---|---|
 | `activityDashboardView.js` | `STARTED`, `FINISHED`, `CANCELLED`, `UPDATED` | Recarrega os indicadores do Dashboard (debounced). |
-| `activityHistoryView.js` | `STARTED`, `FINISHED`, `CANCELLED`, `UPDATED` | Recarrega a página atual do Histórico de Sessões. |
+| `activityHistoryView.js` | `STARTED`, `FINISHED`, `CANCELLED`, `UPDATED` | Recarrega a aba "Canceladas"/"Todas" do Diário de Estudos (F10 #4.2 — não é mais uma página própria). |
 | `insightsView.js` | `FINISHED`, `CANCELLED`, `UPDATED` | Recarrega a Central de Insights. Não assina `STARTED`/`PAUSED`/`RESUMED` deliberadamente — todos os blocos de Insights são derivados apenas de sessões já finalizadas. |
 | `studyJournalView.js` | `FINISHED`, `CANCELLED`, `UPDATED` | Recarrega a primeira página do Diário de Estudos. |
 | `studySessionView.js` | Todos os seis | Re-renderiza a tela de sessão/cronômetro em andamento, refletindo início/pausa/retomada/finalização disparados por outra aba ou fluxo (ex.: "Iniciar Sessão" a partir do formulário de compromisso). |
@@ -343,9 +343,9 @@ MedAgenda/
 | `confirmDialog.js` | Modal de confirmação reutilizável |
 | `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, Observações, adição de Questões; ao finalizar, confirma com um toast e navega direto ao Diário (F10 #3.4 — sem tela de resumo intermediária); assina todos os 6 eventos do Session Event Bus |
 | `activityDashboardView.js` | Renderiza o Dashboard de Atividade; assina `SessionStarted/Finished/Cancelled/Updated` |
-| `activityHistoryView.js` | Histórico paginado de sessões finalizadas; assina `SessionStarted/Finished/Cancelled/Updated` |
+| `activityHistoryView.js` | Lista paginada de sessões por status (todas/canceladas); embutida na aba "Canceladas"/"Todas" do Diário de Estudos (F10 #4.2 — não é mais uma página própria); assina `SessionStarted/Finished/Cancelled/Updated` |
 | `insightsView.js` | Central de Insights (execução, metas, revisões, produtividade); assina `SessionFinished/Cancelled/Updated` |
-| `studyJournalView.js` | Diário de Estudos — agrupamento por dia, filtros, busca, resumos, marcos, narrativa, timeline e Reflexão; assina `SessionFinished/Cancelled/Updated` |
+| `studyJournalView.js` | Diário de Estudos — aba "Concluídas": agrupamento por dia, filtros, busca, resumos, marcos, narrativa, timeline e Reflexão; abas "Canceladas"/"Todas" delegadas a `activityHistoryView.js`; assina `SessionFinished/Cancelled/Updated` |
 | `planListView.js` | Exibe a sugestão de plano semanal de `planningService.js` |
 | `smartCardView.js` | Cartão de sugestão/insight reutilizável exibido em várias telas |
 | `abandonedSessionDialog.js` | Diálogo de recuperação de sessão `running`/`paused` deixada aberta (F7.8) |

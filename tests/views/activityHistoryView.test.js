@@ -129,23 +129,28 @@ test("a manual session with no linked event shows a generic label instead of a t
   assert.match(document.getElementById("ah-list").textContent, /Sessão sem compromisso/);
 });
 
-test("clicking a filter tab reloads with the matching status and marks it active", async (t) => {
+// F10 #4.2 — o Histórico deixou de ter seu próprio <div class="ah-filter-
+// tabs">: agora quem controla o status exibido é o Diário de Estudos
+// (studyJournalView.js), através de setHistoryStatus(), exportada abaixo.
+test("setHistoryStatus() reloads with the matching status, and is a no-op when the status doesn't change", async (t) => {
   const calls = [];
   const { mod } = await loadView(t, {
     listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
   });
 
   await mod.initActivityHistoryView();
-  calls.length = 0; // only care about the click below
+  calls.length = 0; // only care about setHistoryStatus() below
 
-  const cancelledTab = document.querySelector('.ah-filter-tab[data-status="cancelled"]');
-  cancelledTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  mod.setHistoryStatus("cancelled");
   await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.strictEqual(calls[0].status, "cancelled");
   assert.strictEqual(calls[0].offset, 0);
-  assert.strictEqual(cancelledTab.classList.contains("ah-filter-tab--active"), true);
-  assert.strictEqual(document.querySelector('.ah-filter-tab[data-status="all"]').classList.contains("ah-filter-tab--active"), false);
+
+  calls.length = 0;
+  mod.setHistoryStatus("cancelled"); // same status again — must not reload
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.strictEqual(calls.length, 0);
 });
 
 test("load-more button appears when there are more pages and fetches the next offset", async (t) => {
@@ -313,8 +318,7 @@ test("an auto-reload from an event preserves the currently selected filter", asy
   });
 
   await mod.initActivityHistoryView();
-  document.querySelector('.ah-filter-tab[data-status="cancelled"]')
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  mod.setHistoryStatus("cancelled");
   await tick();
   calls.length = 0;
 
@@ -401,7 +405,7 @@ test("re-initializing does not register duplicate listeners (no leak across repe
   assert.strictEqual(calls.length, 1, "a single event should trigger exactly one reload, regardless of how many times init ran");
 });
 
-test("filters continue to work normally alongside the event-bus subscription", async (t) => {
+test("setHistoryStatus() continues to work normally alongside the event-bus subscription", async (t) => {
   const calls = [];
   const { mod } = await loadView(t, {
     listSessions: async (opts) => { calls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
@@ -410,12 +414,10 @@ test("filters continue to work normally alongside the event-bus subscription", a
   await mod.initActivityHistoryView();
   calls.length = 0;
 
-  const finishedTab = document.querySelector('.ah-filter-tab[data-status="finished"]');
-  finishedTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  mod.setHistoryStatus("finished");
   await tick();
 
   assert.strictEqual(calls[0].status, "finished");
-  assert.strictEqual(finishedTab.classList.contains("ah-filter-tab--active"), true);
 });
 
 // ── Invalidação do cache de eventos (AUD-003) ───────────────────────────────

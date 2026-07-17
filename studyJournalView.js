@@ -85,6 +85,16 @@
 // pela própria View (F8.4, inalterado) antes de studySearchService, na
 // mesma passada — todos os filtros são combinados juntos, sem prioridade
 // entre eles.
+//
+// F10 #4.2 — o Histórico de Sessões (activityHistoryView.js, antes uma
+// página própria) foi absorvido aqui como as abas "Canceladas"/"Todas" de
+// #sj-status-tabs, ao lado de "Concluídas" (a visão rica de sempre, tudo
+// acima). Trocar de aba só alterna qual <div> fica visível — #sj-finished-
+// view (este módulo) ou #sj-other-view (activityHistoryView.js, controlado
+// via setHistoryStatus()) — nenhuma sessão não concluída passa a ser
+// carregada, filtrada ou agrupada por este módulo: agrupamento por dia,
+// resumos semanais e marcos continuam presumindo sessão concluída, porque
+// só sessões concluídas chegam a `_allEntries`/`filtered` aqui.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -108,6 +118,7 @@ import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
 import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
+import { setHistoryStatus } from "./activityHistoryView.js";
 
 const PAGE_SIZE = 10;
 
@@ -133,6 +144,11 @@ const REVIEW_STATUS_LABELS = {
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
 let milestonesPanelEl, milestonesListEl;
+// F10 #4.2 — alterna entre a visão rica de "Concluídas" (finishedViewEl,
+// este módulo) e a visão compacta de "Canceladas"/"Todas" (otherViewEl,
+// activityHistoryView.js), sem afetar o carregamento/estado de nenhuma das
+// duas — ver _setStatusTab().
+let statusTabsEl, finishedViewEl, otherViewEl;
 let periodSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
@@ -900,6 +916,22 @@ async function _loadPage(reset) {
   }
 }
 
+// F10 #4.2 — troca entre a visão rica de "Concluídas" (finishedViewEl) e a
+// visão compacta de "Canceladas"/"Todas" (otherViewEl, activityHistoryView.js).
+// "finished" nunca chama setHistoryStatus() — essa aba não usa
+// activityHistoryView.js para nada, é só este módulo mostrado normalmente.
+function _setStatusTab(status) {
+  statusTabsEl?.querySelectorAll(".ah-filter-tab").forEach(btn => {
+    const active = btn.dataset.status === status;
+    btn.classList.toggle("ah-filter-tab--active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+  const showFinished = status === "finished";
+  if (finishedViewEl) finishedViewEl.hidden = !showFinished;
+  if (otherViewEl)    otherViewEl.hidden    = showFinished;
+  if (!showFinished) setHistoryStatus(status);
+}
+
 /**
  * Monta a tela (uma única vez) e carrega a primeira página do Diário.
  * Chamada a cada login (ver script.js/_initApp) — sempre recarrega do zero.
@@ -913,6 +945,13 @@ export async function initStudyJournalView() {
     partialNoticeEl = document.getElementById("sj-filter-partial-notice");
     milestonesPanelEl = document.getElementById("sj-milestones-panel");
     milestonesListEl  = document.getElementById("sj-milestones-list");
+
+    statusTabsEl   = document.getElementById("sj-status-tabs");
+    finishedViewEl = document.getElementById("sj-finished-view");
+    otherViewEl    = document.getElementById("sj-other-view");
+    statusTabsEl?.querySelectorAll(".ah-filter-tab").forEach(btn => {
+      btn.addEventListener("click", () => _setStatusTab(btn.dataset.status));
+    });
 
     periodSelect   = document.getElementById("sj-filter-period");
     categorySelect = document.getElementById("sj-filter-category");
@@ -941,6 +980,7 @@ export async function initStudyJournalView() {
     _bindFilters();
   }
 
+  _setStatusTab("finished");
   _subscribeToEventBus();
   await _loadEventsLookup();
   await _loadPage(true);
@@ -981,6 +1021,7 @@ export function resetStudyJournalView() {
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
   if (milestonesPanelEl) milestonesPanelEl.hidden = true;
   if (milestonesListEl) milestonesListEl.innerHTML = "";
+  if (statusTabsEl) _setStatusTab("finished");
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
   // entre usuários diferentes na mesma sessão do navegador.
