@@ -1230,6 +1230,17 @@ textarea { resize: vertical; }
   color: var(--red);
 }
 
+/* F10 #1.6 (causa raiz encontrada) — mesmo bug de especificidade já corrigido
+   em .btn[hidden] (F10 #1.1): `.state-block { display: flex }` empata em
+   especificidade com a regra nativa `[hidden] { display: none }` e, por vir
+   depois no CSS de origem, ganha — então nenhum elemento com a classe
+   `.state-block` (wk-error, wk-empty-tip, e qualquer bloco de
+   renderStateBlock()) era de fato ocultado ao ligar `hidden`. Descoberto ao
+   testar o "Entendi" da dica de primeira visita da Semana. */
+.state-block[hidden] {
+  display: none;
+}
+
 .state-block-icon {
   display: flex;
   align-items: center;
@@ -2129,6 +2140,20 @@ textarea { resize: vertical; }
   border-radius: var(--radius);
   color: var(--color-danger-text);
 }
+
+/* F10 #1.6 — dica didática de primeira visita, reaproveitando o mesmo
+   layout (ícone + título + descrição) de .state-block, só com uma
+   superfície neutra própria em vez do vermelho de erro. */
+.wk-empty-tip {
+  padding: 1rem .75rem;
+  margin-bottom: .75rem;
+  background: var(--color-info-bg, var(--gray-50));
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  color: var(--color-text);
+}
+
+.wk-empty-tip .state-block-icon { color: var(--color-primary); }
 
 /* scroll container — always show scrollbar to keep head/body aligned */
 .wk-scroll {

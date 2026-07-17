@@ -273,6 +273,59 @@ test("no decisions hides the tip and the plan toggle — never invents anything"
   assert.strictEqual(container.querySelector("#wk-plan-toggle").hidden, true);
 });
 
+// F10 #1.6 — Estado vazio didático: primeira visita, semana sem nenhum
+// evento (pessoal ou acadêmico) → mostra a dica; qualquer visita seguinte
+// (flag já gravada em localStorage) nunca mais mostra, mesmo que a semana
+// volte a ficar vazia.
+test("F10 #1.6 — first visit with an empty week shows the didactic empty-state tip", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  await flush();
+
+  const tip = container.querySelector("#wk-empty-tip");
+  assert.strictEqual(tip.hidden, false);
+  assert.match(tip.textContent, /Sua semana está vazia/);
+});
+
+test("F10 #1.6 — a week with events never shows the didactic empty-state tip", async (t) => {
+  mockEventService(t, {
+    events: [{ id: "ev1", title: "Revisão", event_date: isoDate(currentWeekRange().mon), start_time: "10:00", duration_minutes: 60 }],
+  });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  await flush();
+
+  assert.strictEqual(container.querySelector("#wk-empty-tip").hidden, true);
+});
+
+test("F10 #1.6 — dismissing the tip hides it and it never shows again on a later empty week", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  await flush();
+
+  container.querySelector("#wk-empty-tip-dismiss").click();
+  assert.strictEqual(container.querySelector("#wk-empty-tip").hidden, true);
+  assert.strictEqual(localStorage.getItem("medagenda_week_intro_seen"), "1");
+
+  // Simula uma nova visita (novo initWeekView) — a flag persiste no localStorage
+  destroyWeekView();
+  destroyWeekView = null;
+  const { initWeekView: initAgain, destroyWeekView: destroyAgain } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroyAgain;
+  await initAgain(container, {});
+  await flush();
+
+  assert.strictEqual(container.querySelector("#wk-empty-tip").hidden, true);
+});
+
 test("'Ver plano da semana' toggles an inline list, without opening the AI panel", async (t) => {
   mockEventService(t, {
     events: [],
