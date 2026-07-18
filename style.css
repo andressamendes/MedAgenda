@@ -3144,17 +3144,6 @@ textarea { resize: vertical; }
   border-top: 1px solid var(--gray-200);
 }
 
-/* F10 #4.3 — recap somente-leitura do resumo de encerramento: Questões e
-   Revisões passaram a ser registradas na tela da sessão ativa (acima), não
-   mais no encerramento — aqui só confirma o que já foi persistido. */
-.ss-finish-recap {
-  width: 100%;
-  margin-top: var(--space-2);
-  display: flex;
-  flex-direction: column;
-  gap: .2rem;
-}
-
 .ss-questions-title {
   margin: 0 0 .4rem;
   font-size: .9rem;

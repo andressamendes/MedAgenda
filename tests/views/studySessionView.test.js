@@ -480,7 +480,7 @@ test("the summary modal shows the session's read-only data, sourced from the exi
   assert.strictEqual(document.getElementById("ssf-total-duration"), null);
 });
 
-test("the summary modal has an Observações field and a read-only recap of what's already registered — no add-question form", async (t) => {
+test("the summary modal has an Observações field and no add-question form (nor the removed read-only recap)", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
@@ -490,8 +490,11 @@ test("the summary modal has an Observações field and a read-only recap of what
   await new Promise(r => setTimeout(r, 0));
 
   assert.ok(document.getElementById("ssf-notes"), "observações textarea must exist");
-  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "Nenhuma questão registrada nesta sessão.");
-  assert.strictEqual(document.getElementById("ssf-recap-reviews").textContent, "Nenhuma revisão vinculada a esta sessão.");
+  // F10 PR9 — o recap textual ssf-recap-questions/ssf-recap-reviews foi
+  // removido: repetia, em prosa, a mesma contagem já visível no título das
+  // seções de Questões/Revisões na tela ativa.
+  assert.strictEqual(document.getElementById("ssf-recap-questions"), null);
+  assert.strictEqual(document.getElementById("ssf-recap-reviews"), null);
   // F10 #4.3 — as ids ssf-questions-list/ssf-btn-add-question etc. deixaram de
   // existir: o cadastro agora vive só em #ss-active, fora do modal.
   assert.strictEqual(document.getElementById("ssf-questions-list"), null);
@@ -648,10 +651,9 @@ test("clicking Voltar just closes the finish modal — there is nothing pending 
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(addQuestionCalls.length, 1, "the already-persisted question is untouched by Voltar");
-  // Reabrir o resumo mostra o mesmo recap — nada foi perdido nem duplicado.
+  // Reabrir o resumo mostra o mesmo estado — nada foi perdido nem duplicado.
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
-  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "1 questão(ões) registrada(s) nesta sessão.");
   assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1, "still on the active screen too");
 });
 
@@ -1256,9 +1258,12 @@ test("BUG 16: if associateReview() fails right after createReview() succeeds, th
   assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
 });
 
-// ── Recap somente-leitura no modal de encerramento (F10 #4.3) ──────────────
+// ── Recap textual removido do modal de encerramento (F10 PR9) ──────────────
+// O recap ("N questão(ões) registrada(s)...") repetia, em prosa, a mesma
+// contagem já visível no título das seções de Questões/Revisões na tela
+// ativa (ex.: "Questões Resolvidas (2)") — zero informação nova.
 
-test("the finish modal recap reflects the count of questions and reviews already registered on the active screen", async (t) => {
+test("the finish modal no longer has a textual recap of questions/reviews — the count already lives in the active screen's section titles", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
   });
@@ -1268,32 +1273,14 @@ test("the finish modal recap reflects the count of questions and reviews already
   document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
-  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ss-r-date").value = "2026-07-14";
-  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-count").textContent, " (1)", "count already visible on the active screen");
 
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "2 questão(ões) registrada(s) nesta sessão.");
-  assert.strictEqual(document.getElementById("ssf-recap-reviews").textContent, "1 revisão(ões) vinculada(s) a esta sessão.");
-});
-
-test("the finish modal recap says nothing was registered when the session has no questions/reviews", async (t) => {
-  const { mod } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "Nenhuma questão registrada nesta sessão.");
-  assert.strictEqual(document.getElementById("ssf-recap-reviews").textContent, "Nenhuma revisão vinculada a esta sessão.");
+  assert.strictEqual(document.getElementById("ssf-recap-questions"), null);
+  assert.strictEqual(document.getElementById("ssf-recap-reviews"), null);
 });
 
 // ── Contexto do compromisso vinculado (F1.4 / F7.2) ─────────────────────────
@@ -1544,7 +1531,6 @@ test("resetStudySessionView() clears the previous user's Questões/Revisões fro
   mod.resetStudySessionView();
 
   assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0);
-  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "");
 });
 
 // ── F7.9 — Tratamento de Sessões abandonadas ────────────────────────────────
