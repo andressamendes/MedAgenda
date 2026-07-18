@@ -152,7 +152,7 @@ let milestonesPanelEl, milestonesListEl;
 let statusTabsEl, finishedViewEl, otherViewEl;
 let periodSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
-let reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck;
+let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
 let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
 let moreFlagsToggleBtn, moreFlagsEl;
 
@@ -689,10 +689,10 @@ function _onFilterChange() {
     onlyWithReflection: Boolean(reflectionCheck?.checked),
     onlyWithNotes: Boolean(notesCheck?.checked),
     onlyWithReviews: Boolean(reviewsCheck?.checked),
-    onlyWithQuestions: Boolean(questionsCheck?.checked),
-    onlyWithoutQuestions: Boolean(noQuestionsCheck?.checked),
-    onlyLong: Boolean(longCheck?.checked),
-    onlyShort: Boolean(shortCheck?.checked),
+    onlyWithQuestions: questionsSelect?.value === "with",
+    onlyWithoutQuestions: questionsSelect?.value === "without",
+    onlyLong: durationSelect?.value === "long",
+    onlyShort: durationSelect?.value === "short",
     questionType: questionTypeSelect?.value || "",
     questionStatus: questionStatusSelect?.value || "",
     questionDifficulty: questionDifficultySelect?.value || "",
@@ -731,7 +731,9 @@ function _bindFilters() {
   questionTypeSelect?.addEventListener("change", _onFilterChange);
   questionStatusSelect?.addEventListener("change", _onFilterChange);
   questionDifficultySelect?.addEventListener("change", _onFilterChange);
-  [reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck]
+  questionsSelect?.addEventListener("change", _onFilterChange);
+  durationSelect?.addEventListener("change", _onFilterChange);
+  [reflectionCheck, notesCheck, reviewsCheck]
     .forEach(el => el?.addEventListener("change", _onFilterChange));
   advancedToggleBtn?.addEventListener("click", _toggleAdvancedFilters);
   moreFlagsToggleBtn?.addEventListener("click", _toggleMoreFlags);
@@ -966,13 +968,11 @@ export async function initStudyJournalView() {
     questionStatusSelect     = document.getElementById("sj-filter-question-status");
     questionDifficultySelect = document.getElementById("sj-filter-question-difficulty");
 
-    reflectionCheck  = document.getElementById("sj-filter-reflection");
-    notesCheck       = document.getElementById("sj-filter-notes");
-    reviewsCheck     = document.getElementById("sj-filter-reviews");
-    questionsCheck   = document.getElementById("sj-filter-questions");
-    noQuestionsCheck = document.getElementById("sj-filter-no-questions");
-    longCheck        = document.getElementById("sj-filter-long");
-    shortCheck       = document.getElementById("sj-filter-short");
+    reflectionCheck = document.getElementById("sj-filter-reflection");
+    notesCheck      = document.getElementById("sj-filter-notes");
+    reviewsCheck    = document.getElementById("sj-filter-reviews");
+    questionsSelect = document.getElementById("sj-filter-questions");
+    durationSelect  = document.getElementById("sj-filter-duration");
 
     advancedToggleBtn = document.getElementById("sj-advanced-filters-toggle");
     advancedFiltersEl = document.getElementById("sj-advanced-filters");
@@ -1037,7 +1037,9 @@ export function resetStudyJournalView() {
   if (questionTypeSelect)       questionTypeSelect.value = "";
   if (questionStatusSelect)     questionStatusSelect.value = "";
   if (questionDifficultySelect) questionDifficultySelect.value = "";
-  [reflectionCheck, notesCheck, reviewsCheck, questionsCheck, noQuestionsCheck, longCheck, shortCheck]
+  if (questionsSelect) questionsSelect.value = "";
+  if (durationSelect)  durationSelect.value = "";
+  [reflectionCheck, notesCheck, reviewsCheck]
     .forEach(el => { if (el) el.checked = false; });
   _updateAdvancedFiltersCount();
   if (advancedFiltersEl)  advancedFiltersEl.hidden = true;
