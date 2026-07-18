@@ -1668,6 +1668,38 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+/* F11 E11 — barra de progresso das metas de tempo (dailyGoal/weeklyGoal/
+   monthlyGoal), puramente visual: o percentual continua escrito em
+   .dashboard-card-desc e em aria-valuenow, então nada depende só da cor. */
+.dashboard-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gray-200);
+  overflow: hidden;
+  margin-top: .1rem;
+}
+
+.dashboard-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width var(--transition-slow);
+}
+
+.dashboard-progress-bar--achieved  { background: var(--color-success); }
+.dashboard-progress-bar--exceeded  { background: var(--blue); }
+
+/* F11 E11 — minigráfico semanal (computeWeekSparkline()/
+   activityDashboardService.js): puro SVG, sem lib externa; cor via
+   currentColor para acompanhar claro/escuro como o resto dos ícones. */
+.dashboard-sparkline {
+  width: 100%;
+  height: 32px;
+  margin-top: .2rem;
+  color: var(--color-primary);
+  fill: currentColor;
+}
+
 /* ── Dashboard em níveis (F10 #3.1) — "Hoje" sempre visível; o resto vive
    atrás de abas para não competir por atenção a cada carregamento. ── */
 .dash-tier-title {

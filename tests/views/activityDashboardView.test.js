@@ -216,6 +216,47 @@ test("a goal exceeded shows 'Meta ultrapassada'", async (t) => {
   assert.match(text, /Meta ultrapassada/);
 });
 
+// F11 E11 — barra de progresso visual, complementando (nunca substituindo) o
+// percentual já escrito em texto/aria-valuenow.
+test("F11 E11 — a configured goal renders a progress bar reflecting its percentage", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      dailyGoal: { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const bar = document.querySelector("#dash-cards-today .dashboard-progress-bar");
+  assert.ok(bar, "a barra de progresso deve existir para uma meta configurada");
+  assert.strictEqual(bar.style.width, "50%");
+  const wrap = document.querySelector("#dash-cards-today .dashboard-progress");
+  assert.strictEqual(wrap.getAttribute("aria-valuenow"), "50");
+});
+
+test("F11 E11 — an unconfigured goal renders no progress bar", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initActivityDashboardView();
+
+  assert.strictEqual(document.querySelector("#dash-cards-today .dashboard-progress"), null);
+});
+
+test("F11 E11 — an exceeded goal's progress bar is capped at 100% width even though the percentage text exceeds it", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      monthlyGoal: { configured: true, goalMinutes: 2400, actualMinutes: 3000, percentage: 125, remainingMinutes: 0, state: "exceeded" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const bar = document.querySelector("#dash-cards-weekmonth .dashboard-progress-bar--exceeded");
+  assert.ok(bar, "a barra deve marcar visualmente o estado 'exceeded'");
+  assert.strictEqual(bar.style.width, "100%");
+});
+
 test("today's indicator renders the formatted duration and count", async (t) => {
   const { mod } = await loadView(t, {
     getDashboardData: async () => ({
@@ -244,6 +285,35 @@ test("week's indicator renders the formatted duration and count", async (t) => {
   await mod.initActivityDashboardView();
 
   assert.match(allCardsText(), /4h 5min/);
+});
+
+// F11 E11 — minigráfico semanal (SVG puro, sem lib externa) no card "Tempo
+// estudado esta semana", a partir de computeWeekSparkline() já pronto no
+// mesmo objeto retornado por getDashboardData().
+test("F11 E11 — the week card renders a sparkline bar per day when weekSparkline has data", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      weekSparkline: [
+        { date: new Date("2026-07-06"), minutes: 30 },
+        { date: new Date("2026-07-07"), minutes: 0 },
+        { date: new Date("2026-07-08"), minutes: 60 },
+      ],
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const svg = document.querySelector("#dash-cards-weekmonth .dashboard-sparkline");
+  assert.ok(svg, "o minigráfico deve ser renderizado quando há dados");
+  assert.strictEqual(svg.querySelectorAll("rect").length, 3);
+});
+
+test("F11 E11 — no weekSparkline data renders no sparkline element (never a broken/empty SVG)", async (t) => {
+  const { mod } = await loadView(t); // EMPTY_DATA não define weekSparkline
+  await mod.initActivityDashboardView();
+
+  assert.strictEqual(document.querySelector("#dash-cards-weekmonth .dashboard-sparkline"), null);
 });
 
 test("month's indicator renders the formatted duration and count", async (t) => {
