@@ -32,6 +32,7 @@ import { showPage } from "./navigationView.js";
 import { handleError } from "./errorService.js";
 import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const TICK_MS = 1000;
@@ -463,6 +464,7 @@ function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
   bodyEl.hidden = !expanded;
   toggleBtn.setAttribute("aria-expanded", String(expanded));
   toggleBtn.textContent = expanded ? "Ocultar" : "Mostrar";
+  if (expanded) revealWithAnimation(bodyEl);
 }
 
 // F10 #3.3 — o formulário de adicionar questão/revisão e o botão
@@ -473,6 +475,7 @@ function _setInlineFormVisible(formEl, toggleBtn, visible) {
   formEl.hidden = !visible;
   toggleBtn.hidden = visible;
   toggleBtn.setAttribute("aria-expanded", String(visible));
+  if (visible) revealWithAnimation(formEl);
 }
 
 // F10 #4.3 — carrega Questões/Revisões já persistidas sempre que a sessão

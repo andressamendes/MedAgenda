@@ -322,6 +322,7 @@ MedAgenda/
 | `diagnosticService.js` | Verificações de saúde: Service Worker, storage, rede, banco |
 | `toastService.js` | Exibição de mensagens toast (sucesso, erro, informação) |
 | `utils.js` | Funções puras: `pad()`, `isoDate()`, `localDate()`, `escapeHtml()`, `truncate()`, `mondayOf()` |
+| `transitionUtils.js` | `revealWithAnimation()` — microinteração de revelação (F10 #5.1) aplicada na troca skeleton→conteúdo e na abertura de seções expansíveis; puro CSS (`@keyframes content-reveal`), respeita `prefers-reduced-motion` automaticamente via media query |
 
 ### Módulos de View
 

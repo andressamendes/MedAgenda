@@ -92,6 +92,7 @@ const APP_SHELL = [
   './themeService.js',
   './timeGoals.js',
   './toastService.js',
+  './transitionUtils.js',
   './userMemoryService.js',
   './utils.js',
   './weekView.js',

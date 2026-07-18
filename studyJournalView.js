@@ -106,6 +106,7 @@ import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js"
 import { skeletonRowsMarkup } from "./skeletonView.js";
 import { toast } from "./toastService.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import {
   summarizeDayEntries,
@@ -417,6 +418,7 @@ function _toggleEntry(toggleBtn, detailEl) {
   detailEl.hidden = !expand;
   toggleBtn.setAttribute("aria-expanded", String(expand));
   toggleBtn.textContent = expand ? "Recolher" : "Detalhar";
+  if (expand) revealWithAnimation(detailEl);
 }
 
 // Cabeçalho do grupo diário: data, quantidade de sessões e tempo líquido —
@@ -712,12 +714,14 @@ function _toggleAdvancedFilters() {
   const expand = advancedFiltersEl.hidden;
   advancedFiltersEl.hidden = !expand;
   advancedToggleBtn.setAttribute("aria-expanded", String(expand));
+  if (expand) revealWithAnimation(advancedFiltersEl);
 }
 
 function _toggleMoreFlags() {
   const expand = moreFlagsEl.hidden;
   moreFlagsEl.hidden = !expand;
   moreFlagsToggleBtn.setAttribute("aria-expanded", String(expand));
+  if (expand) revealWithAnimation(moreFlagsEl);
 }
 
 function _bindFilters() {
@@ -902,6 +906,7 @@ async function _loadPage(reset) {
       await _loadEntriesData(sessions);
       _refreshFilterOptions();
       _render();
+      if (reset) revealWithAnimation(listEl);
     }
     loadMoreBtn.hidden = !hasMore;
   } catch (err) {
