@@ -74,7 +74,7 @@ export async function showEventList(calId) {
         </div>
       `).join("");
 
-  _openModal(`Eventos: ${escapeHtml(activeCalendar.name)}`, `
+  _openModal(`Calendários Acadêmicos › Eventos: ${escapeHtml(activeCalendar.name)}`, `
     <div class="acal-ev-wrap">
       <div class="acal-ev-list">${listHTML}</div>
       <div class="acal-add-section">
@@ -209,7 +209,9 @@ async function handleEventCreate(calId) {
 
 function showEventEditForm(ev) {
   const calId = ev.calendar_id;
-  _openModal(`Editar evento`, `
+  const activeCalendar = _getCalendarsCache().find(c => c.id === calId);
+  const calendarLabel  = activeCalendar ? escapeHtml(activeCalendar.name) : "";
+  _openModal(`Calendários Acadêmicos › Eventos: ${calendarLabel} › Editar evento`, `
     <div class="acal-form-full">
       ${renderEventFormHTML(ev)}
       <p class="error" id="acev-error" role="alert"></p>

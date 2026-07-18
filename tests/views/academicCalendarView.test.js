@@ -201,7 +201,7 @@ test("navigating to a sub-view while already open does not re-trigger the open t
   document.querySelector(".btn-acal-edit").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(document.getElementById("academic-overlay").hidden, false);
-  assert.strictEqual(document.getElementById("academic-modal-title").textContent, "Editar: Medicina 2026");
+  assert.strictEqual(document.getElementById("academic-modal-title").textContent, "Calendários Acadêmicos › Editar: Medicina 2026");
 });
 
 test("closing the modal hides the overlay and restores focus to the trigger", async (t) => {
