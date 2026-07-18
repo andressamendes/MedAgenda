@@ -403,6 +403,97 @@
               <button type="button" class="btn btn-danger"  id="ss-btn-cancel" hidden>Cancelar</button>
               <button type="button" class="btn btn-primary" id="ss-btn-finish" hidden>Finalizar</button>
             </div>
+
+            <!-- F10 #4.3 — Questões e Revisões deixaram de ser exclusivas do
+                 encerramento: são registradas aqui, durante a sessão ativa, e
+                 persistidas imediatamente a cada adição (a sessão já existe
+                 no banco — sessionQuestionsService.addQuestion()/
+                 reviewSessionService.associateReview() continuam sendo os
+                 únicos pontos de escrita, agora chamados daqui em vez de só
+                 em _confirmFinish()). Nascem colapsadas (mesmo princípio da
+                 auditoria UX #04): o cronômetro continua sendo o elemento
+                 principal da tela, sem competir por atenção. -->
+            <div class="ss-questions-block">
+              <div class="ss-collapsible-header">
+                <h3 class="ss-questions-title">Questões Resolvidas<span id="ss-questions-count" class="ss-section-count"></span></h3>
+                <button type="button" class="btn btn-ghost btn-sm" id="ss-questions-toggle" aria-expanded="false" aria-controls="ss-questions-body">Mostrar</button>
+              </div>
+              <div id="ss-questions-body" hidden>
+
+              <ul id="ss-questions-list" class="ss-questions-list"></ul>
+              <p id="ss-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
+
+              <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-toggle-question-form" aria-expanded="false" aria-controls="ss-question-form">+ Adicionar questão</button>
+
+              <div id="ss-question-form" class="ss-question-form" hidden>
+                <div class="ss-question-form-row">
+                  <label for="ss-q-type">Tipo</label>
+                  <select id="ss-q-type">
+                    <option value="multiple_choice">Múltipla escolha</option>
+                    <option value="true_false">Verdadeiro/Falso</option>
+                    <option value="open">Dissertativa</option>
+                    <option value="flashcard">Flashcard</option>
+                  </select>
+
+                  <label for="ss-q-status">Status</label>
+                  <select id="ss-q-status">
+                    <option value="pending">Pendente</option>
+                    <option value="answered">Respondida</option>
+                    <option value="skipped">Pulada</option>
+                  </select>
+
+                  <label for="ss-q-difficulty">Dificuldade</label>
+                  <select id="ss-q-difficulty">
+                    <option value="easy">Fácil</option>
+                    <option value="medium" selected>Média</option>
+                    <option value="hard">Difícil</option>
+                  </select>
+                </div>
+                <div class="ss-question-form-row">
+                  <label for="ss-q-subject">Matéria</label>
+                  <input type="text" id="ss-q-subject" placeholder="Ex.: Cardiologia">
+
+                  <label for="ss-q-topic">Tópico</label>
+                  <input type="text" id="ss-q-topic" placeholder="Ex.: Insuficiência cardíaca">
+                </div>
+                <div class="ss-question-form-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-add-question">Adicionar questão</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-cancel-question">Cancelar</button>
+                </div>
+              </div>
+
+              </div>
+            </div>
+
+            <!-- Revisões (F7.5) — mesmo tratamento: registradas durante a sessão ativa -->
+            <div class="ss-questions-block">
+              <div class="ss-collapsible-header">
+                <h3 class="ss-questions-title">Revisões<span id="ss-reviews-count" class="ss-section-count"></span></h3>
+                <button type="button" class="btn btn-ghost btn-sm" id="ss-reviews-toggle" aria-expanded="false" aria-controls="ss-reviews-body">Mostrar</button>
+              </div>
+              <div id="ss-reviews-body" hidden>
+              <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
+
+              <ul id="ss-reviews-list" class="ss-questions-list"></ul>
+              <p id="ss-reviews-empty" class="ss-questions-empty">Nenhuma revisão vinculada a esta sessão.</p>
+
+              <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-toggle-review-form" aria-expanded="false" aria-controls="ss-review-form">+ Adicionar revisão</button>
+
+              <div id="ss-review-form" class="ss-question-form" hidden>
+                <div class="ss-question-form-row" id="ss-review-associate-row">
+                  <label for="ss-r-existing">Revisão existente</label>
+                  <select id="ss-r-existing"></select>
+                  <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-associate-review">Associar revisão</button>
+                </div>
+                <div class="ss-question-form-row" id="ss-review-create-row">
+                  <label for="ss-r-date">Nova revisão em</label>
+                  <input type="date" id="ss-r-date">
+                  <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-create-review">Criar revisão</button>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-cancel-review">Cancelar</button>
+              </div>
+              </div>
+            </div>
           </div>
 
           <!-- Resumo da sessão / confirmação de encerramento (F7.3) -->
@@ -442,90 +533,15 @@
                 <label for="ssf-notes" class="ss-notes-label">Observações da sessão</label>
                 <textarea id="ssf-notes" class="ss-notes-textarea" rows="3" placeholder="Dificuldades encontradas, pontos importantes, lembretes…"></textarea>
 
-                <!-- Auditoria UX #04: Questões e Revisões são etapas opcionais
-                     do encerramento — nascem colapsadas para que o resumo e o
-                     botão Confirmar fiquem visíveis sem rolagem; o contador no
-                     título mostra o que já foi preenchido sem expandir. -->
-                <div class="ss-questions-block">
-                  <div class="ss-collapsible-header">
-                    <h3 class="ss-questions-title">Questões Resolvidas<span id="ssf-questions-count" class="ss-section-count"></span></h3>
-                    <button type="button" class="btn btn-ghost btn-sm" id="ssf-questions-toggle" aria-expanded="false" aria-controls="ssf-questions-body">Mostrar</button>
-                  </div>
-                  <div id="ssf-questions-body" hidden>
-
-                  <ul id="ssf-questions-list" class="ss-questions-list"></ul>
-                  <p id="ssf-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
-
-                  <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-toggle-question-form" aria-expanded="false" aria-controls="ssf-question-form">+ Adicionar questão</button>
-
-                  <div id="ssf-question-form" class="ss-question-form" hidden>
-                    <div class="ss-question-form-row">
-                      <label for="ssf-q-type">Tipo</label>
-                      <select id="ssf-q-type">
-                        <option value="multiple_choice">Múltipla escolha</option>
-                        <option value="true_false">Verdadeiro/Falso</option>
-                        <option value="open">Dissertativa</option>
-                        <option value="flashcard">Flashcard</option>
-                      </select>
-
-                      <label for="ssf-q-status">Status</label>
-                      <select id="ssf-q-status">
-                        <option value="pending">Pendente</option>
-                        <option value="answered">Respondida</option>
-                        <option value="skipped">Pulada</option>
-                      </select>
-
-                      <label for="ssf-q-difficulty">Dificuldade</label>
-                      <select id="ssf-q-difficulty">
-                        <option value="easy">Fácil</option>
-                        <option value="medium" selected>Média</option>
-                        <option value="hard">Difícil</option>
-                      </select>
-                    </div>
-                    <div class="ss-question-form-row">
-                      <label for="ssf-q-subject">Matéria</label>
-                      <input type="text" id="ssf-q-subject" placeholder="Ex.: Cardiologia">
-
-                      <label for="ssf-q-topic">Tópico</label>
-                      <input type="text" id="ssf-q-topic" placeholder="Ex.: Insuficiência cardíaca">
-                    </div>
-                    <div class="ss-question-form-actions">
-                      <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-add-question">Adicionar questão</button>
-                      <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-cancel-question">Cancelar</button>
-                    </div>
-                  </div>
-
-                  </div>
-                </div>
-
-                <!-- Revisões do pós-sessão (F7.5) — etapa opcional, entre Questões e Confirmar -->
-                <div class="ss-questions-block">
-                  <div class="ss-collapsible-header">
-                    <h3 class="ss-questions-title">Revisões<span id="ssf-reviews-count" class="ss-section-count"></span></h3>
-                    <button type="button" class="btn btn-ghost btn-sm" id="ssf-reviews-toggle" aria-expanded="false" aria-controls="ssf-reviews-body">Mostrar</button>
-                  </div>
-                  <div id="ssf-reviews-body" hidden>
-                  <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
-
-                  <ul id="ssf-reviews-list" class="ss-questions-list"></ul>
-                  <p id="ssf-reviews-empty" class="ss-questions-empty">Nenhuma revisão vinculada a esta sessão.</p>
-
-                  <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-toggle-review-form" aria-expanded="false" aria-controls="ssf-review-form">+ Adicionar revisão</button>
-
-                  <div id="ssf-review-form" class="ss-question-form" hidden>
-                    <div class="ss-question-form-row" id="ssf-review-associate-row">
-                      <label for="ssf-r-existing">Revisão existente</label>
-                      <select id="ssf-r-existing"></select>
-                      <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-associate-review">Associar revisão</button>
-                    </div>
-                    <div class="ss-question-form-row" id="ssf-review-create-row">
-                      <label for="ssf-r-date">Nova revisão em</label>
-                      <input type="date" id="ssf-r-date">
-                      <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-create-review">Criar revisão</button>
-                    </div>
-                    <button type="button" class="btn btn-ghost btn-sm" id="ssf-btn-cancel-review">Cancelar</button>
-                  </div>
-                  </div>
+                <!-- F10 #4.3 — Questões/Revisões já foram registradas (ou não)
+                     durante a sessão ativa, acima; aqui só um recap somente-
+                     leitura do que já está persistido. Esqueceu de registrar
+                     algo? "Continuar sessão" fecha este resumo sem encerrar
+                     nada, voltando à tela onde as seções acima continuam
+                     disponíveis. -->
+                <div class="ss-finish-recap">
+                  <p id="ssf-recap-questions" class="ss-questions-empty"></p>
+                  <p id="ssf-recap-reviews" class="ss-questions-empty"></p>
                 </div>
               </div>
               <div class="modal-footer">

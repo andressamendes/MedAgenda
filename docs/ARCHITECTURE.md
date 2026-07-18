@@ -341,7 +341,7 @@ MedAgenda/
 | `weekView.js` | Grade semanal com slots de tempo (7h–23h), 7 dias; renderiza dentro da aba "Semana" da página Agenda, aba padrão (F10 #4.1) |
 | `quickAdd.js` | Criação rápida de evento via clique em slot de tempo |
 | `confirmDialog.js` | Modal de confirmação reutilizável |
-| `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, Observações, adição de Questões; ao finalizar, confirma com um toast e navega direto ao Diário (F10 #3.4 — sem tela de resumo intermediária); assina todos os 6 eventos do Session Event Bus |
+| `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, registro de Questões/Revisões (persistidas imediatamente ao adicionar, durante running/paused — F10 #4.3, não mais só no encerramento); ao finalizar, o resumo mostra um recap somente-leitura + Observações, confirma com um toast e navega direto ao Diário (F10 #3.4 — sem tela de resumo intermediária); assina todos os 6 eventos do Session Event Bus |
 | `activityDashboardView.js` | Renderiza o Dashboard de Atividade; assina `SessionStarted/Finished/Cancelled/Updated` |
 | `activityHistoryView.js` | Lista paginada de sessões por status (todas/canceladas); embutida na aba "Canceladas"/"Todas" do Diário de Estudos (F10 #4.2 — não é mais uma página própria); assina `SessionStarted/Finished/Cancelled/Updated` |
 | `insightsView.js` | Central de Insights (execução, metas, revisões, produtividade); assina `SessionFinished/Cancelled/Updated` |
