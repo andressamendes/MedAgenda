@@ -12,6 +12,8 @@ import { startSessionForEvent } from "./studySessionView.js";
 import { showPage } from "./navigationView.js";
 import { getAIContext } from "./aiContextService.js";
 import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
+import { categoryColor } from "./categoryView.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { pad, escapeHtml } from "./utils.js";
 
 // Categoria "com poucas sessões": mesmo piso de recommendationEngine.js/
@@ -77,6 +79,8 @@ let fStart             = null;
 let fDuration          = null;
 let fCategory          = null;
 let fColor             = null;
+let fColorToggle       = null;
+let fColorWrap         = null;
 let fLocation          = null;
 let fDesc              = null;
 let fReminder          = null;
@@ -121,6 +125,8 @@ export function initEventForm(onSave) {
   fDuration           = document.getElementById("f-duration");
   fCategory           = document.getElementById("f-category");
   fColor              = document.getElementById("f-color");
+  fColorToggle        = document.getElementById("f-color-toggle");
+  fColorWrap          = document.getElementById("f-color-wrap");
   fLocation           = document.getElementById("f-location");
   fDesc               = document.getElementById("f-description");
   fReminder           = document.getElementById("f-reminder");
@@ -157,6 +163,19 @@ export function initEventForm(onSave) {
   // ocupar espaço/atenção por padrão (mesmo princípio de progressive
   // disclosure já aplicado ao histórico de sessões abaixo).
   recurrenceToggleBtn?.addEventListener("click", () => _showRecurrenceField({ focus: true }));
+
+  // F11 E10 — a cor segue a categoria por padrão (ver categoryView.js/
+  // fCategory "change"); perguntar a cor em todo cadastro era uma decisão a
+  // mais sem necessidade. O picker continua acessível, só escondido atrás de
+  // "Mais opções" (mesmo padrão de disclosure de studySessionView.js/E8).
+  fColorToggle?.addEventListener("click", () => {
+    const expand = fColorWrap.hidden;
+    fColorWrap.hidden = !expand;
+    fColorToggle.setAttribute("aria-expanded", String(expand));
+    const label = fColorToggle.querySelector(".disclosure-label");
+    if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
+    if (expand) revealWithAnimation(fColorWrap);
+  });
 
   document.querySelectorAll(".day-btn").forEach(btn => {
     btn.addEventListener("click", () => btn.classList.toggle("day-btn-active"));
@@ -336,6 +355,13 @@ export function resetEventForm() {
   _clearForm();
 }
 
+function _setColorFieldExpanded(expand) {
+  fColorWrap.hidden = !expand;
+  fColorToggle.setAttribute("aria-expanded", String(expand));
+  const label = fColorToggle.querySelector(".disclosure-label");
+  if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
+}
+
 function _clearForm() {
   _formGeneration++;
   editingId      = null;
@@ -356,6 +382,7 @@ function _clearForm() {
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
+  _setColorFieldExpanded(false);
   fReminder.value           = "";
   reminderCustomWrap.hidden = true;
   fReminderCustom.value     = "";
@@ -390,6 +417,11 @@ function _populateForm(ev) {
   fDuration.value       = ev.duration_minutes || "";
   fCategory.value       = ev.category         || "";
   fColor.value          = ev.color            || "#3b82f6";
+  // Evento antigo com cor personalizada (diferente da cor atual da
+  // categoria) já nasce com "Mais opções" aberto, para que a personalização
+  // existente não fique escondida sem o usuário saber que ela está lá.
+  const inheritedColor = ev.category ? categoryColor(ev.category) : null;
+  _setColorFieldExpanded(!!ev.color && ev.color !== inheritedColor);
   fLocation.value       = ev.location         || "";
   fDesc.value           = ev.description      || "";
   _populateReminder(ev.reminder_minutes);

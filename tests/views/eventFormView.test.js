@@ -13,6 +13,7 @@ const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", impor
 const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../studySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
+const CATEGORY_VIEW_SPECIFIER          = new URL("../../categoryView.js", import.meta.url).href;
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 const EMPTY_AI_CONTEXT = {
@@ -80,6 +81,15 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
   t.mock.module(AICONTEXT_SPECIFIER, {
     namedExports: { getAIContext: getAIContext ?? (async () => aiContext) },
   });
+
+  // F11 E10 — eventFormView.js consulta categoryView.js/categoryColor() para
+  // decidir se abre "Mais opções" já expandido (cor personalizada, diferente
+  // da cor atual da categoria). categoryView.js importa categoryService.js,
+  // que precisa de Supabase de verdade — mockado aqui como qualquer outra
+  // dependência.
+  t.mock.module(CATEGORY_VIEW_SPECIFIER, {
+    namedExports: { categoryColor: () => "#6b7280" },
+  });
 }
 
 // confirmDialog.js keeps its overlay in module-level state and only builds
@@ -125,6 +135,71 @@ test("clicking 'Novo compromisso' opens the modal, resets the form and focuses t
   assert.strictEqual(document.getElementById("form-title").textContent, "Novo compromisso");
   assert.strictEqual(document.getElementById("btn-save").textContent, "Salvar compromisso");
   assert.strictEqual(document.activeElement, document.getElementById("f-title"));
+});
+
+// F11 E10 (auditoria #13) — perguntar a cor em todo cadastro era uma decisão
+// a mais sem necessidade, já que ela segue a categoria escolhida
+// (categoryView.js). O picker de cor nasce escondido atrás de "Mais opções".
+test("F11 E10 — a new event starts with the color field collapsed behind 'Mais opções'", async (t) => {
+  mockEventService(t);
+  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  document.getElementById("btn-new-event").click();
+
+  assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
+  assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "false");
+});
+
+test("F11 E10 — clicking the color toggle reveals the color field and flips the label to Ocultar", async (t) => {
+  mockEventService(t);
+  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+  document.getElementById("btn-new-event").click();
+
+  const toggle = document.getElementById("f-color-toggle");
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("f-color-wrap").hidden, false);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Mostrar");
+});
+
+test("F11 E10 — editing an event whose color matches its category's current color keeps the color field collapsed", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  // mockEventService() já registra categoryColor() retornando "#6b7280" —
+  // mesmo valor da cor do evento abaixo, então nada foi personalizado.
+  openEventForm({
+    id: "evt-1", title: "Aula", event_date: "2026-08-12", start_time: "08:00",
+    category: "Estudo", color: "#6b7280",
+  });
+
+  assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
+  assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "false");
+});
+
+test("F11 E10 — editing an event with a custom color (different from its category's color) opens 'Mais opções' automatically", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({
+    id: "evt-1", title: "Aula", event_date: "2026-08-12", start_time: "08:00",
+    category: "Estudo", color: "#ff0000",
+  });
+
+  assert.strictEqual(document.getElementById("f-color").value, "#ff0000");
+  assert.strictEqual(document.getElementById("f-color-wrap").hidden, false, "cor personalizada não pode ficar escondida sem o usuário saber que ela existe");
+  assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "true");
 });
 
 test("submitting without a title shows a validation error and does not call createEvent", async (t) => {
@@ -768,6 +843,7 @@ test("a save still in flight when the user cancels and opens a different event d
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
   t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, { namedExports: { listByEvent: async () => [] } });
   t.mock.module(AICONTEXT_SPECIFIER, { namedExports: { getAIContext: async () => EMPTY_AI_CONTEXT } });
+  t.mock.module(CATEGORY_VIEW_SPECIFIER, { namedExports: { categoryColor: () => "#6b7280" } });
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
@@ -880,6 +956,7 @@ test("resetEventForm() invalidates any in-flight session-history/insights reques
     },
   });
   t.mock.module(AICONTEXT_SPECIFIER, { namedExports: { getAIContext: async () => EMPTY_AI_CONTEXT } });
+  t.mock.module(CATEGORY_VIEW_SPECIFIER, { namedExports: { categoryColor: () => "#6b7280" } });
   const { initEventForm, openEventForm, resetEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
