@@ -66,6 +66,14 @@ import { resetAIContextService } from "./aiContextService.js";
 import { iconMoreHorizontal } from "./icons.js";
 import { initTheme } from "./themeService.js";
 
+// F11 E4 — sinaliza para boot-watchdog.js (script clássico, carregado antes
+// deste em index.html) que o grafo de módulos ES linkou com sucesso. Só
+// chega a rodar se TODOS os imports acima já resolveram — se algum falhar
+// (ex.: o import do SDK do Supabase via CDN, bloqueado por firewall/DNS),
+// nenhuma linha deste arquivo executa, nem esta, e o watchdog assume que o
+// boot travou. Precisa ser a primeiríssima instrução do corpo do módulo.
+window.__anotiBooted = true;
+
 // F10 #2.4: aplica o tema salvo (ou "auto") o quanto antes — primeira linha
 // executada do bootstrap, antes de qualquer outra inicialização — para
 // minimizar o flash de tema errado no primeiro paint (a CSP do app não
