@@ -61,6 +61,7 @@ import { initActivityHistoryView, resetActivityHistoryView } from "./activityHis
 import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
+import { initOnboardingTour, resetOnboardingTourView } from "./onboardingTourView.js";
 import { resetAIContextService } from "./aiContextService.js";
 import { iconMoreHorizontal } from "./icons.js";
 import { initTheme } from "./themeService.js";
@@ -328,6 +329,7 @@ async function _initApp(session) {
       safeInit("diário de estudos", () => initStudyJournalView()),
       safeInit("dashboard de execução", () => initActivityDashboardView()),
       safeInit("central de insights", () => initInsightsView()),
+      safeInit("tour de boas-vindas", () => initOnboardingTour()),
     ]);
 
     // Restore the page the user was on before the last refresh/logout
@@ -616,6 +618,7 @@ initAuthView({
     resetStudyJournalView();
     resetActivityDashboardView();
     resetInsightsView();
+    resetOnboardingTourView();
     resetAccountView();
     resetAcademicCalendarView();
     resetCategories();

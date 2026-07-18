@@ -2334,6 +2334,62 @@ textarea { resize: vertical; }
 
 .wk-empty-tip .state-block-icon { color: var(--color-primary); }
 
+/* F10 #5.4 — tour de boas-vindas: mesmo espírito de .wk-empty-tip (dispensável,
+   nunca um modal), com uma lista de passos clicáveis em vez de só texto. */
+.onboarding-tour-card {
+  padding: 1rem .75rem;
+  margin-bottom: var(--space-3);
+  background: var(--color-info-bg, var(--gray-50));
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  color: var(--color-text);
+}
+
+.onboarding-tour-card .state-block-icon { color: var(--color-primary); }
+
+.onboarding-tour-steps {
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  width: 100%;
+}
+
+.onboarding-tour-step {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .6rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--color-surface, #fff);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.onboarding-tour-step:hover { background: var(--gray-100); }
+
+.onboarding-tour-step-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.onboarding-tour-step-text { font-size: var(--font-size-sm, .9rem); }
+
 /* scroll container — always show scrollbar to keep head/body aligned */
 .wk-scroll {
   max-height: min(620px, 72vh);

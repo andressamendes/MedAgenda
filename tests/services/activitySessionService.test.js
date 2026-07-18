@@ -594,6 +594,43 @@ test("getEventExecutionSummaries() returns an empty object without querying when
   assert.strictEqual(supabase._calls.length, 0);
 });
 
+// ── F10 #5.4 — checagem leve para o tour de onboarding ──────────────────────
+
+test("hasAnySession() returns true when at least one session row exists, of any status", async (t) => {
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [{ id: "sess-1" }], error: null },
+  });
+
+  const result = await mod.hasAnySession();
+
+  assert.strictEqual(result, true);
+  const eqCall = supabase._calls.find(c => c.method === "eq");
+  assert.deepStrictEqual(eqCall.args, ["user_id", "user-123"]);
+  assert.ok(supabase._calls.some(c => c.method === "limit" && c.args[0] === 1));
+  assert.ok(!supabase._calls.some(c => c.method === "in" || (c.method === "eq" && c.args[0] === "status")));
+});
+
+test("hasAnySession() returns false when the user has never had a session", async (t) => {
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: [], error: null },
+  });
+
+  const result = await mod.hasAnySession();
+
+  assert.strictEqual(result, false);
+});
+
+test("hasAnySession() propagates a Supabase error", async (t) => {
+  const { mod } = await loadActivitySessionService(t, {
+    activity_sessions: { data: null, error: { message: "network down" } },
+  });
+
+  await assert.rejects(
+    () => mod.hasAnySession(),
+    (err) => err.message === "network down"
+  );
+});
+
 // ── F1.8 — Histórico global de sessões ──────────────────────────────────────
 
 test("listSessions() defaults to finished+cancelled sessions only, most recent first", async (t) => {

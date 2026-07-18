@@ -39,6 +39,20 @@ export async function getActivitySessions() {
   return data;
 }
 
+// F10 #5.4 — checagem leve (limit 1, sem filtro de status) usada só para
+// decidir se o tour de onboarding aparece: "usuário novo" = nunca teve
+// nenhuma sessão de atividade, de nenhum status.
+export async function hasAnySession() {
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("activity_sessions")
+    .select("id")
+    .eq("user_id", user_id)
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 // Toda atualização estrutural da sessão passa por aqui — por isso é o único
 // ponto que publica SessionUpdated (evento genérico, "algo nesta sessão
 // mudou"). As transições de ciclo de vida (pausar/continuar/finalizar/

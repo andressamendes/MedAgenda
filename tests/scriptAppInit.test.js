@@ -52,6 +52,7 @@ const SPECIFIERS = {
   activityDashboardView: new URL("../activityDashboardView.js", import.meta.url).href,
   insightsView: new URL("../insightsView.js", import.meta.url).href,
   aiContextService: new URL("../aiContextService.js", import.meta.url).href,
+  onboardingTourView: new URL("../onboardingTourView.js", import.meta.url).href,
 };
 
 let container;
@@ -173,6 +174,9 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
     namedExports: { initInsightsView: async () => {}, resetInsightsView: () => {} },
   });
   t.mock.module(SPECIFIERS.aiContextService, { namedExports: { resetAIContextService: () => {} } });
+  t.mock.module(SPECIFIERS.onboardingTourView, {
+    namedExports: { initOnboardingTour: async () => {}, resetOnboardingTourView: () => {} },
+  });
 }
 
 const SESSION = { user: { id: "u1", email: "user@example.com" } };
