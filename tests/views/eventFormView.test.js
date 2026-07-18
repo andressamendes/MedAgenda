@@ -625,6 +625,26 @@ test("a stats-loading error (same fetch as the history) hides the stats card ins
   assert.strictEqual(document.getElementById("session-stats").hidden, true);
 });
 
+// F11 E14 (auditoria #18) — "Iniciar Sessão" era a última ação do formulário
+// inteiro (depois de todos os campos), com estilo secundário; promovida para
+// o topo do modal, antes do <form>, com destaque visual primário.
+test("F11 E14 — the start-session button is promoted before the form, not buried in the bottom form-actions", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", category: "Plantão" });
+
+  const startBtn = document.getElementById("btn-start-session");
+  const form = document.getElementById("event-form");
+  assert.ok(startBtn.classList.contains("event-start-cta"), "deve usar o estilo de destaque, não btn-ghost");
+  assert.strictEqual(startBtn.classList.contains("btn-primary"), true);
+  // compareDocumentPosition: bit 4 (DOCUMENT_POSITION_FOLLOWING) em `form`
+  // relativo a `startBtn` confirma que o botão vem ANTES do formulário no DOM.
+  assert.ok(startBtn.compareDocumentPosition(form) & 4);
+  assert.strictEqual(form.contains(startBtn), false, "não deve mais estar dentro do <form>/.form-actions");
+});
+
 test("'Iniciar Sessão' is hidden for a new event and shown when editing an existing one", async (t) => {
   mockEventService(t);
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);

@@ -893,6 +893,21 @@
         <button class="modal-close" id="event-modal-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
       </div>
       <div class="modal-body modal-event-body">
+        <!-- F11 E14 (auditoria #18) — "Iniciar Sessão" era a ÚLTIMA ação do
+             formulário inteiro (.form-actions, depois de título, data/hora,
+             categoria, local, observação, lembrete e repetição), com estilo
+             secundário (btn-ghost) — o fluxo mais importante do produto
+             (estudar o que já está agendado) ficava enterrado atrás de
+             rolar a tela toda. Promovido para o topo do modal, com destaque
+             visual primário, visível assim que o evento é aberto —
+             continua controlado pelo mesmo #btn-start-session/
+             startSessionBtn.hidden já usado por eventFormView.js (só mudou
+             de lugar no DOM, nenhuma lógica nova). -->
+        <button type="button" id="btn-start-session" class="btn btn-primary event-start-cta" hidden>
+          <span class="event-start-cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+          Iniciar sessão de estudo
+        </button>
+
         <form id="event-form" novalidate>
           <input type="hidden" id="event-id" />
 
@@ -1018,7 +1033,6 @@
 
           <div class="form-actions">
             <button type="submit" id="btn-save" class="btn btn-primary">Salvar compromisso</button>
-            <button type="button" id="btn-start-session" class="btn btn-ghost" hidden>Iniciar Sessão</button>
             <button type="button" id="btn-cancel" class="btn btn-ghost">Cancelar</button>
             <button type="button" id="btn-delete-event" class="btn btn-danger" hidden>Excluir</button>
           </div>
