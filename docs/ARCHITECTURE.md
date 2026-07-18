@@ -347,6 +347,7 @@ MedAgenda/
 | `activityHistoryView.js` | Lista paginada de sessões por status (todas/canceladas); embutida na aba "Canceladas"/"Todas" do Diário de Estudos (F10 #4.2 — não é mais uma página própria); assina `SessionStarted/Finished/Cancelled/Updated` |
 | `insightsView.js` | Central de Insights (execução, metas, revisões, produtividade); assina `SessionFinished/Cancelled/Updated` |
 | `studyJournalView.js` | Diário de Estudos — aba "Concluídas": agrupamento por dia, filtros, busca, resumos, marcos, narrativa, timeline e Reflexão; abas "Canceladas"/"Todas" delegadas a `activityHistoryView.js`; assina `SessionFinished/Cancelled/Updated` |
+| `onboardingTourView.js` | Tour de boas-vindas leve e opcional (F10 #5.4): cartão dispensável no topo da Agenda (nunca um modal), mostrado uma única vez para quem nunca teve nenhuma sessão de estudo (`hasAnySession()`); mesmo padrão visual/de dispensa do estado vazio didático de `weekView.js` (F10 #1.6) |
 | `planListView.js` | Exibe a sugestão de plano semanal de `planningService.js` |
 | `smartCardView.js` | Cartão de sugestão/insight reutilizável exibido em várias telas |
 | `abandonedSessionDialog.js` | Diálogo de recuperação de sessão `running`/`paused` deixada aberta (F7.8) |
