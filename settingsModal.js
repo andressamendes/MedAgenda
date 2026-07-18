@@ -11,30 +11,17 @@ import {
   subscribeToPush, unsubscribeFromPush,
 } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
-import { APP_VERSION } from "./diagnosticService.js";
 import { initModal } from "./modalController.js";
 import { openDiagnosticModal } from "./diagnosticModal.js";
-import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
 import { getTheme, setTheme } from "./themeService.js";
 
 let notifStatusText, btnNotifToggle, notifPermHint;
 let pushStatusText, btnPushToggle, pushErrorHint;
-let btnDevmodeToggle, devmodePanel, devVersion, devEnv;
 let themeTabs = [];
 let settingsModal   = null;
-let _getDevMode     = () => false;
-let _setDevModeImpl = () => {};
 
-/**
- * @param {{ isDevMode: () => boolean, setDevMode: (enabled: boolean) => void }} devmode
- *   Injetado pelo bootstrap — o modo desenvolvedor é um domínio de
- *   observabilidade separado (script.js), este módulo apenas exibe seu estado.
- */
-export function initSettingsModal({ isDevMode, setDevMode } = {}) {
-  if (isDevMode)  _getDevMode     = isDevMode;
-  if (setDevMode) _setDevModeImpl = setDevMode;
-
+export function initSettingsModal() {
   const settingsOverlay = document.getElementById("settings-overlay");
   notifStatusText  = document.getElementById("notif-status-text");
   btnNotifToggle   = document.getElementById("btn-notif-toggle");
@@ -42,10 +29,6 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
   pushStatusText   = document.getElementById("push-status-text");
   btnPushToggle    = document.getElementById("btn-push-toggle");
   pushErrorHint    = document.getElementById("push-error-hint");
-  btnDevmodeToggle = document.getElementById("btn-devmode-toggle");
-  devmodePanel     = document.getElementById("devmode-panel");
-  devVersion       = document.getElementById("dev-version");
-  devEnv           = document.getElementById("dev-env");
   themeTabs        = Array.from(document.querySelectorAll("#theme-tabs .theme-tab"));
 
   if (!settingsOverlay) return;
@@ -113,20 +96,12 @@ export function initSettingsModal({ isDevMode, setDevMode } = {}) {
 
     renderPushState();
   });
-
-  btnDevmodeToggle?.addEventListener("click", () => {
-    const current = _getDevMode();
-    _setDevModeImpl(!current);
-    renderDevmodeState();
-    toast.info(!current ? "Modo desenvolvedor ativado." : "Modo desenvolvedor desativado.");
-  });
 }
 
 export function openSettings() {
   renderThemeState();
   renderSettingsState();
   renderPushState();
-  renderDevmodeState();
   settingsModal?.open();
 }
 
@@ -214,26 +189,5 @@ function renderPushState() {
     pushStatusText.textContent = "Desativadas — ative para receber lembretes com o app fechado.";
     btnPushToggle.textContent  = "Ativar Push";
     btnPushToggle.className    = "btn btn-sm btn-primary";
-  }
-}
-
-function renderDevmodeState() {
-  const enabled = _getDevMode();
-  if (!btnDevmodeToggle) return;
-
-  btnDevmodeToggle.textContent = enabled ? "Desativar" : "Ativar";
-  btnDevmodeToggle.className   = `btn btn-sm ${enabled ? 'btn-ghost' : 'btn-ghost'}`;
-
-  if (devmodePanel) {
-    devmodePanel.hidden = !enabled;
-    if (enabled) {
-      if (devVersion) devVersion.textContent = APP_VERSION;
-      if (devEnv) {
-        const h = window.location.hostname;
-        devEnv.textContent = h === 'localhost' || h === '127.0.0.1'
-          ? 'Desenvolvimento (local)'
-          : h.endsWith('github.io') ? 'Produção (GitHub Pages)' : h;
-      }
-    }
   }
 }

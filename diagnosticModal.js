@@ -1,28 +1,52 @@
 // ── diagnosticModal.js — Overlay de diagnóstico de serviços ─────────────────
 
-import { runDiagnostics } from "./diagnosticService.js";
+import { runDiagnostics, APP_VERSION } from "./diagnosticService.js";
 import { checkHealth, HEALTH_STATUS } from "./healthService.js";
 import { escapeHtml } from "./utils.js";
 import { initModal } from "./modalController.js";
+import { toast } from "./toastService.js";
 
 let diagnosticBody  = null;
 let diagnosticModal = null;
+let btnDevmodeToggle, devmodePanel, devVersion, devEnv;
+let _getDevMode     = () => false;
+let _setDevModeImpl = () => {};
 
-export function initDiagnosticModal() {
+/**
+ * @param {{ isDevMode: () => boolean, setDevMode: (enabled: boolean) => void }} devmode
+ *   Injetado pelo bootstrap — o modo desenvolvedor é um domínio de
+ *   observabilidade separado (script.js), este módulo apenas exibe seu estado.
+ */
+export function initDiagnosticModal({ isDevMode, setDevMode } = {}) {
+  if (isDevMode)  _getDevMode     = isDevMode;
+  if (setDevMode) _setDevModeImpl = setDevMode;
+
   const diagnosticOverlay = document.getElementById("diagnostic-overlay");
   const diagnosticClose   = document.getElementById("diagnostic-close");
 
-  diagnosticBody = document.getElementById("diagnostic-body");
+  diagnosticBody   = document.getElementById("diagnostic-body");
+  btnDevmodeToggle = document.getElementById("btn-devmode-toggle");
+  devmodePanel     = document.getElementById("devmode-panel");
+  devVersion       = document.getElementById("dev-version");
+  devEnv           = document.getElementById("dev-env");
 
   if (!diagnosticOverlay) return;
 
   diagnosticModal = initModal(diagnosticOverlay, closeDiagnosticModal);
 
   diagnosticClose?.addEventListener("click", closeDiagnosticModal);
+
+  btnDevmodeToggle?.addEventListener("click", () => {
+    const current = _getDevMode();
+    _setDevModeImpl(!current);
+    renderDevmodeState();
+    toast.info(!current ? "Modo desenvolvedor ativado." : "Modo desenvolvedor desativado.");
+  });
 }
 
 export async function openDiagnosticModal() {
   diagnosticBody.innerHTML = '<p class="diag-loading">Verificando serviços…</p>';
+  renderDevmodeState();
   diagnosticModal?.open();
 
   try {
@@ -30,6 +54,26 @@ export async function openDiagnosticModal() {
     diagnosticBody.innerHTML = renderHealthSummaryHTML(health) + renderDiagnosticHTML(r, health);
   } catch {
     diagnosticBody.innerHTML = '<p class="diag-loading">Erro ao obter diagnóstico.</p>';
+  }
+}
+
+function renderDevmodeState() {
+  const enabled = _getDevMode();
+  if (!btnDevmodeToggle) return;
+
+  btnDevmodeToggle.textContent = enabled ? "Desativar" : "Ativar";
+
+  if (devmodePanel) {
+    devmodePanel.hidden = !enabled;
+    if (enabled) {
+      if (devVersion) devVersion.textContent = APP_VERSION;
+      if (devEnv) {
+        const h = window.location.hostname;
+        devEnv.textContent = h === 'localhost' || h === '127.0.0.1'
+          ? 'Desenvolvimento (local)'
+          : h.endsWith('github.io') ? 'Produção (GitHub Pages)' : h;
+      }
+    }
   }
 }
 

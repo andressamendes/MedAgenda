@@ -1101,24 +1101,9 @@
         <div class="settings-row">
           <div class="settings-info">
             <div class="settings-label">Diagnóstico</div>
-            <div class="settings-desc">Verifique o status dos serviços da aplicação.</div>
+            <div class="settings-desc">Verifique o status dos serviços da aplicação e o modo desenvolvedor.</div>
           </div>
           <button id="btn-diagnostic" class="btn btn-sm btn-ghost">Ver diagnóstico</button>
-        </div>
-
-        <hr class="settings-divider" />
-
-        <div class="settings-section-title">Desenvolvedor</div>
-        <div class="settings-row">
-          <div class="settings-info">
-            <div class="settings-label">Modo Desenvolvedor</div>
-            <div class="settings-desc">Exibe logs detalhados no console e informações técnicas.</div>
-          </div>
-          <button id="btn-devmode-toggle" class="btn btn-sm btn-ghost">Ativar</button>
-        </div>
-        <div id="devmode-panel" hidden class="devmode-panel">
-          <div class="devmode-panel-row"><span>Versão</span><strong id="dev-version">—</strong></div>
-          <div class="devmode-panel-row"><span>Ambiente</span><strong id="dev-env">—</strong></div>
         </div>
 
       </div>
@@ -1149,6 +1134,25 @@
       </div>
       <div class="modal-body diagnostic-body" id="diagnostic-body">
         <p class="diag-loading">Verificando serviços&#8230;</p>
+      </div>
+
+      <!-- F10 PR14: Modo Desenvolvedor morava em Configurações como uma seção
+           própria, ao lado de Diagnóstico — duas ferramentas técnicas com o
+           mesmo público (avançado/depuração) espalhadas em lugares
+           diferentes. Agora vive dentro do próprio modal de Diagnóstico. -->
+      <hr class="settings-divider" />
+      <div class="modal-body diagnostic-devmode">
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">Modo Desenvolvedor</div>
+            <div class="settings-desc">Exibe logs detalhados no console e informações técnicas.</div>
+          </div>
+          <button id="btn-devmode-toggle" class="btn btn-sm btn-ghost">Ativar</button>
+        </div>
+        <div id="devmode-panel" hidden class="devmode-panel">
+          <div class="devmode-panel-row"><span>Versão</span><strong id="dev-version">—</strong></div>
+          <div class="devmode-panel-row"><span>Ambiente</span><strong id="dev-env">—</strong></div>
+        </div>
       </div>
     </div>
   </div>
