@@ -774,6 +774,14 @@ body {
 }
 
 .toolbar-select {
+  /* F11 E6 — a regra genérica `select { width: 100% }` (mais acima neste
+     arquivo, para inputs de formulário) vazava para cá: sem um `width`
+     próprio, cada select herdava 100% de largura mesmo dentro de um
+     container `flex-wrap`, então cada um forçava sua própria linha em vez
+     de ficar lado a lado — é a causa raiz de "cada filtro em uma linha"
+     no painel de Filtros avançados do Diário. */
+  width: auto;
+  flex: 1 1 190px;
   padding: .5rem .65rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -2102,6 +2110,24 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+/* ── Filtros avançados do Diário (F11 E6) — os 4 selects de categoria/tipo/
+   status/dificuldade de questão em grid responsivo, em vez de empilhados
+   um por linha (causa raiz era a regra genérica `select { width: 100% }`,
+   corrigida acima em .toolbar-select). `auto-fit`/`minmax` dá 2-3 colunas
+   em telas largas e cai para 1 coluna sozinho em telas estreitas, sem
+   precisar de um breakpoint dedicado. */
+#sj-advanced-filters .toolbar-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+/* "Somente:" + os 3 checkboxes + os 2 selects (Questões/Duração) — mesma
+   correção de largura dos selects faz o grupo ficar todo na mesma linha
+   (ou quebrar em linhas completas, nunca com um select sozinho e torto). */
+#sj-filter-flags .toolbar-select {
+  flex: 0 1 170px;
+}
+
 /* ── Busca Avançada e Linha do Tempo Inteligente (F8.8) ── */
 .sj-search-stats {
   display: flex;
@@ -2114,6 +2140,16 @@ textarea { resize: vertical; }
   font-size: .8rem;
   font-weight: 600;
   color: var(--gray-700);
+}
+
+/* F11 E6 — mesmo bug de especificidade de .state-block[hidden] (ver F10
+   #1.6): `.sj-search-stats` fixa `display: flex` e empata em especificidade
+   com `[hidden] { display: none }`, então vence por vir depois no CSS de
+   origem — sem isto, o bloco aparecia como uma caixa vazia (padding + borda,
+   zero conteúdo) sempre que `hidden` era ligado via JS. Esta classe tinha
+   ficado de fora quando as outras foram corrigidas. */
+.sj-search-stats[hidden] {
+  display: none;
 }
 
 .sj-entry-matches {
