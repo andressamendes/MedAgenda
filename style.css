@@ -943,6 +943,14 @@ body {
 
 .event-start-cta-icon svg { width: 16px; height: 16px; display: block; }
 
+.ss-quick-question-btn {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: var(--space-2);
+}
+.ss-quick-question-icon svg { width: 14px; height: 14px; display: block; }
+
 /* ── Calendário ── */
 .cal-header {
   display: flex;

@@ -106,7 +106,7 @@ let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
 // removeQuestion() — a sessão já existe no banco, não há mais nada "pendente"
 // aguardando a confirmação do encerramento.
 let sqListEl, sqEmptyEl;
-let sqTypeEl, sqStatusEl, sqDifficultyEl, sqSubjectEl, sqTopicEl, sqBtnAdd;
+let sqTypeEl, sqStatusEl, sqDifficultyEl, sqSubjectEl, sqTopicEl, sqBtnAdd, sqBtnQuick;
 // F10 #3.3 — o formulário de adicionar/editar questão nasce oculto atrás de
 // "+ Adicionar questão"; só aparece ao abrir (sqBtnToggleForm), ao editar um
 // item da lista (_editQuestion) ou permanece aberto entre adições
@@ -187,6 +187,7 @@ function _queryElements() {
   sqSubjectEl    = document.getElementById("ss-q-subject");
   sqTopicEl      = document.getElementById("ss-q-topic");
   sqBtnAdd       = document.getElementById("ss-btn-add-question");
+  sqBtnQuick     = document.getElementById("ss-btn-quick-question");
   sqFormEl        = document.getElementById("ss-question-form");
   sqBtnToggleForm = document.getElementById("ss-btn-toggle-question-form");
   sqBtnCancel     = document.getElementById("ss-btn-cancel-question");
@@ -274,6 +275,7 @@ function _bindEvents() {
   sqToggleEl.addEventListener("click", () => _setSectionExpanded(sqToggleEl, sqBodyEl, sqBodyEl.hidden));
   srToggleEl.addEventListener("click", () => _setSectionExpanded(srToggleEl, srBodyEl, srBodyEl.hidden));
   sqBtnAdd.addEventListener("click", () => _submitQuestionForm());
+  sqBtnQuick.addEventListener("click", () => _quickAddQuestion());
   srBtnAssociate.addEventListener("click", () => _associateExistingReview());
   srBtnCreate.addEventListener("click", () => _createAndAssociateReview());
 
@@ -781,6 +783,37 @@ function _renderQuestionsList() {
     li.querySelector("[data-question-remove]").addEventListener("click", () => _removeQuestionEntry(q.id));
     sqListEl.appendChild(li);
   });
+}
+
+// Auditoria UX #09 (F11 E15) — registrar uma questão respondida sem abrir o
+// formulário: defaults cobrem o caso mais comum (múltipla escolha, média,
+// já respondida) e o único ponto de escrita continua sendo
+// sessionQuestionsService.addQuestion() — o mesmo usado por
+// _submitQuestionForm(). Quem precisar de matéria/tópico/outro tipo usa
+// "+ Adicionar com detalhes" ou edita o item recém-criado na lista.
+async function _quickAddQuestion() {
+  if (_qrBusy || !_session) return;
+  _qrBusy = true;
+  sqBtnQuick.disabled = true;
+  let created;
+  try {
+    created = await addQuestion(_session.id, {
+      question_type: "multiple_choice",
+      status:        "answered",
+      difficulty:    "medium",
+      subject:       null,
+      topic:         null,
+    });
+  } catch (err) {
+    handleError(err, { context: "studySessionView.quickAddQuestion" });
+    return;
+  } finally {
+    _qrBusy = false;
+    sqBtnQuick.disabled = false;
+  }
+  _sessionQuestions.push(created);
+  _renderQuestionsList();
+  toast.info("Questão registrada.", 2000);
 }
 
 async function _submitQuestionForm() {

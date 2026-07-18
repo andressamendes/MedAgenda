@@ -525,6 +525,80 @@ test("adding a question on the active screen persists it immediately via addQues
   assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão adicionada/);
 });
 
+// ── F11 E15 (auditoria UX #09) — registro rápido de 1 clique, sem abrir o
+// formulário completo.
+
+test("F11 E15 — the quick-add button registers an answered question in a single click, with no form", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, true, "the detailed form must stay closed");
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 1);
+  assert.strictEqual(addQuestionCalls[0].sessionId, "sess-1");
+  assert.deepStrictEqual(addQuestionCalls[0].data, {
+    question_type: "multiple_choice",
+    status:        "answered",
+    difficulty:    "medium",
+    subject:       null,
+    topic:         null,
+  });
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, true, "the quick path never opens the detailed form");
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+  assert.strictEqual(document.getElementById("ss-questions-empty").hidden, true);
+  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão registrada/);
+});
+
+test("F11 E15 — the quick-add button does nothing without an active session", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => null,
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 0);
+});
+
+test("F11 E15 — a double click on the quick-add button never persists the question twice", async (t) => {
+  let resolveFirst;
+  const localAddQuestionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async (sessionId, data) => new Promise(resolve => {
+      resolveFirst = () => { localAddQuestionCalls.push({ sessionId, data }); resolve({ id: "q-1", session_id: sessionId, ...data }); };
+    }),
+  });
+  await mod.initStudySessionView();
+
+  const btnQuick = document.getElementById("ss-btn-quick-question");
+  btnQuick.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  btnQuick.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  resolveFirst();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(localAddQuestionCalls.length, 1, "a double click must not persist the same question twice");
+});
+
+test("F11 E15 — a failed quick-add degrades without rendering a not-really-persisted item", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async () => { throw new Error("Falha ao salvar questão"); },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ss-btn-quick-question").disabled, false, "the button must re-enable after a failure");
+});
+
 // ── Auditoria UX #25: cadastro de questões campo a campo — defaults
 // inteligentes (repete matéria/tópico) e foco automático de volta ao
 // primeiro campo, para permitir cadência rápida ao lançar várias questões.
