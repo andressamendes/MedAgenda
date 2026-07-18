@@ -5,6 +5,12 @@
  * transitions) live in activitySessionService.js and are tested there; here
  * we only verify the page renders/reacts correctly to what the service
  * returns/throws and to sessionEventBus notifications.
+ *
+ * F10 #4.3: Questões/Revisões moved from the finish-confirmation modal to the
+ * active/paused session card (#ss-active) and are persisted immediately via
+ * sessionQuestionsService.js/reviewService.js/reviewSessionService.js —
+ * nothing is "pending" anymore. The finish modal (#ss-finish-modal) now only
+ * shows a read-only recap plus the Observações field.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -44,20 +50,37 @@ function loadStudySessionView(t, overrides = {}) {
   });
 
   const addQuestionCalls = [];
+  const updateQuestionCalls = [];
+  const removeQuestionCalls = [];
+  const listQuestionsCalls = [];
   t.mock.module(QUESTIONS_SERVICE_SPECIFIER, {
     namedExports: {
       addQuestion: overrides.addQuestion ?? (async (sessionId, data) => {
         addQuestionCalls.push({ sessionId, data });
         return { id: `q-${addQuestionCalls.length}`, session_id: sessionId, ...data };
       }),
+      listQuestions: overrides.listQuestions ?? (async (sessionId) => {
+        listQuestionsCalls.push(sessionId);
+        return [];
+      }),
+      updateQuestion: overrides.updateQuestion ?? (async (questionId, data) => {
+        updateQuestionCalls.push({ questionId, data });
+        return { id: questionId, ...data };
+      }),
+      removeQuestion: overrides.removeQuestion ?? (async (questionId) => {
+        removeQuestionCalls.push(questionId);
+        return true;
+      }),
     },
   });
 
-  // Revisões do pós-sessão (F7.5) — reviewService.js/reviewSessionService.js
-  // importam supabase.js/config.js diretamente, então são mockados aqui como
-  // qualquer outra dependência de domínio.
+  // Revisões (F7.5) — reviewService.js/reviewSessionService.js importam
+  // supabase.js/config.js diretamente, então são mockados aqui como qualquer
+  // outra dependência de domínio.
   const createReviewCalls = [];
   const associateReviewCalls = [];
+  const unlinkReviewCalls = [];
+  const listSessionReviewsCalls = [];
   t.mock.module(REVIEW_SERVICE_SPECIFIER, {
     namedExports: {
       create: overrides.createReview ?? (async (fields) => {
@@ -69,9 +92,20 @@ function loadStudySessionView(t, overrides = {}) {
   });
   t.mock.module(REVIEW_SESSION_SERVICE_SPECIFIER, {
     namedExports: {
+      // scheduled_date é sempre preenchido em produção (é a linha completa
+      // devolvida pelo UPDATE...SELECT do Supabase) — o mock precisa refletir
+      // isso, já que studySessionView._reviewLabel() depende do campo.
       associateReview: overrides.associateReview ?? (async (reviewId, sessionId) => {
         associateReviewCalls.push({ reviewId, sessionId });
-        return { id: reviewId, session_id: sessionId };
+        return { id: reviewId, session_id: sessionId, scheduled_date: "2026-07-10" };
+      }),
+      unlinkReview: overrides.unlinkReview ?? (async (reviewId) => {
+        unlinkReviewCalls.push(reviewId);
+        return true;
+      }),
+      listBySession: overrides.listSessionReviews ?? (async (sessionId) => {
+        listSessionReviewsCalls.push(sessionId);
+        return [];
       }),
     },
   });
@@ -104,7 +138,11 @@ function loadStudySessionView(t, overrides = {}) {
   });
 
   return import(`../../studySessionView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, confirmDialogCalls, addQuestionCalls, createReviewCalls, associateReviewCalls, abandonedDialogCalls }));
+    .then(mod => ({
+      mod, handleErrorCalls, confirmDialogCalls, abandonedDialogCalls,
+      addQuestionCalls, updateQuestionCalls, removeQuestionCalls, listQuestionsCalls,
+      createReviewCalls, associateReviewCalls, unlinkReviewCalls, listSessionReviewsCalls,
+    }));
 }
 
 beforeEach(() => {
@@ -349,7 +387,7 @@ test("the summary modal shows the session's read-only data, sourced from the exi
   assert.strictEqual(document.getElementById("ssf-total-duration"), null);
 });
 
-test("the summary modal has an Observações field and starts with no questions registered", async (t) => {
+test("the summary modal has an Observações field and a read-only recap of what's already registered — no add-question form", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
@@ -359,29 +397,33 @@ test("the summary modal has an Observações field and starts with no questions 
   await new Promise(r => setTimeout(r, 0));
 
   assert.ok(document.getElementById("ssf-notes"), "observações textarea must exist");
-  assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 0);
-  assert.ok(document.getElementById("ssf-btn-add-question"), "Adicionar questão button must exist");
+  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "Nenhuma questão registrada nesta sessão.");
+  assert.strictEqual(document.getElementById("ssf-recap-reviews").textContent, "Nenhuma revisão vinculada a esta sessão.");
+  // F10 #4.3 — as ids ssf-questions-list/ssf-btn-add-question etc. deixaram de
+  // existir: o cadastro agora vive só em #ss-active, fora do modal.
+  assert.strictEqual(document.getElementById("ssf-questions-list"), null);
+  assert.strictEqual(document.getElementById("ssf-btn-add-question"), null);
 });
 
-// ── Cadastro de Questões Resolvidas (F7.4) ──────────────────────────────────
+// ── Cadastro de Questões Resolvidas (F7.4) — F10 #4.3: persistidas
+// imediatamente na tela ativa, não mais "pendentes" no modal de encerramento.
 
-test("adding a question in the summary appends it to the local list, without persisting it yet", async (t) => {
+test("adding a question on the active screen persists it immediately via addQuestion() — no need to open Finalizar", async (t) => {
   const { mod, addQuestionCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-q-topic").value = "Insuficiência cardíaca";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-q-topic").value = "Insuficiência cardíaca";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
-  assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, true);
-  assert.strictEqual(addQuestionCalls.length, 0, "addQuestion must not be called before confirmation");
+  assert.strictEqual(addQuestionCalls.length, 1, "addQuestion must be called immediately, independent of the finish modal");
+  assert.strictEqual(addQuestionCalls[0].sessionId, "sess-1");
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+  assert.strictEqual(document.getElementById("ss-questions-empty").hidden, true);
   // Auditoria UX #22: antes, a lista crescendo era o único sinal — fácil de
   // não notar numa lista já longa.
   assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão adicionada/);
@@ -397,18 +439,18 @@ test("UX #25 — adding a question repeats the subject/topic in the form for the
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-q-topic").value = "Insuficiência cardíaca";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-q-topic").value = "Insuficiência cardíaca";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-q-subject").value, "Cardiologia", "matéria não deve ser limpa após adicionar");
+  assert.strictEqual(document.getElementById("ss-q-topic").value, "Insuficiência cardíaca");
 
-  assert.strictEqual(document.getElementById("ssf-q-subject").value, "Cardiologia", "matéria não deve ser limpa após adicionar");
-  assert.strictEqual(document.getElementById("ssf-q-topic").value, "Insuficiência cardíaca");
-
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 2, "a segunda questão herda matéria/tópico sem redigitar");
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 2, "a segunda questão herda matéria/tópico sem redigitar");
 });
 
 test("UX #25 — after adding a question, focus returns to the first field (Tipo) for rapid keyboard entry", async (t) => {
@@ -417,107 +459,135 @@ test("UX #25 — after adding a question, focus returns to the first field (Tipo
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.activeElement, document.getElementById("ssf-q-type"));
+  assert.strictEqual(document.activeElement, document.getElementById("ss-q-type"));
 });
 
-test("removing a question from the local list drops it before confirmation", async (t) => {
-  const { mod } = await loadStudySessionView(t, {
+test("removing a question calls removeQuestion() immediately and drops it from the list", async (t) => {
+  const { mod, removeQuestionCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+
+  const questionId = document.getElementById("ss-questions-list").querySelector("[data-question-remove]").getAttribute("data-question-remove");
+
+  document.getElementById("ss-questions-list").querySelector("[data-question-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
-
-  document.getElementById("ssf-questions-list").querySelector("[data-question-remove]")
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 0);
-  assert.strictEqual(document.getElementById("ssf-questions-empty").hidden, false);
+  assert.deepStrictEqual(removeQuestionCalls, [questionId]);
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ss-questions-empty").hidden, false);
 });
 
-test("editing a question in the local list updates it in place instead of duplicating it", async (t) => {
-  const { mod } = await loadStudySessionView(t, {
+test("editing a question calls updateQuestion() with the right id instead of duplicating it locally", async (t) => {
+  const { mod, addQuestionCalls, updateQuestionCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+  const addedId = addQuestionCalls[0] && `q-1`;
+
+  document.getElementById("ss-questions-list").querySelector("[data-question-edit]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-q-subject").value, "Cardiologia");
+  assert.strictEqual(document.getElementById("ss-btn-add-question").textContent, "Salvar alteração");
+
+  document.getElementById("ss-q-subject").value = "Nefrologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1);
-
-  document.getElementById("ssf-questions-list").querySelector("[data-question-edit]")
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-q-subject").value, "Cardiologia");
-
-  document.getElementById("ssf-q-subject").value = "Nefrologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "editing must not duplicate the item");
-  assert.ok(document.getElementById("ssf-questions-list").textContent.includes("Nefrologia"));
+  assert.strictEqual(updateQuestionCalls.length, 1);
+  assert.strictEqual(updateQuestionCalls[0].questionId, "q-1");
+  assert.strictEqual(updateQuestionCalls[0].data.subject, "Nefrologia");
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1, "editing must not duplicate the item");
+  assert.ok(document.getElementById("ss-questions-list").textContent.includes("Nefrologia"));
   // Auditoria UX #22: editar tem seu próprio microfeedback, distinto de adicionar.
   const toasts = document.querySelectorAll("#toast-container .toast-message");
   assert.match(toasts[toasts.length - 1].textContent, /Questão atualizada/);
 });
 
-test("cancelling the finish flow (Voltar) never registers pending questions", async (t) => {
+test("adding a question is independent of ever opening the finish modal, and confirming finish does not call addQuestion again", async (t) => {
   const { mod, addQuestionCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
   await mod.initStudySessionView();
 
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(addQuestionCalls.length, 1);
+
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(addQuestionCalls.length, 1, "confirming finish must not call addQuestion again — it was already persisted");
+});
+
+test("clicking Voltar just closes the finish modal — there is nothing pending left to discard", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
   document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(addQuestionCalls.length, 0);
-
-  // Reabrir o resumo começa do zero — nenhuma questão sobrevive ao cancelamento.
+  assert.strictEqual(addQuestionCalls.length, 1, "the already-persisted question is untouched by Voltar");
+  // Reabrir o resumo mostra o mesmo recap — nada foi perdido nem duplicado.
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "1 questão(ões) registrada(s) nesta sessão.");
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1, "still on the active screen too");
 });
 
-test("confirming registers every pending question via sessionQuestionsService.addQuestion() before finishSession()", async (t) => {
+test("confirming finish only calls finishSession() — it no longer loops over questions/reviews", async (t) => {
   const callOrder = [];
-  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+  const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
     addQuestion: async (sessionId, data) => {
       callOrder.push("addQuestion");
       return { id: "q-1", session_id: sessionId, ...data };
     },
-    finishSession: async (id, endedAt) => {
+    finishSession: async (id) => {
       callOrder.push("finishSession");
       return { id, status: "finished" };
     },
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-q-topic").value = "IC";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Nefrologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Nefrologia";
-  document.getElementById("ssf-q-topic").value = "IRA";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
   document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
@@ -567,32 +637,24 @@ test("confirming the summary calls activitySessionService.finishSession() and re
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
 
-// ── BUG 08/09: robustez do encerramento (falha na persistência, clique duplo) ──
+// ── BUG 08/09: robustez do encerramento/registro (falha na persistência, clique duplo) ──
 
-test("BUG 08: a failure while persisting a Questão keeps the summary modal open with the pending data intact", async (t) => {
-  const finishCalls = [];
+test("BUG 08: a failure while persisting a Questão on the active screen keeps the data intact for a retry", async (t) => {
   const { mod, handleErrorCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
     addQuestion: async () => { throw new Error("Falha ao salvar questão"); },
-    finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(handleErrorCalls.length, 1, "the failure must be reported");
-  assert.strictEqual(finishCalls.length, 0, "finishSession must never run after a failed step");
-  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false, "the summary must stay open — never close silently on failure");
-  assert.strictEqual(document.querySelectorAll("#toast-container .toast-success").length, 0, "no success confirmation when nothing was actually finished");
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0, "a failed addQuestion never renders a not-really-persisted item");
+  assert.strictEqual(document.getElementById("ss-q-subject").value, "Cardiologia", "the typed data survives so the user can retry");
   assert.strictEqual(document.getElementById("ss-active").hidden, false, "the session is still active, not left in limbo");
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "the pending question must survive the failed attempt so the user can retry");
 });
 
 test("BUG 08: a failure in finishSession() itself keeps the summary modal open instead of discarding it", async (t) => {
@@ -642,18 +704,18 @@ test("BUG 09: Confirmar encerramento and Voltar are disabled while a confirmatio
 
 test("prevention of double click: clicking Confirmar encerramento twice in a row only finishes the session once", async (t) => {
   const finishCalls = [];
-  const addQuestionCalls = [];
-  const { mod } = await loadStudySessionView(t, {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
-    addQuestion: async (sessionId, data) => { addQuestionCalls.push({ sessionId, data }); return { id: "q-1", session_id: sessionId, ...data }; },
     finishSession: async (id) => { finishCalls.push(id); return { id, status: "finished" }; },
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
 
   const btnConfirm = document.getElementById("ssf-btn-confirm");
   btnConfirm.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -661,7 +723,28 @@ test("prevention of double click: clicking Confirmar encerramento twice in a row
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(finishCalls.length, 1, "finishSession() must run exactly once");
-  assert.strictEqual(addQuestionCalls.length, 1, "questions must not be persisted twice");
+  assert.strictEqual(addQuestionCalls.length, 1, "questions were already persisted on the active screen, never twice");
+});
+
+test("prevention of double click: clicking 'Adicionar questão' twice in a row only persists it once", async (t) => {
+  const localAddQuestionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async (sessionId, data) => new Promise(resolve => {
+      localAddQuestionCalls.push({ sessionId, data });
+      setTimeout(() => resolve({ id: "q-1", session_id: sessionId, ...data }), 0);
+    }),
+  });
+  const addQuestionCalls = localAddQuestionCalls;
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const btnAdd = document.getElementById("ss-btn-add-question");
+  btnAdd.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  btnAdd.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 10));
+
+  assert.strictEqual(addQuestionCalls.length, 1, "a double click must not persist the same question twice");
 });
 
 // ── Confirmação de encerramento sem tela intermediária (F10 #3.4) ──────────
@@ -682,11 +765,14 @@ test("confirming the finish modal closes it, shows a success toast, and navigate
   });
   await mod.initStudySessionView();
 
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   document.getElementById("ssf-notes").value = "Revisar arritmias amanhã.";
 
   document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -756,21 +842,92 @@ test("a domain error (e.g. session already running) is reported via errorService
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
 });
 
-// ── Revisões Espaçadas no pós-sessão (F7.5) ─────────────────────────────────
+// ── Restauração de Questões/Revisões já persistidas (F10 #4.3) ─────────────
+// Ao iniciar/restaurar uma sessão, a tela busca o que já está no banco via
+// sessionQuestionsService.listQuestions()/reviewSessionService.listBySession()
+// — nada é reconstruído a partir de um estado local perdido no reload.
 
-test("the summary modal shows the optional Revisões step, empty by default", async (t) => {
+test("F10 #4.3: restoring a session loads its already-persisted questions and reviews and renders them on the active screen", async (t) => {
+  const localListQuestionsCalls = [];
+  const localListSessionReviewsCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+    listQuestions: async (sessionId) => {
+      localListQuestionsCalls.push(sessionId);
+      return [{ id: "q-1", session_id: sessionId, question_type: "multiple_choice", status: "answered", difficulty: "medium", subject: "Cardiologia", topic: "IC" }];
+    },
+    listSessionReviews: async (sessionId) => {
+      localListSessionReviewsCalls.push(sessionId);
+      return [{ id: "rev-1", session_id: sessionId, scheduled_date: "2026-07-20" }];
+    },
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(localListQuestionsCalls, ["sess-1"]);
+  assert.deepStrictEqual(localListSessionReviewsCalls, ["sess-1"]);
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+  assert.ok(document.getElementById("ss-questions-list").textContent.includes("Cardiologia"));
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
+});
+
+test("F10 #4.3: pausing and resuming the SAME session does not re-fetch its questions/reviews a second time", async (t) => {
+  const { mod, listQuestionsCalls, listSessionReviewsCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(listQuestionsCalls.length, 1);
+  assert.strictEqual(listSessionReviewsCalls.length, 1);
+
+  document.getElementById("ss-btn-pause").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-btn-resume").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(listQuestionsCalls.length, 1, "pausing/resuming the same session id must not re-fetch");
+  assert.strictEqual(listSessionReviewsCalls.length, 1);
+});
+
+test("F10 #4.3: starting a brand-new session (different id) does fetch its own questions/reviews", async (t) => {
+  const { mod, listQuestionsCalls, listSessionReviewsCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id) => ({ id, status: "finished" }),
+    startSession: async () => ({ id: "sess-2", status: "running", started_at: new Date().toISOString() }),
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(listQuestionsCalls.length, 1);
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(listQuestionsCalls, ["sess-1", "sess-2"]);
+  assert.deepStrictEqual(listSessionReviewsCalls, ["sess-1", "sess-2"]);
+});
+
+// ── Revisões Espaçadas durante a sessão ativa (F7.5) — F10 #4.3 ────────────
+
+test("the Revisões section starts empty and shows the create row when a session is linked to an event", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Aula", category: null, description: null, duration_minutes: null }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-reviews-empty").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
-  assert.strictEqual(document.getElementById("ssf-review-create-row").hidden, false, "linked session can create a review");
+  assert.strictEqual(document.getElementById("ss-reviews-empty").hidden, false);
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ss-review-create-row").hidden, false, "linked session can create a review");
 });
 
 test("a standalone session (no event) hides review creation but can still associate an existing pending review", async (t) => {
@@ -779,13 +936,11 @@ test("a standalone session (no event) hides review creation but can still associ
     listPendingReviews: async () => [{ id: "rev-1", status: "pending", scheduled_date: "2026-07-10" }],
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-review-create-row").hidden, true, "creation requires a linked event");
-  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-r-existing").children.length, 1);
+  assert.strictEqual(document.getElementById("ss-review-create-row").hidden, true, "creation requires a linked event");
+  assert.strictEqual(document.getElementById("ss-review-associate-row").hidden, false);
+  assert.strictEqual(document.getElementById("ss-r-existing").children.length, 1);
 });
 
 test("when there are no pending reviews, the associate row stays hidden", async (t) => {
@@ -794,11 +949,9 @@ test("when there are no pending reviews, the associate row stays hidden", async 
     listPendingReviews: async () => [],
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, true);
+  assert.strictEqual(document.getElementById("ss-review-associate-row").hidden, true);
 });
 
 // BUG 17: reviewService.listPending() nunca filtra por session_id — uma
@@ -814,13 +967,11 @@ test("BUG 17: a pending review already linked to another session is excluded fro
     ],
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  const options = [...document.getElementById("ssf-r-existing").options].map(o => o.value);
+  const options = [...document.getElementById("ss-r-existing").options].map(o => o.value);
   assert.deepStrictEqual(options, ["rev-free"], "only the unlinked pending review should be offered");
-  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, false);
+  assert.strictEqual(document.getElementById("ss-review-associate-row").hidden, false);
 });
 
 test("BUG 17: if every pending review is already linked elsewhere, the associate row stays hidden", async (t) => {
@@ -831,96 +982,93 @@ test("BUG 17: if every pending review is already linked elsewhere, the associate
     ],
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-review-associate-row").hidden, true);
+  assert.strictEqual(document.getElementById("ss-review-associate-row").hidden, true);
 });
 
-test("scheduling a new review only adds it to the local list — nothing is persisted before confirmation", async (t) => {
-  const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1);
-  assert.strictEqual(document.getElementById("ssf-reviews-empty").hidden, true);
-  assert.strictEqual(createReviewCalls.length, 0, "create must wait for confirmation");
-  assert.strictEqual(associateReviewCalls.length, 0, "associateReview must wait for confirmation");
-});
-
-test("a locally added review can be removed before confirmation", async (t) => {
+test("creating a new review calls createReview() then associateReview() immediately, in that order", async (t) => {
+  const callOrder = [];
+  const localCreateReviewCalls = [];
+  const localAssociateReviewCalls = [];
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    createReview: async (fields) => {
+      callOrder.push("createReview");
+      localCreateReviewCalls.push(fields);
+      return { id: "rev-new", status: "pending", ...fields };
+    },
+    associateReview: async (reviewId, sessionId) => {
+      callOrder.push("associateReview");
+      localAssociateReviewCalls.push({ reviewId, sessionId });
+      return { id: reviewId, session_id: sessionId, scheduled_date: "2026-07-14" };
+    },
   });
+  const createReviewCalls = localCreateReviewCalls;
+  const associateReviewCalls = localAssociateReviewCalls;
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1);
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2026-07-14";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-reviews-list").querySelector("[data-review-remove]")
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
-  assert.strictEqual(document.getElementById("ssf-reviews-empty").hidden, false);
+  assert.deepStrictEqual(callOrder, ["createReview", "associateReview"]);
+  assert.strictEqual(createReviewCalls.length, 1);
+  assert.strictEqual(createReviewCalls[0].event_id, "evt-1");
+  assert.strictEqual(createReviewCalls[0].scheduled_date, "2026-07-14");
+  assert.deepStrictEqual(associateReviewCalls, [{ reviewId: "rev-new", sessionId: "sess-1" }]);
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
+  assert.strictEqual(document.getElementById("ss-reviews-empty").hidden, true);
 });
 
-test("confirming persists Questões, then Revisões (create + associateReview), then finishSession — in that order", async (t) => {
-  const callOrder = [];
-  const { mod, associateReviewCalls } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
-    addQuestion: async (sessionId, data) => { callOrder.push("addQuestion"); return { id: "q-1", session_id: sessionId, ...data }; },
-    createReview: async (fields) => { callOrder.push("createReview"); return { id: "rev-new", status: "pending", ...fields }; },
-    associateReview: async (reviewId, sessionId) => { callOrder.push("associateReview"); associateReviewCalls.push({ reviewId, sessionId }); return { id: reviewId, session_id: sessionId }; },
-    finishSession: async (id) => { callOrder.push("finishSession"); return { id, status: "finished" }; },
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.deepStrictEqual(callOrder, ["addQuestion", "createReview", "associateReview", "finishSession"]);
-  assert.strictEqual(associateReviewCalls[0].reviewId, "rev-new");
-  assert.strictEqual(associateReviewCalls[0].sessionId, "sess-1");
-});
-
-test("associating an existing pending review uses reviewSessionService.associateReview() on confirmation", async (t) => {
+test("associating an existing pending review calls associateReview() immediately, without ever calling createReview()", async (t) => {
   const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     listPendingReviews: async () => [{ id: "rev-7", status: "pending", scheduled_date: "2026-07-10" }],
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-r-existing").value = "rev-7";
-  document.getElementById("ssf-btn-associate-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1);
-
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-existing").value = "rev-7";
+  document.getElementById("ss-btn-associate-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(createReviewCalls.length, 0, "associating an existing review never creates a new one");
   assert.deepStrictEqual(associateReviewCalls, [{ reviewId: "rev-7", sessionId: "sess-1" }]);
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
+});
+
+test("removing a review calls unlinkReview() immediately, drops it from the list, and refreshes the associate dropdown", async (t) => {
+  let pendingCallCount = 0;
+  const { mod, unlinkReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    createReview: async (fields) => ({ id: "rev-new", status: "pending", ...fields }),
+    associateReview: async (reviewId, sessionId) => ({ id: reviewId, session_id: sessionId, scheduled_date: "2026-07-14" }),
+    listPendingReviews: async () => { pendingCallCount++; return []; },
+  });
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+  const callsAfterInit = pendingCallCount;
+
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2026-07-14";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
+
+  document.getElementById("ss-reviews-list").querySelector("[data-review-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(unlinkReviewCalls, ["rev-new"]);
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ss-reviews-empty").hidden, false);
+  // listPendingReviews() is called again after removal so the unlinked review
+  // can be offered for re-association.
+  assert.ok(pendingCallCount > callsAfterInit, "listPendingReviews must be refreshed after removing a review");
 });
 
 test("ignoring the Revisões step is valid — confirming finishes the session without any review call", async (t) => {
@@ -940,116 +1088,113 @@ test("ignoring the Revisões step is valid — confirming finishes the session w
   assert.strictEqual(document.getElementById("ss-empty").hidden, false);
 });
 
-test("cancelling the finish flow (Voltar) discards pending reviews without persisting anything", async (t) => {
-  const { mod, createReviewCalls, associateReviewCalls } = await loadStudySessionView(t, {
+// BUG 15 (herdado do fluxo antigo, agora contra duplo clique real em vez de
+// duplicata numa lista pendente): _qrBusy evita criar duas revisões
+// idênticas se o clique disparar de novo antes do primeiro terminar.
+test("BUG 15: clicking Criar revisão twice in a row (double click) only persists one review", async (t) => {
+  const localCreateReviewCalls = [];
+  const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    createReview: async (fields) => new Promise(resolve => {
+      localCreateReviewCalls.push(fields);
+      setTimeout(() => resolve({ id: "rev-new", status: "pending", ...fields }), 0);
+    }),
   });
+  const createReviewCalls = localCreateReviewCalls;
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2026-07-14";
+  const btnCreate = document.getElementById("ss-btn-create-review");
+  btnCreate.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  btnCreate.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 10));
 
-  assert.strictEqual(createReviewCalls.length, 0);
-  assert.strictEqual(associateReviewCalls.length, 0);
-
-  // Reabrir o resumo começa do zero — nenhuma revisão sobrevive ao cancelamento.
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 0);
+  assert.strictEqual(createReviewCalls.length, 1, "a double click must not persist the same review twice");
 });
 
-// BUG 15: clicar "Criar revisão" duas vezes com a mesma data enfileirava duas
-// entradas idênticas, e a confirmação virava dois INSERTs separados —
-// revisão duplicada. Mesma proteção que já existia para revisões existentes
-// (_addPendingReviewAssociation) precisa existir para revisões novas.
-test("BUG 15: adding an identical new-review entry twice (same date) does not queue a duplicate", async (t) => {
-  const { mod, createReviewCalls } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "the second identical entry must not be queued");
-
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(createReviewCalls.length, 1, "only one review should be persisted");
-});
-
-// A different date is a legitimate, distinct review — the dedup guard must
-// not be so broad that it blocks two different "create" entries.
-test("BUG 15 (regression guard): two new-review entries with different dates both queue and persist", async (t) => {
-  const { mod, createReviewCalls } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ssf-r-date").value = "2026-07-21";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 2);
-
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(createReviewCalls.length, 2);
-});
-
-// BUG 16: se associateReview() falha no meio do loop de confirmação, o
-// resumo permanece aberto com _pendingReviews intactos para o usuário
-// corrigir e confirmar de novo (BUG 08). Reprocessar do zero recriava
-// reviewService.create() para uma revisão já persistida com sucesso na
-// tentativa anterior — revisão duplicada no retry.
-test("BUG 16: retrying confirmation after a partial failure does not recreate a review already persisted", async (t) => {
-  const associateAttempts = [];
+// BUG 16 (herdado do fluxo antigo): se createReview() teve sucesso mas o
+// associateReview() seguinte falha, a revisão já existe no banco sem
+// vínculo — retry precisa reaproveitá-la via "Revisão existente" em vez de
+// criar uma segunda revisão duplicada para a mesma data.
+test("BUG 16: if associateReview() fails right after createReview() succeeds, the orphaned review is offered again instead of silently lost", async (t) => {
+  let associateAttempts = 0;
+  let pendingCallCount = 0;
   const { mod, createReviewCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     associateReview: async (reviewId, sessionId) => {
-      associateAttempts.push({ reviewId, sessionId });
-      if (associateAttempts.length === 1) throw Object.assign(new Error("network blip"), { code: "NETWORK_ERROR" });
-      return { id: reviewId, session_id: sessionId };
+      associateAttempts++;
+      if (associateAttempts === 1) throw new Error("network drop");
+      return { id: reviewId, session_id: sessionId, scheduled_date: "2026-07-14" };
     },
+    listPendingReviews: async () => {
+      pendingCallCount++;
+      // Simula o banco: a revisão órfã criada na 1ª tentativa já existe e
+      // está livre para ser oferecida de volta assim que a lista recarrega.
+      return associateAttempts >= 1 ? [{ id: "rev-new", status: "pending", scheduled_date: "2026-07-14" }] : [];
+    },
+  });
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2026-07-14";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 1, "createReview() ran once, before the failure");
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 0, "nothing was linked yet");
+  const options = [...document.getElementById("ss-r-existing").options].map(o => o.value);
+  assert.deepStrictEqual(options, ["rev-new"], "the orphaned review is offered back for manual association");
+
+  // Reaproveita a revisão órfã em vez de criar outra para a mesma data.
+  document.getElementById("ss-r-existing").value = "rev-new";
+  document.getElementById("ss-btn-associate-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(createReviewCalls.length, 1, "no duplicate review was ever created");
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
+});
+
+// ── Recap somente-leitura no modal de encerramento (F10 #4.3) ──────────────
+
+test("the finish modal recap reflects the count of questions and reviews already registered on the active screen", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+  });
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2026-07-14";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "2 questão(ões) registrada(s) nesta sessão.");
+  assert.strictEqual(document.getElementById("ssf-recap-reviews").textContent, "1 revisão(ões) vinculada(s) a esta sessão.");
+});
+
+test("the finish modal recap says nothing was registered when the session has no questions/reviews", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
   await mod.initStudySessionView();
 
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-r-date").value = "2026-07-14";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  // First attempt: createReview() succeeds, associateReview() throws — the
-  // modal stays open (BUG 08) with the same pending review still queued.
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-  assert.strictEqual(createReviewCalls.length, 1, "first attempt creates exactly one review");
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "the pending review survives the failed attempt");
-
-  // Retry: same review must be re-associated, never recreated.
-  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(createReviewCalls.length, 1, "retry must not create a duplicate review");
-  assert.strictEqual(associateAttempts.length, 2, "associateReview() is retried for the same review");
-  assert.strictEqual(associateAttempts[1].reviewId, associateAttempts[0].reviewId, "both attempts target the same, already-created review");
+  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "Nenhuma questão registrada nesta sessão.");
+  assert.strictEqual(document.getElementById("ssf-recap-reviews").textContent, "Nenhuma revisão vinculada a esta sessão.");
 });
 
 // ── Contexto do compromisso vinculado (F1.4 / F7.2) ─────────────────────────
@@ -1287,6 +1432,22 @@ test("resetStudySessionView() clears the previous user's event title/category te
   assert.strictEqual(document.getElementById("ss-started-at").textContent, "");
 });
 
+test("resetStudySessionView() clears the previous user's Questões/Revisões from the DOM too", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    listQuestions: async () => [{ id: "q-1", question_type: "multiple_choice", status: "pending", difficulty: "medium", subject: "Cardiologia", topic: null }],
+  });
+
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+
+  mod.resetStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0);
+  assert.strictEqual(document.getElementById("ssf-recap-questions").textContent, "");
+});
+
 // ── F7.9 — Tratamento de Sessões abandonadas ────────────────────────────────
 // A restauração automática (F7.8) continua intocada para sessões recentes;
 // só uma sessão "running"/"paused" com started_at anterior a 24h aciona o
@@ -1374,100 +1535,82 @@ test("choosing 'cancel' in the abandoned-session dialog calls exactly activitySe
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
 
-// ── Seções colapsáveis do resumo de encerramento (auditoria UX #04) ────────
-// Questões e Revisões são etapas opcionais: nascem fechadas a cada abertura
-// do resumo (o essencial — resumo + Confirmar — fica visível sem rolagem) e
-// o contador no título reflete o que foi adicionado sem precisar expandir.
+// ── Seções colapsáveis das Questões/Revisões na tela ativa (auditoria UX #04) ──
+// Questões e Revisões são etapas opcionais: nascem fechadas a cada sessão
+// nova (o cronômetro fica visível sem rolagem) e o contador no título reflete
+// o que já foi registrado sem precisar expandir.
 
-test("UX #04 — Questões e Revisões abrem colapsadas, com aria-expanded=false, a cada abertura do resumo", async (t) => {
+test("UX #04 — Questões e Revisões nascem colapsadas, com aria-expanded=false, numa sessão nova", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-questions-body").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-reviews-body").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-questions-toggle").getAttribute("aria-expanded"), "false");
-  assert.strictEqual(document.getElementById("ssf-reviews-toggle").getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("ss-questions-body").hidden, true);
+  assert.strictEqual(document.getElementById("ss-reviews-body").hidden, true);
+  assert.strictEqual(document.getElementById("ss-questions-toggle").getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("ss-reviews-toggle").getAttribute("aria-expanded"), "false");
 
-  // Expande, fecha o resumo e reabre — a seção volta fechada (nunca herda o
-  // estado da abertura anterior).
-  document.getElementById("ssf-questions-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-body").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-questions-toggle").getAttribute("aria-expanded"), "true");
-  assert.strictEqual(document.getElementById("ssf-questions-toggle").textContent, "Ocultar");
-
-  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(document.getElementById("ssf-questions-body").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-questions-toggle").textContent, "Mostrar");
+  document.getElementById("ss-questions-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-questions-body").hidden, false);
+  assert.strictEqual(document.getElementById("ss-questions-toggle").getAttribute("aria-expanded"), "true");
+  assert.strictEqual(document.getElementById("ss-questions-toggle").textContent, "Ocultar");
 });
 
-test("UX #04 — o contador do título reflete questões/revisões adicionadas sem expandir a seção", async (t) => {
+test("UX #04 — o contador no título reflete questões/revisões adicionadas sem expandir a seção", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, "");
+  assert.strictEqual(document.getElementById("ss-questions-count").textContent, "");
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, " (1)");
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-count").textContent, " (1)");
 
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, " (2)");
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-count").textContent, " (2)");
 
-  document.getElementById("ssf-questions-list").querySelector("[data-question-remove]")
+  document.getElementById("ss-questions-list").querySelector("[data-question-remove]")
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-count").textContent, " (1)");
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-count").textContent, " (1)");
 
-  document.getElementById("ssf-r-date").value = "2099-01-10";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-reviews-count").textContent, " (1)");
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2099-01-10";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-reviews-count").textContent, " (1)");
 });
 
 // ── Formulário inline de questão/revisão atrás de "+ Adicionar..." (F10 #3.3) ──
-// Antes, o formulário completo (tipo/status/dificuldade/matéria/tópico ou
-// associar/criar revisão) ficava sempre visível abaixo da lista, mesmo sem
-// nenhuma questão/revisão sendo adicionada naquele momento. Agora ele nasce
-// oculto atrás de um botão "+ Adicionar...", só a lista compacta some por
-// padrão dentro da seção já expandida.
+// O formulário completo (tipo/status/dificuldade/matéria/tópico ou
+// associar/criar revisão) fica oculto atrás de um botão "+ Adicionar...", só
+// a lista compacta aparece por padrão dentro de cada seção já expandida.
 
-test("F10 #3.3 — o formulário de questão nasce oculto atrás de '+ Adicionar questão', e reabrir o resumo o mantém oculto", async (t) => {
+test("F10 #3.3 — o formulário de questão nasce oculto atrás de '+ Adicionar questão'", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, false);
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, true);
+  assert.strictEqual(document.getElementById("ss-btn-toggle-question-form").hidden, false);
 
-  document.getElementById("ssf-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-question-form").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, true);
-  assert.strictEqual(document.activeElement, document.getElementById("ssf-q-type"));
-
-  document.getElementById("ssf-btn-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true, "reabrir o resumo não deve herdar o formulário aberto na sessão anterior");
-  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, false);
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, false);
+  assert.strictEqual(document.getElementById("ss-btn-toggle-question-form").hidden, true);
+  assert.strictEqual(document.activeElement, document.getElementById("ss-q-type"));
 });
 
 test("F10 #3.3 — 'Cancelar' no formulário de questão fecha o formulário e descarta a edição em andamento, sem afetar a lista já adicionada", async (t) => {
@@ -1476,18 +1619,18 @@ test("F10 #3.3 — 'Cancelar' no formulário de questão fecha o formulário e d
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "a questão adicionada antes do cancelamento continua na lista");
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1, "a questão adicionada antes do cancelamento continua na lista");
 
-  document.getElementById("ssf-btn-cancel-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-btn-toggle-question-form").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-questions-list").children.length, 1, "cancelar não remove nenhuma questão já adicionada");
+  document.getElementById("ss-btn-cancel-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, true);
+  assert.strictEqual(document.getElementById("ss-btn-toggle-question-form").hidden, false);
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1, "cancelar não remove nenhuma questão já adicionada");
 });
 
 test("F10 #3.3 — clicar 'Editar' num item da lista reabre o formulário de questão automaticamente", async (t) => {
@@ -1496,19 +1639,19 @@ test("F10 #3.3 — clicar 'Editar' num item da lista reabre o formulário de que
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-q-subject").value = "Cardiologia";
-  document.getElementById("ssf-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  document.getElementById("ssf-btn-cancel-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-question-form").hidden, true);
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-subject").value = "Cardiologia";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-btn-cancel-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, true);
 
-  document.getElementById("ssf-questions-list").querySelector("[data-question-edit]")
+  document.getElementById("ss-questions-list").querySelector("[data-question-edit]")
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-question-form").hidden, false, "editar deve reabrir o formulário mesmo se estivesse fechado");
-  assert.strictEqual(document.getElementById("ssf-q-subject").value, "Cardiologia");
+  assert.strictEqual(document.getElementById("ss-question-form").hidden, false, "editar deve reabrir o formulário mesmo se estivesse fechado");
+  assert.strictEqual(document.getElementById("ss-q-subject").value, "Cardiologia");
 });
 
 test("F10 #3.3 — o formulário de revisão nasce oculto atrás de '+ Adicionar revisão'", async (t) => {
@@ -1517,22 +1660,21 @@ test("F10 #3.3 — o formulário de revisão nasce oculto atrás de '+ Adicionar
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
   });
   await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ssf-review-form").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-btn-toggle-review-form").hidden, false);
+  assert.strictEqual(document.getElementById("ss-review-form").hidden, true);
+  assert.strictEqual(document.getElementById("ss-btn-toggle-review-form").hidden, false);
 
-  document.getElementById("ssf-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-review-form").hidden, false);
-  assert.strictEqual(document.getElementById("ssf-btn-toggle-review-form").hidden, true);
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-review-form").hidden, false);
+  assert.strictEqual(document.getElementById("ss-btn-toggle-review-form").hidden, true);
 
-  document.getElementById("ssf-r-date").value = "2099-01-10";
-  document.getElementById("ssf-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "criar revisão continua funcionando com o formulário revelado");
+  document.getElementById("ss-r-date").value = "2099-01-10";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1, "criar revisão continua funcionando com o formulário revelado");
 
-  document.getElementById("ssf-btn-cancel-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ssf-review-form").hidden, true);
-  assert.strictEqual(document.getElementById("ssf-reviews-list").children.length, 1, "cancelar não remove a revisão já adicionada");
+  document.getElementById("ss-btn-cancel-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-review-form").hidden, true);
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1, "cancelar não remove a revisão já adicionada");
 });

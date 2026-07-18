@@ -3025,9 +3025,26 @@ textarea { resize: vertical; }
 }
 
 .ss-questions-block {
+  /* F10 #4.3 — agora também aparece dentro de #ss-active (.ss-card, que
+     centraliza filhos por padrão via align-items:center); width:100% evita
+     que o bloco encolha ao conteúdo em vez de ocupar a largura do card,
+     igual já acontecia dentro do modal (.modal-body é column sem
+     align-items, então esticava por padrão). */
+  width: 100%;
   margin-top: 1.2rem;
   padding-top: var(--space-4);
   border-top: 1px solid var(--gray-200);
+}
+
+/* F10 #4.3 — recap somente-leitura do resumo de encerramento: Questões e
+   Revisões passaram a ser registradas na tela da sessão ativa (acima), não
+   mais no encerramento — aqui só confirma o que já foi persistido. */
+.ss-finish-recap {
+  width: 100%;
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
 }
 
 .ss-questions-title {

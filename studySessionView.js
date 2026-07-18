@@ -20,9 +20,9 @@ import {
   finishSession,
   cancelSession,
 } from "./activitySessionService.js";
-import { addQuestion } from "./sessionQuestionsService.js";
+import { addQuestion, listQuestions, updateQuestion, removeQuestion } from "./sessionQuestionsService.js";
 import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
-import { associateReview } from "./reviewSessionService.js";
+import { associateReview, unlinkReview, listBySession as listSessionReviews } from "./reviewSessionService.js";
 import { getEventById } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
@@ -77,37 +77,42 @@ const NO_EVENT_TEXT = "Sem compromisso vinculado";
 
 // Modal de encerramento (F7.3) — resumo somente leitura + confirmação, entre
 // clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
+// F10 #4.3 — Questões e Revisões deixaram de fazer parte deste modal: aqui só
+// resta um recap somente-leitura delas (ver seção própria abaixo, na tela da
+// sessão ativa).
 let finishModalEl, finishModal;
 let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl;
 let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
+let ssfRecapQuestionsEl, ssfRecapReviewsEl;
 
-// Cadastro de Questões Resolvidas (F7.4) — lista editável no próprio resumo,
-// só persistida via sessionQuestionsService.addQuestion() na confirmação.
-let ssfQuestionsListEl, ssfQuestionsEmptyEl;
-let ssfQTypeEl, ssfQStatusEl, ssfQDifficultyEl, ssfQSubjectEl, ssfQTopicEl, ssfBtnAddQuestion;
+// Cadastro de Questões Resolvidas (F7.4) — F10 #4.3: vive na própria tela da
+// sessão ativa (não mais no modal de encerramento) e cada item é persistido
+// imediatamente via sessionQuestionsService.addQuestion()/updateQuestion()/
+// removeQuestion() — a sessão já existe no banco, não há mais nada "pendente"
+// aguardando a confirmação do encerramento.
+let sqListEl, sqEmptyEl;
+let sqTypeEl, sqStatusEl, sqDifficultyEl, sqSubjectEl, sqTopicEl, sqBtnAdd;
 // F10 #3.3 — o formulário de adicionar/editar questão nasce oculto atrás de
-// "+ Adicionar questão"; só aparece ao abrir (ssfBtnToggleQuestionForm), ao
-// editar um item da lista (_editPendingQuestion) ou permanece aberto entre
-// adições consecutivas (auditoria UX #25) até "Cancelar" fechá-lo de volta.
-let ssfQuestionFormEl, ssfBtnToggleQuestionForm, ssfBtnCancelQuestion;
+// "+ Adicionar questão"; só aparece ao abrir (sqBtnToggleForm), ao editar um
+// item da lista (_editQuestion) ou permanece aberto entre adições
+// consecutivas (auditoria UX #25) até "Cancelar" fechá-lo de volta.
+let sqFormEl, sqBtnToggleForm, sqBtnCancel;
 
-// Seções colapsáveis do resumo (auditoria UX #04) — Questões e Revisões são
-// etapas opcionais e nascem fechadas a cada abertura do resumo, para que o
-// essencial (resumo + Confirmar) fique visível sem rolagem; o contador no
-// título reflete o que já foi adicionado sem precisar expandir.
-let ssfQuestionsToggleEl, ssfQuestionsBodyEl, ssfQuestionsCountEl;
-let ssfReviewsToggleEl, ssfReviewsBodyEl, ssfReviewsCountEl;
+// Seções colapsáveis (auditoria UX #04) — Questões e Revisões nascem
+// fechadas a cada sessão nova, para que o cronômetro (elemento principal da
+// tela) fique visível sem rolagem; o contador no título reflete o que já foi
+// registrado sem precisar expandir.
+let sqToggleEl, sqBodyEl, sqCountEl;
+let srToggleEl, srBodyEl, srCountEl;
 
-// Revisões do pós-sessão (F7.5) — etapa opcional entre Questões e Confirmar.
-// Toda persistência passa por reviewService.js (criação) e
-// reviewSessionService.associateReview() (vínculo) — nenhum session_id é
-// manipulado diretamente aqui.
-let ssfReviewsListEl, ssfReviewsEmptyEl;
-let ssfReviewAssociateRowEl, ssfReviewCreateRowEl;
-let ssfRExistingEl, ssfRDateEl, ssfBtnAssociateReview, ssfBtnCreateReview;
-// F10 #3.3 — mesmo padrão do formulário de questão: oculto atrás de
-// "+ Adicionar revisão", só reaparece ao abrir ou ao "Cancelar" ser clicado.
-let ssfReviewFormEl, ssfBtnToggleReviewForm, ssfBtnCancelReview;
+// Revisões (F7.5) — F10 #4.3: mesma mudança das Questões, agora registradas
+// durante a sessão ativa. Toda persistência passa por reviewService.js
+// (criação) e reviewSessionService.associateReview()/unlinkReview()
+// (vínculo) — nenhum session_id é manipulado diretamente aqui.
+let srListEl, srEmptyEl;
+let srAssociateRowEl, srCreateRowEl;
+let srExistingEl, srDateEl, srBtnAssociate, srBtnCreate;
+let srFormEl, srBtnToggleForm, srBtnCancel;
 
 let _session   = null; // fonte da verdade: a última linha conhecida do banco
 let _eventMeta = null; // { title, category, duration_minutes } — só para exibição
@@ -117,21 +122,18 @@ let _unsubscribers = [];
 let _pendingEndedAt = null; // horário de término congelado ao abrir o resumo, reaproveitado na confirmação
 let _pendingNetMinutes = null; // mesmo valor exibido em ssf-net-time (F7.10: reaproveitado no resumo final, sem recálculo)
 
-// Questões adicionadas no resumo, ainda não persistidas — só viram linhas em
-// public.questions (via sessionQuestionsService.addQuestion()) na confirmação
-// do encerramento. Cancelar o encerramento descarta este array sem gravar
-// nada; nenhum id local aqui é um id de banco.
-let _pendingQuestions = [];
-let _editingQuestionLocalId = null;
-let _nextQuestionLocalId = 1;
-
-// Revisões escolhidas no resumo, ainda não persistidas (F7.5) — cada item é
-// { localId, kind: "create"|"associate", scheduled_date?, reviewId?, label }.
-// Só viram chamadas de domínio (reviewService.create() + associateReview())
-// na confirmação; cancelar o encerramento descarta este array sem gravar nada.
-let _pendingReviews = [];
-let _nextReviewLocalId = 1;
-let _reviewOptionsRequestId = 0; // descarta respostas obsoletas se o resumo fechar/reabrir
+// F10 #4.3 — Questões/Revisões da sessão ativa: refletem exatamente o que já
+// está persistido no banco (sessionQuestionsService.listQuestions()/
+// reviewSessionService.listBySession()). _sessionDataLoadedFor evita refazer
+// essa consulta a cada _applySession() — start/pause/resume da MESMA sessão
+// chamam _applySession() de novo com o mesmo id; só uma sessão realmente nova
+// (id diferente) ou nenhuma sessão dispara recarga/limpeza.
+let _sessionQuestions = [];
+let _editingQuestionId = null;
+let _sessionReviews = [];
+let _sessionDataLoadedFor = null;
+let _reviewOptionsRequestId = 0; // descarta respostas obsoletas de _loadReviewOptions()
+let _qrBusy = false; // evita cliques duplicados nas ações de Questões/Revisões (independente de _busy)
 
 function _queryElements() {
   emptyEl             = document.getElementById("ss-empty");
@@ -159,8 +161,38 @@ function _queryElements() {
   btnCancel = document.getElementById("ss-btn-cancel");
   btnFinish = document.getElementById("ss-btn-finish");
 
-  finishModalEl      = document.getElementById("ss-finish-modal");
-  ssfTitleEl          = document.getElementById("ssf-event-title");
+  sqListEl       = document.getElementById("ss-questions-list");
+  sqEmptyEl      = document.getElementById("ss-questions-empty");
+  sqToggleEl     = document.getElementById("ss-questions-toggle");
+  sqBodyEl       = document.getElementById("ss-questions-body");
+  sqCountEl      = document.getElementById("ss-questions-count");
+  sqTypeEl       = document.getElementById("ss-q-type");
+  sqStatusEl     = document.getElementById("ss-q-status");
+  sqDifficultyEl = document.getElementById("ss-q-difficulty");
+  sqSubjectEl    = document.getElementById("ss-q-subject");
+  sqTopicEl      = document.getElementById("ss-q-topic");
+  sqBtnAdd       = document.getElementById("ss-btn-add-question");
+  sqFormEl        = document.getElementById("ss-question-form");
+  sqBtnToggleForm = document.getElementById("ss-btn-toggle-question-form");
+  sqBtnCancel     = document.getElementById("ss-btn-cancel-question");
+
+  srToggleEl = document.getElementById("ss-reviews-toggle");
+  srBodyEl   = document.getElementById("ss-reviews-body");
+  srCountEl  = document.getElementById("ss-reviews-count");
+  srListEl         = document.getElementById("ss-reviews-list");
+  srEmptyEl        = document.getElementById("ss-reviews-empty");
+  srAssociateRowEl = document.getElementById("ss-review-associate-row");
+  srCreateRowEl    = document.getElementById("ss-review-create-row");
+  srExistingEl     = document.getElementById("ss-r-existing");
+  srDateEl         = document.getElementById("ss-r-date");
+  srBtnAssociate   = document.getElementById("ss-btn-associate-review");
+  srBtnCreate      = document.getElementById("ss-btn-create-review");
+  srFormEl        = document.getElementById("ss-review-form");
+  srBtnToggleForm = document.getElementById("ss-btn-toggle-review-form");
+  srBtnCancel     = document.getElementById("ss-btn-cancel-review");
+
+  finishModalEl       = document.getElementById("ss-finish-modal");
+  ssfTitleEl           = document.getElementById("ssf-event-title");
   ssfCategoryEl        = document.getElementById("ssf-category");
   ssfContentEl         = document.getElementById("ssf-content");
   ssfStartedAtEl       = document.getElementById("ssf-started-at");
@@ -169,36 +201,8 @@ function _queryElements() {
   ssfNotesEl           = document.getElementById("ssf-notes");
   ssfBtnBack           = document.getElementById("ssf-btn-back");
   ssfBtnConfirm        = document.getElementById("ssf-btn-confirm");
-
-  ssfQuestionsListEl   = document.getElementById("ssf-questions-list");
-  ssfQuestionsEmptyEl  = document.getElementById("ssf-questions-empty");
-  ssfQuestionsToggleEl = document.getElementById("ssf-questions-toggle");
-  ssfQuestionsBodyEl   = document.getElementById("ssf-questions-body");
-  ssfQuestionsCountEl  = document.getElementById("ssf-questions-count");
-  ssfReviewsToggleEl   = document.getElementById("ssf-reviews-toggle");
-  ssfReviewsBodyEl     = document.getElementById("ssf-reviews-body");
-  ssfReviewsCountEl    = document.getElementById("ssf-reviews-count");
-  ssfQTypeEl           = document.getElementById("ssf-q-type");
-  ssfQStatusEl         = document.getElementById("ssf-q-status");
-  ssfQDifficultyEl     = document.getElementById("ssf-q-difficulty");
-  ssfQSubjectEl        = document.getElementById("ssf-q-subject");
-  ssfQTopicEl          = document.getElementById("ssf-q-topic");
-  ssfBtnAddQuestion    = document.getElementById("ssf-btn-add-question");
-  ssfQuestionFormEl        = document.getElementById("ssf-question-form");
-  ssfBtnToggleQuestionForm = document.getElementById("ssf-btn-toggle-question-form");
-  ssfBtnCancelQuestion     = document.getElementById("ssf-btn-cancel-question");
-
-  ssfReviewsListEl        = document.getElementById("ssf-reviews-list");
-  ssfReviewsEmptyEl       = document.getElementById("ssf-reviews-empty");
-  ssfReviewAssociateRowEl = document.getElementById("ssf-review-associate-row");
-  ssfReviewCreateRowEl    = document.getElementById("ssf-review-create-row");
-  ssfRExistingEl          = document.getElementById("ssf-r-existing");
-  ssfRDateEl              = document.getElementById("ssf-r-date");
-  ssfBtnAssociateReview   = document.getElementById("ssf-btn-associate-review");
-  ssfBtnCreateReview      = document.getElementById("ssf-btn-create-review");
-  ssfReviewFormEl        = document.getElementById("ssf-review-form");
-  ssfBtnToggleReviewForm = document.getElementById("ssf-btn-toggle-review-form");
-  ssfBtnCancelReview     = document.getElementById("ssf-btn-cancel-review");
+  ssfRecapQuestionsEl  = document.getElementById("ssf-recap-questions");
+  ssfRecapReviewsEl    = document.getElementById("ssf-recap-reviews");
 
   finishModal = initModal(finishModalEl, _closeFinishModal);
 }
@@ -226,30 +230,29 @@ function _bindEvents() {
     }
   });
 
-  ssfBtnBack.addEventListener("click", () => _closeFinishModal());
-  ssfQuestionsToggleEl.addEventListener("click", () =>
-    _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, ssfQuestionsBodyEl.hidden));
-  ssfReviewsToggleEl.addEventListener("click", () =>
-    _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, ssfReviewsBodyEl.hidden));
-  ssfBtnAddQuestion.addEventListener("click", () => _addOrUpdatePendingQuestion());
-  ssfBtnAssociateReview.addEventListener("click", () => _addPendingReviewAssociation());
-  ssfBtnCreateReview.addEventListener("click", () => _addPendingReviewCreation());
-  ssfBtnConfirm.addEventListener("click", () => _confirmFinish());
+  sqToggleEl.addEventListener("click", () => _setSectionExpanded(sqToggleEl, sqBodyEl, sqBodyEl.hidden));
+  srToggleEl.addEventListener("click", () => _setSectionExpanded(srToggleEl, srBodyEl, srBodyEl.hidden));
+  sqBtnAdd.addEventListener("click", () => _submitQuestionForm());
+  srBtnAssociate.addEventListener("click", () => _associateExistingReview());
+  srBtnCreate.addEventListener("click", () => _createAndAssociateReview());
 
-  ssfBtnToggleQuestionForm.addEventListener("click", () => {
-    _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, true);
-    ssfQTypeEl.focus();
+  sqBtnToggleForm.addEventListener("click", () => {
+    _setInlineFormVisible(sqFormEl, sqBtnToggleForm, true);
+    sqTypeEl.focus();
   });
-  ssfBtnCancelQuestion.addEventListener("click", () => {
+  sqBtnCancel.addEventListener("click", () => {
     _resetQuestionForm();
-    _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
+    _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
   });
-  ssfBtnToggleReviewForm.addEventListener("click", () =>
-    _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, true));
-  ssfBtnCancelReview.addEventListener("click", () => {
-    ssfRDateEl.value = "";
-    _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, false);
+  srBtnToggleForm.addEventListener("click", () =>
+    _setInlineFormVisible(srFormEl, srBtnToggleForm, true));
+  srBtnCancel.addEventListener("click", () => {
+    srDateEl.value = "";
+    _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
   });
+
+  ssfBtnBack.addEventListener("click", () => _closeFinishModal());
+  ssfBtnConfirm.addEventListener("click", () => _confirmFinish());
 }
 
 function _formatElapsed(ms) {
@@ -382,6 +385,7 @@ function _applySession(session) {
     _eventMeta = null;
   }
   _render();
+  _syncSessionQuestionsAndReviews();
 }
 
 // Resolve título/categoria/descrição/duração prevista para exibição a partir
@@ -453,14 +457,8 @@ function _minutesBetween(session, endedAtDate) {
   return Math.max(0, Math.round((endedAtDate - new Date(session.started_at) - totalPausedMs) / 60000));
 }
 
-// ── Questões Resolvidas do resumo (F7.4) ────────────────────────────────────
-// Lista local, editável até a confirmação — nenhuma chamada a
-// sessionQuestionsService.addQuestion() acontece antes de _confirmFinish().
-// Todo acesso ao domínio de Questões passa exclusivamente por
-// sessionQuestionsService.js (nunca questionService.js diretamente aqui).
-
-// Expande/colapsa uma seção opcional do resumo (auditoria UX #04) — mesmo
-// padrão aria-expanded + hidden do "Detalhar" do Diário (studyJournalView).
+// Expande/colapsa uma seção opcional (auditoria UX #04) — mesmo padrão
+// aria-expanded + hidden do "Detalhar" do Diário (studyJournalView).
 function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
   bodyEl.hidden = !expanded;
   toggleBtn.setAttribute("aria-expanded", String(expanded));
@@ -477,31 +475,94 @@ function _setInlineFormVisible(formEl, toggleBtn, visible) {
   toggleBtn.setAttribute("aria-expanded", String(visible));
 }
 
+// F10 #4.3 — carrega Questões/Revisões já persistidas sempre que a sessão
+// ativa muda de identidade (nova sessão iniciada, ou nenhuma sessão ativa) —
+// start/pause/resume da MESMA sessão chamam _applySession() de novo com o
+// mesmo id; sem a guarda de _sessionDataLoadedFor, cada clique em
+// Pausar/Continuar refaria a mesma consulta e sobrescreveria uma edição em
+// andamento no formulário.
+function _syncSessionQuestionsAndReviews() {
+  if (_session?.id === _sessionDataLoadedFor) return;
+  _sessionDataLoadedFor = _session?.id ?? null;
+
+  _resetQuestionForm();
+  _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
+  _setSectionExpanded(sqToggleEl, sqBodyEl, false);
+  srDateEl.value = "";
+  _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
+  _setSectionExpanded(srToggleEl, srBodyEl, false);
+
+  if (!_session) {
+    _sessionQuestions = [];
+    _sessionReviews   = [];
+    _renderQuestionsList();
+    _renderReviewsList();
+    return;
+  }
+
+  // Revisões: criar exige um compromisso (reviewService.create() valida
+  // event_id), então a linha de criação só aparece em sessões vinculadas.
+  srCreateRowEl.hidden = !_session.event_id;
+  srAssociateRowEl.hidden = true; // reaparece se _loadReviewOptions() encontrar pendentes
+
+  _loadSessionQuestionsAndReviews(_session.id);
+  _loadReviewOptions();
+}
+
+// Busca em paralelo o que já está persistido para esta sessão — nenhuma das
+// duas listas é "pendente": ambas refletem exatamente o banco, e cada
+// adição/remoção subsequente (_submitQuestionForm, _removeQuestionEntry,
+// _createAndAssociateReview, _associateExistingReview, _removeReviewEntry)
+// atualiza estes mesmos arrays em memória sem precisar recarregar tudo de novo.
+async function _loadSessionQuestionsAndReviews(sessionId) {
+  try {
+    const [questions, reviews] = await Promise.all([
+      listQuestions(sessionId),
+      listSessionReviews(sessionId),
+    ]);
+    if (_session?.id !== sessionId) return; // a sessão trocou enquanto a consulta estava em voo
+    _sessionQuestions = questions;
+    _sessionReviews    = reviews;
+    _renderQuestionsList();
+    _renderReviewsList();
+  } catch (err) {
+    if (_session?.id !== sessionId) return;
+    handleError(err, { context: "studySessionView.loadSessionQuestionsAndReviews", silent: true });
+  }
+}
+
+// ── Questões Resolvidas (F7.4) ──────────────────────────────────────────────
+// F10 #4.3: cada questão é persistida assim que adicionada/editada/removida —
+// _sessionQuestions é só o espelho em memória do que sessionQuestionsService
+// já confirmou no banco. Todo acesso ao domínio de Questões passa
+// exclusivamente por sessionQuestionsService.js (nunca questionService.js
+// diretamente aqui).
+
 // Auditoria UX #25: `keepSubjectTopic` repete a matéria/tópico da última
 // questão adicionada — quem resolveu um bloco inteiro de uma mesma
 // matéria/tópico não precisa redigitar a cada questão. Tipo/status/
 // dificuldade já voltam a um default razoável (não em branco), por isso só
 // matéria/tópico precisam desse tratamento especial.
 function _resetQuestionForm({ keepSubjectTopic = false } = {}) {
-  ssfQTypeEl.value       = "multiple_choice";
-  ssfQStatusEl.value     = "pending";
-  ssfQDifficultyEl.value = "medium";
+  sqTypeEl.value       = "multiple_choice";
+  sqStatusEl.value     = "pending";
+  sqDifficultyEl.value = "medium";
   if (!keepSubjectTopic) {
-    ssfQSubjectEl.value = "";
-    ssfQTopicEl.value   = "";
+    sqSubjectEl.value = "";
+    sqTopicEl.value   = "";
   }
-  _editingQuestionLocalId = null;
-  ssfBtnAddQuestion.textContent = "Adicionar questão";
+  _editingQuestionId = null;
+  sqBtnAdd.textContent = "Adicionar questão";
 }
 
 function _renderQuestionsList() {
-  ssfQuestionsListEl.innerHTML = "";
-  ssfQuestionsEmptyEl.hidden = _pendingQuestions.length > 0;
-  if (ssfQuestionsCountEl) {
-    ssfQuestionsCountEl.textContent = _pendingQuestions.length ? ` (${_pendingQuestions.length})` : "";
+  sqListEl.innerHTML = "";
+  sqEmptyEl.hidden = _sessionQuestions.length > 0;
+  if (sqCountEl) {
+    sqCountEl.textContent = _sessionQuestions.length ? ` (${_sessionQuestions.length})` : "";
   }
 
-  _pendingQuestions.forEach(q => {
+  _sessionQuestions.forEach(q => {
     const li = document.createElement("li");
     li.className = "ss-question-item";
     const subjectTopic = [q.subject, q.topic].filter(Boolean).map(escapeHtml).join(" — ");
@@ -513,31 +574,44 @@ function _renderQuestionsList() {
         ${subjectTopic ? `<span>${subjectTopic}</span>` : ""}
       </div>
       <div class="ss-question-item-actions">
-        <button type="button" class="btn btn-ghost btn-sm" data-question-edit="${q.localId}">Editar</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-question-remove="${q.localId}">Remover</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-question-edit="${q.id}">Editar</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-question-remove="${q.id}">Remover</button>
       </div>
     `;
-    li.querySelector("[data-question-edit]").addEventListener("click", () => _editPendingQuestion(q.localId));
-    li.querySelector("[data-question-remove]").addEventListener("click", () => _removePendingQuestion(q.localId));
-    ssfQuestionsListEl.appendChild(li);
+    li.querySelector("[data-question-edit]").addEventListener("click", () => _editQuestion(q.id));
+    li.querySelector("[data-question-remove]").addEventListener("click", () => _removeQuestionEntry(q.id));
+    sqListEl.appendChild(li);
   });
 }
 
-function _addOrUpdatePendingQuestion() {
+async function _submitQuestionForm() {
+  if (_qrBusy || !_session) return;
   const fields = {
-    question_type: ssfQTypeEl.value,
-    status:        ssfQStatusEl.value,
-    difficulty:    ssfQDifficultyEl.value,
-    subject:       ssfQSubjectEl.value.trim() || null,
-    topic:         ssfQTopicEl.value.trim() || null,
+    question_type: sqTypeEl.value,
+    status:        sqStatusEl.value,
+    difficulty:    sqDifficultyEl.value,
+    subject:       sqSubjectEl.value.trim() || null,
+    topic:         sqTopicEl.value.trim() || null,
   };
 
-  const wasEditing = _editingQuestionLocalId !== null;
-  if (wasEditing) {
-    const idx = _pendingQuestions.findIndex(q => q.localId === _editingQuestionLocalId);
-    if (idx !== -1) _pendingQuestions[idx] = { ..._pendingQuestions[idx], ...fields };
-  } else {
-    _pendingQuestions.push({ localId: _nextQuestionLocalId++, ...fields });
+  const editingId = _editingQuestionId;
+  _qrBusy = true;
+  sqBtnAdd.disabled = true;
+  try {
+    if (editingId !== null) {
+      const updated = await updateQuestion(editingId, fields);
+      const idx = _sessionQuestions.findIndex(q => q.id === editingId);
+      if (idx !== -1) _sessionQuestions[idx] = updated;
+    } else {
+      const created = await addQuestion(_session.id, fields);
+      _sessionQuestions.push(created);
+    }
+  } catch (err) {
+    handleError(err, { context: "studySessionView.submitQuestion" });
+    return;
+  } finally {
+    _qrBusy = false;
+    sqBtnAdd.disabled = false;
   }
 
   _resetQuestionForm({ keepSubjectTopic: true });
@@ -546,42 +620,50 @@ function _addOrUpdatePendingQuestion() {
   // fácil de não notar numa lista já longa. Microfeedback (duração curta):
   // várias questões podem ser adicionadas em sequência no mesmo formulário,
   // então um toast com a duração padrão acumularia na tela.
-  toast.info(wasEditing ? "Questão atualizada." : "Questão adicionada.", 2000);
+  toast.info(editingId !== null ? "Questão atualizada." : "Questão adicionada.", 2000);
   // Auditoria UX #25: foco de volta ao primeiro campo permite cadência rápida
   // por teclado ao lançar várias questões em sequência (ex.: resolveu um
   // bloco inteiro de uma prova), sem precisar clicar de volta no formulário.
-  ssfQTypeEl.focus();
+  sqTypeEl.focus();
 }
 
-function _editPendingQuestion(localId) {
-  const q = _pendingQuestions.find(q => q.localId === localId);
+function _editQuestion(questionId) {
+  const q = _sessionQuestions.find(q => q.id === questionId);
   if (!q) return;
-  ssfQTypeEl.value       = q.question_type;
-  ssfQStatusEl.value     = q.status;
-  ssfQDifficultyEl.value = q.difficulty;
-  ssfQSubjectEl.value    = q.subject || "";
-  ssfQTopicEl.value      = q.topic || "";
-  _editingQuestionLocalId = localId;
-  ssfBtnAddQuestion.textContent = "Salvar alteração";
-  _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, true);
+  sqTypeEl.value       = q.question_type;
+  sqStatusEl.value     = q.status;
+  sqDifficultyEl.value = q.difficulty;
+  sqSubjectEl.value    = q.subject || "";
+  sqTopicEl.value      = q.topic || "";
+  _editingQuestionId = questionId;
+  sqBtnAdd.textContent = "Salvar alteração";
+  _setInlineFormVisible(sqFormEl, sqBtnToggleForm, true);
 }
 
-function _removePendingQuestion(localId) {
-  _pendingQuestions = _pendingQuestions.filter(q => q.localId !== localId);
-  if (_editingQuestionLocalId === localId) {
-    _resetQuestionForm();
-    _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
+async function _removeQuestionEntry(questionId) {
+  if (_qrBusy) return;
+  _qrBusy = true;
+  try {
+    await removeQuestion(questionId);
+    _sessionQuestions = _sessionQuestions.filter(q => q.id !== questionId);
+    if (_editingQuestionId === questionId) {
+      _resetQuestionForm();
+      _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
+    }
+    _renderQuestionsList();
+  } catch (err) {
+    handleError(err, { context: "studySessionView.removeQuestion" });
+  } finally {
+    _qrBusy = false;
   }
-  _renderQuestionsList();
 }
 
-// ── Revisões do pós-sessão (F7.5) ───────────────────────────────────────────
-// Etapa opcional entre Questões e Confirmar: o usuário pode criar uma revisão
-// nova, associar uma revisão pendente existente, ou ignorar a etapa. Nada é
-// persistido antes de _confirmFinish() — mesmo contrato das Questões (F7.4).
-// Criação usa reviewService.create() (revisão pertence a um compromisso, então
-// só está disponível quando a sessão tem event_id); o vínculo Sessão↔Revisão
-// usa exclusivamente reviewSessionService.associateReview().
+// ── Revisões (F7.5) ──────────────────────────────────────────────────────────
+// F10 #4.3: criar/associar uma revisão persiste (e vincula) na hora — nada
+// fica "pendente" aguardando o encerramento. Criação usa reviewService.create()
+// (revisão pertence a um compromisso, então só está disponível quando a sessão
+// tem event_id); o vínculo Sessão↔Revisão usa exclusivamente
+// reviewSessionService.associateReview()/unlinkReview().
 
 // scheduled_date é uma DATE pura ("YYYY-MM-DD") — localDate() (utils.js) evita
 // o desvio de fuso de `new Date("YYYY-MM-DD")`, mesmo padrão do restante do app.
@@ -590,96 +672,126 @@ function _formatReviewDate(dateStr) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
+function _reviewLabel(r) {
+  return `Revisão de ${_formatReviewDate(r.scheduled_date)}`;
+}
+
 function _renderReviewsList() {
-  ssfReviewsListEl.innerHTML = "";
-  ssfReviewsEmptyEl.hidden = _pendingReviews.length > 0;
-  if (ssfReviewsCountEl) {
-    ssfReviewsCountEl.textContent = _pendingReviews.length ? ` (${_pendingReviews.length})` : "";
+  srListEl.innerHTML = "";
+  srEmptyEl.hidden = _sessionReviews.length > 0;
+  if (srCountEl) {
+    srCountEl.textContent = _sessionReviews.length ? ` (${_sessionReviews.length})` : "";
   }
 
-  _pendingReviews.forEach(r => {
+  _sessionReviews.forEach(r => {
     const li = document.createElement("li");
     li.className = "ss-question-item";
     li.innerHTML = `
       <div class="ss-question-item-info">
-        <span>${escapeHtml(r.label)}</span>
+        <span>${escapeHtml(_reviewLabel(r))}</span>
       </div>
       <div class="ss-question-item-actions">
-        <button type="button" class="btn btn-ghost btn-sm" data-review-remove="${r.localId}">Remover</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-review-remove="${r.id}">Remover</button>
       </div>
     `;
-    li.querySelector("[data-review-remove]").addEventListener("click", () => _removePendingReview(r.localId));
-    ssfReviewsListEl.appendChild(li);
+    li.querySelector("[data-review-remove]").addEventListener("click", () => _removeReviewEntry(r.id));
+    srListEl.appendChild(li);
   });
 }
 
-function _removePendingReview(localId) {
-  _pendingReviews = _pendingReviews.filter(r => r.localId !== localId);
-  _renderReviewsList();
+async function _removeReviewEntry(reviewId) {
+  if (_qrBusy) return;
+  _qrBusy = true;
+  try {
+    await unlinkReview(reviewId);
+    _sessionReviews = _sessionReviews.filter(r => r.id !== reviewId);
+    _renderReviewsList();
+    _loadReviewOptions(); // a revisão desvinculada volta a ficar disponível para associação
+  } catch (err) {
+    handleError(err, { context: "studySessionView.removeReview" });
+  } finally {
+    _qrBusy = false;
+  }
 }
 
-function _addPendingReviewCreation() {
-  const scheduled_date = ssfRDateEl.value;
-  if (!scheduled_date) return;
-  // BUG 15: sem esta checagem, clicar "Criar revisão" duas vezes com a mesma
-  // data enfileirava duas entradas idênticas, e cada uma virava um INSERT
-  // separado em _confirmFinish() — duas revisões pendentes duplicadas para o
-  // mesmo compromisso/data. Mesma proteção que _addPendingReviewAssociation()
-  // já tinha para revisões existentes (linha abaixo).
-  if (_pendingReviews.some(r => r.kind === "create" && r.scheduled_date === scheduled_date)) return;
-  _pendingReviews.push({
-    localId: _nextReviewLocalId++,
-    kind:    "create",
-    scheduled_date,
-    label:   `Nova revisão em ${_formatReviewDate(scheduled_date)}`,
-  });
-  ssfRDateEl.value = "";
-  _renderReviewsList();
+// BUG 15 (herdado do fluxo antigo, agora contra duplo clique real em vez de
+// duplicata numa lista pendente): _qrBusy evita criar duas revisões
+// idênticas se o clique disparar de novo antes do primeiro terminar.
+async function _createAndAssociateReview() {
+  const scheduled_date = srDateEl.value;
+  if (!scheduled_date || _qrBusy || !_session) return;
+  _qrBusy = true;
+  srBtnCreate.disabled = true;
+  let created = null;
+  try {
+    created = await createReview({ event_id: _session.event_id, scheduled_date });
+    const linked = await associateReview(created.id, _session.id);
+    _sessionReviews.push(linked);
+    srDateEl.value = "";
+    _renderReviewsList();
+  } catch (err) {
+    handleError(err, { context: "studySessionView.createReview" });
+    // BUG 16 (herdado do fluxo antigo): se createReview() teve sucesso mas
+    // associateReview() falhou logo em seguida (ex.: rede caiu no meio), a
+    // revisão já existe no banco, sem vínculo — sem recarregar as opções
+    // aqui, ela ficaria invisível até a próxima sessão, e um novo clique em
+    // "Criar revisão" criaria uma segunda revisão duplicada para a mesma
+    // data em vez de reaproveitar a órfã. Recarregar a lista de pendentes a
+    // oferece de volta em "Revisão existente", pronta para associar.
+    if (created) await _loadReviewOptions();
+  } finally {
+    _qrBusy = false;
+    srBtnCreate.disabled = false;
+  }
 }
 
-function _addPendingReviewAssociation() {
-  const reviewId = ssfRExistingEl.value;
-  if (!reviewId) return;
-  if (_pendingReviews.some(r => r.kind === "associate" && r.reviewId === reviewId)) return;
-  const label = ssfRExistingEl.selectedOptions[0]?.textContent || "Revisão existente";
-  _pendingReviews.push({
-    localId: _nextReviewLocalId++,
-    kind:    "associate",
-    reviewId,
-    label:   `Associar: ${label}`,
-  });
-  _renderReviewsList();
+async function _associateExistingReview() {
+  const reviewId = srExistingEl.value;
+  if (!reviewId || _qrBusy || !_session) return;
+  _qrBusy = true;
+  srBtnAssociate.disabled = true;
+  try {
+    const linked = await associateReview(reviewId, _session.id);
+    _sessionReviews.push(linked);
+    _renderReviewsList();
+    await _loadReviewOptions(); // a revisão associada não pode ser oferecida de novo
+  } catch (err) {
+    handleError(err, { context: "studySessionView.associateReview" });
+  } finally {
+    _qrBusy = false;
+    srBtnAssociate.disabled = false;
+  }
 }
 
 // Preenche o select de revisões pendentes — do compromisso vinculado quando a
 // sessão tem event_id, ou globais numa sessão avulsa (mesma semântica opcional
-// de reviewService.listPending()). Falha aqui nunca bloqueia o encerramento:
-// a etapa é opcional, então o erro só desabilita a associação.
+// de reviewService.listPending()). Falha aqui nunca bloqueia a sessão: a
+// etapa é opcional, então o erro só desabilita a associação.
 async function _loadReviewOptions() {
   const requestId = ++_reviewOptionsRequestId;
-  ssfRExistingEl.innerHTML = "";
+  srExistingEl.innerHTML = "";
   try {
     const pending = await listPendingReviews(_session?.event_id || undefined);
     if (requestId !== _reviewOptionsRequestId) return;
-    ssfRExistingEl.innerHTML = "";
+    srExistingEl.innerHTML = "";
     // BUG 17: status "pending" não implica "sem sessão" — uma revisão já
     // associada a outra Sessão continua pending até ser concluída/pulada.
     // Oferecê-la aqui de novo levaria reviewSessionService.associateReview()
-    // a rejeitar a confirmação (ou, antes da correção, a roubar o vínculo
+    // a rejeitar a associação (ou, antes da correção, a roubar o vínculo
     // silenciosamente); filtrar por session_id evita oferecer uma opção que
     // já sabemos que vai falhar.
     const available = pending.filter(r => !r.session_id);
     available.forEach(r => {
       const opt = document.createElement("option");
       opt.value = r.id;
-      opt.textContent = `Revisão de ${_formatReviewDate(r.scheduled_date)}`;
-      ssfRExistingEl.appendChild(opt);
+      opt.textContent = _reviewLabel(r);
+      srExistingEl.appendChild(opt);
     });
-    ssfReviewAssociateRowEl.hidden = available.length === 0;
+    srAssociateRowEl.hidden = available.length === 0;
   } catch (err) {
     if (requestId !== _reviewOptionsRequestId) return;
     handleError(err, { context: "studySessionView.loadReviewOptions", silent: true });
-    ssfReviewAssociateRowEl.hidden = true;
+    srAssociateRowEl.hidden = true;
   }
 }
 
@@ -700,27 +812,17 @@ function _openFinishModal() {
   ssfBtnConfirm.disabled = false;
   ssfBtnBack.disabled = false;
 
-  _pendingQuestions = [];
-  _resetQuestionForm();
-  _renderQuestionsList();
-  // F10 #3.3 — o formulário nasce oculto atrás de "+ Adicionar questão";
-  // só a lista compacta (vazia neste ponto) fica visível.
-  _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
-
-  // Auditoria UX #04: as etapas opcionais sempre nascem colapsadas — quem só
-  // quer confirmar o encerramento não atravessa os formulários delas.
-  _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, false);
-  _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, false);
-
-  // Revisões (F7.5): criar exige um compromisso (reviewService.create() valida
-  // event_id), então a linha de criação só aparece em sessões vinculadas.
-  _pendingReviews = [];
-  ssfRDateEl.value = "";
-  ssfReviewCreateRowEl.hidden = !_session.event_id;
-  ssfReviewAssociateRowEl.hidden = true; // reaparece se _loadReviewOptions() encontrar pendentes
-  _renderReviewsList();
-  _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, false);
-  _loadReviewOptions();
+  // F10 #4.3 — Questões/Revisões já foram registradas (ou não) durante a
+  // sessão ativa; aqui só um recap somente-leitura do que já está persistido
+  // (_sessionQuestions/_sessionReviews). Esqueceu de registrar algo?
+  // "Continuar sessão" fecha este resumo sem encerrar nada, voltando à tela
+  // onde as seções continuam disponíveis.
+  ssfRecapQuestionsEl.textContent = _sessionQuestions.length
+    ? `${_sessionQuestions.length} questão(ões) registrada(s) nesta sessão.`
+    : "Nenhuma questão registrada nesta sessão.";
+  ssfRecapReviewsEl.textContent = _sessionReviews.length
+    ? `${_sessionReviews.length} revisão(ões) vinculada(s) a esta sessão.`
+    : "Nenhuma revisão vinculada a esta sessão.";
 
   finishModal.open(ssfBtnBack);
 }
@@ -728,25 +830,18 @@ function _openFinishModal() {
 function _closeFinishModal() {
   _pendingEndedAt = null;
   _pendingNetMinutes = null;
-  _pendingQuestions = [];
-  _editingQuestionLocalId = null;
-  _pendingReviews = [];
-  _reviewOptionsRequestId++; // invalida qualquer busca de revisões pendentes em andamento
   finishModal.close();
 }
 
-// Ordem de persistência do encerramento (F7.4 + F7.5): Questões primeiro,
-// depois Revisões (criação via reviewService.create() + vínculo via
-// reviewSessionService.associateReview()), e só então finishSession() — a
-// Sessão continua sendo a entidade raiz, e SessionFinished continua sendo o
-// único evento emitido ao final (por activitySessionService, intocado).
+// F10 #4.3 — Questões e Revisões já estão persistidas antes de chegar aqui
+// (cada uma foi gravada no momento em que o usuário a adicionou, durante a
+// sessão ativa); _confirmFinish() só precisa mais encerrar a Sessão em si.
+// SessionFinished continua sendo o único evento emitido ao final (por
+// activitySessionService, intocado).
 async function _confirmFinish() {
   if (_busy || !_session || !_pendingEndedAt) return;
   const sessionId = _session.id;
-  const eventId = _session.event_id;
   const endedAt = _pendingEndedAt;
-  const questions = _pendingQuestions;
-  const reviews = _pendingReviews;
   const notes = ssfNotesEl.value;
 
   let finishedSession = null;
@@ -754,30 +849,6 @@ async function _confirmFinish() {
   ssfBtnBack.disabled = true;
   try {
     await _run(async () => {
-      for (const q of questions) {
-        await addQuestion(sessionId, {
-          question_type: q.question_type,
-          status:        q.status,
-          difficulty:    q.difficulty,
-          subject:       q.subject,
-          topic:         q.topic,
-        });
-      }
-      for (const r of reviews) {
-        // BUG 16: se uma falha (ex.: erro de rede) interrompe este loop no meio
-        // e o usuário confirma de novo (BUG 08 mantém o resumo aberto com
-        // _pendingReviews intactos para permitir retry), reprocessar do zero
-        // recriava reviewService.create() para entradas já persistidas com
-        // sucesso na tentativa anterior — revisão duplicada. Ao converter a
-        // entrada para "associate" assim que ela é criada, o retry apenas
-        // reassocia a mesma revisão (idempotente) em vez de criar outra.
-        if (r.kind === "create") {
-          const created = await createReview({ event_id: eventId, scheduled_date: r.scheduled_date });
-          r.kind = "associate";
-          r.reviewId = created.id;
-        }
-        await associateReview(r.reviewId, sessionId);
-      }
       finishedSession = await finishSession(sessionId, endedAt, notes);
       return finishedSession;
     });
@@ -786,12 +857,10 @@ async function _confirmFinish() {
     ssfBtnBack.disabled = false;
   }
 
-  // BUG 08: uma falha em qualquer etapa (Questões, Revisões ou finishSession)
-  // já foi reportada por handleError() dentro de _run() — o fluxo não pode
-  // seguir adiante nem descartar o que o usuário preencheu. O resumo continua
-  // aberto, com _pendingQuestions/_pendingReviews intactos, para permitir
-  // corrigir e confirmar de novo, em vez de fechar o modal silenciosamente e
-  // deixar a sessão presa num limbo (nem finalizada, nem com o resumo aberto).
+  // Uma falha em finishSession() já foi reportada por handleError() dentro de
+  // _run() — o resumo continua aberto para permitir corrigir e confirmar de
+  // novo, em vez de fechar o modal silenciosamente e deixar a sessão presa
+  // num limbo (nem finalizada, nem com o resumo aberto).
   if (!finishedSession) return;
 
   // F10 #3.4 — a tela somente-leitura "Sessão concluída" (F7.10) foi removida:
@@ -860,6 +929,7 @@ export async function initStudySessionView() {
     _eventMeta = null;
   }
   _render();
+  _syncSessionQuestionsAndReviews();
 
   // F7.9 — Sessão abandonada: a restauração acima já aconteceu normalmente
   // (nenhuma mudança de comportamento para sessões recentes). Uma sessão
@@ -952,11 +1022,13 @@ export function resetStudySessionView() {
   _session   = null;
   _eventMeta = null;
   _busy      = false;
+  _qrBusy    = false;
   _pendingEndedAt = null;
   _pendingNetMinutes = null;
-  _pendingQuestions = [];
-  _editingQuestionLocalId = null;
-  _pendingReviews = [];
+  _sessionQuestions = [];
+  _editingQuestionId = null;
+  _sessionReviews = [];
+  _sessionDataLoadedFor = null;
   _reviewOptionsRequestId++;
   if (finishModalEl && !finishModalEl.hidden) finishModal.close();
   if (emptyEl) _render();
@@ -971,18 +1043,23 @@ export function resetStudySessionView() {
   if (timeEl) timeEl.textContent = "";
   if (statusBadgeEl) { statusBadgeEl.textContent = ""; statusBadgeEl.className = "ss-status-badge"; }
 
-  // Campos e listas do modal de encerramento (F7.4/F7.5): _openFinishModal()
-  // sempre os reconstrói do zero antes de reabrir, mas nada os limpava ao
-  // fechar por logout — o resumo e as listas de questões/revisões do usuário
-  // anterior ficariam presentes no DOM enquanto o modal permanece fechado.
+  // Campos do modal de encerramento (F7.3): _openFinishModal() sempre os
+  // reconstrói do zero antes de reabrir, mas nada os limpava ao fechar por
+  // logout — os dados do usuário anterior ficariam presentes no DOM enquanto
+  // o modal permanece fechado.
   [ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl,
-   ssfEndedAtEl, ssfNetTimeEl]
+   ssfEndedAtEl, ssfNetTimeEl, ssfRecapQuestionsEl, ssfRecapReviewsEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (ssfNotesEl) ssfNotesEl.value = "";
-  if (ssfQuestionsListEl) _renderQuestionsList();
-  if (ssfReviewsListEl) _renderReviewsList();
-  if (ssfQuestionsToggleEl) _setSectionExpanded(ssfQuestionsToggleEl, ssfQuestionsBodyEl, false);
-  if (ssfReviewsToggleEl)   _setSectionExpanded(ssfReviewsToggleEl, ssfReviewsBodyEl, false);
-  if (ssfQuestionFormEl) _setInlineFormVisible(ssfQuestionFormEl, ssfBtnToggleQuestionForm, false);
-  if (ssfReviewFormEl)   _setInlineFormVisible(ssfReviewFormEl, ssfBtnToggleReviewForm, false);
+
+  // Seções de Questões/Revisões (F10 #4.3, agora na tela ativa): mesma
+  // simetria init/reset — nem a lista nem o formulário do usuário anterior
+  // podem sobreviver no DOM, mesmo dentro de uma seção hidden.
+  if (sqListEl) _renderQuestionsList();
+  if (srListEl) _renderReviewsList();
+  if (sqToggleEl) _setSectionExpanded(sqToggleEl, sqBodyEl, false);
+  if (srToggleEl) _setSectionExpanded(srToggleEl, srBodyEl, false);
+  if (sqFormEl) _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
+  if (srFormEl) _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
+  if (srDateEl) srDateEl.value = "";
 }
