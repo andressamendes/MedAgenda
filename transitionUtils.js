@@ -21,3 +21,16 @@ export function revealWithAnimation(el) {
   void el.offsetWidth; // força reflow
   el.classList.add(REVEAL_CLASS);
 }
+
+// F11 E9 — mesmo princípio acima, aplicado à troca de página inteira
+// (showPage()/navigationView.js): um fade+translate mais curto (180ms via
+// .page-enter/@keyframes page-enter em style.css) para que a navegação
+// pareça viva sem atrasar a percepção de resposta ao clique.
+const PAGE_ENTER_CLASS = "page-enter";
+
+export function revealPageWithAnimation(el) {
+  if (!el) return;
+  el.classList.remove(PAGE_ENTER_CLASS);
+  void el.offsetWidth; // força reflow
+  el.classList.add(PAGE_ENTER_CLASS);
+}

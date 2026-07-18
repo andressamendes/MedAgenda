@@ -19,6 +19,27 @@ afterEach(() => {
   uninstallDom();
 });
 
+// F11 E9 — navegação sem nenhuma microinteração fazia a troca de página
+// parecer um corte seco. showPage() agora aplica um fade+translate curto
+// (.page-enter, 180ms — CSS trata prefers-reduced-motion) na página que
+// acabou de aparecer, reaproveitando o mesmo princípio de
+// transitionUtils.js/revealWithAnimation() já usado em accordions.
+test("F11 E9 — showPage() adds .page-enter to the page that becomes visible", () => {
+  nav.showPage("journal");
+  assert.strictEqual(document.getElementById("page-journal").classList.contains("page-enter"), true);
+  assert.strictEqual(document.getElementById("page-agenda").classList.contains("page-enter"), false);
+});
+
+test("F11 E9 — showPage() called again for the already-active page does not replay the animation", () => {
+  nav.showPage("journal");
+  const journalPage = document.getElementById("page-journal");
+  journalPage.classList.remove("page-enter"); // simula a animação já ter terminado
+
+  nav.showPage("journal");
+
+  assert.strictEqual(journalPage.classList.contains("page-enter"), false, "re-render da mesma página não deve reiniciar o fade");
+});
+
 test("showPage() shows only the target page and hides the others", () => {
   nav.showPage("appointments");
 
