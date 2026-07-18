@@ -91,7 +91,7 @@ afterEach(() => {
 test("openSettings() shows the overlay with current notification/push state", async (t) => {
   mockServices(t);
   const { settings, diagnostic } = await loadModules();
-  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  settings.initSettingsModal();
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
@@ -112,7 +112,7 @@ test("openSettings() marks the currently active theme tab as selected", async (t
   const { setTheme } = await import(`../../themeService.js?t=${Math.random()}`);
   setTheme("dark");
   const { settings, diagnostic } = await loadModules();
-  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  settings.initSettingsModal();
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
@@ -128,7 +128,7 @@ test("clicking a theme tab switches the theme, persists it, and updates the sele
   mockServices(t);
   const { settings, diagnostic } = await loadModules();
   const { getTheme } = await import(`../../themeService.js?t=${Math.random()}`);
-  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  settings.initSettingsModal();
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
@@ -146,7 +146,7 @@ test("clicking a theme tab switches the theme, persists it, and updates the sele
 test("closeSettings() hides the overlay", async (t) => {
   mockServices(t);
   const { settings, diagnostic } = await loadModules();
-  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  settings.initSettingsModal();
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
@@ -159,7 +159,7 @@ test("clicking the notification toggle disables notifications and cancels pendin
   mockServices(t);
   notificationService.initNotifications("test-user");
   const { settings, diagnostic } = await loadModules();
-  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  settings.initSettingsModal();
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
@@ -173,7 +173,7 @@ test("clicking the notification toggle disables notifications and cancels pendin
 test("clicking 'Ver diagnóstico' closes settings and opens the diagnostic modal with live data", async (t) => {
   mockServices(t);
   const { settings, diagnostic } = await loadModules();
-  settings.initSettingsModal({ isDevMode: () => false, setDevMode: () => {} });
+  settings.initSettingsModal();
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
@@ -212,17 +212,17 @@ test("diagnostic modal escapes non-static status strings before rendering", asyn
   assert.match(body.innerHTML, /&lt;img src=x onerror=alert\(1\)&gt;/);
 });
 
-test("dev mode toggle reflects the injected isDevMode/setDevMode callbacks", async (t) => {
+// F10 PR14 — Modo Desenvolvedor foi movido de Configurações para dentro do
+// modal de Diagnóstico (mesmo público de ferramentas técnicas/avançadas).
+test("dev mode toggle (inside the diagnostic modal) reflects the injected isDevMode/setDevMode callbacks", async (t) => {
   mockServices(t);
-  const { settings, diagnostic } = await loadModules();
+  const { diagnostic } = await loadModules();
   let devMode = false;
-  settings.initSettingsModal({
+  diagnostic.initDiagnosticModal({
     isDevMode:  () => devMode,
     setDevMode: (v) => { devMode = v; },
   });
-  diagnostic.initDiagnosticModal();
 
-  settings.openSettings();
   document.getElementById("btn-devmode-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(devMode, true);

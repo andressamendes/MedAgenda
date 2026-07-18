@@ -589,10 +589,10 @@ safeInit("abas da agenda (Semana/Mês)", _initAgendaViewTabs);
 safeInit("categorias (modal)", () => initCategoryView(refreshAll));
 
 // ── [DOMAIN: configurações e notificações] — extraído para settingsModal.js ──
-safeInit("configurações", () => initSettingsModal({ isDevMode: _isDevMode, setDevMode: _setDevMode }));
+safeInit("configurações", initSettingsModal);
 
 // ── [DOMAIN: diagnóstico] — extraído para diagnosticModal.js ─────────────
-safeInit("diagnóstico", initDiagnosticModal);
+safeInit("diagnóstico", () => initDiagnosticModal({ isDevMode: _isDevMode, setDevMode: _setDevMode }));
 
 // ── [DOMAIN: formulário de evento] — extraído para eventFormView.js ────────
 safeInit("formulário de compromisso", () => initEventForm(refreshAll));
