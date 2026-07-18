@@ -349,7 +349,7 @@ test("an event with no sessions shows a friendly empty state", async (t) => {
 // ── Auditoria UX #26: histórico/estatísticas colapsados por padrão — o modal
 // de edição não deve mais abrir direto num relatório inteiro.
 
-test("UX #26 — the session history/stats body starts collapsed, behind a 'Ver histórico deste compromisso' toggle", async (t) => {
+test("UX #26 — the session history/stats body starts collapsed, behind a 'Mostrar histórico deste compromisso' toggle", async (t) => {
   mockEventService(t, {
     sessionHistory: [{
       id: "sess-1", status: "finished", source: "event",

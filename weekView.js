@@ -8,7 +8,7 @@ import { errorToState, renderStateBlock } from "./stateView.js";
 import { getDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { renderPlanList } from "./planListView.js";
-import { iconCalendarWeek } from "./icons.js";
+import { iconCalendarWeek, iconChevronDown } from "./icons.js";
 
 // F10 #1.6 — Estado vazio didático: um usuário novo, com a agenda ainda sem
 // nenhum compromisso, via só a grade em branco — "zero onboarding hoje"
@@ -117,7 +117,7 @@ function buildShell() {
     </div>
     <div id="wk-tip" class="smart-cards" hidden></div>
     <div class="wk-plan-toggle-row">
-      <button type="button" class="btn btn-sm btn-ghost" id="wk-plan-toggle" hidden>Ver plano da semana</button>
+      <button type="button" class="btn btn-sm btn-ghost disclosure-toggle" id="wk-plan-toggle" aria-expanded="false" aria-controls="wk-plan-list" hidden><span class="disclosure-label">Mostrar plano da semana</span><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
     </div>
     <div id="wk-plan-list" class="ai-result-body--plan wk-plan-list" hidden></div>
     <div class="wk-wrap">
@@ -275,7 +275,7 @@ function updateEmptyTip(isEmpty) {
 // Reflection Engine uma única vez e devolve, via decisionEngine.js, a lista
 // final priorizada e sem duplicidade — junto com o plano bruto do Planning
 // Engine (mesma rodada, sem recalcular nada), usado só pela lista completa
-// por trás do botão "Ver plano da semana". A dica é a decisão de origem
+// por trás do botão "Mostrar plano da semana". A dica é a decisão de origem
 // "planning" cuja data sugerida é hoje (mais concreta: já tem tempo e data);
 // na ausência de uma para hoje, cai para a decisão de maior prioridade geral
 // (já ordenada pelo Decision Engine). Nunca cria, altera ou agenda nada — é
@@ -314,7 +314,8 @@ async function loadTip() {
   toggleBtn.hidden = _weeklyPlan.length === 0;
   _planExpanded = false;
   planListEl.hidden = true;
-  toggleBtn.textContent = "Ver plano da semana";
+  toggleBtn.setAttribute("aria-expanded", "false");
+  toggleBtn.querySelector(".disclosure-label").textContent = "Mostrar plano da semana";
   if (_weeklyPlan.length) renderPlanList(planListEl, _weeklyPlan);
 }
 
@@ -324,7 +325,8 @@ function togglePlan() {
   if (!toggleBtn || !planListEl) return;
   _planExpanded = !_planExpanded;
   planListEl.hidden = !_planExpanded;
-  toggleBtn.textContent = _planExpanded ? "Ocultar plano da semana" : "Ver plano da semana";
+  toggleBtn.setAttribute("aria-expanded", String(_planExpanded));
+  toggleBtn.querySelector(".disclosure-label").textContent = _planExpanded ? "Ocultar plano da semana" : "Mostrar plano da semana";
 }
 
 function updateLabel() {

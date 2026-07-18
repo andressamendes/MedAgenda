@@ -256,7 +256,7 @@
           </button>
           <button class="nav-item" data-page="study-session">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
-            <span class="nav-label">Sessão de Estudo</span>
+            <span class="nav-label">Sessão</span>
           </button>
           <button class="nav-item" id="nav-ai-assistant">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" focusable="false"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg></span>
@@ -274,7 +274,7 @@
           </button>
           <button class="nav-item" data-page="journal">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
-            <span class="nav-label">Diário de Estudos</span>
+            <span class="nav-label">Diário</span>
           </button>
         </div>
 
@@ -340,7 +340,7 @@
         <!-- Page: Compromissos -->
         <div id="page-appointments" class="app-page" hidden>
           <div class="page-header">
-            <h1 class="page-title">Meus Compromissos</h1>
+            <h1 class="page-title">Compromissos</h1>
             <button id="btn-new-event-apt" class="btn btn-primary btn-sm">+ Novo compromisso</button>
           </div>
           <div class="appointments-toolbar">
@@ -361,10 +361,10 @@
           <div id="event-list"></div>
         </div>
 
-        <!-- Page: Sessão de Estudo (F7.2) — único local onde o cronômetro existe -->
+        <!-- Page: Sessão (F7.2) — único local onde o cronômetro existe -->
         <div id="page-study-session" class="app-page" hidden>
           <div class="page-header">
-            <h1 class="page-title">Sessão de Estudo</h1>
+            <h1 class="page-title">Sessão</h1>
           </div>
 
           <!-- Estado: nenhuma sessão em andamento -->
@@ -402,10 +402,12 @@
                        iniciar uma sessão avulsa não peça 5 decisões antes de
                        começar — mesmo padrão de disclosure (aria-expanded +
                        "Mostrar"/"Ocultar") já usado em Questões/Revisões,
-                       logo abaixo nesta mesma tela. -->
+                       logo abaixo nesta mesma tela. F11 E8: chevron rotativo
+                       (.disclosure-toggle) reforça visualmente o mesmo par
+                       rótulo+ícone em todos os toggles do app. -->
                   <div class="ss-collapsible-header">
                     <h3 class="ss-questions-title">Mais opções</h3>
-                    <button type="button" class="btn btn-ghost btn-sm" id="ss-start-more-toggle" aria-expanded="false" aria-controls="ss-start-more-body">Mostrar</button>
+                    <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-start-more-toggle" aria-expanded="false" aria-controls="ss-start-more-body"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
                   </div>
                   <div id="ss-start-more-body" hidden>
                     <div class="field">
@@ -514,7 +516,7 @@
             <div class="ss-questions-block">
               <div class="ss-collapsible-header">
                 <h3 class="ss-questions-title">Questões Resolvidas<span id="ss-questions-count" class="ss-section-count"></span></h3>
-                <button type="button" class="btn btn-ghost btn-sm" id="ss-questions-toggle" aria-expanded="false" aria-controls="ss-questions-body">Mostrar</button>
+                <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-questions-toggle" aria-expanded="false" aria-controls="ss-questions-body"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
               </div>
               <div id="ss-questions-body" hidden>
 
@@ -567,7 +569,7 @@
             <div class="ss-questions-block">
               <div class="ss-collapsible-header">
                 <h3 class="ss-questions-title">Revisões<span id="ss-reviews-count" class="ss-section-count"></span></h3>
-                <button type="button" class="btn btn-ghost btn-sm" id="ss-reviews-toggle" aria-expanded="false" aria-controls="ss-reviews-body">Mostrar</button>
+                <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-reviews-toggle" aria-expanded="false" aria-controls="ss-reviews-body"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
               </div>
               <div id="ss-reviews-body" hidden>
               <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
@@ -700,7 +702,7 @@
           </div>
         </div>
 
-        <!-- Page: Diário de Estudos (F8.1) -->
+        <!-- Page: Diário (F8.1) -->
         <!-- F10 #4.2 — o Histórico de Sessões (antes uma página própria,
              #page-history) foi absorvido aqui como a aba "Canceladas"/
              "Todas" abaixo. #sj-status-tabs alterna entre a visão rica de
@@ -712,7 +714,7 @@
              studySummaryService, que presumem sessão concluída). -->
         <div id="page-journal" class="app-page" hidden>
           <div class="page-header">
-            <h1 class="page-title">Diário de Estudos</h1>
+            <h1 class="page-title">Diário</h1>
           </div>
           <div class="ah-filter-tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
             <button type="button" class="ah-filter-tab ah-filter-tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
@@ -743,9 +745,10 @@
                acima do conteúdo. Busca + período continuam visíveis; o
                restante fica atrás de "Filtros avançados", com um contador
                do que está ativo — mesmo padrão aria-expanded + hidden já
-               usado em "Detalhar" (abaixo, _toggleEntry) e no resumo da
-               Sessão de Estudo (UX #04). -->
-          <button type="button" class="btn btn-ghost btn-sm" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters">Filtros avançados<span id="sj-advanced-filters-count" class="ss-section-count"></span></button>
+               usado em "Mostrar"/"Ocultar" (abaixo, _toggleEntry) e no resumo
+               da Sessão (UX #04). F11 E8: chevron rotativo (.disclosure-toggle)
+               padroniza o mesmo par rótulo+ícone em todos os toggles. -->
+          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters"><span class="disclosure-label">Filtros avançados</span><span id="sj-advanced-filters-count" class="ss-section-count"></span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
           <div id="sj-advanced-filters" hidden>
             <div class="toolbar-filters">
               <select id="sj-filter-category" class="toolbar-select">
@@ -1004,10 +1007,12 @@
                visualmente com o formulário de edição — quem só quer mudar o
                horário atravessava um relatório inteiro. Colapsado por padrão;
                os dados continuam carregados normalmente (F1.5/F1.6), só a
-               exibição fica atrás do toggle. -->
+               exibição fica atrás do toggle. F11 E8: rótulo padronizado para
+               o par "Mostrar"/"Ocultar" usado no resto do app (eventFormView
+               atualiza o texto ao alternar). -->
           <div class="ss-collapsible-header">
             <h3 class="session-history-title">Sessões realizadas</h3>
-            <button type="button" class="btn btn-ghost btn-sm" id="session-history-toggle" aria-expanded="false" aria-controls="session-history-body">Ver histórico deste compromisso</button>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="session-history-toggle" aria-expanded="false" aria-controls="session-history-body"><span class="disclosure-label">Mostrar histórico deste compromisso</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
           </div>
           <div id="session-history-body" hidden>
             <div id="session-stats" class="session-stats" hidden>

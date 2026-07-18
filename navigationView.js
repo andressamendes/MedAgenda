@@ -13,6 +13,17 @@ const APP_PAGES = ['agenda', 'appointments', 'study-session', 'journal', 'dashbo
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 
+// F11 E8 — document.title fixo em "Anoti" tornava histórico/abas/alt-tab
+// inúteis para uma SPA com várias páginas (auditoria #15). Rótulos abaixo
+// espelham os mesmos nomes canônicos usados na sidebar/bottom nav.
+const PAGE_TITLES = {
+  agenda:          'Agenda',
+  appointments:    'Compromissos',
+  'study-session': 'Sessão',
+  journal:         'Diário',
+  dashboard:       'Dashboard',
+};
+
 let appSidebar     = null;
 let sidebarOverlay = null;
 
@@ -91,6 +102,8 @@ export function showPage(name) {
       : btn.removeAttribute('aria-current');
   });
   closeSidebar();
+
+  document.title = `${PAGE_TITLES[name] || PAGE_TITLES.agenda} · Anoti`;
 
   try { localStorage.setItem(LAST_PAGE_KEY, name); } catch { /* storage unavailable */ }
 }

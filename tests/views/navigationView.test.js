@@ -27,6 +27,31 @@ test("showPage() shows only the target page and hides the others", () => {
   assert.strictEqual(document.getElementById("page-study-session").hidden, true);
 });
 
+// F11 E8 (auditoria #15) — document.title era fixo em "Anoti" independente
+// da página; sem isso o histórico do navegador e o alt-tab entre abas eram
+// inúteis para diferenciar telas do app.
+test("F11 E8 — showPage() updates document.title to match the destination page", () => {
+  nav.showPage("appointments");
+  assert.strictEqual(document.title, "Compromissos · Anoti");
+
+  nav.showPage("study-session");
+  assert.strictEqual(document.title, "Sessão · Anoti");
+
+  nav.showPage("journal");
+  assert.strictEqual(document.title, "Diário · Anoti");
+
+  nav.showPage("dashboard");
+  assert.strictEqual(document.title, "Dashboard · Anoti");
+
+  nav.showPage("agenda");
+  assert.strictEqual(document.title, "Agenda · Anoti");
+});
+
+test("F11 E8 — showPage() with an unknown page name falls back to the Agenda title", () => {
+  nav.showPage("calendar");
+  assert.strictEqual(document.title, "Agenda · Anoti");
+});
+
 test("showPage() marks the matching nav item as active with aria-current", () => {
   nav.showPage("appointments");
 
