@@ -92,12 +92,10 @@ const TODAY_CARD_DEFS = [
   {
     title: "Tempo estudado hoje",
     value: d => _formatDuration(d.todayMinutes),
-    desc:  () => "Soma das sessões finalizadas hoje.",
   },
   {
     title: "Sessões hoje",
     value: d => String(d.todaySessionsCount),
-    desc:  () => "Quantidade de sessões finalizadas hoje.",
   },
 ];
 
@@ -112,17 +110,14 @@ const WEEK_MONTH_CARD_DEFS = [
   {
     title: "Tempo estudado este mês",
     value: d => _formatDuration(d.monthMinutes),
-    desc:  () => "Soma das sessões finalizadas neste mês.",
   },
   {
     title: "Sessões na semana",
     value: d => String(d.weekSessionsCount),
-    desc:  () => "Quantidade de sessões finalizadas nesta semana.",
   },
   {
     title: "Sessões no mês",
     value: d => String(d.monthSessionsCount),
-    desc:  () => "Quantidade de sessões finalizadas neste mês.",
   },
   {
     title: "Tempo médio por sessão",
@@ -203,11 +198,17 @@ function _cardsMarkup(defs, data) {
     const configureLink = noGoal
       ? '<button type="button" class="link-btn" data-action="configure-goal">Configurar meta</button>'
       : "";
+    // F11 E7 — nem todo card tem `desc`: cards cujo título já diz tudo
+    // ("Sessões hoje", "Tempo estudado este mês"...) não definem uma, para
+    // não repetir em prosa o que o título e o número acima já mostram.
+    // O parágrafo só é impresso quando há algo a acrescentar de fato (ex.:
+    // metas com valor real, ou desambiguações como "este mês"/"esta semana").
+    const desc = def.desc ? `<p class="dashboard-card-desc">${def.desc(data)}</p>` : "";
     return `
     <div class="dashboard-card">
       <span class="dashboard-card-title">${def.title}</span>
       <span class="dashboard-card-value">${def.value(data)}</span>
-      <p class="dashboard-card-desc">${def.desc(data)}</p>
+      ${desc}
       ${configureLink}
     </div>
   `;
