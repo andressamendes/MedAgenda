@@ -22,6 +22,7 @@ import { getInsightsData } from "./insightsService.js";
 import { onReviewStatusChanged } from "./reviewService.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
 import { skeletonCardsMarkup } from "./skeletonView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
@@ -144,6 +145,7 @@ function _renderBlock(blockDef, block) {
       <p class="dashboard-card-desc">${def.desc(block.data)}</p>
     </div>
   `).join("");
+  revealWithAnimation(cardsEl);
 
   if (noticeEl) {
     noticeEl.hidden = status !== "partial";

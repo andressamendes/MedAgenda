@@ -1,4 +1,5 @@
 // ── navigationView.js — Navegação entre páginas, sidebar e bottom nav ────────
+import { revealWithAnimation } from "./transitionUtils.js";
 
 // F10 #4.2 — 'history' removido: a página própria (#page-history) foi
 // absorvida como abas dentro de 'journal' (ver studyJournalView.js/
@@ -45,6 +46,7 @@ export function initNavigation() {
     const open = !userMenuDropdown.hidden;
     userMenuDropdown.hidden = open;
     userMenuBtn.setAttribute('aria-expanded', String(!open));
+    if (!open) revealWithAnimation(userMenuDropdown);
   });
 
   document.addEventListener('click', () => {

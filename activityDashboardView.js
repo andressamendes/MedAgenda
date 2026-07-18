@@ -14,6 +14,7 @@ import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { skeletonCardsMarkup } from "./skeletonView.js";
 import { pad } from "./utils.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 function _formatDuration(minutes) {
@@ -220,6 +221,7 @@ function _renderCards(data) {
   cardsElByGroup.forEach(({ defs, el }) => {
     el.hidden = false;
     el.innerHTML = _cardsMarkup(defs, data);
+    revealWithAnimation(el);
   });
 }
 

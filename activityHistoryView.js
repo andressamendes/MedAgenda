@@ -24,6 +24,7 @@ import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { skeletonRowsMarkup } from "./skeletonView.js";
 import { pad, escapeHtml } from "./utils.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const PAGE_SIZE = 20;
@@ -218,6 +219,7 @@ async function _loadPage(reset) {
     } else {
       emptyEl.hidden = true;
       _renderSessions(sessions);
+      if (reset) revealWithAnimation(listEl);
     }
     loadMoreBtn.hidden = !hasMore;
   } catch (err) {

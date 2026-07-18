@@ -1289,8 +1289,21 @@ textarea { resize: vertical; }
   100% { transform: translateX(100%); }
 }
 
+/* F10 #5.1 — microinteração de revelação, aplicada tanto na troca de
+   skeleton→conteúdo real quanto na abertura de seções expansíveis
+   (transitionUtils.js/revealWithAnimation()). */
+@keyframes content-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.content-reveal {
+  animation: content-reveal var(--transition-slow);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }
+  .content-reveal { animation: none; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
