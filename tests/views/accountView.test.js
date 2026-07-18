@@ -90,6 +90,30 @@ test("opening the account modal via btn-my-account loads and renders the profile
   assert.strictEqual(document.getElementById("account-overlay").hidden, false);
 });
 
+// ── F10 PR12: Perfil/Foto/Metas e Senha/Exclusão agora vivem em abas
+// separadas, em vez de um único scroll longo misturando edição de rotina
+// com ações sensíveis/destrutivas.
+
+test("F10 PR12 — the account modal opens on the Perfil tab, with the Segurança panel hidden until its tab is clicked", async (t) => {
+  const view = await loadAccountView(t);
+  view.initAccountView("user-1");
+
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("account-panel-profile").hidden, false);
+  assert.strictEqual(document.getElementById("account-panel-security").hidden, true);
+  assert.strictEqual(document.getElementById("account-tab-profile").getAttribute("aria-selected"), "true");
+
+  document.getElementById("account-tab-security").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("account-panel-profile").hidden, true);
+  assert.strictEqual(document.getElementById("account-panel-security").hidden, false);
+  assert.strictEqual(document.getElementById("account-tab-security").getAttribute("aria-selected"), "true");
+  assert.ok(document.getElementById("acc-current-pwd"), "the password field lives in the now-visible Segurança panel");
+  assert.ok(document.getElementById("btn-delete-account"), "the danger zone lives in the same Segurança panel");
+});
+
 // ── Auditoria UX #24: card "Sem meta configurada" do Dashboard passa a abrir
 // o modal já na seção de Metas de Tempo, em vez de deixar o usuário procurar.
 

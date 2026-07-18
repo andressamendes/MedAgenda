@@ -112,115 +112,147 @@ function _renderProfile(p) {
     ? escapeHtml(p.avatar_url)
     : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23e5e7eb'/%3E%3Ccircle cx='32' cy='24' r='10' fill='%239ca3af'/%3E%3Cellipse cx='32' cy='56' rx='18' ry='12' fill='%239ca3af'/%3E%3C/svg%3E`;
 
+  // F10 PR12 — Perfil/Foto/Metas (edição de rotina) e Senha/Exclusão (ações
+  // sensíveis/destrutivas) viviam empilhados num único scroll longo, sem
+  // nenhuma separação entre "editar meus dados" e "mudar minha segurança ou
+  // apagar minha conta". Duas abas (mesmo padrão visual de .ss-start-tab —
+  // duplicado por design, não compartilhado, ver nota em style.css) separam
+  // essas duas naturezas de ação; nenhum campo, valor ou fluxo mudou de lugar
+  // dentro de cada seção, só o agrupamento em abas.
   body.innerHTML = `
-    <!-- Avatar -->
-    <div class="account-section">
-      <h3 class="account-section-title">Foto de Perfil</h3>
-      <div class="avatar-wrap">
-        <img id="avatar-preview" src="${avatarSrc}" alt="Avatar" class="avatar-img" />
-        <div class="avatar-actions">
-          <label for="avatar-file" class="btn btn-sm btn-ghost" role="button">Alterar foto</label>
-          <input type="file" id="avatar-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
-          <button type="button" class="btn btn-sm btn-ghost" id="btn-remove-avatar" ${p?.avatar_url ? '' : 'hidden'}>Remover foto</button>
+    <div class="account-tabs" role="tablist">
+      <button type="button" class="account-tab account-tab--active" id="account-tab-profile" role="tab" aria-selected="true" aria-controls="account-panel-profile">Perfil</button>
+      <button type="button" class="account-tab" id="account-tab-security" role="tab" aria-selected="false" aria-controls="account-panel-security">Segurança e Conta</button>
+    </div>
+
+    <div id="account-panel-profile" role="tabpanel">
+      <!-- Avatar -->
+      <div class="account-section">
+        <h3 class="account-section-title">Foto de Perfil</h3>
+        <div class="avatar-wrap">
+          <img id="avatar-preview" src="${avatarSrc}" alt="Avatar" class="avatar-img" />
+          <div class="avatar-actions">
+            <label for="avatar-file" class="btn btn-sm btn-ghost" role="button">Alterar foto</label>
+            <input type="file" id="avatar-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+            <button type="button" class="btn btn-sm btn-ghost" id="btn-remove-avatar" ${p?.avatar_url ? '' : 'hidden'}>Remover foto</button>
+          </div>
+          <p class="account-hint">JPG, PNG ou WebP — máx. 2 MB</p>
         </div>
-        <p class="account-hint">JPG, PNG ou WebP — máx. 2 MB</p>
+      </div>
+
+      <!-- Profile info -->
+      <div class="account-section">
+        <h3 class="account-section-title">Dados Pessoais</h3>
+        <div class="field">
+          <label for="acc-name">Nome completo</label>
+          <input type="text" id="acc-name" value="${escapeHtml(p?.full_name || '')}" placeholder="Seu nome completo" maxlength="100" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="acc-university">Universidade</label>
+            <input type="text" id="acc-university" value="${escapeHtml(p?.university || '')}" placeholder="Ex: USP" maxlength="120" />
+          </div>
+          <div class="field">
+            <label for="acc-course">Curso</label>
+            <input type="text" id="acc-course" value="${escapeHtml(p?.course || '')}" placeholder="Ex: Medicina" maxlength="60" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="acc-semester">Semestre</label>
+            <select id="acc-semester">${semOpts}</select>
+          </div>
+          <div class="field">
+            <label for="acc-timezone">Fuso horário</label>
+            <select id="acc-timezone">${tzOptions}</select>
+          </div>
+        </div>
+        <p id="profile-error" class="error" role="alert" aria-live="assertive"></p>
+        <div class="form-actions">
+          <button type="button" id="btn-save-profile" class="btn btn-primary">Salvar perfil</button>
+        </div>
+      </div>
+
+      <!-- Metas de Tempo (F2.2) — apenas informativas, exibidas no Dashboard -->
+      <div class="account-section" id="account-section-goals">
+        <h3 class="account-section-title">Metas de Tempo</h3>
+        <p class="account-hint">Metas pessoais de estudo, em minutos. Deixe em branco para não definir uma meta.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="acc-goal-daily">Meta diária (min)</label>
+            <input type="number" id="acc-goal-daily" min="${GOAL_LIMITS.daily.min}" max="${GOAL_LIMITS.daily.max}"
+              value="${p?.daily_goal_minutes ?? ''}" placeholder="Ex: 120" />
+          </div>
+          <div class="field">
+            <label for="acc-goal-weekly">Meta semanal (min)</label>
+            <input type="number" id="acc-goal-weekly" min="${GOAL_LIMITS.weekly.min}" max="${GOAL_LIMITS.weekly.max}"
+              value="${p?.weekly_goal_minutes ?? ''}" placeholder="Ex: 600" />
+          </div>
+          <div class="field">
+            <label for="acc-goal-monthly">Meta mensal (min)</label>
+            <input type="number" id="acc-goal-monthly" min="${GOAL_LIMITS.monthly.min}" max="${GOAL_LIMITS.monthly.max}"
+              value="${p?.monthly_goal_minutes ?? ''}" placeholder="Ex: 2400" />
+          </div>
+        </div>
+        <p id="goals-error" class="error" role="alert" aria-live="assertive"></p>
+        <div class="form-actions">
+          <button type="button" id="btn-save-goals" class="btn btn-primary">Salvar metas</button>
+        </div>
       </div>
     </div>
 
-    <!-- Profile info -->
-    <div class="account-section">
-      <h3 class="account-section-title">Dados Pessoais</h3>
-      <div class="field">
-        <label for="acc-name">Nome completo</label>
-        <input type="text" id="acc-name" value="${escapeHtml(p?.full_name || '')}" placeholder="Seu nome completo" maxlength="100" />
-      </div>
-      <div class="field-row">
+    <div id="account-panel-security" role="tabpanel" hidden>
+      <!-- Change password -->
+      <div class="account-section">
+        <h3 class="account-section-title">Alterar Senha</h3>
         <div class="field">
-          <label for="acc-university">Universidade</label>
-          <input type="text" id="acc-university" value="${escapeHtml(p?.university || '')}" placeholder="Ex: USP" maxlength="120" />
+          <label for="acc-current-pwd">Senha atual</label>
+          <input type="password" id="acc-current-pwd" placeholder="Digite sua senha atual" autocomplete="current-password" maxlength="128" />
         </div>
         <div class="field">
-          <label for="acc-course">Curso</label>
-          <input type="text" id="acc-course" value="${escapeHtml(p?.course || '')}" placeholder="Ex: Medicina" maxlength="60" />
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="acc-semester">Semestre</label>
-          <select id="acc-semester">${semOpts}</select>
+          <label for="acc-new-pwd">Nova senha</label>
+          <input type="password" id="acc-new-pwd" placeholder="Mínimo 8 caracteres" autocomplete="new-password" maxlength="128" />
         </div>
         <div class="field">
-          <label for="acc-timezone">Fuso horário</label>
-          <select id="acc-timezone">${tzOptions}</select>
+          <label for="acc-confirm-pwd">Confirmar nova senha</label>
+          <input type="password" id="acc-confirm-pwd" placeholder="Repita a senha" autocomplete="new-password" maxlength="128" />
+        </div>
+        <p id="pwd-error" class="error" role="alert" aria-live="assertive"></p>
+        <div class="form-actions">
+          <button type="button" id="btn-change-pwd" class="btn btn-primary">Alterar senha</button>
         </div>
       </div>
-      <p id="profile-error" class="error" role="alert" aria-live="assertive"></p>
-      <div class="form-actions">
-        <button type="button" id="btn-save-profile" class="btn btn-primary">Salvar perfil</button>
-      </div>
-    </div>
 
-    <!-- Metas de Tempo (F2.2) — apenas informativas, exibidas no Dashboard -->
-    <div class="account-section" id="account-section-goals">
-      <h3 class="account-section-title">Metas de Tempo</h3>
-      <p class="account-hint">Metas pessoais de estudo, em minutos. Deixe em branco para não definir uma meta.</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="acc-goal-daily">Meta diária (min)</label>
-          <input type="number" id="acc-goal-daily" min="${GOAL_LIMITS.daily.min}" max="${GOAL_LIMITS.daily.max}"
-            value="${p?.daily_goal_minutes ?? ''}" placeholder="Ex: 120" />
-        </div>
-        <div class="field">
-          <label for="acc-goal-weekly">Meta semanal (min)</label>
-          <input type="number" id="acc-goal-weekly" min="${GOAL_LIMITS.weekly.min}" max="${GOAL_LIMITS.weekly.max}"
-            value="${p?.weekly_goal_minutes ?? ''}" placeholder="Ex: 600" />
-        </div>
-        <div class="field">
-          <label for="acc-goal-monthly">Meta mensal (min)</label>
-          <input type="number" id="acc-goal-monthly" min="${GOAL_LIMITS.monthly.min}" max="${GOAL_LIMITS.monthly.max}"
-            value="${p?.monthly_goal_minutes ?? ''}" placeholder="Ex: 2400" />
-        </div>
+      <!-- Danger zone -->
+      <div class="account-section account-danger-zone">
+        <h3 class="account-section-title">Zona de Perigo</h3>
+        <p class="account-hint">Excluir sua conta remove permanentemente todos os seus dados, compromissos, categorias e notificações. Esta ação não pode ser desfeita.</p>
+        <button type="button" id="btn-delete-account" class="btn btn-sm btn-danger">Excluir minha conta</button>
       </div>
-      <p id="goals-error" class="error" role="alert" aria-live="assertive"></p>
-      <div class="form-actions">
-        <button type="button" id="btn-save-goals" class="btn btn-primary">Salvar metas</button>
-      </div>
-    </div>
-
-    <!-- Change password -->
-    <div class="account-section">
-      <h3 class="account-section-title">Alterar Senha</h3>
-      <div class="field">
-        <label for="acc-current-pwd">Senha atual</label>
-        <input type="password" id="acc-current-pwd" placeholder="Digite sua senha atual" autocomplete="current-password" maxlength="128" />
-      </div>
-      <div class="field">
-        <label for="acc-new-pwd">Nova senha</label>
-        <input type="password" id="acc-new-pwd" placeholder="Mínimo 8 caracteres" autocomplete="new-password" maxlength="128" />
-      </div>
-      <div class="field">
-        <label for="acc-confirm-pwd">Confirmar nova senha</label>
-        <input type="password" id="acc-confirm-pwd" placeholder="Repita a senha" autocomplete="new-password" maxlength="128" />
-      </div>
-      <p id="pwd-error" class="error" role="alert" aria-live="assertive"></p>
-      <div class="form-actions">
-        <button type="button" id="btn-change-pwd" class="btn btn-primary">Alterar senha</button>
-      </div>
-    </div>
-
-    <!-- Danger zone -->
-    <div class="account-section account-danger-zone">
-      <h3 class="account-section-title">Zona de Perigo</h3>
-      <p class="account-hint">Excluir sua conta remove permanentemente todos os seus dados, compromissos, categorias e notificações. Esta ação não pode ser desfeita.</p>
-      <button type="button" id="btn-delete-account" class="btn btn-sm btn-danger">Excluir minha conta</button>
     </div>
   `;
 
   _bindProfileEvents();
 }
 
+function _switchAccountTab(tab) {
+  const isProfile = tab === 'profile';
+  document.getElementById('account-tab-profile')?.classList.toggle('account-tab--active', isProfile);
+  document.getElementById('account-tab-security')?.classList.toggle('account-tab--active', !isProfile);
+  document.getElementById('account-tab-profile')?.setAttribute('aria-selected', String(isProfile));
+  document.getElementById('account-tab-security')?.setAttribute('aria-selected', String(!isProfile));
+  const profilePanel  = document.getElementById('account-panel-profile');
+  const securityPanel = document.getElementById('account-panel-security');
+  if (profilePanel)  profilePanel.hidden  = !isProfile;
+  if (securityPanel) securityPanel.hidden = isProfile;
+}
+
 // ── Event bindings (called after render) ───────────────────────────────────
 function _bindProfileEvents() {
+  // Tabs
+  document.getElementById('account-tab-profile')?.addEventListener('click', () => _switchAccountTab('profile'));
+  document.getElementById('account-tab-security')?.addEventListener('click', () => _switchAccountTab('security'));
+
   // Avatar
   document.getElementById('avatar-file')?.addEventListener('change', _handleAvatarChange);
   document.getElementById('btn-remove-avatar')?.addEventListener('click', _handleRemoveAvatar);
