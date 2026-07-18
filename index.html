@@ -1185,18 +1185,33 @@
 
     <div class="ai-panel-actions">
       <p class="ai-panel-desc">Escolha uma análise com seus dados reais:</p>
-      <button id="btn-ai-weekly"   class="btn ai-action-btn" aria-label="Resumir minha semana">
-        <span class="ai-action-icon" aria-hidden="true">&#128197;</span>
-        <div class="ai-action-text">
-          <strong>Resumir minha semana</strong>
-          <span>Análise narrativa dos compromissos desta semana</span>
-        </div>
-      </button>
+
+      <!-- F10 PR16: as 6 ações eram uma lista única, sem nenhuma hierarquia
+           entre ações que planejam o que fazer (futuro) e ações que analisam
+           o que já aconteceu (passado/presente) — agrupadas em duas
+           categorias para reduzir a carga de decisão ao ler a lista. -->
+      <span class="ai-panel-group-title">Planejar</span>
       <button id="btn-ai-study"    class="btn ai-action-btn" aria-label="Encontrar horários para estudar">
         <span class="ai-action-icon" aria-hidden="true">&#128218;</span>
         <div class="ai-action-text">
           <strong>Encontrar horários para estudar</strong>
           <span>Sugestões de blocos livres nos próximos 14 dias</span>
+        </div>
+      </button>
+      <button id="btn-ai-plan" class="btn ai-action-btn" aria-label="Gerar plano da semana">
+        <span class="ai-action-icon" aria-hidden="true">&#128203;</span>
+        <div class="ai-action-text">
+          <strong>Gerar Plano da Semana</strong>
+          <span>Sugestões organizadas por prioridade — você decide o que fazer</span>
+        </div>
+      </button>
+
+      <span class="ai-panel-group-title">Analisar</span>
+      <button id="btn-ai-weekly"   class="btn ai-action-btn" aria-label="Resumir minha semana">
+        <span class="ai-action-icon" aria-hidden="true">&#128197;</span>
+        <div class="ai-action-text">
+          <strong>Resumir minha semana</strong>
+          <span>Análise narrativa dos compromissos desta semana</span>
         </div>
       </button>
       <button id="btn-ai-analysis" class="btn ai-action-btn" aria-label="Analisar conflitos da agenda">
@@ -1211,13 +1226,6 @@
         <div class="ai-action-text">
           <strong>Recomendações</strong>
           <span>Pontos de atenção com base nos seus dados reais</span>
-        </div>
-      </button>
-      <button id="btn-ai-plan" class="btn ai-action-btn" aria-label="Gerar plano da semana">
-        <span class="ai-action-icon" aria-hidden="true">&#128203;</span>
-        <div class="ai-action-text">
-          <strong>Gerar Plano da Semana</strong>
-          <span>Sugestões organizadas por prioridade — você decide o que fazer</span>
         </div>
       </button>
       <button id="btn-ai-evolution" class="btn ai-action-btn" aria-label="Ver minha evolução">
