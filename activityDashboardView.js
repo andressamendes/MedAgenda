@@ -52,6 +52,44 @@ function _formatGoalDesc(progress) {
   return `Meta: ${meta} · Realizado: ${realizado}. ${GOAL_STATE_LABEL[progress.state]}`;
 }
 
+// F11 E11 — barra de progresso visual para as metas de tempo, complementando
+// o percentual já escrito em _formatGoalDesc() (nunca o substitui — a barra é
+// puramente decorativa/redundante, então nenhuma leitora de tela perde
+// informação: role="progressbar" + aria-valuenow espelham o mesmo percentual
+// já lido no parágrafo). Sem meta configurada, nenhuma barra é desenhada.
+function _progressBarMarkup(progress) {
+  if (!progress.configured) return "";
+  const pct = Math.max(0, Math.min(100, progress.percentage));
+  const stateClass = progress.state === "exceeded" ? " dashboard-progress-bar--exceeded"
+    : progress.state === "achieved" ? " dashboard-progress-bar--achieved" : "";
+  return `
+    <div class="dashboard-progress" role="progressbar" aria-valuenow="${progress.percentage}" aria-valuemin="0" aria-valuemax="100">
+      <div class="dashboard-progress-bar${stateClass}" style="width: ${pct}%"></div>
+    </div>`;
+}
+
+// F11 E11 — minigráfico de barras dos minutos estudados por dia, desde
+// segunda-feira (dados de computeWeekSparkline(), já buscados junto com o
+// resto do dashboard — nenhuma consulta nova). SVG puro (sem lib externa),
+// cor via currentColor (acompanha o tema claro/escuro como o resto dos
+// ícones do app — ver icons.js).
+function _sparklineMarkup(days) {
+  if (!days || days.length === 0) return "";
+  const WIDTH = 100, HEIGHT = 32, GAP = 4, MIN_BAR_HEIGHT = 2;
+  const barWidth = (WIDTH - GAP * (days.length - 1)) / days.length;
+  const max = Math.max(1, ...days.map(d => d.minutes));
+  const bars = days.map((d, i) => {
+    const barHeight = Math.max(MIN_BAR_HEIGHT, Math.round((d.minutes / max) * HEIGHT));
+    const x = i * (barWidth + GAP);
+    const y = HEIGHT - barHeight;
+    return `<rect x="${x.toFixed(1)}" y="${y}" width="${barWidth.toFixed(1)}" height="${barHeight}" rx="1.5"/>`;
+  }).join("");
+  return `
+    <svg class="dashboard-sparkline" viewBox="0 0 ${WIDTH} ${HEIGHT}" preserveAspectRatio="none" role="img" aria-label="Minutos estudados por dia, desde segunda-feira">
+      ${bars}
+    </svg>`;
+}
+
 // Auditoria UX #24: sem meta configurada, o card só dizia "Sem meta
 // configurada." sem nenhum caminho até a tela onde ela é configurável (Minha
 // Conta → Metas de Tempo). `goalKey` identifica, para cada card, qual chave
@@ -62,18 +100,21 @@ const GOAL_CARD_DEFS = [
     title: "Meta diária",
     value: d => _formatGoalValue(d.dailyGoal),
     desc:  d => _formatGoalDesc(d.dailyGoal),
+    extra: d => _progressBarMarkup(d.dailyGoal),
     goalKey: "dailyGoal",
   },
   {
     title: "Meta semanal",
     value: d => _formatGoalValue(d.weeklyGoal),
     desc:  d => _formatGoalDesc(d.weeklyGoal),
+    extra: d => _progressBarMarkup(d.weeklyGoal),
     goalKey: "weeklyGoal",
   },
   {
     title: "Meta mensal",
     value: d => _formatGoalValue(d.monthlyGoal),
     desc:  d => _formatGoalDesc(d.monthlyGoal),
+    extra: d => _progressBarMarkup(d.monthlyGoal),
     goalKey: "monthlyGoal",
   },
 ];
@@ -106,6 +147,7 @@ const WEEK_MONTH_CARD_DEFS = [
     title: "Tempo estudado esta semana",
     value: d => _formatDuration(d.weekMinutes),
     desc:  () => "Soma das sessões finalizadas desde segunda-feira.",
+    extra: d => _sparklineMarkup(d.weekSparkline),
   },
   {
     title: "Tempo estudado este mês",
@@ -204,11 +246,16 @@ function _cardsMarkup(defs, data) {
     // O parágrafo só é impresso quando há algo a acrescentar de fato (ex.:
     // metas com valor real, ou desambiguações como "este mês"/"esta semana").
     const desc = def.desc ? `<p class="dashboard-card-desc">${def.desc(data)}</p>` : "";
+    // F11 E11 — slot opcional para conteúdo visual extra (barra de progresso
+    // das metas, minigráfico semanal); a maioria dos cards não define `extra`
+    // e permanece só título+valor+desc, como antes.
+    const extra = def.extra ? def.extra(data) : "";
     return `
     <div class="dashboard-card">
       <span class="dashboard-card-title">${def.title}</span>
       <span class="dashboard-card-value">${def.value(data)}</span>
       ${desc}
+      ${extra}
       ${configureLink}
     </div>
   `;

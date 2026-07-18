@@ -176,6 +176,10 @@ test("getDashboardData() fetches sessions exactly once, from the earliest of wee
   assert.strictEqual(result.dailyGoal.state, "no_goal");
   assert.strictEqual(result.weeklyGoal.state, "no_goal");
   assert.strictEqual(result.monthlyGoal.state, "no_goal");
+  // F11 E11 — o minigráfico semanal vem pronto no mesmo objeto, sem consulta extra.
+  // NOW é quarta-feira (2026-07-08) — segunda(06)/terça(07)/quarta(08, hoje).
+  assert.strictEqual(result.weekSparkline.length, 3);
+  assert.strictEqual(result.weekSparkline[2].minutes, 25);
 });
 
 test("getDashboardData() widens the query to the week start when it falls in the previous month", async (t) => {
@@ -244,4 +248,50 @@ test("computeGoalsProgress() returns 'no_goal' for every card when profile has n
   assert.strictEqual(result.dailyGoal.state, "no_goal");
   assert.strictEqual(result.weeklyGoal.state, "no_goal");
   assert.strictEqual(result.monthlyGoal.state, "no_goal");
+});
+
+// ── computeWeekSparkline() (F11 E11) ────────────────────────────────────────
+
+test("computeWeekSparkline() returns one point per day from Monday through today", async (t) => {
+  const { computeWeekSparkline } = await loadDashboardService(t);
+  // NOW é quarta-feira (2026-07-08) — segunda foi 2026-07-06.
+  const result = computeWeekSparkline([], NOW);
+
+  assert.strictEqual(result.length, 3); // segunda, terça, quarta
+  assert.strictEqual(result[0].minutes, 0);
+  assert.strictEqual(result[2].minutes, 0);
+});
+
+test("computeWeekSparkline() sums each day's finished sessions into the matching point", async (t) => {
+  const { computeWeekSparkline } = await loadDashboardService(t);
+  const sessions = [
+    finished("s1", "2026-07-06T09:00:00.000Z", 30), // segunda
+    finished("s2", "2026-07-08T10:00:00.000Z", 20), // quarta (hoje)
+    finished("s3", "2026-07-08T14:00:00.000Z", 25), // também quarta
+  ];
+  const result = computeWeekSparkline(sessions, NOW);
+
+  assert.strictEqual(result[0].minutes, 30);
+  assert.strictEqual(result[1].minutes, 0);   // terça sem sessões
+  assert.strictEqual(result[2].minutes, 45);  // quarta: 20 + 25
+});
+
+test("computeWeekSparkline() ignores cancelled sessions and sessions outside this week", async (t) => {
+  const { computeWeekSparkline } = await loadDashboardService(t);
+  const sessions = [
+    cancelled("s1", "2026-07-08T09:00:00.000Z", 999),
+    finished("s2", "2026-07-01T09:00:00.000Z", 40), // semana anterior
+  ];
+  const result = computeWeekSparkline(sessions, NOW);
+
+  assert.strictEqual(result.every(d => d.minutes === 0), true);
+});
+
+test("computeWeekSparkline() on a Monday returns a single point", async (t) => {
+  const { computeWeekSparkline } = await loadDashboardService(t);
+  const monday = new Date("2026-07-06T12:00:00.000Z");
+  const result = computeWeekSparkline([finished("s1", "2026-07-06T09:00:00.000Z", 15)], monday);
+
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].minutes, 15);
 });

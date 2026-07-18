@@ -101,6 +101,34 @@ export function computeGoalsProgress(indicators, goals = {}) {
 }
 
 /**
+ * F11 E11 — minigráfico de tempo estudado por dia, desde a segunda-feira
+ * corrente até hoje (1 a 7 pontos, dependendo do dia da semana). Deriva-se
+ * das MESMAS sessões já buscadas por getDashboardData() (o intervalo
+ * buscado sempre cobre, no mínimo, desde a segunda-feira — ver rangeStart
+ * abaixo), então nenhuma consulta nova é feita. Um recorte fixo dos últimos
+ * 7 dias corridos (em vez de "desde a segunda") poderia cair fora do que já
+ * foi buscado (ex.: hoje é terça — só há dado a partir de segunda) e
+ * mostrar zero num dia que na verdade não foi consultado; "desde a
+ * segunda" nunca sofre esse risco, porque é exatamente o que
+ * getDashboardData() já garante ter buscado.
+ */
+export function computeWeekSparkline(sessions, now = new Date()) {
+  const list = sessions || [];
+  const weekStart = mondayOf(now);
+  const days = [];
+  const cursor = _startOfDay(weekStart);
+  const today = _startOfDay(now);
+  while (cursor <= today) {
+    const dayStart = new Date(cursor);
+    const dayEnd = _endOfDay(cursor);
+    const dayMinutes = calculateTotalDuration(list.filter(s => _inRange(s, dayStart, dayEnd)));
+    days.push({ date: new Date(cursor), minutes: dayMinutes });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+/**
  * Busca as sessões necessárias (uma única consulta) e o perfil (metas
  * configuradas), e retorna os indicadores e o progresso das metas já
  * calculados. Ponto de entrada usado pela view.
@@ -118,5 +146,6 @@ export async function getDashboardData(now = new Date()) {
 
   const indicators = computeDashboardIndicators(sessions, now);
   const goals = computeGoalsProgress(indicators, profile || {});
-  return { ...indicators, ...goals };
+  const weekSparkline = computeWeekSparkline(sessions, now);
+  return { ...indicators, ...goals, weekSparkline };
 }
