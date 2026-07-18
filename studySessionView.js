@@ -99,7 +99,6 @@ const NO_EVENT_TEXT = "Sem compromisso vinculado";
 let finishModalEl, finishModal;
 let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl;
 let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
-let ssfRecapQuestionsEl, ssfRecapReviewsEl;
 
 // Cadastro de Questões Resolvidas (F7.4) — F10 #4.3: vive na própria tela da
 // sessão ativa (não mais no modal de encerramento) e cada item é persistido
@@ -217,8 +216,6 @@ function _queryElements() {
   ssfNotesEl           = document.getElementById("ssf-notes");
   ssfBtnBack           = document.getElementById("ssf-btn-back");
   ssfBtnConfirm        = document.getElementById("ssf-btn-confirm");
-  ssfRecapQuestionsEl  = document.getElementById("ssf-recap-questions");
-  ssfRecapReviewsEl    = document.getElementById("ssf-recap-reviews");
 
   finishModal = initModal(finishModalEl, _closeFinishModal);
 
@@ -1013,18 +1010,6 @@ function _openFinishModal() {
   ssfBtnConfirm.disabled = false;
   ssfBtnBack.disabled = false;
 
-  // F10 #4.3 — Questões/Revisões já foram registradas (ou não) durante a
-  // sessão ativa; aqui só um recap somente-leitura do que já está persistido
-  // (_sessionQuestions/_sessionReviews). Esqueceu de registrar algo?
-  // "Continuar sessão" fecha este resumo sem encerrar nada, voltando à tela
-  // onde as seções continuam disponíveis.
-  ssfRecapQuestionsEl.textContent = _sessionQuestions.length
-    ? `${_sessionQuestions.length} questão(ões) registrada(s) nesta sessão.`
-    : "Nenhuma questão registrada nesta sessão.";
-  ssfRecapReviewsEl.textContent = _sessionReviews.length
-    ? `${_sessionReviews.length} revisão(ões) vinculada(s) a esta sessão.`
-    : "Nenhuma revisão vinculada a esta sessão.";
-
   finishModal.open(ssfBtnBack);
 }
 
@@ -1249,8 +1234,7 @@ export function resetStudySessionView() {
   // reconstrói do zero antes de reabrir, mas nada os limpava ao fechar por
   // logout — os dados do usuário anterior ficariam presentes no DOM enquanto
   // o modal permanece fechado.
-  [ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl,
-   ssfEndedAtEl, ssfNetTimeEl, ssfRecapQuestionsEl, ssfRecapReviewsEl]
+  [ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (ssfNotesEl) ssfNotesEl.value = "";
 

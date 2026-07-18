@@ -614,16 +614,14 @@
                 <label for="ssf-notes" class="ss-notes-label">Observações da sessão</label>
                 <textarea id="ssf-notes" class="ss-notes-textarea" rows="3" placeholder="Dificuldades encontradas, pontos importantes, lembretes…"></textarea>
 
-                <!-- F10 #4.3 — Questões/Revisões já foram registradas (ou não)
-                     durante a sessão ativa, acima; aqui só um recap somente-
-                     leitura do que já está persistido. Esqueceu de registrar
-                     algo? "Continuar sessão" fecha este resumo sem encerrar
-                     nada, voltando à tela onde as seções acima continuam
-                     disponíveis. -->
-                <div class="ss-finish-recap">
-                  <p id="ssf-recap-questions" class="ss-questions-empty"></p>
-                  <p id="ssf-recap-reviews" class="ss-questions-empty"></p>
-                </div>
+                <!-- F10 PR9: o recap textual de Questões/Revisões que existia
+                     aqui ("N questão(ões) registrada(s)...") repetia, em
+                     prosa, a mesma contagem que já aparece no título de cada
+                     seção na tela ativa (ex.: "Questões Resolvidas (2)"),
+                     vista pelo usuário segundos antes de abrir este resumo —
+                     zero informação nova. "Continuar sessão" ainda fecha este
+                     resumo sem encerrar nada, voltando à tela onde as seções
+                     continuam disponíveis. -->
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-ghost"   id="ssf-btn-back">Continuar sessão</button>
