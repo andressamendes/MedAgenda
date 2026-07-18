@@ -702,9 +702,23 @@ test("UX #23 — a failure fetching achievements never breaks the other executio
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
 });
 
-// F10 #3.1 — reestruturação em níveis: "Hoje" sempre visível; "Semana/Mês" e
-// "Recordes e Conquistas" atrás de abas (puramente apresentacional — os
-// dados dos dois níveis já chegam juntos em uma única _load()).
+// F10 #3.1 — reestruturação em níveis: "Hoje" sempre visível; "Períodos" e
+// "Progresso e Conquistas" (F11 E12: renomeadas de "Semana/Mês"/"Recordes e
+// Conquistas") atrás de abas (puramente apresentacional — os dados dos dois
+// níveis já chegam juntos em uma única _load()).
+
+// F11 E12 (auditoria #12, #29) — "Recordes e Conquistas" não anunciava que
+// Revisões e Produtividade também vivem ali; os rótulos passam a ser
+// "Períodos" e "Progresso e Conquistas".
+test("F11 E12 — the dashboard tabs are labeled 'Períodos' and 'Progresso e Conquistas'", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+  await mod.initActivityDashboardView();
+
+  const weekMonthTab = document.querySelector('#dash-tabs .dash-tab[data-panel="week-month"]');
+  const recordsTab   = document.querySelector('#dash-tabs .dash-tab[data-panel="records"]');
+  assert.strictEqual(weekMonthTab.textContent, "Períodos");
+  assert.strictEqual(recordsTab.textContent, "Progresso e Conquistas");
+});
 
 test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always visible", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
@@ -719,7 +733,7 @@ test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always vis
   assert.match(today.textContent, /Sessões hoje/);
 });
 
-test("F10 #3.1 — 'Semana/Mês' tab is active by default; 'Recordes e Conquistas' panel starts hidden", async (t) => {
+test("F10 #3.1 — 'Períodos' tab is active by default; 'Progresso e Conquistas' panel starts hidden", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
@@ -739,7 +753,7 @@ test("F10 #3.1 — 'Semana/Mês' tab is active by default; 'Recordes e Conquista
   assert.match(weekMonth.textContent, /Tempo médio por sessão/);
 });
 
-test("F10 #3.1 — clicking 'Recordes e Conquistas' switches panels without re-fetching", async (t) => {
+test("F10 #3.1 — clicking 'Progresso e Conquistas' switches panels without re-fetching", async (t) => {
   let calls = 0;
   const { mod } = await loadView(t, {
     getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
@@ -765,7 +779,7 @@ test("F10 #3.1 — clicking 'Recordes e Conquistas' switches panels without re-f
   assert.match(records.textContent, /Conquistas recentes/);
 });
 
-test("F10 #3.1 — re-opening the dashboard resets to the 'Semana/Mês' tab", async (t) => {
+test("F10 #3.1 — re-opening the dashboard resets to the 'Períodos' tab", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
