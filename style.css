@@ -928,6 +928,21 @@ body {
   flex-direction: column;
 }
 
+/* F11 E14 — CTA de "Iniciar sessão de estudo" promovida ao topo do modal de
+   edição (era a última ação do formulário, com estilo secundário). Largura
+   total + ícone para máximo destaque visual: é o fluxo mais importante do
+   produto, não deve competir com "Salvar"/"Cancelar" no rodapé. */
+.event-start-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  margin-bottom: var(--space-4);
+}
+
+.event-start-cta-icon svg { width: 16px; height: 16px; display: block; }
+
 /* ── Calendário ── */
 .cal-header {
   display: flex;
