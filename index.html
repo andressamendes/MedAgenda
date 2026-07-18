@@ -353,7 +353,67 @@
           <!-- Estado: nenhuma sessão em andamento -->
           <div id="ss-empty" class="ss-empty">
             <p id="ss-empty-message" class="ss-empty-message">Nenhuma sessão de estudo em andamento.</p>
-            <button type="button" id="ss-btn-start-standalone" class="btn btn-primary btn-sm">Iniciar sessão avulsa</button>
+            <button type="button" id="ss-btn-start-standalone" class="btn btn-primary btn-sm">Iniciar sessão</button>
+          </div>
+
+          <!-- Modal de configuração pré-início — nunca inicia a sessão
+               imediatamente: sempre pede um nome de estudo digitado livremente
+               OU um compromisso já existente na agenda, para que Compromisso/
+               Categoria/Conteúdo/Data/Tempo previsto nunca fiquem em branco
+               por toda a sessão avulsa. -->
+          <div id="ss-start-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ss-start-title">
+            <div class="modal-card modal-session">
+              <div class="modal-header">
+                <h2 class="modal-title" id="ss-start-title">Iniciar sessão de estudo</h2>
+                <button class="modal-close" id="ss-start-close" aria-label="Fechar">✕</button>
+              </div>
+              <div class="modal-body">
+                <div class="ss-start-tabs" role="tablist">
+                  <button type="button" class="ss-start-tab ss-start-tab--active" id="ss-start-tab-manual" role="tab" aria-selected="true">Novo estudo</button>
+                  <button type="button" class="ss-start-tab" id="ss-start-tab-event" role="tab" aria-selected="false">Compromisso da agenda</button>
+                </div>
+
+                <div id="ss-start-manual-panel" role="tabpanel">
+                  <div class="field">
+                    <label for="ss-start-title-input">Nome do estudo <span class="required">*</span></label>
+                    <input type="text" id="ss-start-title-input" placeholder="Ex.: Revisão de Cardiologia" maxlength="120" />
+                  </div>
+                  <div class="field">
+                    <label for="ss-start-category">Categoria</label>
+                    <select id="ss-start-category">
+                      <option value="">— Selecione —</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="ss-start-content">Conteúdo</label>
+                    <input type="text" id="ss-start-content" placeholder="Ex.: Insuficiência cardíaca" maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label for="ss-start-date">Data</label>
+                    <input type="date" id="ss-start-date" />
+                  </div>
+                  <div class="field">
+                    <label for="ss-start-duration">Tempo previsto (min)</label>
+                    <input type="number" id="ss-start-duration" min="1" placeholder="Ex.: 60" />
+                  </div>
+                  <p class="error" id="ss-start-manual-error" hidden></p>
+                </div>
+
+                <div id="ss-start-event-panel" role="tabpanel" hidden>
+                  <div class="field">
+                    <label for="ss-start-event">Compromisso</label>
+                    <select id="ss-start-event">
+                      <option value="">— Selecione —</option>
+                    </select>
+                  </div>
+                  <p class="error" id="ss-start-event-error" hidden></p>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-ghost"   id="ss-start-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="ss-start-confirm">Iniciar sessão</button>
+              </div>
+            </div>
           </div>
 
           <!-- Estado: sessão executando ou pausada -->

@@ -3224,6 +3224,41 @@ textarea { resize: vertical; }
   gap: .5rem;
 }
 
+/* Modal de configuração pré-início (#ss-start-modal) — os dois caminhos
+   ("Novo estudo" digitado livremente x "Compromisso da agenda" já existente)
+   nunca ficam visíveis ao mesmo tempo; mesmo padrão visual de .theme-tab
+   (duplicado, não compartilhado — F10 #2.4 já documenta esse princípio para
+   contextos diferentes de abas neste app). */
+.ss-start-tabs {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.ss-start-tab {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  padding: .35rem .9rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.ss-start-tab:hover:not(.ss-start-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
+
+.ss-start-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.ss-start-tab--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
 /* BUG 09 — Resumo/confirmação de encerramento (#ss-finish-modal): conteúdo
    variável (Questões + Revisões adicionadas na hora) podia crescer além da
    viewport. Como .modal-card só tinha max-width (sem max-height/scroll), o

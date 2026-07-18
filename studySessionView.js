@@ -23,7 +23,7 @@ import {
 import { addQuestion, listQuestions, updateQuestion, removeQuestion } from "./sessionQuestionsService.js";
 import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
 import { associateReview, unlinkReview, listBySession as listSessionReviews } from "./reviewSessionService.js";
-import { getEventById } from "./eventService.js";
+import { getEventById, getEvents } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
@@ -63,6 +63,20 @@ const QUESTION_DIFFICULTY_LABELS = {
 };
 
 let emptyEl, emptyMessageEl, btnStartStandalone;
+
+// Modal de configuração pré-início — aberto ao clicar "Iniciar sessão",
+// nunca inicia a sessão direto. Dois caminhos mutuamente exclusivos: um nome
+// de estudo digitado livremente (aba "Novo estudo") ou um compromisso já
+// existente na agenda (aba "Compromisso da agenda", mesmo destino de
+// startSessionForEvent() — usado também pelo botão "Iniciar Sessão" do
+// formulário de compromisso, em eventFormView.js).
+let startModalEl, startModal, startTabManualEl, startTabEventEl;
+let startManualPanelEl, startEventPanelEl;
+let startTitleInputEl, startCategoryEl, startContentEl, startDateEl, startDurationEl, startManualErrorEl;
+let startEventSelectEl, startEventErrorEl;
+let startCancelEl, startCloseEl, startConfirmEl;
+let _startEventsCache = [];
+
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let btnPause, btnResume, btnCancel, btnFinish;
@@ -206,10 +220,35 @@ function _queryElements() {
   ssfRecapReviewsEl    = document.getElementById("ssf-recap-reviews");
 
   finishModal = initModal(finishModalEl, _closeFinishModal);
+
+  startModalEl        = document.getElementById("ss-start-modal");
+  startTabManualEl    = document.getElementById("ss-start-tab-manual");
+  startTabEventEl     = document.getElementById("ss-start-tab-event");
+  startManualPanelEl  = document.getElementById("ss-start-manual-panel");
+  startEventPanelEl   = document.getElementById("ss-start-event-panel");
+  startTitleInputEl   = document.getElementById("ss-start-title-input");
+  startCategoryEl     = document.getElementById("ss-start-category");
+  startContentEl      = document.getElementById("ss-start-content");
+  startDateEl         = document.getElementById("ss-start-date");
+  startDurationEl     = document.getElementById("ss-start-duration");
+  startManualErrorEl  = document.getElementById("ss-start-manual-error");
+  startEventSelectEl  = document.getElementById("ss-start-event");
+  startEventErrorEl   = document.getElementById("ss-start-event-error");
+  startCancelEl       = document.getElementById("ss-start-cancel");
+  startCloseEl        = document.getElementById("ss-start-close");
+  startConfirmEl      = document.getElementById("ss-start-confirm");
+
+  startModal = initModal(startModalEl, _closeStartModal);
 }
 
 function _bindEvents() {
-  btnStartStandalone.addEventListener("click", () => _run(() => startSession({ source: "manual" })));
+  btnStartStandalone.addEventListener("click", () => _openStartModal());
+  startTabManualEl.addEventListener("click", () => _switchStartTab("manual"));
+  startTabEventEl.addEventListener("click",  () => _switchStartTab("event"));
+  startCancelEl.addEventListener("click", () => _closeStartModal());
+  startCloseEl.addEventListener("click",  () => _closeStartModal());
+  startConfirmEl.addEventListener("click", () => _confirmStartModal());
+
   btnPause.addEventListener("click",  () => _run(() => pauseSession(_session.id)));
   btnResume.addEventListener("click", () => _run(() => resumeSession(_session.id)));
   btnFinish.addEventListener("click", () => _openFinishModal());
@@ -286,12 +325,13 @@ function _formatEventDate(dateStr) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-// Campos que só existem quando a sessão tem um compromisso vinculado
-// (categoria/matéria/conteúdo/data, todos lidos do evento) — numa sessão
-// avulsa não há "—" ambíguo, e sim uma indicação explícita (F7.6, escopo 4).
+// Campos que só existem quando a sessão tem contexto (compromisso vinculado
+// OU um nome de estudo digitado no modal de pré-início) — só a sessão avulsa
+// do formato antigo (sem event_id e sem título, _eventMeta null) mostra o
+// aviso explícito em vez do "—" ambíguo (F7.6, escopo 4).
 function _eventFieldText(value) {
   if (value) return value;
-  return _session?.event_id ? "—" : NO_EVENT_TEXT;
+  return _eventMeta ? "—" : NO_EVENT_TEXT;
 }
 
 // O tempo exibido é sempre recalculado a partir de started_at (o banco é a
@@ -389,20 +429,37 @@ function _applySession(session) {
   _syncSessionQuestionsAndReviews();
 }
 
-// Resolve título/categoria/descrição/duração prevista para exibição a partir
-// do event_id gravado na sessão — usado ao restaurar após reload e sempre que
-// o barramento notifica uma mudança (ver F1.4/activitySessionView.js original).
+// Resolve título/categoria/descrição/duração prevista para exibição. Duas
+// fontes possíveis, nunca ambas: um compromisso vinculado (event_id, via
+// getEventById — restauração após reload e barramento, F1.4) ou os campos
+// gravados na própria sessão (title/content/session_date/
+// planned_duration_minutes, sql/21_activity_sessions_standalone_fields.sql)
+// quando o usuário escolheu "Novo estudo" no modal de pré-início em vez de um
+// compromisso. Sem nenhuma das duas (sessão avulsa do formato antigo, sem
+// nome digitado), retorna null — o mesmo "Sem compromisso vinculado" de antes.
 async function _resolveEventMeta(session) {
-  if (!session?.event_id) return null;
-  try {
-    const ev = await getEventById(session.event_id);
-    return ev
-      ? { title: ev.title, category: ev.category || null, description: ev.description || null, duration_minutes: ev.duration_minutes || null, event_date: ev.event_date || null }
-      : { title: "Compromisso removido", category: null, description: null, duration_minutes: null, event_date: null };
-  } catch (err) {
-    handleError(err, { context: "studySessionView.resolveEventMeta" });
-    return { title: "Compromisso removido", category: null, description: null, duration_minutes: null, event_date: null };
+  if (session?.event_id) {
+    try {
+      const ev = await getEventById(session.event_id);
+      return ev
+        ? { title: ev.title, category: ev.category || null, description: ev.description || null, duration_minutes: ev.duration_minutes || null, event_date: ev.event_date || null }
+        : { title: "Compromisso removido", category: null, description: null, duration_minutes: null, event_date: null };
+    } catch (err) {
+      handleError(err, { context: "studySessionView.resolveEventMeta" });
+      return { title: "Compromisso removido", category: null, description: null, duration_minutes: null, event_date: null };
+    }
   }
+  if (session?.title) {
+    const category = await _resolveCategoryName(session.category_id);
+    return {
+      title: session.title,
+      category,
+      description: session.content || null,
+      duration_minutes: session.planned_duration_minutes || null,
+      event_date: session.session_date || null,
+    };
+  }
+  return null;
 }
 
 async function _resolveCategoryId(categoryName) {
@@ -413,6 +470,142 @@ async function _resolveCategoryId(categoryName) {
   } catch {
     return null;
   }
+}
+
+async function _resolveCategoryName(categoryId) {
+  if (!categoryId) return null;
+  try {
+    const categories = await getCategories();
+    return categories.find(c => c.id === categoryId)?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Modal de configuração pré-início ────────────────────────────────────────
+// "Iniciar sessão" nunca inicia nada direto: sempre abre este modal primeiro,
+// para que Compromisso/Categoria/Conteúdo/Data/Tempo previsto nunca fiquem em
+// branco pelo resto de uma sessão avulsa. Duas abas mutuamente exclusivas —
+// "Novo estudo" (nome livre, gravado nos campos de
+// sql/21_activity_sessions_standalone_fields.sql) e "Compromisso da agenda"
+// (reaproveita exatamente startSessionForEvent(), o mesmo caminho já usado
+// pelo botão "Iniciar Sessão" do formulário de compromisso).
+
+function _todayDateInputValue() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+async function _populateStartCategoryOptions() {
+  startCategoryEl.innerHTML = '<option value="">— Selecione —</option>';
+  try {
+    const categories = await getCategories();
+    categories.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name;
+      startCategoryEl.appendChild(opt);
+    });
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadStartCategories", silent: true });
+  }
+}
+
+function _eventOptionLabel(event) {
+  const date = event.event_date ? _formatEventDate(event.event_date) : null;
+  return date ? `${date} — ${event.title}` : event.title;
+}
+
+async function _populateStartEventOptions() {
+  startEventSelectEl.innerHTML = '<option value="">— Selecione —</option>';
+  _startEventsCache = [];
+  try {
+    _startEventsCache = await getEvents();
+    _startEventsCache.forEach(ev => {
+      const opt = document.createElement("option");
+      opt.value = ev.id;
+      opt.textContent = _eventOptionLabel(ev);
+      startEventSelectEl.appendChild(opt);
+    });
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadStartEvents", silent: true });
+  }
+}
+
+function _switchStartTab(which) {
+  const isManual = which === "manual";
+  startTabManualEl.classList.toggle("ss-start-tab--active", isManual);
+  startTabEventEl.classList.toggle("ss-start-tab--active", !isManual);
+  startTabManualEl.setAttribute("aria-selected", String(isManual));
+  startTabEventEl.setAttribute("aria-selected", String(!isManual));
+  startManualPanelEl.hidden = !isManual;
+  startEventPanelEl.hidden  = isManual;
+}
+
+async function _openStartModal() {
+  if (_busy || _session) return;
+
+  startTitleInputEl.value  = "";
+  startContentEl.value     = "";
+  startDateEl.value        = _todayDateInputValue();
+  startDurationEl.value    = "";
+  startManualErrorEl.hidden = true;
+  startManualErrorEl.textContent = "";
+  startEventErrorEl.hidden = true;
+  startEventErrorEl.textContent = "";
+  startEventSelectEl.value = "";
+
+  _switchStartTab("manual");
+  await Promise.all([_populateStartCategoryOptions(), _populateStartEventOptions()]);
+
+  startModal.open(startTitleInputEl);
+}
+
+function _closeStartModal() {
+  startModal.close();
+}
+
+async function _confirmStartModal() {
+  if (_busy) return;
+  const usingEvent = !startEventPanelEl.hidden;
+
+  if (usingEvent) {
+    const eventId = startEventSelectEl.value;
+    if (!eventId) {
+      startEventErrorEl.textContent = "Selecione um compromisso da agenda.";
+      startEventErrorEl.hidden = false;
+      return;
+    }
+    const event = _startEventsCache.find(ev => ev.id === eventId);
+    if (!event) {
+      startEventErrorEl.textContent = "Compromisso não encontrado — atualize a lista e tente de novo.";
+      startEventErrorEl.hidden = false;
+      return;
+    }
+    const started = await startSessionForEvent(event);
+    if (started) _closeStartModal();
+    return;
+  }
+
+  const title = startTitleInputEl.value.trim();
+  if (!title) {
+    startManualErrorEl.textContent = "Digite um nome para o estudo.";
+    startManualErrorEl.hidden = false;
+    return;
+  }
+
+  await _startManualSession({
+    title,
+    category_id: startCategoryEl.value || null,
+    content: startContentEl.value.trim() || null,
+    session_date: startDateEl.value || null,
+    planned_duration_minutes: startDurationEl.value ? Number(startDurationEl.value) : null,
+  });
+  if (_session) _closeStartModal();
+}
+
+async function _startManualSession(fields) {
+  await _run(() => startSession({ source: "manual", ...fields }));
 }
 
 function _setActionsDisabled(disabled) {
@@ -1034,6 +1227,7 @@ export function resetStudySessionView() {
   _sessionDataLoadedFor = null;
   _reviewOptionsRequestId++;
   if (finishModalEl && !finishModalEl.hidden) finishModal.close();
+  if (startModalEl && !startModalEl.hidden) startModal.close();
   if (emptyEl) _render();
 
   // _render() acima só esconde activeEl quando _session é null — não limpa o
@@ -1054,6 +1248,19 @@ export function resetStudySessionView() {
    ssfEndedAtEl, ssfNetTimeEl, ssfRecapQuestionsEl, ssfRecapReviewsEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (ssfNotesEl) ssfNotesEl.value = "";
+
+  // Campos do modal de configuração pré-início: mesma simetria — o nome de
+  // estudo/categoria/conteúdo digitados pelo usuário anterior não podem
+  // sobreviver no DOM entre um login e outro.
+  if (startTitleInputEl) startTitleInputEl.value = "";
+  if (startContentEl) startContentEl.value = "";
+  if (startDateEl) startDateEl.value = "";
+  if (startDurationEl) startDurationEl.value = "";
+  if (startEventSelectEl) startEventSelectEl.innerHTML = '<option value="">— Selecione —</option>';
+  if (startCategoryEl) startCategoryEl.innerHTML = '<option value="">— Selecione —</option>';
+  if (startManualErrorEl) { startManualErrorEl.textContent = ""; startManualErrorEl.hidden = true; }
+  if (startEventErrorEl) { startEventErrorEl.textContent = ""; startEventErrorEl.hidden = true; }
+  _startEventsCache = [];
 
   // Seções de Questões/Revisões (F10 #4.3, agora na tela ativa): mesma
   // simetria init/reset — nem a lista nem o formulário do usuário anterior

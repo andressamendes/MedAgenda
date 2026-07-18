@@ -412,6 +412,26 @@ UPDATE public.schema_version SET version = 20, applied_at = now() WHERE id = 1;
 
 ---
 
+### 21_activity_sessions_standalone_fields.sql
+
+**Objetivo:** Refatoração do fluxo "Sessão de Estudo" — antes, o único ponto de entrada era "Iniciar sessão avulsa": a sessão começava imediatamente, sem etapa de configuração, e Compromisso/Categoria/Conteúdo/Data/Tempo previsto ficavam em branco pelo resto da sessão sempre que `event_id` era `NULL`. Agora `studySessionView.js` sempre abre um modal de configuração pré-início com dois caminhos: vincular um compromisso já existente (`event_id`, sem mudança) ou digitar livremente um nome de estudo — este segundo caminho precisa de onde gravar os mesmos campos que um compromisso já forneceria.
+
+**Tabelas alteradas:** `activity_sessions` — adiciona `title TEXT`, `content TEXT`, `session_date DATE` e `planned_duration_minutes INTEGER` (todas nullable).
+
+**Constraint:** `CHECK (planned_duration_minutes IS NULL OR planned_duration_minutes > 0)`.
+
+**Nunca duplica dado de `events`:** as quatro colunas só são preenchidas quando a sessão NÃO tem `event_id` (caminho "Novo estudo" do modal); uma sessão vinculada a um compromisso continua resolvendo título/categoria/conteúdo/data/duração a partir de `events` via `event_id`, exatamente como antes — `category_id` (já existente desde `11_activity_sessions.sql`) é reaproveitado sem alteração para o caminho avulso.
+
+**Schema version:** com bump.
+
+```sql
+UPDATE public.schema_version SET version = 21, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `11_activity_sessions.sql`, `14_schema_version.sql`.
+
+---
+
 ## Modelo de Dados
 
 Diagrama lógico das tabelas e seus relacionamentos:
@@ -711,12 +731,17 @@ reviews (Revisão — event_id obrigatório, ON DELETE CASCADE; session_id opcio
 | `notes`               | TEXT          | SIM      | — (Observações, distinto de Reflexão) |
 | `paused_ms`           | BIGINT        | NÃO      | `0` (`17`)              |
 | `paused_at`           | TIMESTAMPTZ   | SIM      | — (`17`)                |
+| `title`               | TEXT          | SIM      | — (`21`, só sem `event_id`) |
+| `content`             | TEXT          | SIM      | — (`21`, só sem `event_id`) |
+| `session_date`        | DATE          | SIM      | — (`21`, só sem `event_id`) |
+| `planned_duration_minutes` | INTEGER | SIM      | — (`21`, só sem `event_id`) |
 | `created_at`           | TIMESTAMPTZ   | NÃO      | `now()`                 |
 | `updated_at`           | TIMESTAMPTZ   | NÃO      | `now()`                 |
 
 **Constraints:**
 - `activity_sessions_status_check` — `status IN ('running','paused','finished','cancelled')`
 - `activity_sessions_source_check` — `source IN ('quick','event','manual')`
+- `planned_duration_minutes IS NULL OR planned_duration_minutes > 0` (`21`)
 
 **Índices:**
 - `activity_sessions_user_id_idx`, `activity_sessions_event_id_idx`, `activity_sessions_started_at_idx`
@@ -732,7 +757,7 @@ reviews (Revisão — event_id obrigatório, ON DELETE CASCADE; session_id opcio
 - `category_id` → `categories(id)` `ON DELETE SET NULL`
 - Referenciada por `questions.session_id` (`ON DELETE CASCADE`), `reflections.session_id` (`ON DELETE CASCADE`, 1:1), `reviews.session_id` (`ON DELETE SET NULL`, opcional)
 
-**Observações:** `duration_minutes` é o tempo **líquido** (desde `17_activity_sessions_paused_time.sql`) — desconta qualquer intervalo em `paused`. Toda transição de status é publicada no Session Event Bus por `activitySessionService.js` (único publicador) — ver `ARCHITECTURE.md`.
+**Observações:** `duration_minutes` é o tempo **líquido** (desde `17_activity_sessions_paused_time.sql`) — desconta qualquer intervalo em `paused`. Toda transição de status é publicada no Session Event Bus por `activitySessionService.js` (único publicador) — ver `ARCHITECTURE.md`. `title`/`content`/`session_date`/`planned_duration_minutes` (`21`) só existem para sessões sem `event_id` — o modal de configuração pré-início (`studySessionView.js`) grava esses campos no caminho "Novo estudo"; uma sessão vinculada a um compromisso continua resolvendo os mesmos dados a partir de `events`, nunca de ambas as fontes ao mesmo tempo.
 
 ---
 

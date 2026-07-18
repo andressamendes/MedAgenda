@@ -111,7 +111,10 @@ function loadStudySessionView(t, overrides = {}) {
   });
 
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
-    namedExports: { getEventById: overrides.getEventById ?? (async () => null) },
+    namedExports: {
+      getEventById: overrides.getEventById ?? (async () => null),
+      getEvents:    overrides.getEvents ?? (async () => []),
+    },
   });
   t.mock.module(CATEGORY_SERVICE_SPECIFIER, {
     namedExports: { getCategories: overrides.getCategories ?? (async () => []) },
@@ -182,15 +185,105 @@ test("reload restores an already-running session instead of losing it", async (t
   assert.strictEqual(document.getElementById("ss-btn-cancel").hidden, true);
 });
 
-test("clicking 'Iniciar sessão avulsa' starts a session and switches to the running state", async (t) => {
-  const { mod } = await loadStudySessionView(t);
+test("clicking 'Iniciar sessão' opens the pre-start modal instead of starting immediately", async (t) => {
+  const startSessionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    startSession: async (fields) => { startSessionCalls.push(fields); return { id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }; },
+  });
   await mod.initStudySessionView();
 
   document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
+  assert.strictEqual(document.getElementById("ss-start-modal").hidden, false);
+  assert.strictEqual(document.getElementById("ss-empty").hidden, false, "the session must not start just from opening the modal");
+  assert.strictEqual(startSessionCalls.length, 0);
+});
+
+test("the 'Novo estudo' path requires a name and never starts a session with blank fields", async (t) => {
+  const startSessionCalls = [];
+  const { mod, handleErrorCalls } = await loadStudySessionView(t, {
+    startSession: async (fields) => { startSessionCalls.push(fields); return { id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionCalls.length, 0, "a blank name must never reach the domain layer");
+  assert.strictEqual(handleErrorCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-start-manual-error").hidden, false);
+  assert.strictEqual(document.getElementById("ss-start-modal").hidden, false, "the modal stays open so the user can fix the name");
+});
+
+test("filling the 'Novo estudo' name and confirming starts a session with Compromisso/Categoria/Conteúdo/Data/Tempo previsto filled in, not blank", async (t) => {
+  const startSessionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    startSession: async (fields) => {
+      startSessionCalls.push(fields);
+      return { id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields };
+    },
+    getCategories: async () => [{ id: "cat-1", name: "Cardiologia" }],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-start-title-input").value = "Revisão de arritmias";
+  document.getElementById("ss-start-category").value = "cat-1";
+  document.getElementById("ss-start-content").value = "Fibrilação atrial";
+  document.getElementById("ss-start-date").value = "2026-07-18";
+  document.getElementById("ss-start-duration").value = "90";
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionCalls.length, 1);
+  assert.deepStrictEqual(startSessionCalls[0], {
+    source: "manual",
+    title: "Revisão de arritmias",
+    category_id: "cat-1",
+    content: "Fibrilação atrial",
+    session_date: "2026-07-18",
+    planned_duration_minutes: 90,
+  });
+
+  assert.strictEqual(document.getElementById("ss-start-modal").hidden, true);
   assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Executando");
-  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Sessão sem compromisso");
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Revisão de arritmias");
+  assert.strictEqual(document.getElementById("ss-category").textContent, "Cardiologia");
+  assert.strictEqual(document.getElementById("ss-content").textContent, "Fibrilação atrial");
+  assert.strictEqual(document.getElementById("ss-date").textContent, "18/07/2026");
+  assert.strictEqual(document.getElementById("ss-expected-duration").textContent, "1h 30min");
+});
+
+test("the 'Compromisso da agenda' path requires selecting an event and starts the linked session on confirm", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [{ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-20" }],
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-20" }),
+    startSession: async (fields) => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-start-tab-event").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-start-event-error").hidden, false, "no event selected yet");
+  assert.strictEqual(document.getElementById("ss-start-modal").hidden, false);
+
+  document.getElementById("ss-start-event").value = "evt-1";
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-start-modal").hidden, true);
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Plantão UTI");
 });
 
 test("executando: only Pausar and Finalizar are shown — never Continuar/Cancelar", async (t) => {
@@ -836,6 +929,9 @@ test("a domain error (e.g. session already running) is reported via errorService
   await mod.initStudySessionView();
   document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-start-title-input").value = "Revisão de arritmias";
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(handleErrorCalls.length, 1);
   assert.strictEqual(handleErrorCalls[0].err, domainError);
@@ -909,6 +1005,9 @@ test("F10 #4.3: starting a brand-new session (different id) does fetch its own q
   await new Promise(r => setTimeout(r, 0));
 
   document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-start-title-input").value = "Novo estudo";
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.deepStrictEqual(listQuestionsCalls, ["sess-1", "sess-2"]);
