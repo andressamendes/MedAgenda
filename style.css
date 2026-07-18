@@ -1207,6 +1207,11 @@ textarea { resize: vertical; }
 
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
+/* Botão de texto com um ícone pequeno à esquerda (F11 E5) — ex.: "Tentar
+   novamente"/"Voltar" no painel de IA. O gap de `.btn` já espaça ícone e
+   texto; só falta um tamanho fixo para o SVG. */
+.btn-icon-inline svg { width: 14px; height: 14px; flex-shrink: 0; }
+
 /* Primary */
 .btn-primary { background: var(--color-primary); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
@@ -2178,16 +2183,18 @@ textarea { resize: vertical; }
 }
 
 .modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--gray-500);
-  font-size: var(--font-size-lg);
-  padding: .25rem .4rem;
+  padding: .35rem .45rem;
   border-radius: 4px;
-  line-height: 1;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
+.modal-close svg { width: 16px; height: 16px; }
 
 .modal-close:hover { color: var(--gray-800); background: var(--gray-100); }
 
@@ -2845,18 +2852,20 @@ textarea { resize: vertical; }
 .link-text { color: var(--blue); text-decoration: underline; }
 
 .auth-success-icon {
-  font-size: 2.5rem;
-  text-align: center;
+  display: flex;
+  justify-content: center;
   margin-bottom: var(--space-3);
   color: var(--blue);
 }
+.auth-success-icon svg { width: 40px; height: 40px; }
 
 .auth-error-icon {
-  font-size: 2.5rem;
-  text-align: center;
+  display: flex;
+  justify-content: center;
   margin-bottom: var(--space-3);
   color: var(--red);
 }
+.auth-error-icon svg { width: 40px; height: 40px; }
 
 .auth-email-display {
   font-size: .9rem;
@@ -3396,8 +3405,6 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: .68rem;
-  font-weight: 800;
   flex-shrink: 0;
   margin-top: .1rem;
   width: 1.2rem;
@@ -3405,6 +3412,8 @@ textarea { resize: vertical; }
   border-radius: 50%;
   color: #fff;
 }
+.toast-icon svg { width: 11px; height: 11px; }
+.toast-icon svg * { stroke-width: 2.8; }
 
 .toast-success .toast-icon { background: var(--color-success); }
 .toast-error   .toast-icon { background: var(--color-danger); }
@@ -3414,17 +3423,19 @@ textarea { resize: vertical; }
 .toast-message { flex: 1; }
 
 .toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
   opacity: .55;
-  font-size: .75rem;
   padding: .1rem .25rem;
   border-radius: 3px;
   flex-shrink: 0;
   color: inherit;
-  line-height: 1;
 }
+.toast-close svg { width: 13px; height: 13px; }
 
 .toast-close { transition: opacity var(--transition-fast); }
 .toast-close:hover { opacity: 1; }
@@ -3551,10 +3562,15 @@ textarea { resize: vertical; }
 }
 
 .cal-chip-academic::before {
-  content: "📚 ";
-  font-size: .55rem;
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .75;
   vertical-align: middle;
-  margin-right: 1px;
+  margin-right: 3px;
 }
 
 /* ── Week view: all-day row ── */
@@ -3838,7 +3854,8 @@ textarea { resize: vertical; }
   gap: var(--space-2);
 }
 
-.ai-panel-icon { font-size: 1.25rem; }
+.ai-panel-icon { display: flex; color: #8b5cf6; }
+.ai-panel-icon svg { width: 20px; height: 20px; }
 
 .ai-panel-title {
   font-weight: 700;
@@ -3850,17 +3867,19 @@ textarea { resize: vertical; }
 }
 
 .ai-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  font-size: var(--font-size-lg);
   cursor: pointer;
   color: var(--gray-500);
   padding: var(--space-1);
   border-radius: 4px;
-  line-height: 1;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .ai-panel-close:hover { color: var(--gray-800); background: var(--gray-100); }
+.ai-panel-close svg { width: 16px; height: 16px; }
 
 .ai-panel-actions {
   padding: var(--space-5);
@@ -3915,9 +3934,11 @@ textarea { resize: vertical; }
 }
 
 .ai-action-icon {
-  font-size: 1.5rem;
+  display: flex;
   flex-shrink: 0;
+  color: var(--color-primary);
 }
+.ai-action-icon svg { width: 22px; height: 22px; }
 
 .ai-action-text {
   display: flex;
@@ -4116,6 +4137,7 @@ textarea { resize: vertical; }
   flex-shrink: 0;
   line-height: 1.4;
 }
+.smart-card-icon svg { width: 16px; height: 16px; display: block; }
 
 .smart-card-label {
   flex-shrink: 0;
@@ -4138,6 +4160,14 @@ textarea { resize: vertical; }
 .smart-card--atencao  { border-left-color: var(--color-warning); }
 .smart-card--meta     { border-left-color: var(--color-success); }
 .smart-card--revisao  { border-left-color: #8b5cf6; }
+
+/* Cor do ícone (F11 E5) casada com a cor de destaque já usada acima na
+   borda esquerda de cada tipo — mesmo código de cor, sem valor novo. */
+.smart-card--dica     .smart-card-icon { color: var(--blue); }
+.smart-card--sugestao .smart-card-icon { color: #06b6d4; }
+.smart-card--atencao  .smart-card-icon { color: var(--color-warning); }
+.smart-card--meta     .smart-card-icon { color: var(--color-success); }
+.smart-card--revisao  .smart-card-icon { color: #8b5cf6; }
 
 /* ── Plano rápido na agenda (F3.5, ETAPA 6) — mesma marcação de plano do
    painel de IA (ver .ai-plan-item em Plano da Semana), reaproveitada aqui. ── */

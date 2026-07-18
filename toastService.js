@@ -1,8 +1,10 @@
+import { iconCheck, iconX, iconAlertTriangle, iconInfo } from './icons.js';
+
 const TYPES = {
-  success: { icon: '✓', label: 'Sucesso' },
-  error:   { icon: '✕', label: 'Erro' },
-  warning: { icon: '!', label: 'Aviso' },
-  info:    { icon: 'i', label: 'Informação' },
+  success: { icon: iconCheck,        label: 'Sucesso' },
+  error:   { icon: iconX,            label: 'Erro' },
+  warning: { icon: iconAlertTriangle, label: 'Aviso' },
+  info:    { icon: iconInfo,         label: 'Informação' },
 };
 
 const MAX_TOASTS = 5;
@@ -30,7 +32,7 @@ export function showToast(message, type = 'info', duration = 4500) {
   el.innerHTML = `
     <span class="toast-icon" aria-hidden="true">${cfg.icon}</span>
     <span class="toast-message"></span>
-    <button class="toast-close" aria-label="Fechar notificação">✕</button>
+    <button class="toast-close" aria-label="Fechar notificação">${iconX}</button>
   `;
   el.querySelector('.toast-message').textContent = message;
 
