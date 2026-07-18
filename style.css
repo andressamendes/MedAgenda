@@ -5,9 +5,15 @@
 }
 
 :root {
-  /* ── Paleta base (legado — mantida para compatibilidade) ── */
-  --blue:       #3b82f6;
-  --blue-d:     #2563eb;
+  /* ── Paleta base (legado — mantida para compatibilidade) ──
+     F10 PR1 (auditoria UX/UI): cor de acento própria da identidade Anoti —
+     um índigo-tinta deliberado, substituindo o azul genérico de starter kit
+     usado até aqui. Troca só de valor: nome das variáveis e toda a cadeia de
+     tokens que as referenciam (--color-primary, --color-info, focus ring
+     etc.) permanece idêntica, então o efeito se propaga sozinho por herança
+     de custom property — nenhum outro seletor precisa mudar. */
+  --blue:       #4954a8;
+  --blue-d:     #383f87;
   --gray-50:    #f9fafb;
   --gray-100:   #f3f4f6;
   --gray-200:   #e5e7eb;
@@ -45,9 +51,9 @@
   --color-danger-border:  #fca5a5;
 
   --color-info:           var(--blue);
-  --color-info-bg:        #eff6ff;
-  --color-info-text:      #1d4ed8;
-  --color-info-border:    #93c5fd;
+  --color-info-bg:        #eef0fa;
+  --color-info-text:      #363f87;
+  --color-info-border:    #b9c0ea;
 
   /* ── Raio de borda ── */
   --radius-sm:    6px;
@@ -87,7 +93,7 @@
 
   /* ── Anel de foco (F5.2) — acessibilidade consistente em botões, inputs,
      itens de navegação e cartões clicáveis ── */
-  --focus-ring: 0 0 0 3px rgba(59, 130, 246, .28);
+  --focus-ring: 0 0 0 3px rgba(73, 84, 168, .32);
 
   /* ── Tons "fortes" reaproveitados em 2+ lugares (F5.2) — eliminam hex
      duplicado em status pills / hover de botão de perigo / avisos ── */
@@ -199,10 +205,10 @@
   --color-danger-border:  #b91c1c;
   --color-danger-bg-strong: #7f1d1d;
 
-  --color-info:           #60a5fa;
-  --color-info-bg:        #172554;
-  --color-info-text:      #93c5fd;
-  --color-info-border:    #1d4ed8;
+  --color-info:           #8f9aef;
+  --color-info-bg:        #1c2050;
+  --color-info-text:      #c0c6f5;
+  --color-info-border:    #4a54a0;
 }
 
 body {
@@ -626,7 +632,7 @@ body {
   padding: 0;
   font: inherit;
   font-weight: 600;
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #383f87);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -2505,7 +2511,7 @@ textarea { resize: vertical; }
 }
 
 .wk-slot:hover {
-  background: rgba(59, 130, 246, .05);
+  background: rgba(73, 84, 168, .05);
 }
 
 /* event blocks */
@@ -3042,7 +3048,7 @@ textarea { resize: vertical; }
   height: 100%;
   width: 0%;
   border-radius: 999px;
-  background: var(--color-primary, #2563eb);
+  background: var(--color-primary, #383f87);
   transition: width .3s ease;
 }
 
@@ -4034,7 +4040,7 @@ textarea { resize: vertical; }
   line-height: 1.45;
 }
 
-.smart-card--dica     { border-left-color: #3b82f6; }
+.smart-card--dica     { border-left-color: var(--blue); }
 .smart-card--sugestao { border-left-color: #06b6d4; }
 .smart-card--atencao  { border-left-color: var(--color-warning); }
 .smart-card--meta     { border-left-color: var(--color-success); }

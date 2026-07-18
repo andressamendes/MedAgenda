@@ -2,7 +2,7 @@
   "name": "MedAgenda",
   "short_name": "MedAgenda",
   "description": "A agenda de compromissos feita para estudantes de Medicina.",
-  "theme_color": "#3b82f6",
+  "theme_color": "#4954a8",
   "background_color": "#f9fafb",
   "display": "standalone",
   "orientation": "portrait-primary",
