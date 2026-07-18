@@ -658,7 +658,8 @@ function _minutesBetween(session, endedAtDate) {
 function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
   bodyEl.hidden = !expanded;
   toggleBtn.setAttribute("aria-expanded", String(expanded));
-  toggleBtn.textContent = expanded ? "Ocultar" : "Mostrar";
+  const label = toggleBtn.querySelector(".disclosure-label");
+  if (label) label.textContent = expanded ? "Ocultar" : "Mostrar";
   if (expanded) revealWithAnimation(bodyEl);
 }
 

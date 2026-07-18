@@ -117,7 +117,7 @@ import {
 } from "./studyTimelineService.js";
 import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers } from "./icons.js";
+import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
 
@@ -416,7 +416,8 @@ function _toggleEntry(toggleBtn, detailEl) {
   const expand = detailEl.hidden;
   detailEl.hidden = !expand;
   toggleBtn.setAttribute("aria-expanded", String(expand));
-  toggleBtn.textContent = expand ? "Recolher" : "Detalhar";
+  const label = toggleBtn.querySelector(".disclosure-label");
+  if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
   if (expand) revealWithAnimation(detailEl);
 }
 
@@ -596,7 +597,7 @@ function _buildEntryEl(entry) {
         <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
         ${meta.category ? `<span class="ah-item-category">· ${highlightMatches(meta.category, query)}</span>` : ""}
       </div>
-      <button type="button" class="btn btn-ghost btn-sm sj-toggle" aria-expanded="false">Detalhar</button>
+      <button type="button" class="btn btn-ghost btn-sm sj-toggle disclosure-toggle" aria-expanded="false"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
     </div>
     <div class="session-history-row session-history-meta">
       <span class="session-history-date">${_formatDate(s.started_at)}</span>

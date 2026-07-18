@@ -161,6 +161,11 @@ export const iconX = `
     <line x1="18" y1="6" x2="6" y2="18"/>
   </svg>`;
 
+export const iconChevronDown = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>`;
+
 export const iconDatabase = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
     <ellipse cx="12" cy="5" rx="9" ry="3"/>

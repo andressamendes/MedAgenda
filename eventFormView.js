@@ -172,6 +172,8 @@ export function initEventForm(onSave) {
     const expand = historyBody.hidden;
     historyBody.hidden = !expand;
     historyToggle.setAttribute("aria-expanded", String(expand));
+    const label = historyToggle.querySelector(".disclosure-label");
+    if (label) label.textContent = expand ? "Ocultar histórico deste compromisso" : "Mostrar histórico deste compromisso";
   });
 
   // Auditoria UX #12: excluir só existia na página "Compromissos" — o
@@ -344,6 +346,8 @@ function _clearForm() {
   historySection.hidden = true;
   historyBody.hidden = true;
   historyToggle.setAttribute("aria-expanded", "false");
+  const historyLabel = historyToggle.querySelector(".disclosure-label");
+  if (historyLabel) historyLabel.textContent = "Mostrar histórico deste compromisso";
   historyList.innerHTML = "";
   historyEmpty.hidden = true;
   statsSection.hidden = true;

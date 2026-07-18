@@ -458,6 +458,26 @@ body {
   flex-shrink: 0;
 }
 
+/* F11 E8 — chevron rotativo compartilhado por todos os botões de disclosure
+   (Mostrar/Ocultar, Filtros avançados, histórico do compromisso, plano da
+   semana etc.), para que o mesmo par rótulo+ícone comunique o estado em
+   qualquer tela, em vez de cada uma inventar seu próprio texto. */
+.disclosure-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+}
+
+.disclosure-chevron svg {
+  width: 14px;
+  height: 14px;
+  transition: transform .15s ease;
+}
+
+.disclosure-toggle[aria-expanded="true"] .disclosure-chevron svg {
+  transform: rotate(180deg);
+}
+
 .user-menu-dropdown {
   position: absolute;
   top: calc(100% + .5rem);
