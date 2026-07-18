@@ -3077,6 +3077,30 @@ textarea { resize: vertical; }
 
 .sync-indicator[hidden] { display: none; }
 
+/* F11 E13 — chip de sessão ativa no header (activeSessionIndicatorView.js),
+   visível em qualquer página enquanto houver sessão "running"/"paused". Cor
+   de destaque discreta (mesmo tom do link/primário), nunca vermelha/piscante
+   — não é um alarme, só um lembrete de que o cronômetro continua rodando. */
+.active-session-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .6rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.active-session-chip:hover { background: var(--gray-100); }
+.active-session-chip[hidden] { display: none; }
+
+.active-session-chip-icon svg { width: 14px; height: 14px; display: block; }
+
 .sync-spinner {
   display: inline-block;
   width: 14px;

@@ -47,6 +47,7 @@ const SPECIFIERS = {
   settingsModal: new URL("../settingsModal.js", import.meta.url).href,
   diagnosticModal: new URL("../diagnosticModal.js", import.meta.url).href,
   studySessionView: new URL("../studySessionView.js", import.meta.url).href,
+  activeSessionIndicatorView: new URL("../activeSessionIndicatorView.js", import.meta.url).href,
   activityHistoryView: new URL("../activityHistoryView.js", import.meta.url).href,
   studyJournalView: new URL("../studyJournalView.js", import.meta.url).href,
   activityDashboardView: new URL("../activityDashboardView.js", import.meta.url).href,
@@ -160,6 +161,9 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
       initStudySessionView: async () => hasActiveStudySession, resetStudySessionView: () => {},
       startSessionForEvent: async (ev) => { startSessionForEventCalls.push(ev); return startSessionResult; },
     },
+  });
+  t.mock.module(SPECIFIERS.activeSessionIndicatorView, {
+    namedExports: { initActiveSessionIndicator: async () => {}, resetActiveSessionIndicator: () => {} },
   });
   t.mock.module(SPECIFIERS.activityHistoryView, {
     namedExports: { initActivityHistoryView: async () => {}, resetActivityHistoryView: () => {} },
