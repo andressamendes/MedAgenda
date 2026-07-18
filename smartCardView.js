@@ -11,13 +11,14 @@
  * texto de rótulo é decidido pela IA, só a mensagem em si.
  */
 import { escapeHtml } from "./utils.js";
+import { iconLightbulb, iconPin, iconAlertTriangle, iconTarget, iconRepeat } from "./icons.js";
 
 export const CARD_TYPES = {
-  dica:     { icon: "💡", label: "Dica" },
-  sugestao: { icon: "📌", label: "Sugestão" },
-  atencao:  { icon: "⚠️", label: "Atenção" },
-  meta:     { icon: "🎯", label: "Meta" },
-  revisao:  { icon: "🔁", label: "Revisão" },
+  dica:     { icon: iconLightbulb,     label: "Dica" },
+  sugestao: { icon: iconPin,           label: "Sugestão" },
+  atencao:  { icon: iconAlertTriangle, label: "Atenção" },
+  meta:     { icon: iconTarget,        label: "Meta" },
+  revisao:  { icon: iconRepeat,        label: "Revisão" },
 };
 
 /** Monta um card `{ tipo, mensagem }`, caindo para "dica" se o tipo for desconhecido. */

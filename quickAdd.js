@@ -1,6 +1,7 @@
 import { createEvent } from "./eventService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { iconX } from "./icons.js";
 
 const WEEKDAYS_LONG = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const MONTHS_LONG   = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
@@ -19,7 +20,7 @@ function init() {
     <div class="modal-card">
       <div class="modal-header">
         <h2 class="modal-title" id="qa-date-label"></h2>
-        <button class="modal-close" id="qa-close" aria-label="Fechar">✕</button>
+        <button class="modal-close" id="qa-close" aria-label="Fechar">${iconX}</button>
       </div>
       <div class="modal-body">
         <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" aria-label="Título do compromisso" maxlength="120" />

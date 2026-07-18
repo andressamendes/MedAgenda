@@ -115,6 +115,52 @@ export const iconAlertTriangle = `
     <line x1="12" y1="17" x2="12.01" y2="17"/>
   </svg>`;
 
+export const iconLightbulb = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <path d="M9 18h6"/>
+    <path d="M10 22h4"/>
+    <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/>
+  </svg>`;
+
+export const iconPin = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <path d="M12 2a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6z"/>
+    <circle cx="12" cy="8" r="2"/>
+  </svg>`;
+
+export const iconTarget = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="9"/>
+    <circle cx="12" cy="12" r="5"/>
+    <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+  </svg>`;
+
+export const iconRepeat = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <path d="M17 2.1 21 6l-4 3.9"/>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+    <path d="M7 21.9 3 18l4-3.9"/>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+  </svg>`;
+
+export const iconCheck = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <polyline points="4 12.5 9.5 18 20 6"/>
+  </svg>`;
+
+export const iconInfo = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="11" x2="12" y2="16.5"/>
+    <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/>
+  </svg>`;
+
+export const iconX = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <line x1="6" y1="6" x2="18" y2="18"/>
+    <line x1="18" y1="6" x2="6" y2="18"/>
+  </svg>`;
+
 export const iconDatabase = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
     <ellipse cx="12" cy="5" rx="9" ry="3"/>
