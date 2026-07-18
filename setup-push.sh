@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MedAgenda — Setup de Push Notifications
+# Anoti — Setup de Push Notifications
 # Execute este script localmente após instalar o Supabase CLI.
 # Pré-requisito: supabase login (ou SUPABASE_ACCESS_TOKEN definido)
 

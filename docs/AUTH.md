@@ -1,4 +1,4 @@
-# MedAgenda — Autenticação e Gestão de Usuários
+# Anoti — Autenticação e Gestão de Usuários
 
 Este documento descreve toda a arquitetura de autenticação, cadastro, recuperação de senha, gerenciamento de perfil e exclusão de conta.
 

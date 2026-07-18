@@ -1,6 +1,6 @@
-# Segurança do MedAgenda
+# Segurança do Anoti
 
-> Documentação oficial da arquitetura de segurança do MedAgenda. Reflete exatamente o estado atual do código — nenhuma política, função, Edge Function ou fluxo de autenticação foi alterado para a produção deste documento. Onde há lacunas ou inconsistências, elas são apenas relatadas, não corrigidas.
+> Documentação oficial da arquitetura de segurança do Anoti. Reflete exatamente o estado atual do código — nenhuma política, função, Edge Function ou fluxo de autenticação foi alterado para a produção deste documento. Onde há lacunas ou inconsistências, elas são apenas relatadas, não corrigidas.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### Filosofia de segurança
 
-O MedAgenda não possui um servidor de aplicação próprio: é um frontend estático (HTML/CSS/JS, publicado no GitHub Pages) que fala diretamente com um projeto **Supabase** (Backend-as-a-Service). A filosofia de segurança adotada decorre diretamente dessa arquitetura:
+O Anoti não possui um servidor de aplicação próprio: é um frontend estático (HTML/CSS/JS, publicado no GitHub Pages) que fala diretamente com um projeto **Supabase** (Backend-as-a-Service). A filosofia de segurança adotada decorre diretamente dessa arquitetura:
 
 - **RLS como camada de autorização primária.** Em vez de reimplementar checagens de "este dado pertence a este usuário?" em cada tela ou serviço do frontend, essa regra é declarada uma única vez no banco, via Row Level Security. Mesmo que o frontend tenha um bug e envie uma query mal filtrada, o Postgres nega o acesso a dados de outro usuário.
 - **Chave pública (`anon key`) não é segredo de acesso.** A `anon key` do Supabase, embutida no frontend, apenas identifica a aplicação perante o Supabase — ela não concede acesso a dados de terceiros. Quem concede acesso é a combinação **JWT do usuário + política RLS**.
@@ -264,7 +264,7 @@ Cada Edge Function tem responsabilidade única, sem sobreposição de propósito
 | `SUPABASE_ANON_KEY` | `config.js` (frontend) **e** variável de ambiente em `ai-chat`/`delete-account` | Chave pública de identificação da aplicação; usada junto ao JWT do usuário para chamadas autenticadas |
 | `VAPID_PUBLIC_KEY` | `config.js` (frontend, pública por definição do protocolo Web Push) e secret da Edge Function `send-push-notifications` | Criação de assinaturas Push no navegador e assinatura das mesmas no servidor |
 | `VAPID_PRIVATE_KEY` | Secret da Edge Function `send-push-notifications` | Assina as notificações push enviadas via `web-push` |
-| `VAPID_SUBJECT` | Secret da Edge Function `send-push-notifications` (com fallback `mailto:admin@medagenda.app` no código) | Identifica o remetente perante os serviços de push dos navegadores |
+| `VAPID_SUBJECT` | Secret da Edge Function `send-push-notifications` (com fallback `mailto:admin@anoti.app` no código) | Identifica o remetente perante os serviços de push dos navegadores |
 | `SUPABASE_ACCESS_TOKEN` | Secret do repositório GitHub | Usado pelo workflow `deploy-functions.yml` para autenticar a Supabase CLI no deploy de Edge Functions |
 | `SUPABASE_PROJECT_REF` | Secret do repositório GitHub | Identifica o projeto Supabase de destino no deploy via CLI (`--project-ref`) |
 
@@ -609,4 +609,4 @@ Revisão da consistência entre autenticação, RLS, Edge Functions e secrets, s
 
 **Avaliação geral da arquitetura de segurança:**
 
-A arquitetura de segurança do MedAgenda é coerente e adequada ao porte do projeto: delega autenticação e a maior parte da autorização a mecanismos nativos e testados do Supabase (Auth + RLS), minimiza a superfície de código privilegiado a três Edge Functions pequenas e auditáveis, e não versiona nem expõe segredos sensíveis ao cliente. As lacunas identificadas na auditoria — CORS permissivo nas Edge Functions, ausência de allowlist para o parâmetro `model` em `ai-chat`, deploy automatizado incompleto (apenas 1 de 3 funções), inconsistências de estilo entre Edge Functions e validação de upload apenas no frontend — são pontos de acabamento e monitoramento contínuo, não falhas estruturais que comprometam o isolamento de dados entre usuários hoje.
+A arquitetura de segurança do Anoti é coerente e adequada ao porte do projeto: delega autenticação e a maior parte da autorização a mecanismos nativos e testados do Supabase (Auth + RLS), minimiza a superfície de código privilegiado a três Edge Functions pequenas e auditáveis, e não versiona nem expõe segredos sensíveis ao cliente. As lacunas identificadas na auditoria — CORS permissivo nas Edge Functions, ausência de allowlist para o parâmetro `model` em `ai-chat`, deploy automatizado incompleto (apenas 1 de 3 funções), inconsistências de estilo entre Edge Functions e validação de upload apenas no frontend — são pontos de acabamento e monitoramento contínuo, não falhas estruturais que comprometam o isolamento de dados entre usuários hoje.

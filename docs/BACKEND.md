@@ -1,12 +1,12 @@
-# Backend MedAgenda
+# Backend Anoti
 
-> Documentação oficial da arquitetura Backend do MedAgenda. Reflete o estado atual do código em `supabase/`, `sql/` e dos serviços do frontend que consomem o backend. Para o detalhamento completo do schema (tabelas, colunas, triggers, RLS) veja [`DATABASE.md`](./DATABASE.md); este documento foca na arquitetura, nos fluxos e na integração entre as peças.
+> Documentação oficial da arquitetura Backend do Anoti. Reflete o estado atual do código em `supabase/`, `sql/` e dos serviços do frontend que consomem o backend. Para o detalhamento completo do schema (tabelas, colunas, triggers, RLS) veja [`DATABASE.md`](./DATABASE.md); este documento foca na arquitetura, nos fluxos e na integração entre as peças.
 
 ---
 
 ## Visão Geral
 
-O MedAgenda não possui um servidor de aplicação próprio. Todo o backend é fornecido por uma plataforma **Backend-as-a-Service (BaaS)**: o **Supabase**. O frontend (HTML/CSS/JS estático, publicado no GitHub Pages) se comunica diretamente com o Supabase através do SDK `@supabase/supabase-js`, sem passar por um backend intermediário controlado pela equipe.
+O Anoti não possui um servidor de aplicação próprio. Todo o backend é fornecido por uma plataforma **Backend-as-a-Service (BaaS)**: o **Supabase**. O frontend (HTML/CSS/JS estático, publicado no GitHub Pages) se comunica diretamente com o Supabase através do SDK `@supabase/supabase-js`, sem passar por um backend intermediário controlado pela equipe.
 
 O Supabase fornece quatro serviços usados pelo projeto:
 
@@ -374,7 +374,7 @@ Web Push API dos navegadores dos usuários
 | `GEMINI_API_KEY` | Secret apenas na Edge Function `ai-chat` | Autentica as chamadas ao Google Gemini API. |
 | `VAPID_PUBLIC_KEY` | `config.js` (frontend, pública) e secret na Edge Function `send-push-notifications` | Chave pública do protocolo Web Push, usada pelo navegador para criar a subscription e pelo servidor para assiná-la. |
 | `VAPID_PRIVATE_KEY` | Secret apenas na Edge Function `send-push-notifications` | Chave privada usada para assinar as notificações push enviadas. |
-| `VAPID_SUBJECT` | Secret na Edge Function `send-push-notifications` (com fallback `mailto:admin@medagenda.app` no código) | Identifica o remetente das notificações push perante os serviços de push dos navegadores. |
+| `VAPID_SUBJECT` | Secret na Edge Function `send-push-notifications` (com fallback `mailto:admin@anoti.app` no código) | Identifica o remetente das notificações push perante os serviços de push dos navegadores. |
 | `APP_URL` | `config.js` (frontend) | URL base usada em redirecionamentos de e-mail (confirmação, reset de senha) — não é um segredo, mas precisa estar cadastrada nas "Redirect URLs" do Supabase Auth. |
 
 `config.js` é gerado a partir de secrets do repositório GitHub (`Settings → Secrets and variables → Actions`) durante o workflow `deploy.yml`, e nunca é versionado (está no `.gitignore`; existe um `config.example.js` como modelo).

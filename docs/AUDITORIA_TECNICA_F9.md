@@ -1,4 +1,4 @@
-# F9.1 — Auditoria Técnica Completa do MedAgenda
+# F9.1 — Auditoria Técnica Completa do Anoti
 
 **Data:** 2026-07-09
 **Escopo:** todo o repositório (frontend, serviços, banco, Edge Functions, testes, documentação)

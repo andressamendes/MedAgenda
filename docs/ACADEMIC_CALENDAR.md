@@ -1,4 +1,4 @@
-# Calendário Acadêmico — MedAgenda
+# Calendário Acadêmico — Anoti
 
 Documentação técnica da funcionalidade de Calendário Acadêmico (Etapa 17).
 

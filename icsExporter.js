@@ -1,6 +1,6 @@
 // ICS (.ics) file exporter for academic calendar
 
-const PROD_ID = "-//MedAgenda//MedAgenda 1.0//PT";
+const PROD_ID = "-//Anoti//Anoti 1.0//PT";
 
 function foldLine(line) {
   // RFC 5545 §3.1: lines MUST NOT exceed 75 octets; fold with CRLF + space

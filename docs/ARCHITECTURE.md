@@ -1,10 +1,10 @@
-# MedAgenda — Arquitetura
+# Anoti — Arquitetura
 
 ---
 
 ## Visão Geral
 
-O **MedAgenda** é uma Progressive Web App (PWA) de gerenciamento de agenda projetada especificamente para estudantes de medicina. A aplicação permite organizar um calendário acadêmico e pessoal intenso, cobrindo aulas, plantões, ambulatórios, laboratórios, ligas, estudos, provas, congressos e compromissos pessoais.
+O **Anoti** é uma Progressive Web App (PWA) de gerenciamento de agenda projetada especificamente para estudantes de medicina. A aplicação permite organizar um calendário acadêmico e pessoal intenso, cobrindo aulas, plantões, ambulatórios, laboratórios, ligas, estudos, provas, congressos e compromissos pessoais.
 
 **Problema que resolve:** a rotina de estudantes de medicina é fragmentada entre múltiplos calendários institucionais, turnos irregulares e períodos de estudo, sem uma ferramenta centralizada que entenda essa realidade. Agendas genéricas não diferenciam categorias médicas nem oferecem análise de carga de trabalho adaptada ao contexto acadêmico.
 
@@ -81,7 +81,7 @@ A comunicação entre o frontend e o Supabase ocorre exclusivamente via Supabase
 
 ## Modelo de Domínio
 
-Desde a F6, o MedAgenda separa duas grandes áreas conceituais: **Planejamento** (o que o usuário pretende fazer — `events`, `categories`, `academic_calendars`) e **Execução** (o que o usuário efetivamente fez — `activity_sessions`, `questions`, `reviews`, `reflections`). A Execução não substitui o Planejamento; ela registra o fato real, que pode ou não corresponder a um compromisso planejado.
+Desde a F6, o Anoti separa duas grandes áreas conceituais: **Planejamento** (o que o usuário pretende fazer — `events`, `categories`, `academic_calendars`) e **Execução** (o que o usuário efetivamente fez — `activity_sessions`, `questions`, `reviews`, `reflections`). A Execução não substitui o Planejamento; ela registra o fato real, que pode ou não corresponder a um compromisso planejado.
 
 A cadeia de domínio da Execução é:
 

@@ -1,10 +1,10 @@
-# Frontend MedAgenda
+# Frontend Anoti
 
 > **Escopo deste documento:** cobre a organização geral do frontend e os módulos do domínio de **Planejamento** (eventos, categorias, calendário acadêmico, autenticação, IA, PWA). Os módulos do domínio de **Execução de Estudo** — Sessão, Questões, Revisões, Reflexão, Session Event Bus, Diário de Estudos, Dashboard, Study Streak, Achievements — estão documentados em [`ARCHITECTURE.md`](ARCHITECTURE.md) (seções "Modelo de Domínio", "Session Event Bus", "Fluxo da Sessão de Estudo" e "Diário de Estudos", e a tabela de módulos correspondente), para não duplicar conteúdo entre os dois documentos.
 
 ## Visão Geral
 
-O frontend do MedAgenda é construído com **JavaScript Vanilla** usando **ES Modules nativos do navegador**, sem frameworks como React, Vue ou Angular. A aplicação é uma Single Page Application (SPA) cujo roteamento funciona por visibilidade de elementos DOM — não há troca de URL ou rerenderização de página.
+O frontend do Anoti é construído com **JavaScript Vanilla** usando **ES Modules nativos do navegador**, sem frameworks como React, Vue ou Angular. A aplicação é uma Single Page Application (SPA) cujo roteamento funciona por visibilidade de elementos DOM — não há troca de URL ou rerenderização de página.
 
 ### Pilares da arquitetura
 

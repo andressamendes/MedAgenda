@@ -1,4 +1,4 @@
-# Roadmap — MedAgenda
+# Roadmap — Anoti
 
 ## Versão 1 — MVP Funcional
 
@@ -17,7 +17,7 @@ O objetivo desta versão é entregar a funcionalidade essencial: uma agenda func
 
 ## Versão 2 — PWA e Melhorias de UX
 
-O objetivo desta versão é tornar o MedAgenda uma experiência mais fluida e acessível, especialmente em dispositivos móveis.
+O objetivo desta versão é tornar o Anoti uma experiência mais fluida e acessível, especialmente em dispositivos móveis.
 
 **Escopo:**
 - Transformação em Progressive Web App (PWA)
@@ -31,7 +31,7 @@ O objetivo desta versão é tornar o MedAgenda uma experiência mais fluida e ac
 
 ## Versão 3 — Calendário Acadêmico ✅
 
-Transformação do MedAgenda em produto específico para estudantes de Medicina, com suporte a calendários institucionais.
+Transformação do Anoti em produto específico para estudantes de Medicina, com suporte a calendários institucionais.
 
 **Escopo:**
 - Múltiplos calendários acadêmicos por usuário (Medicina 2026, Internato, Ligas…)
@@ -46,7 +46,7 @@ Transformação do MedAgenda em produto específico para estudantes de Medicina,
 
 ## Versão 4 — Compartilhamento e Integrações
 
-O objetivo desta versão é expandir o MedAgenda para além do uso individual.
+O objetivo desta versão é expandir o Anoti para além do uso individual.
 
 **Escopo:**
 - Calendários acadêmicos públicos por universidade (URL de ICS oficial)

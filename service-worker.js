@@ -178,7 +178,7 @@ self.addEventListener('push', (event) => {
   try {
     const payload = event.data.json();
     event.waitUntil(
-      self.registration.showNotification(payload.title || 'MedAgenda', {
+      self.registration.showNotification(payload.title || 'Anoti', {
         body:             payload.body  || '',
         icon:             new URL('./icons/icon-192.png', BASE).href,
         badge:            new URL('./icons/icon-96.png',  BASE).href,
