@@ -1354,9 +1354,24 @@ textarea { resize: vertical; }
   animation: content-reveal var(--transition-slow);
 }
 
+/* F11 E9 — troca de página (showPage()/navigationView.js): mesmo princípio de
+   revelação acima, mas mais rápido (180ms) para não atrasar a navegação —
+   um fade sutil é suficiente para comunicar "isto é conteúdo novo" sem
+   competir com o content-reveal (300ms), reservado para seções que abrem
+   dentro da própria página. */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: page-enter var(--transition-base);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }
   .content-reveal { animation: none; }
+  .page-enter { animation: none; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.

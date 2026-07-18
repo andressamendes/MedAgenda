@@ -1,5 +1,5 @@
 // ── navigationView.js — Navegação entre páginas, sidebar e bottom nav ────────
-import { revealWithAnimation } from "./transitionUtils.js";
+import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.js";
 
 // F10 #4.2 — 'history' removido: a página própria (#page-history) foi
 // absorvida como abas dentro de 'journal' (ver studyJournalView.js/
@@ -87,7 +87,14 @@ export function showPage(name) {
 
   APP_PAGES.forEach(p => {
     const el = document.getElementById(`page-${p}`);
-    if (el) el.hidden = (p !== name);
+    if (!el) return;
+    const isTarget = p === name;
+    // F11 E9 — só anima quando a página realmente estava escondida e passa a
+    // aparecer: showPage(name) chamado de novo para a mesma página ativa
+    // (ex.: re-render) não deve reiniciar o fade.
+    const wasHidden = el.hidden;
+    el.hidden = !isTarget;
+    if (isTarget && wasHidden) revealPageWithAnimation(el);
   });
   document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
     btn.classList.toggle('nav-item--active', btn.dataset.page === name);
