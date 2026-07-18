@@ -86,6 +86,14 @@
   --font-size-lg: 1rem;
   --font-size-xl: 1.25rem;
 
+  /* ── Família tipográfica de destaque (F10 PR2, auditoria UX/UI) — uma
+     serifada de sistema (sem download, sem mudança de CSP/service worker)
+     reservada só para o wordmark e para números de destaque (cronômetro da
+     Sessão de Estudo, cards do Dashboard). O corpo do produto continua 100%
+     na pilha sans-serif de `body`; esta variável nunca deve ser usada em
+     texto de UI, listas ou formulários. */
+  --font-display: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
   /* ── Transições (F5.2) — microinterações consistentes ── */
   --transition-fast: .12s ease;
   --transition-base: .18s ease;
@@ -246,10 +254,10 @@ body {
 .app-loading-screen[hidden] { display: none; }
 
 .app-loading-logo {
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--blue);
-  letter-spacing: -.5px;
 }
 
 .app-loading-spinner {
@@ -326,6 +334,7 @@ body {
 }
 
 .app-title {
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.05rem;
   color: var(--blue);
@@ -1594,6 +1603,7 @@ textarea { resize: vertical; }
 }
 
 .dashboard-card-value {
+  font-family: var(--font-display);
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--gray-800);
@@ -3001,6 +3011,7 @@ textarea { resize: vertical; }
 }
 
 .ss-timer-value {
+  font-family: var(--font-display);
   font-size: 3rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
