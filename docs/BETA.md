@@ -1,4 +1,4 @@
-# MedAgenda — Beta Público
+# Anoti — Beta Público
 
 Versão: **1.0.0-rc1**
 Última atualização: 2026-06-28
@@ -78,7 +78,7 @@ Use o template disponível e marque com a label `bug`.
 - [ ] Desativar modo desenvolvedor
 
 ### 9. PWA
-- [ ] Aplicação pode ser instalada (botão "Instalar MedAgenda")
+- [ ] Aplicação pode ser instalada (botão "Instalar Anoti")
 - [ ] Funciona após instalação como app standalone
 - [ ] Atualização automática ao publicar nova versão
 

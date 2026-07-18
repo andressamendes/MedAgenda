@@ -1,4 +1,4 @@
-# Arquitetura Técnica — MedAgenda
+# Arquitetura Técnica — Anoti
 
 > **Este documento foi descontinuado.** O conteúdo foi consolidado em [`ARCHITECTURE.md`](ARCHITECTURE.md), que é a documentação oficial e atualizada de arquitetura (stack, estrutura do projeto, Modelo de Domínio, Session Event Bus, Fluxo da Sessão de Estudo, Diário de Estudos, PWA e deploy).
 >

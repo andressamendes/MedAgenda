@@ -1,5 +1,5 @@
 /**
- * script.js — Bootstrap e controlador principal da aplicação MedAgenda
+ * script.js — Bootstrap e controlador principal da aplicação Anoti
  *
  * Este arquivo centraliza a inicialização da aplicação e os módulos de UI
  * que ainda não foram extraídos para módulos próprios. Ele é o único ponto

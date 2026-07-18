@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-O Assistente IA do MedAgenda é um módulo opcional, que utiliza um modelo de linguagem (Google Gemini) para gerar textos em linguagem natural a partir da agenda do usuário. Ele não substitui o "Assistente Inteligente" local (`smartAssistant.js`), que roda inteiramente no navegador, sem custo e sem enviar dados a serviços externos — os dois convivem no aplicativo com propósitos distintos.
+O Assistente IA do Anoti é um módulo opcional, que utiliza um modelo de linguagem (Google Gemini) para gerar textos em linguagem natural a partir da agenda do usuário. Ele não substitui o "Assistente Inteligente" local (`smartAssistant.js`), que roda inteiramente no navegador, sem custo e sem enviar dados a serviços externos — os dois convivem no aplicativo com propósitos distintos.
 
 ### Objetivo
 

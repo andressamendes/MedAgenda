@@ -1,6 +1,6 @@
-# Deploy — MedAgenda
+# Deploy — Anoti
 
-Guia completo de publicação da MedAgenda no GitHub Pages.
+Guia completo de publicação da Anoti no GitHub Pages.
 
 ---
 
@@ -218,7 +218,7 @@ Após cada deploy, validar:
 - [ ] Agenda semanal exibe eventos
 - [ ] Categorias personalizadas funcionam
 - [ ] Recorrência funciona (criar evento recorrente)
-- [ ] PWA instalável (botão "Instalar MedAgenda" aparece)
+- [ ] PWA instalável (botão "Instalar Anoti" aparece)
 - [ ] Modo offline funciona (ativar modo avião e recarregar)
 - [ ] Console sem erros críticos
 

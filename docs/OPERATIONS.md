@@ -1,12 +1,12 @@
-# Operação do MedAgenda
+# Operação do Anoti
 
-> Manual operacional oficial do MedAgenda. Documenta exatamente como o sistema é operado, mantido e administrado em produção, refletindo o estado atual do repositório. Nenhum procedimento aqui descrito foi inventado — onde um processo não existe (ex.: backup automatizado), isso é registrado explicitamente em vez de presumido. Nenhuma alteração de código, workflow, banco ou Edge Function foi feita para produzir este documento.
+> Manual operacional oficial do Anoti. Documenta exatamente como o sistema é operado, mantido e administrado em produção, refletindo o estado atual do repositório. Nenhum procedimento aqui descrito foi inventado — onde um processo não existe (ex.: backup automatizado), isso é registrado explicitamente em vez de presumido. Nenhuma alteração de código, workflow, banco ou Edge Function foi feita para produzir este documento.
 
 ---
 
 ## Visão Geral
 
-O MedAgenda não possui infraestrutura própria para operar. É uma aplicação **cliente-BaaS** (Backend as a Service): o frontend é um site estático publicado no GitHub Pages, e todo o backend — autenticação, banco de dados, storage e funções de servidor — é fornecido pelo Supabase. Não há servidor de aplicação, container, VM ou processo próprio para monitorar, reiniciar ou escalar; "operar o MedAgenda" significa, na prática, operar três coisas: o pipeline do GitHub Actions, o projeto Supabase e os Secrets que conectam um ao outro.
+O Anoti não possui infraestrutura própria para operar. É uma aplicação **cliente-BaaS** (Backend as a Service): o frontend é um site estático publicado no GitHub Pages, e todo o backend — autenticação, banco de dados, storage e funções de servidor — é fornecido pelo Supabase. Não há servidor de aplicação, container, VM ou processo próprio para monitorar, reiniciar ou escalar; "operar o Anoti" significa, na prática, operar três coisas: o pipeline do GitHub Actions, o projeto Supabase e os Secrets que conectam um ao outro.
 
 Não existem ambientes separados (dev/staging/prod). Um único projeto Supabase e uma única publicação no GitHub Pages atendem produção; desenvolvimento local usa o mesmo projeto Supabase (ou outro criado manualmente pelo desenvolvedor) apontado via `config.js` local.
 
@@ -354,7 +354,7 @@ Configurados via `supabase secrets set` (ou pelo Dashboard → Edge Functions �
 | `GEMINI_API_KEY` | `ai-chat` — autentica as chamadas à API do Google Gemini |
 | `VAPID_PUBLIC_KEY` | `send-push-notifications` — assinatura de notificações Web Push |
 | `VAPID_PRIVATE_KEY` | `send-push-notifications` — assinatura de notificações Web Push |
-| `VAPID_SUBJECT` | `send-push-notifications` — identifica o remetente perante os serviços de push (fallback no código: `mailto:admin@medagenda.app`) |
+| `VAPID_SUBJECT` | `send-push-notifications` — identifica o remetente perante os serviços de push (fallback no código: `mailto:admin@anoti.app`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | `send-push-notifications`, `delete-account` — operações administrativas que contornam RLS. Injetada automaticamente pelo runtime do Supabase, não configurada manualmente |
 | `SUPABASE_URL` | `ai-chat`, `delete-account` — validação de JWT via `auth.getUser()` |
 | `SUPABASE_ANON_KEY` | `ai-chat`, `delete-account` — validação de JWT via `auth.getUser()` |
@@ -477,7 +477,7 @@ Não há dashboard de métricas de produção, alerta automatizado de indisponib
 
 **Não existe procedimento de backup documentado, configurado ou automatizado neste repositório.**
 
-Nenhum workflow do GitHub Actions, script, migration ou configuração do Supabase presente no código realiza backup do banco de dados, do Storage (avatares) ou de qualquer outro dado de produção. O Supabase, como plataforma gerenciada, pode oferecer backups automáticos de infraestrutura dependendo do plano contratado do projeto — mas isso não é configurado, referenciado nem verificável a partir deste repositório, e portanto não é tratado aqui como parte do procedimento operacional do MedAgenda.
+Nenhum workflow do GitHub Actions, script, migration ou configuração do Supabase presente no código realiza backup do banco de dados, do Storage (avatares) ou de qualquer outro dado de produção. O Supabase, como plataforma gerenciada, pode oferecer backups automáticos de infraestrutura dependendo do plano contratado do projeto — mas isso não é configurado, referenciado nem verificável a partir deste repositório, e portanto não é tratado aqui como parte do procedimento operacional do Anoti.
 
 Isso é registrado explicitamente como lacuna, não como uma falha a ser corrigida silenciosamente — ver seção "Auditoria".
 
@@ -589,7 +589,7 @@ Não há branch de staging/homologação: o merge em `main` é o evento que disp
 - [ ] Calendário mensal e agenda semanal exibem eventos
 - [ ] Categorias personalizadas funcionam
 - [ ] Recorrência funciona (criar evento recorrente)
-- [ ] PWA instalável (botão "Instalar MedAgenda" aparece)
+- [ ] PWA instalável (botão "Instalar Anoti" aparece)
 - [ ] Modo offline funciona (ativar modo avião e recarregar)
 - [ ] Console sem erros críticos
 - [ ] (Se Edge Function alterada) resposta HTTP e logs da função conferidos no Supabase Dashboard
@@ -632,4 +632,4 @@ Estas observações replicam e consolidam, sob a ótica operacional, achados já
 
 **Avaliação geral da operação:**
 
-A operação do MedAgenda é enxuta e coerente com o porte do projeto — um site estático publicado por CI, um backend inteiramente gerenciado pelo Supabase, e uma superfície mínima de infraestrutura própria para manter. O caminho crítico de deploy (frontend) é totalmente automatizado e confiável. As lacunas reais da operação são conhecidas e já vinham sendo sinalizadas em outros documentos do projeto: deploy automatizado incompleto para Edge Functions (apenas `ai-chat`), migrations SQL fora de qualquer pipeline, ausência total de backup documentado, e ausência de monitoramento centralizado ou alerta automatizado de indisponibilidade. Nenhuma dessas lacunas impede a operação atual do produto, mas todas representam risco operacional real — principalmente a ausência de backup, que hoje depende inteiramente do que a plataforma Supabase oferecer por conta própria, sem qualquer garantia ou verificação por parte deste repositório.
+A operação do Anoti é enxuta e coerente com o porte do projeto — um site estático publicado por CI, um backend inteiramente gerenciado pelo Supabase, e uma superfície mínima de infraestrutura própria para manter. O caminho crítico de deploy (frontend) é totalmente automatizado e confiável. As lacunas reais da operação são conhecidas e já vinham sendo sinalizadas em outros documentos do projeto: deploy automatizado incompleto para Edge Functions (apenas `ai-chat`), migrations SQL fora de qualquer pipeline, ausência total de backup documentado, e ausência de monitoramento centralizado ou alerta automatizado de indisponibilidade. Nenhuma dessas lacunas impede a operação atual do produto, mas todas representam risco operacional real — principalmente a ausência de backup, que hoje depende inteiramente do que a plataforma Supabase oferecer por conta própria, sem qualquer garantia ou verificação por parte deste repositório.

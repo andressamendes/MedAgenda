@@ -1,4 +1,4 @@
-# Modelo de Dados do MedAgenda
+# Modelo de Dados do Anoti
 
 > **Este documento foi descontinuado.** O conteúdo foi consolidado em [`DATABASE.md`](DATABASE.md) (schema completo, migrations `01`–`20`) e em [`ARCHITECTURE.md`](ARCHITECTURE.md) (seção "Modelo de Domínio", que descreve a cadeia Compromisso → Sessão → Questões → Revisões → Reflexão → Projeções).
 >

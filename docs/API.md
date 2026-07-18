@@ -1,6 +1,6 @@
-# API do MedAgenda
+# API do Anoti
 
-> Documentação oficial da API interna do MedAgenda: como o Frontend, os Services, o cliente Supabase, o banco PostgreSQL e as Edge Functions se comunicam. Este documento reflete exatamente a implementação atual do código (`*.js` na raiz, `services/`, `supabase.js`, `supabase/functions/`). Não descreve comportamento planejado nem sugere mudanças.
+> Documentação oficial da API interna do Anoti: como o Frontend, os Services, o cliente Supabase, o banco PostgreSQL e as Edge Functions se comunicam. Este documento reflete exatamente a implementação atual do código (`*.js` na raiz, `services/`, `supabase.js`, `supabase/functions/`). Não descreve comportamento planejado nem sugere mudanças.
 >
 > **Escopo:** cobre o padrão geral View → Service → Supabase SDK, usando os Services de Planejamento (`eventService.js`, `categoryService.js` etc.) como exemplo. Os Services do domínio de Execução de Estudo (`activitySessionService.js`, `questionService.js`, `reviewService.js`, `studyReflectionService.js` etc.) seguem o mesmo padrão de comunicação com o Supabase descrito aqui, com a adição do Session Event Bus como canal de propagação de eventos entre módulos — ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para o detalhamento desses Services e dos seis eventos que publicam.
 
@@ -8,7 +8,7 @@
 
 ## Visão Geral
 
-O MedAgenda **não possui um backend HTTP próprio**. É uma aplicação estática (HTML/CSS/JS, sem build obrigatório) que se comunica diretamente com um projeto Supabase através do SDK `@supabase/supabase-js`. Não existe uma camada de "API REST" escrita pela equipe — a "API interna" documentada aqui é a camada de **Services** (`eventService.js`, `categoryService.js`, etc.), que funciona como fronteira única entre as Views (UI) e o Supabase.
+O Anoti **não possui um backend HTTP próprio**. É uma aplicação estática (HTML/CSS/JS, sem build obrigatório) que se comunica diretamente com um projeto Supabase através do SDK `@supabase/supabase-js`. Não existe uma camada de "API REST" escrita pela equipe — a "API interna" documentada aqui é a camada de **Services** (`eventService.js`, `categoryService.js`, etc.), que funciona como fronteira única entre as Views (UI) e o Supabase.
 
 Fluxo de uma chamada típica (ex.: listar eventos):
 

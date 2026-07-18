@@ -42,7 +42,7 @@ function _dismiss() {
 function _renderCard() {
   cardEl.innerHTML = `
     <span class="state-block-icon" aria-hidden="true">${iconSparkle}</span>
-    <strong class="state-block-title">Bem-vindo(a) ao MedAgenda</strong>
+    <strong class="state-block-title">Bem-vindo(a) ao Anoti</strong>
     <span class="state-block-desc">Um resumo rápido do que você pode fazer por aqui:</span>
     <ol class="onboarding-tour-steps">
       ${STEPS.map((step, i) => `

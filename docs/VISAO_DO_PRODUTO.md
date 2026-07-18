@@ -1,4 +1,4 @@
-# Visão do Produto — MedAgenda
+# Visão do Produto — Anoti
 
 ## Missão
 
@@ -12,7 +12,7 @@ Estudantes de Medicina em qualquer fase do curso — desde o ciclo básico até 
 
 > **"Menos gestão, mais marcação rápida."**
 
-O MedAgenda existe para eliminar a fricção entre ter um compromisso e registrá-lo. A ferramenta deve sair do caminho e deixar o estudante focar no que importa: a sua rotina.
+O Anoti existe para eliminar a fricção entre ter um compromisso e registrá-lo. A ferramenta deve sair do caminho e deixar o estudante focar no que importa: a sua rotina.
 
 ## Princípios de Design
 
@@ -40,7 +40,7 @@ As categorias foram definidas a partir da rotina real do estudante de Medicina:
 
 ## Fora do Escopo
 
-O MedAgenda é uma agenda de compromissos. Ele não é, e não pretende ser:
+O Anoti é uma agenda de compromissos. Ele não é, e não pretende ser:
 
 - Checklist de tarefas
 - To-do list
@@ -49,4 +49,4 @@ O MedAgenda é uma agenda de compromissos. Ele não é, e não pretende ser:
 - Diário ou journal
 - Sistema de gestão de estudos (flashcards, cronogramas de revisão, etc.)
 
-Essas funcionalidades existem em outras ferramentas. O MedAgenda resolve um problema específico: saber o que você tem, quando você tem, de forma rápida e visual.
+Essas funcionalidades existem em outras ferramentas. O Anoti resolve um problema específico: saber o que você tem, quando você tem, de forma rápida e visual.

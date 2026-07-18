@@ -1,10 +1,10 @@
-# Banco de Dados MedAgenda
+# Banco de Dados Anoti
 
-> Documento oficial do schema do MedAgenda. Cobre as 20 migrations em `sql/*.sql` (01 a 20) e reflete exatamente o estado atual do banco — tabelas, colunas, relacionamentos, chaves estrangeiras, índices, constraints, políticas RLS e comportamento `ON DELETE`. Para o modelo de domínio (como as tabelas se compõem em Compromisso → Sessão → Questões → Revisões → Reflexão → Projeções) e o Session Event Bus, ver [`ARCHITECTURE.md`](ARCHITECTURE.md).
+> Documento oficial do schema do Anoti. Cobre as 20 migrations em `sql/*.sql` (01 a 20) e reflete exatamente o estado atual do banco — tabelas, colunas, relacionamentos, chaves estrangeiras, índices, constraints, políticas RLS e comportamento `ON DELETE`. Para o modelo de domínio (como as tabelas se compõem em Compromisso → Sessão → Questões → Revisões → Reflexão → Projeções) e o Session Event Bus, ver [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Visão Geral
 
-O MedAgenda utiliza o **PostgreSQL** como banco de dados relacional, gerenciado pela plataforma **Supabase**. A arquitetura é fundamentada em três pilares:
+O Anoti utiliza o **PostgreSQL** como banco de dados relacional, gerenciado pela plataforma **Supabase**. A arquitetura é fundamentada em três pilares:
 
 - **Row Level Security (RLS):** todas as tabelas de dados do usuário têm RLS habilitado. O acesso é restrito ao próprio dono dos dados por meio de `auth.uid()`, eliminando a necessidade de filtros manuais no backend para isolamento de usuários.
 - **Supabase Auth:** a autenticação é delegada inteiramente ao Supabase (`auth.users`). As tabelas de domínio referenciam `auth.users(id)` via chave estrangeira com `ON DELETE CASCADE`.

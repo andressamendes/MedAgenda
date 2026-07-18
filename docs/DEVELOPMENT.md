@@ -1,6 +1,6 @@
-# Desenvolvimento do MedAgenda
+# Desenvolvimento do Anoti
 
-> Guia oficial para desenvolver, manter e evoluir o MedAgenda. Este documento reflete o estado atual do repositório e serve como referência para qualquer pessoa que vá contribuir com o projeto.
+> Guia oficial para desenvolver, manter e evoluir o Anoti. Este documento reflete o estado atual do repositório e serve como referência para qualquer pessoa que vá contribuir com o projeto.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### Organização do projeto
 
-O MedAgenda é mantido por um time pequeno (essencialmente um único mantenedor, `andressamendes`) e organizado como um monorepo simples: frontend, migrations SQL e Edge Functions convivem no mesmo repositório Git, sem separação em múltiplos pacotes/workspaces. Não há `node_modules` de produção — o `package.json` existe apenas para padronizar os scripts de teste.
+O Anoti é mantido por um time pequeno (essencialmente um único mantenedor, `andressamendes`) e organizado como um monorepo simples: frontend, migrations SQL e Edge Functions convivem no mesmo repositório Git, sem separação em múltiplos pacotes/workspaces. Não há `node_modules` de produção — o `package.json` existe apenas para padronizar os scripts de teste.
 
 ### Filosofia de desenvolvimento
 
