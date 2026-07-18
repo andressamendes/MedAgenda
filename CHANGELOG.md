@@ -2,6 +2,37 @@
 
 ---
 
+## [Unreleased] — Modal de configuração pré-início da Sessão de Estudo
+
+Corrige o único ponto de entrada do fluxo "Sessão de Estudo" ("Iniciar sessão
+avulsa"): antes, a sessão começava imediatamente ao clicar, sem nenhuma etapa
+de configuração — Compromisso/Categoria/Conteúdo/Data/Tempo previsto ficavam
+em branco pelo resto da sessão sempre que ela não vinha de um compromisso já
+existente (`event_id` nulo).
+
+- `studySessionView.js` — "Iniciar sessão" agora sempre abre um modal de
+  configuração pré-início (`#ss-start-modal`) com dois caminhos mutuamente
+  exclusivos: digitar livremente um **nome do estudo** (aba "Novo estudo",
+  campo obrigatório, mais categoria/conteúdo/data/tempo previsto opcionais)
+  ou selecionar um **compromisso já existente na agenda** (aba "Compromisso
+  da agenda", populada a partir de `eventService.getEvents()` — reaproveita
+  exatamente `startSessionForEvent()`, o mesmo caminho já usado pelo botão
+  "Iniciar Sessão" do formulário de compromisso). A sessão só é criada ao
+  confirmar o modal, nunca ao simples clique em "Iniciar sessão".
+- `sql/21_activity_sessions_standalone_fields.sql` — `activity_sessions`
+  ganha `title`, `content`, `session_date` e `planned_duration_minutes`
+  (todas nullable), preenchidas apenas no caminho "Novo estudo" — uma sessão
+  vinculada a um compromisso continua resolvendo os mesmos dados a partir de
+  `events` via `event_id`, sem nenhuma duplicação. Bump de
+  `schemaService.EXPECTED_SCHEMA_VERSION` para 21.
+- `_resolveEventMeta()`/`_eventFieldText()` (studySessionView.js) passam a
+  reconhecer as duas fontes de contexto (compromisso vinculado ou campos
+  digitados no modal) — só uma sessão avulsa do formato antigo (sem
+  `event_id` e sem `title`) continua mostrando o aviso "Sem compromisso
+  vinculado".
+
+---
+
 ## [Unreleased] — Auditoria completa de lifecycle (init ↔ reset) das Views (PR4)
 
 Segue a mesma auditoria de simetria init/reset (A1.3) que já havia corrigido
