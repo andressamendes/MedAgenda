@@ -2934,6 +2934,16 @@ textarea { resize: vertical; }
   padding: 2rem 0;
 }
 
+/* Mesmo bug de especificidade de .state-block[hidden] (ver F10 #1.6 acima):
+   `.ss-empty`/`.ss-card` fixam `display` e empatam em especificidade com
+   `[hidden] { display: none }`, então vencem por virem depois no CSS de
+   origem — sem isto, os estados "sem sessão" e "sessão ativa" ficavam
+   sobrepostos ao alternar `hidden` via JS. */
+.ss-empty[hidden],
+.ss-card[hidden] {
+  display: none;
+}
+
 .ss-empty-message {
   color: var(--gray-600);
   font-size: .95rem;
@@ -3013,6 +3023,11 @@ textarea { resize: vertical; }
   flex-direction: column;
   align-items: center;
   gap: .35rem;
+}
+
+/* Mesmo bug de especificidade de .state-block[hidden] (ver F10 #1.6 acima). */
+.ss-progress[hidden] {
+  display: none;
 }
 
 .ss-progress-track {
