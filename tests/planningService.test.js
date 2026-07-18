@@ -11,7 +11,7 @@ import {
   computeWeeklyPlan,
   findOverduePlanItem,
   findPendingReviewsPlanItem,
-  findUnderstudiedPlanItems,
+  findStudyReviewPlanItem,
   findGoalCatchUpPlanItem,
   findEmptyWeekPlanItem,
 } from "../planningService.js";
@@ -112,27 +112,26 @@ test("findPendingReviewsPlanItem() returns null when there are no pending review
   assert.strictEqual(findPendingReviewsPlanItem(emptyContext()), null);
 });
 
-// ── categorias negligenciadas ────────────────────────────────────────────────
+// ── revisor inteligente de categoria (ETAPA 10) ─────────────────────────────
 
-test("findUnderstudiedPlanItems() flags a category not studied in a while, citing the exact gap", () => {
+test("findStudyReviewPlanItem() flags a category not studied in at least 7 days, citing the exact gap", () => {
   const context = emptyContext({
     hasStudyHistory: true,
     categories: [
-      { name: "Clínica Médica", minutes: 300, lastStudiedDate: "2026-07-01T00:00:00.000Z", daysSinceLastStudy: 5 },
+      { name: "Clínica Médica", minutes: 300, lastStudiedDate: "2026-06-29T00:00:00.000Z", daysSinceLastStudy: 7 },
       { name: "Cirurgia", minutes: 600, lastStudiedDate: "2026-07-06T00:00:00.000Z", daysSinceLastStudy: 0 },
     ],
   });
-  const items = findUnderstudiedPlanItems(context);
-  assert.strictEqual(items.length, 1);
-  assert.strictEqual(items[0].tipo, "study");
-  assert.strictEqual(items[0].categoria, "Clínica Médica");
-  assert.strictEqual(items[0].prioridade, "média");
-  assert.strictEqual(items[0].tempoSugerido, "45 minutos");
-  assert.strictEqual(items[0].motivo, "Esta categoria não recebe sessões há 5 dias.");
-  assert.strictEqual(items[0].confianca, "alta");
+  const item = findStudyReviewPlanItem(context);
+  assert.strictEqual(item.tipo, "study");
+  assert.strictEqual(item.categoria, "Clínica Médica");
+  assert.strictEqual(item.prioridade, "média");
+  assert.strictEqual(item.tempoSugerido, "45 minutos");
+  assert.strictEqual(item.motivo, "Esta categoria não recebe sessões há 7 dias.");
+  assert.strictEqual(item.confianca, "alta");
 });
 
-test("findUnderstudiedPlanItems() flags a category that was never studied, with medium confidence", () => {
+test("findStudyReviewPlanItem() never suggests a category that was never studied — nothing saved to review yet", () => {
   const context = emptyContext({
     hasStudyHistory: true,
     categories: [
@@ -140,27 +139,32 @@ test("findUnderstudiedPlanItems() flags a category that was never studied, with 
       { name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null },
     ],
   });
-  const items = findUnderstudiedPlanItems(context);
-  assert.strictEqual(items.length, 1);
-  assert.strictEqual(items[0].motivo, "Você ainda não registrou sessões de estudo na categoria Pediatria.");
-  assert.strictEqual(items[0].confianca, "média");
+  assert.strictEqual(findStudyReviewPlanItem(context), null);
 });
 
-test("findUnderstudiedPlanItems() raises priority to alta for a very long gap", () => {
+test("findStudyReviewPlanItem() ignores a category studied less than 7 days ago", () => {
   const context = emptyContext({
     hasStudyHistory: true,
-    categories: [{ name: "Cirurgia", minutes: 0, lastStudiedDate: "2026-06-01T00:00:00.000Z", daysSinceLastStudy: 20 }],
+    categories: [{ name: "Cirurgia", minutes: 100, lastStudiedDate: "2026-07-01T00:00:00.000Z", daysSinceLastStudy: 5 }],
   });
-  assert.strictEqual(findUnderstudiedPlanItems(context)[0].prioridade, "alta");
+  assert.strictEqual(findStudyReviewPlanItem(context), null);
 });
 
-test("findUnderstudiedPlanItems() caps at 3 items and never fires for a brand-new user", () => {
+test("findStudyReviewPlanItem() picks a single suggestion — the most overdue category — never a list", () => {
   const context = emptyContext({
     hasStudyHistory: true,
-    categories: Array.from({ length: 5 }, (_, i) => ({ name: `Cat${i}`, minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null })),
+    categories: [
+      { name: "Cat A", minutes: 100, lastStudiedDate: "2026-06-20T00:00:00.000Z", daysSinceLastStudy: 16 },
+      { name: "Cat B", minutes: 100, lastStudiedDate: "2026-06-25T00:00:00.000Z", daysSinceLastStudy: 11 },
+      { name: "Cat C", minutes: 100, lastStudiedDate: "2026-06-29T00:00:00.000Z", daysSinceLastStudy: 7 },
+    ],
   });
-  assert.strictEqual(findUnderstudiedPlanItems(context).length, 3);
-  assert.deepStrictEqual(findUnderstudiedPlanItems(emptyContext({ hasStudyHistory: false, categories: [{ name: "X", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }] })), []);
+  const item = findStudyReviewPlanItem(context);
+  assert.strictEqual(item.categoria, "Cat A");
+});
+
+test("findStudyReviewPlanItem() never fires for a brand-new user", () => {
+  assert.strictEqual(findStudyReviewPlanItem(emptyContext({ hasStudyHistory: false, categories: [{ name: "X", minutes: 0, lastStudiedDate: "2026-06-01T00:00:00.000Z", daysSinceLastStudy: 30 }] })), null);
 });
 
 // ── metas atingidas / atrasadas ──────────────────────────────────────────────
@@ -218,7 +222,7 @@ test("computeWeeklyPlan() orders items by priority (alta > média > baixa) and a
     hasAnyEvents: true,
     weekEventsCount: 0,
     hasStudyHistory: true,
-    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    categories: [{ name: "Pediatria", minutes: 60, lastStudiedDate: "2026-06-25T00:00:00.000Z", daysSinceLastStudy: 11 }],
   });
 
   const plan = computeWeeklyPlan(context, NOW);
@@ -242,7 +246,7 @@ test("computeWeeklyPlan() is stable: same context + same now always produce the 
   const context = emptyContext({
     overdueEvents: [{ title: "Prova", category: "Farmacologia", date: "2026-07-01", daysOverdue: 5 }],
     hasStudyHistory: true,
-    categories: [{ name: "Cirurgia", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    categories: [{ name: "Cirurgia", minutes: 60, lastStudiedDate: "2026-06-25T00:00:00.000Z", daysSinceLastStudy: 11 }],
   });
   const first = computeWeeklyPlan(context, NOW);
   const second = computeWeeklyPlan(context, NOW);
@@ -282,21 +286,21 @@ test("plan items never leak ids or raw technical fields — only tipo/prioridade
 test("computeWeeklyPlan() nudges a 'study' item to the user's preferred weekday when the Memory Engine has strong evidence", () => {
   const context = emptyContext({
     hasStudyHistory: true,
-    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    categories: [{ name: "Pediatria", minutes: 60, lastStudiedDate: "2026-06-25T00:00:00.000Z", daysSinceLastStudy: 11 }],
     memory: { status: "ok", preferences: { diaPreferido: { valor: "Quinta-feira", baseadoEm: "12 sessões concluídas", confianca: "alta" } } },
   });
   const plan = computeWeeklyPlan(context, NOW); // NOW = segunda-feira, 2026-07-06
   const studyItem = plan.find(p => p.tipo === "study");
   assert.strictEqual(studyItem.dataSugerida, "2026-07-09"); // próxima quinta-feira
   // Nunca muda o que já era grounded em evidência própria do item:
-  assert.strictEqual(studyItem.motivo, "Você ainda não registrou sessões de estudo na categoria Pediatria.");
-  assert.strictEqual(studyItem.confianca, "média");
+  assert.strictEqual(studyItem.motivo, "Esta categoria não recebe sessões há 11 dias.");
+  assert.strictEqual(studyItem.confianca, "alta");
 });
 
 test("computeWeeklyPlan() ignores the preferred weekday below 'alta' confidence — falls back to the usual spread", () => {
   const context = emptyContext({
     hasStudyHistory: true,
-    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    categories: [{ name: "Pediatria", minutes: 60, lastStudiedDate: "2026-06-25T00:00:00.000Z", daysSinceLastStudy: 11 }],
     memory: { status: "ok", preferences: { diaPreferido: { valor: "Quinta-feira", baseadoEm: "4 sessões", confianca: "média" } } },
   });
   const withMemory = computeWeeklyPlan(context, NOW);
@@ -321,7 +325,7 @@ test("computeWeeklyPlan() never nudges 'overdue' or 'goal' items by the preferre
 test("computeWeeklyPlan() is unaffected by memory when the context predates the Memory Engine (no `memory` field at all)", () => {
   const context = emptyContext({
     hasStudyHistory: true,
-    categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
+    categories: [{ name: "Pediatria", minutes: 60, lastStudiedDate: "2026-06-25T00:00:00.000Z", daysSinceLastStudy: 11 }],
   });
   assert.ok(!("memory" in context));
   assert.doesNotThrow(() => computeWeeklyPlan(context, NOW));

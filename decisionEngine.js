@@ -156,7 +156,7 @@ export function classifyRecommendation(rec) {
 // ── Planning Engine → decisão ────────────────────────────────────────────────
 // Assunto: "study" cobre tanto categoria negligenciada (quando tem
 // `categoria`) quanto o preenchimento de semana vazia (quando não tem) — os
-// dois já são regras distintas em planningService (findUnderstudiedPlanItems
+// dois já são regras distintas em planningService (findStudyReviewPlanItem
 // vs. findEmptyWeekPlanItem), só o `tipo` "study" é compartilhado.
 function _planSubject(item) {
   switch (item.tipo) {
@@ -169,7 +169,7 @@ function _planSubject(item) {
 }
 
 // planningService já calcula `prioridade` (alta/média/baixa) por regra
-// própria (ver GOAL_LOW_PCT_THRESHOLD/UNDERSTUDIED_DAYS em planningService.js)
+// própria (ver GOAL_LOW_PCT_THRESHOLD/STUDY_REVIEW_MIN_DAYS em planningService.js)
 // — este módulo só traduz essa escala de 3 níveis para a escala comum de 4,
 // nunca recalcula a prioridade em si.
 const PLAN_PRIORITY_TO_LEVEL = {

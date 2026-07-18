@@ -362,7 +362,7 @@ Engine, F3.1/F3.2) e produz uma lista estruturada de sugestões, cada uma com:
 |---|---|
 | `overdueEvents` (compromissos atrasados) | `findOverduePlanItem()` |
 | `reviews.pending` (F2.3) | `findPendingReviewsPlanItem()` |
-| `categories` (tempo estudado por categoria) | `findUnderstudiedPlanItems()` |
+| `categories` (tempo estudado por categoria, revisor inteligente ≥7 dias, só já estudadas) | `findStudyReviewPlanItem()` |
 | `execution.weeklyGoal` (F2.2) | `findGoalCatchUpPlanItem()` |
 | `weekEventsCount` / `hasAnyEvents` | `findEmptyWeekPlanItem()` |
 
