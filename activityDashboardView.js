@@ -125,9 +125,12 @@ const GOAL_CARD_DEFS = [
 // só reagrupados em três níveis (cada card continua definido uma única vez,
 // nenhuma duplicação):
 //   - TODAY: sempre visível — o nível 1, o que se consulta com mais frequência.
-//   - WEEK_MONTH / RECORDS: nível 2, atrás das abas "Semana/Mês" e "Recordes
+//   - WEEK_MONTH / RECORDS: nível 2, atrás das abas "Períodos" e "Progresso
 //     e Conquistas" (ver initActivityDashboardView) — mesmos dados de
 //     sempre, só não competem visualmente com "Hoje" a cada carregamento.
+//     F11 E12: nomes atualizados (eram "Semana/Mês"/"Recordes e
+//     Conquistas") para anunciar que Revisões e Produtividade também vivem
+//     na segunda aba (auditoria #12, #29).
 const TODAY_CARD_DEFS = [
   GOAL_CARD_DEFS[0], // Meta diária
   {
@@ -282,12 +285,13 @@ function _onCardsClick(ev) {
   }
 }
 
-// F10 #3.1 — Abas "Semana/Mês" / "Recordes e Conquistas": puramente
-// apresentacional, sem re-fetch — os dados dos dois níveis já foram
-// carregados juntos em _load(), só a visibilidade do painel muda. A aba
-// "Semana/Mês" começa ativa em toda visita à tela (sem persistência):
-// diferente do tema (F10 #2.4), aqui não há uma escolha estável para
-// lembrar — os dois painéis são igualmente prováveis de interessar.
+// F10 #3.1 — Abas "Períodos" / "Progresso e Conquistas" (F11 E12: renomeadas
+// de "Semana/Mês"/"Recordes e Conquistas"): puramente apresentacional, sem
+// re-fetch — os dados dos dois níveis já foram carregados juntos em _load(),
+// só a visibilidade do painel muda. A aba "Períodos" começa ativa em toda
+// visita à tela (sem persistência): diferente do tema (F10 #2.4), aqui não
+// há uma escolha estável para lembrar — os dois painéis são igualmente
+// prováveis de interessar.
 function _setActiveTab(panel) {
   tabsEl?.querySelectorAll(".dash-tab").forEach(btn => {
     const active = btn.dataset.panel === panel;
