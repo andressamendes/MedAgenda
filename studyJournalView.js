@@ -559,7 +559,7 @@ function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
       <span>${summary.sessionsCount} sessão(ões)</span>
       <span>${summary.questionsCount} questão(ões)</span>
       <span>${summary.subjectsCount} matéria(s)</span>
-      <span>Maior sequência de estudos: ${summary.longestStreak} dia(s)</span>
+      <span>Maior sequência nesta semana: ${summary.longestStreak} dia(s)</span>
     </div>
     <details class="sj-week-narrative">
       <summary class="sj-week-narrative-title">Resumo da Semana</summary>

@@ -998,7 +998,7 @@ test("a weekly summary card appears when a new week starts, summarizing the week
   assert.match(text, /1h 30min estudadas/);
   assert.match(text, /2 questão\(ões\)/);
   assert.match(text, /2 matéria\(s\)/);
-  assert.match(text, /Maior sequência de estudos: 2 dia\(s\)/);
+  assert.match(text, /Maior sequência nesta semana: 2 dia\(s\)/);
 
   const lastWeekText = weeks[1].textContent;
   assert.match(lastWeekText, /Semana de 09\/03 a 15\/03/);
