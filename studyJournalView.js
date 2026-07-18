@@ -154,7 +154,6 @@ let periodSelect, categorySelect, searchInput;
 let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
 let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
-let moreFlagsToggleBtn, moreFlagsEl;
 
 let _offset  = 0;
 let _loading = false;
@@ -717,13 +716,6 @@ function _toggleAdvancedFilters() {
   if (expand) revealWithAnimation(advancedFiltersEl);
 }
 
-function _toggleMoreFlags() {
-  const expand = moreFlagsEl.hidden;
-  moreFlagsEl.hidden = !expand;
-  moreFlagsToggleBtn.setAttribute("aria-expanded", String(expand));
-  if (expand) revealWithAnimation(moreFlagsEl);
-}
-
 function _bindFilters() {
   periodSelect?.addEventListener("change", _onFilterChange);
   categorySelect?.addEventListener("change", _onFilterChange);
@@ -736,7 +728,6 @@ function _bindFilters() {
   [reflectionCheck, notesCheck, reviewsCheck]
     .forEach(el => el?.addEventListener("change", _onFilterChange));
   advancedToggleBtn?.addEventListener("click", _toggleAdvancedFilters);
-  moreFlagsToggleBtn?.addEventListener("click", _toggleMoreFlags);
 }
 
 // ── Estatísticas da busca (F8.8) ─────────────────────────────────────────
@@ -978,9 +969,6 @@ export async function initStudyJournalView() {
     advancedFiltersEl = document.getElementById("sj-advanced-filters");
     advancedCountEl   = document.getElementById("sj-advanced-filters-count");
 
-    moreFlagsToggleBtn = document.getElementById("sj-more-flags-toggle");
-    moreFlagsEl        = document.getElementById("sj-more-flags");
-
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
     _bindFilters();
   }
@@ -1044,6 +1032,4 @@ export function resetStudyJournalView() {
   _updateAdvancedFiltersCount();
   if (advancedFiltersEl)  advancedFiltersEl.hidden = true;
   if (advancedToggleBtn)  advancedToggleBtn.setAttribute("aria-expanded", "false");
-  if (moreFlagsEl)        moreFlagsEl.hidden = true;
-  if (moreFlagsToggleBtn) moreFlagsToggleBtn.setAttribute("aria-expanded", "false");
 }
