@@ -57,6 +57,7 @@ import { registerServiceWorker, initInstallButton, initOfflineDetection } from "
 import { initSettingsModal } from "./settingsModal.js";
 import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initStudySessionView, resetStudySessionView, startSessionForEvent } from "./studySessionView.js";
+import { initActiveSessionIndicator, resetActiveSessionIndicator } from "./activeSessionIndicatorView.js";
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
@@ -270,6 +271,7 @@ async function _initApp(session) {
 
     safeInit("conta", () => initAccountView(session.user.id));
     const hasActiveStudySession = await safeInit("sessão de estudo", () => initStudySessionView());
+    safeInit("chip de sessão ativa", () => initActiveSessionIndicator());
     safeInit("notificações", () => {
       initNotifications(session.user.id);
       initPushService(session.user.id, VAPID_PUBLIC_KEY);
@@ -622,6 +624,7 @@ initAuthView({
   onBeforeSignOut: () => {
     resetNotifications();
     resetStudySessionView();
+    resetActiveSessionIndicator();
     resetActivityHistoryView();
     resetStudyJournalView();
     resetActivityDashboardView();

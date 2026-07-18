@@ -211,6 +211,17 @@
         </span>
       </div>
       <div class="header-right">
+        <!-- F11 E13 (auditoria #10) — sem isto, uma sessão de estudo em
+             andamento ficava invisível assim que o usuário saía da página
+             "Sessão" (F7.2, único lugar com o cronômetro completo). Este
+             chip só mostra tempo decorrido + link de volta — nenhum
+             controle de pausar/retomar/finalizar é duplicado aqui (ver
+             activeSessionIndicatorView.js). Atualiza por minuto, não por
+             segundo — só precisa comunicar "ainda rodando há quanto tempo". -->
+        <button type="button" id="active-session-chip" class="active-session-chip" hidden aria-label="Sessão de estudo em andamento — clique para abrir">
+          <span class="active-session-chip-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+          <span id="active-session-chip-time" class="active-session-chip-time"></span>
+        </button>
         <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar</button>
         <div class="user-menu-wrap" id="user-menu-wrap">
           <button id="btn-user-menu" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
