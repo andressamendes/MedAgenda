@@ -3593,6 +3593,16 @@ textarea { resize: vertical; }
   overflow-y: auto;
 }
 
+/* F10 PR15 — o título passa a carregar uma trilha (breadcrumb) mostrando a
+   profundidade da navegação dentro do modal (ex: "Calendários Acadêmicos ›
+   Eventos: X › Editar evento"); permite quebrar em duas linhas em vez de
+   truncar, já que a trilha é o próprio conteúdo que orienta o usuário. */
+.modal-academic .modal-title {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.3;
+}
+
 .academic-modal-body {
   padding: var(--space-4);
   max-height: 75vh;

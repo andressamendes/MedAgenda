@@ -271,7 +271,7 @@ async function showCalendarEditForm(calId) {
   const cal = _calendarsCache.find(c => c.id === calId);
   if (!cal) return;
 
-  openModal(`Editar: ${escapeHtml(cal.name)}`, `
+  openModal(`Calendários Acadêmicos › Editar: ${escapeHtml(cal.name)}`, `
     <div class="acal-form-full">
       <div class="acal-form-grid">
         <div class="field">
