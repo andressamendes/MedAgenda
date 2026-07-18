@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Fonte dos ícones PWA do Anoti (F11 E1). Os PNGs em icons/ são
+       rasterizados deste arquivo — regenerar todos os tamanhos a partir daqui
+       ao alterar a marca, nunca editar os PNGs individualmente.
+       Fundo em degradê do índigo da identidade (--color-primary #4954a8 →
+       --color-primary-hover #383f87) em sangria total (requisito de ícone
+       maskable); o "A" fica dentro da zona segura circular de 40% do centro. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f5ab2"/>
+      <stop offset="1" stop-color="#383f87"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M156 364 L256 148 L356 364"/>
+    <path d="M200 298 L312 298"/>
+  </g>
+</svg>
