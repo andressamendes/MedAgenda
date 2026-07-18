@@ -75,6 +75,7 @@ let startManualPanelEl, startEventPanelEl;
 let startTitleInputEl, startCategoryEl, startContentEl, startDateEl, startDurationEl, startManualErrorEl;
 let startEventSelectEl, startEventErrorEl;
 let startCancelEl, startCloseEl, startConfirmEl;
+let startMoreToggleEl, startMoreBodyEl;
 let _startEventsCache = [];
 
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
@@ -237,6 +238,8 @@ function _queryElements() {
   startCancelEl       = document.getElementById("ss-start-cancel");
   startCloseEl        = document.getElementById("ss-start-close");
   startConfirmEl      = document.getElementById("ss-start-confirm");
+  startMoreToggleEl   = document.getElementById("ss-start-more-toggle");
+  startMoreBodyEl     = document.getElementById("ss-start-more-body");
 
   startModal = initModal(startModalEl, _closeStartModal);
 }
@@ -248,6 +251,7 @@ function _bindEvents() {
   startCancelEl.addEventListener("click", () => _closeStartModal());
   startCloseEl.addEventListener("click",  () => _closeStartModal());
   startConfirmEl.addEventListener("click", () => _confirmStartModal());
+  startMoreToggleEl.addEventListener("click", () => _setSectionExpanded(startMoreToggleEl, startMoreBodyEl, startMoreBodyEl.hidden));
 
   btnPause.addEventListener("click",  () => _run(() => pauseSession(_session.id)));
   btnResume.addEventListener("click", () => _run(() => resumeSession(_session.id)));
@@ -554,6 +558,7 @@ async function _openStartModal() {
   startEventErrorEl.hidden = true;
   startEventErrorEl.textContent = "";
   startEventSelectEl.value = "";
+  _setSectionExpanded(startMoreToggleEl, startMoreBodyEl, false);
 
   _switchStartTab("manual");
   await Promise.all([_populateStartCategoryOptions(), _populateStartEventOptions()]);
@@ -1260,6 +1265,7 @@ export function resetStudySessionView() {
   if (startCategoryEl) startCategoryEl.innerHTML = '<option value="">— Selecione —</option>';
   if (startManualErrorEl) { startManualErrorEl.textContent = ""; startManualErrorEl.hidden = true; }
   if (startEventErrorEl) { startEventErrorEl.textContent = ""; startEventErrorEl.hidden = true; }
+  if (startMoreToggleEl) _setSectionExpanded(startMoreToggleEl, startMoreBodyEl, false);
   _startEventsCache = [];
 
   // Seções de Questões/Revisões (F10 #4.3, agora na tela ativa): mesma
