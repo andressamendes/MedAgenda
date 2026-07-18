@@ -177,10 +177,12 @@
    success/warning/danger/info, que são hex fixos) precisa de valor próprio
    para ficar legível num fundo escuro.
 
-   Limitação conhecida, fora do escopo desta primeira versão: --shadow-* (RGBA
-   preto) e um punhado de acentos hex isolados fora do sistema de tokens
-   (ex.: hover de .ai-action-btn) não foram ajustados — continuam sutis
-   demais no escuro, mas não quebram legibilidade. Ver PR para detalhes. */
+   F10 PR3 (auditoria UX/UI) resolveu os dois itens que ficavam pendentes
+   aqui: --shadow-* ganhou opacidade maior neste bloco (preto puro em opacidade
+   de tema claro não gera elevação visível contra um fundo já escuro) e o
+   hover de .ai-action-btn trocou o preenchimento sólido quase-branco por um
+   tingimento translúcido da própria cor de acento — mesmo padrão já usado em
+   .wk-slot:hover —, que funciona sem override dedicado em nenhum dos temas. */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
@@ -217,6 +219,11 @@
   --color-info-bg:        #1c2050;
   --color-info-text:      #c0c6f5;
   --color-info-border:    #4a54a0;
+
+  --shadow-sm: 0 1px 8px rgba(0,0,0,.24);
+  --shadow-md: 0 2px 16px rgba(0,0,0,.32);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
+  --shadow-xl: 0 8px 32px rgba(0,0,0,.5);
 }
 
 body {
@@ -3825,7 +3832,7 @@ textarea { resize: vertical; }
 }
 .ai-action-btn:hover {
   border-color: #8b5cf6;
-  background: #faf5ff;
+  background: rgba(139, 92, 246, .12);
 }
 .ai-action-btn:disabled {
   opacity: .5;
