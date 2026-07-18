@@ -17,10 +17,14 @@
  * dispara notificação — ver aiPanelView.js, que apenas lista o plano.
  */
 
-// Categoria "pouco estudada": mesmo piso de recommendationEngine.js — sem
-// sessão finalizada há pelo menos este número de dias (ou nunca estudada).
-const UNDERSTUDIED_DAYS = 5;
-const MAX_UNDERSTUDIED_ITEMS = 3;
+// Revisor inteligente de categoria (ETAPA 10 — reduz a poluição visual da
+// Agenda, ver weekView.js): só sugere revisar uma categoria já estudada pelo
+// menos uma vez (context.categories[].lastStudiedDate !== null) — nunca uma
+// nunca estudada, que é "estudar", não "revisar" — e só a partir de 7 dias
+// sem sessão finalizada, o mesmo piso usado por reviewService.js para a
+// primeira revisão espaçada (+7 dias). No máximo 1 sugestão por vez: a
+// categoria mais atrasada, nunca uma lista.
+const STUDY_REVIEW_MIN_DAYS = 7;
 
 // Tempo sugerido por tipo de sugestão — piso realista por item, nunca
 // inventado a partir de disponibilidade inexistente na agenda.
@@ -92,28 +96,32 @@ export function findPendingReviewsPlanItem(context) {
   };
 }
 
-/** Categorias sem sessão finalizada há muito tempo (ou nunca estudadas). */
-export function findUnderstudiedPlanItems(context) {
-  if (!context.hasStudyHistory) return []; // usuário novo — nada para comparar ainda
+/**
+ * Sugestão única de revisão de categoria (revisor inteligente — ETAPA 10).
+ * Diferente da regra antiga (findUnderstudiedPlanItems, removida): nunca
+ * aciona para uma categoria nunca estudada (sem sessão salva, não há o que
+ * revisar) e devolve no máximo 1 item — o candidato mais atrasado — em vez de
+ * uma lista, para não empilhar um bloco "Alta prioridade" por categoria.
+ */
+export function findStudyReviewPlanItem(context) {
+  if (!context.hasStudyHistory) return null; // usuário novo — nada salvo para revisar ainda
 
-  const neglected = (context.categories || [])
-    .filter(c => c.daysSinceLastStudy === null || c.daysSinceLastStudy >= UNDERSTUDIED_DAYS)
-    .sort((a, b) => (b.daysSinceLastStudy ?? Infinity) - (a.daysSinceLastStudy ?? Infinity))
-    .slice(0, MAX_UNDERSTUDIED_ITEMS);
+  const candidates = (context.categories || [])
+    .filter(c => c.lastStudiedDate !== null && c.daysSinceLastStudy >= STUDY_REVIEW_MIN_DAYS)
+    .sort((a, b) => b.daysSinceLastStudy - a.daysSinceLastStudy);
 
-  return neglected.map(cat => ({
+  const cat = candidates[0];
+  if (!cat) return null;
+
+  return {
     tipo: "study",
-    prioridade: (cat.daysSinceLastStudy === null || cat.daysSinceLastStudy >= UNDERSTUDIED_DAYS * 2) ? "alta" : "média",
+    prioridade: "média",
     categoria: cat.name,
     tempoSugerido: `${STUDY_SESSION_MINUTES} minutos`,
     dataSugerida: null,
-    motivo: cat.daysSinceLastStudy === null
-      ? `Você ainda não registrou sessões de estudo na categoria ${cat.name}.`
-      : `Esta categoria não recebe sessões há ${cat.daysSinceLastStudy} dias.`,
-    // Categoria nunca estudada tem menos evidência (não há histórico para
-    // comparar) do que uma com data exata de última sessão.
-    confianca: cat.daysSinceLastStudy === null ? "média" : "alta",
-  }));
+    motivo: `Esta categoria não recebe sessões há ${cat.daysSinceLastStudy} dias.`,
+    confianca: "alta", // sempre grounded em lastStudiedDate real — nunca em ausência de dado
+  };
 }
 
 /** Meta semanal (F2.2) ainda não atingida — foco do "plano da semana". */
@@ -221,7 +229,7 @@ export function computeWeeklyPlan(context, now = new Date()) {
   const items = [
     findOverduePlanItem(context),
     findPendingReviewsPlanItem(context),
-    ...findUnderstudiedPlanItems(context),
+    findStudyReviewPlanItem(context),
     findGoalCatchUpPlanItem(context),
     findEmptyWeekPlanItem(context),
   ].filter(Boolean);
