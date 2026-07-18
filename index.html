@@ -902,13 +902,23 @@
             </div>
           </div>
 
-          <div class="field-row">
-            <div class="field">
-              <label for="f-category">Categoria</label>
-              <select id="f-category">
-                <option value="">— Selecione —</option>
-              </select>
-            </div>
+          <div class="field">
+            <label for="f-category">Categoria</label>
+            <select id="f-category">
+              <option value="">— Selecione —</option>
+            </select>
+          </div>
+
+          <!-- F11 E10 — a cor segue a categoria escolhida acima por padrão
+               (categoryView.js/fCategory "change"), então perguntar a cor em
+               todo cadastro era uma decisão a mais sem necessidade. O picker
+               continua acessível para quem quer personalizar, só escondido
+               atrás de "Mais opções" (mesmo padrão de disclosure do E8). -->
+          <div class="ss-collapsible-header">
+            <h3 class="ss-questions-title">Mais opções</h3>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="f-color-toggle" aria-expanded="false" aria-controls="f-color-wrap"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+          </div>
+          <div id="f-color-wrap" hidden>
             <div class="field">
               <label for="f-color">Cor</label>
               <input type="color" id="f-color" value="#3b82f6" />
