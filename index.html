@@ -54,6 +54,11 @@
     <div class="app-loading-spinner" aria-hidden="true"></div>
   </div>
 
+  <!-- F11 E4 — vigia de inicialização: script clássico (não type="module"),
+       carregado o quanto antes para começar a contar o prazo assim que
+       possível. Ver boot-watchdog.js para o porquê de não ser um módulo. -->
+  <script src="boot-watchdog.js"></script>
+
   <!-- ── Banco de dados desatualizado (P0 — Proteção contra Divergência de
        Schema). Exibida no lugar do app-screen quando schemaService.js
        detecta, no bootstrap, que o banco ainda não recebeu as migrations que

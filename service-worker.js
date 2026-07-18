@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v14';
+const CACHE_VERSION = 'v15';
 const CACHE_NAME = `medagenda-shell-${CACHE_VERSION}`;
 
 // Base URL of the service worker's own location (handles GitHub Pages subdirectories)
@@ -12,6 +12,10 @@ const APP_SHELL = [
   './',
   './index.html',
   './style.css',
+  // Script clássico (não type="module") — o gerador do bloco abaixo só
+  // caminha o grafo de imports ES a partir de index.html, então este
+  // precisa ficar fora dele (ver boot-watchdog.js e scripts/generate-app-shell.js).
+  './boot-watchdog.js',
   // AUTO-GENERATED:BEGIN (scripts/generate-app-shell.js)
   './abandonedSessionDialog.js',
   './academicCalendarEventsView.js',
