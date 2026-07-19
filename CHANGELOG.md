@@ -2,6 +2,32 @@
 
 ---
 
+## [Unreleased] — F13.6: microinterações
+
+Penúltima etapa do roadmap F13 (docs/F12-AUDITORIA-RADICAL-UX-UI.md): dá
+feedback visual curto a ações que hoje são instantâneas e "secas" —
+expandir/colapsar, trocar de aba, um item entrando numa lista, um contador
+mudando. Nenhuma estrutura de dado, view ou regra de negócio mudou.
+
+- `style.css` — `.content-reveal` (revelação de disclosures/skeleton→conteúdo)
+  passa de 300ms (`var(--transition-slow)`) para 200ms, cumprindo o critério
+  de aceite do F13.6 (todo toggle anima em ≤200ms); nova classe `.count-pulse`
+  (pulso curto de escala+cor) para sinalizar que um número mudou; bloco
+  `prefers-reduced-motion: reduce` passa a desligar também o pulso de contador
+  e a rotação do chevron de disclosure.
+- `transitionUtils.js` — novo helper `pulseUpdate(el)`, mesmo padrão
+  remove→reflow→add de `revealWithAnimation()`/`revealPageWithAnimation()`.
+- `studySessionView.js` — os contadores de Questões/Revisões (`(N)` no título
+  da seção) pulsam quando o número muda; só o item recém-adicionado às
+  listas anima a entrada (não a lista toda, que é re-renderizada por
+  inteiro a cada mudança); trocar entre as abas "Novo estudo"/"Compromisso
+  existente" do modal de início agora revela o painel com o mesmo efeito já
+  usado em disclosures.
+- `studyJournalView.js` — o contador de "Filtros avançados" pulsa quando a
+  quantidade de filtros ativos muda; trocar entre as abas "Concluídas" e
+  "Canceladas/Todas" revela a visão recém-mostrada em vez de trocar
+  instantaneamente.
+
 ## [Unreleased] — F13.5: polimento visual (hierarquia por tipografia/espaço)
 
 Última etapa do roadmap F13 (docs/F12-AUDITORIA-RADICAL-UX-UI.md) antes das

@@ -34,3 +34,17 @@ export function revealPageWithAnimation(el) {
   void el.offsetWidth; // força reflow
   el.classList.add(PAGE_ENTER_CLASS);
 }
+
+// F13.6 — microinteração de contador: pulso curto (.count-pulse em style.css)
+// para sinalizar que um número mudou (ex.: contagem de questões/revisões,
+// filtros ativos), sem exigir texto extra nem depender do usuário perceber a
+// diferença sozinho numa lista já longa. Mesmo padrão remove→reflow→add das
+// funções acima, para disparar de novo mesmo em mudanças seguidas.
+const COUNT_PULSE_CLASS = "count-pulse";
+
+export function pulseUpdate(el) {
+  if (!el) return;
+  el.classList.remove(COUNT_PULSE_CLASS);
+  void el.offsetWidth; // força reflow
+  el.classList.add(COUNT_PULSE_CLASS);
+}
