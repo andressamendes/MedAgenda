@@ -106,6 +106,34 @@ test("an event on the displayed Monday is rendered and clicking it triggers onEv
   assert.strictEqual(clicked.id, "evt-1");
 });
 
+// F11 E18 (auditoria #21) — cores de categoria são escolhidas livremente
+// (qualquer hex); o texto do bloco precisa continuar legível mesmo com uma
+// cor muito clara escolhida pelo usuário, não só com o azul padrão.
+test("F11 E18 — an event with a light custom color gets dark text, not the hardcoded white", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Revisão", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none", color: "#fef9c3" };
+  mockEventService(t, { events: [ev] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  await initWeekView(container, {});
+
+  const block = container.querySelector("#wk-col-0 .wk-event");
+  assert.strictEqual(block.style.background, "rgb(254, 249, 195)");
+  assert.strictEqual(block.style.color, "rgb(31, 41, 55)");
+});
+
+test("F11 E18 — an event with the default color keeps white text (unchanged behavior)", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Revisão", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [ev] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  await initWeekView(container, {});
+
+  const block = container.querySelector("#wk-col-0 .wk-event");
+  assert.strictEqual(block.style.color, "rgb(255, 255, 255)");
+});
+
 test("clicking an empty slot triggers onSlotClick with the slot's date and time", async (t) => {
   mockEventService(t, { events: [] });
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);

@@ -32,7 +32,7 @@ import { openQuickAdd } from "./quickAdd.js";
 import { initNotifications, scheduleReminders, resetNotifications } from "./notificationService.js";
 import { initPushService, syncPushSubscription, resetPushService } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, readableTextColor } from "./utils.js";
 import { toast } from "./toastService.js";
 import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
 import { initErrorService, setErrorDevMode, handleError } from "./errorService.js";
@@ -501,7 +501,7 @@ function renderList(events) {
       <div class="event-card-meta">
         <span>${escapeHtml(meta)}</span>
         ${ev.category
-          ? `<span class="badge" style="background:${escapeHtml(catColor)};color:#fff">${escapeHtml(ev.category)}</span>`
+          ? `<span class="badge" style="background:${escapeHtml(catColor)};color:${readableTextColor(catColor)}">${escapeHtml(ev.category)}</span>`
           : ""}
         ${isRecurring ? `<span class="badge badge-recur">↻ Recorrente</span>` : ""}
       </div>
