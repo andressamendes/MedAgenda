@@ -123,6 +123,17 @@ import { setHistoryStatus } from "./activityHistoryView.js";
 
 const PAGE_SIZE = 10;
 
+// F11 E21 (auditoria #30) — a aba escolhida (Concluídas/Canceladas/Todas)
+// sobrevive ao reload, mesmo padrão de medagenda_agenda_view (script.js) e
+// medagenda_sidebar_collapsed (navigationView.js). Diferente da aba
+// Períodos/Progresso do Dashboard (F10 #3.1) e dos filtros avançados do
+// Diário (F8.4/F8.8) — que permanecem deliberadamente não persistidos, por
+// não terem uma escolha estável a lembrar — esta aba tende a refletir um
+// hábito real de uso (ex.: alguém que só olha "Canceladas" para entender
+// desistências).
+const JOURNAL_STATUS_TAB_KEY = "medagenda_journal_status_tab";
+const JOURNAL_STATUS_TAB_VALUES = new Set(["finished", "cancelled", "all"]);
+
 // Rótulos de exibição — mesmos valores já usados em studySessionView.js
 // (F7.4/F7.5) e permitidos pelos CHECK constraints de sql/15_questions.sql/
 // sql/13_reviews.sql, nenhum valor novo.
@@ -949,7 +960,10 @@ export async function initStudyJournalView() {
     finishedViewEl = document.getElementById("sj-finished-view");
     otherViewEl    = document.getElementById("sj-other-view");
     statusTabsEl?.querySelectorAll(".ah-filter-tab").forEach(btn => {
-      btn.addEventListener("click", () => _setStatusTab(btn.dataset.status));
+      btn.addEventListener("click", () => {
+        _setStatusTab(btn.dataset.status);
+        try { localStorage.setItem(JOURNAL_STATUS_TAB_KEY, btn.dataset.status); } catch { /* storage unavailable */ }
+      });
     });
 
     periodSelect   = document.getElementById("sj-filter-period");
@@ -974,7 +988,9 @@ export async function initStudyJournalView() {
     _bindFilters();
   }
 
-  _setStatusTab("finished");
+  let savedStatusTab;
+  try { savedStatusTab = localStorage.getItem(JOURNAL_STATUS_TAB_KEY); } catch { /* storage unavailable */ }
+  _setStatusTab(JOURNAL_STATUS_TAB_VALUES.has(savedStatusTab) ? savedStatusTab : "finished");
   _subscribeToEventBus();
   await _loadEventsLookup();
   await _loadPage(true);
