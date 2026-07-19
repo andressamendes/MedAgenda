@@ -169,6 +169,22 @@ test("with no running session, the empty state is shown and the active card is h
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
 
+// F11 E19 (auditoria #22) — o estado vazio segue o padrão composto
+// (ícone + título + descrição + CTA) em vez de um parágrafo solto.
+test("F11 E19 — the empty state is a composed state-block with icon, title, description and CTA", async (t) => {
+  const { mod } = await loadStudySessionView(t);
+  await mod.initStudySessionView();
+
+  const empty = document.getElementById("ss-empty");
+  assert.ok(empty.classList.contains("state-block"));
+  assert.ok(empty.querySelector(".state-block-icon"));
+  assert.ok(empty.querySelector(".state-block-title").textContent.length > 0);
+  assert.ok(empty.querySelector(".state-block-desc").textContent.length > 0);
+  const cta = document.getElementById("ss-btn-start-standalone");
+  assert.ok(cta.classList.contains("btn-primary"));
+  assert.strictEqual(empty.contains(cta), true);
+});
+
 test("reload restores an already-running session instead of losing it", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),

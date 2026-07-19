@@ -378,10 +378,12 @@
             <h1 class="page-title">Sessão</h1>
           </div>
 
-          <!-- Estado: nenhuma sessão em andamento -->
-          <div id="ss-empty" class="ss-empty">
-            <p id="ss-empty-message" class="ss-empty-message">Nenhuma sessão de estudo em andamento.</p>
-            <button type="button" id="ss-btn-start-standalone" class="btn btn-primary btn-sm">Iniciar sessão</button>
+          <!-- Estado: nenhuma sessão em andamento (F11 E19, auditoria #22) -->
+          <div id="ss-empty" class="state-block ss-empty">
+            <span class="state-block-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+            <strong class="state-block-title">Nenhuma sessão de estudo em andamento</strong>
+            <p id="ss-empty-message" class="state-block-desc">Inicie uma sessão para cronometrar seu estudo, registrar questões respondidas e agendar revisões.</p>
+            <button type="button" id="ss-btn-start-standalone" class="btn btn-primary state-block-action">Iniciar sessão</button>
           </div>
 
           <!-- Modal de configuração pré-início — nunca inicia a sessão
