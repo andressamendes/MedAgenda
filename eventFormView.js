@@ -6,7 +6,7 @@ import { computeSessionStats } from "./activitySessionStats.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
-import { initModal } from "./modalController.js";
+import { initModal, bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { startSessionForEvent } from "./studySessionView.js";
 import { showPage } from "./navigationView.js";
@@ -95,6 +95,15 @@ let recurrenceToggleBtn = null;
 let recurrenceWrap     = null;
 let modal              = null;
 
+// Painel "Histórico e estatísticas" (F13.4) — event-insights/session-history
+// saíram do corpo do modal de edição para este painel lateral sob demanda,
+// mesmo padrão de abrir/fechar/Focus Trap/Escape de #ai-panel (aiPanelView.js).
+let eventDetailOverlay = null;
+let eventDetailPanel   = null;
+let eventDetailClose   = null;
+let eventDetailTrigger = null;
+let _eventDetailPrevFocus = null;
+
 export function initEventForm(onSave) {
   _onSave = onSave;
 
@@ -140,9 +149,20 @@ export function initEventForm(onSave) {
   recurrenceToggleBtn = document.getElementById("btn-recurrence-toggle");
   recurrenceWrap      = document.getElementById("f-recurrence-wrap");
 
+  eventDetailOverlay  = document.getElementById("event-detail-overlay");
+  eventDetailPanel    = document.getElementById("event-detail-panel");
+  eventDetailClose    = document.getElementById("event-detail-close");
+  eventDetailTrigger  = document.getElementById("event-detail-trigger");
+
   if (eventModal) modal = initModal(eventModal, _handleModalClose);
 
   document.getElementById("event-modal-close")?.addEventListener("click", _handleModalClose);
+
+  eventDetailTrigger?.addEventListener("click", () => _openEventDetailPanel());
+  eventDetailClose?.addEventListener("click", () => _closeEventDetailPanel());
+  if (eventDetailOverlay && eventDetailPanel) {
+    bindModalBehavior(eventDetailOverlay, () => !eventDetailPanel.hidden, _closeEventDetailPanel, eventDetailPanel);
+  }
 
   ["btn-new-event", "btn-new-event-apt"].forEach(id => {
     document.getElementById(id)?.addEventListener("click", () => openEventForm());
@@ -353,11 +373,38 @@ export function openEventFormPrefilled({ title = "", event_date = "", start_time
 
 function _closeEventModal() {
   modal?.close();
+  // Evita um overlay órfão: fechar o formulário de edição sempre fecha
+  // também o painel de histórico/estatísticas, se estiver aberto.
+  if (eventDetailPanel && !eventDetailPanel.hidden) _closeEventDetailPanel();
 }
 
 function _handleModalClose() {
   _closeEventModal();
   _clearForm();
+}
+
+// Painel "Histórico e estatísticas" (F13.4) — mesma estrutura de abrir/fechar
+// de #ai-panel (aiPanelView.js): captura/restaura foco, mostra painel +
+// overlay juntos; Escape/clique-fora/Focus Trap vêm de bindModalBehavior()
+// (ligado uma única vez em initEventForm()).
+function _openEventDetailPanel() {
+  if (!eventDetailPanel || !eventDetailOverlay) return;
+  _eventDetailPrevFocus = captureFocus();
+  eventDetailPanel.hidden = false;
+  eventDetailOverlay.hidden = false;
+  eventDetailPanel.removeAttribute("aria-hidden");
+  eventDetailOverlay.removeAttribute("aria-hidden");
+  eventDetailClose?.focus();
+}
+
+function _closeEventDetailPanel() {
+  if (!eventDetailPanel || !eventDetailOverlay) return;
+  eventDetailPanel.hidden = true;
+  eventDetailOverlay.hidden = true;
+  eventDetailPanel.setAttribute("aria-hidden", "true");
+  eventDetailOverlay.setAttribute("aria-hidden", "true");
+  restoreFocus(_eventDetailPrevFocus);
+  _eventDetailPrevFocus = null;
 }
 
 /**
@@ -384,6 +431,8 @@ function _clearForm() {
   startSessionBtn.hidden = true;
   deleteBtn.hidden        = true;
   _historyRequestId++; // invalida qualquer busca de histórico ainda em andamento
+  eventDetailTrigger.hidden = true;
+  if (eventDetailPanel && !eventDetailPanel.hidden) _closeEventDetailPanel();
   historySection.hidden = true;
   historyBody.hidden = true;
   historyToggle.setAttribute("aria-expanded", "false");
@@ -422,6 +471,7 @@ function _populateForm(ev) {
   _editingEvent         = ev;
   startSessionBtn.hidden = false;
   deleteBtn.hidden        = false;
+  eventDetailTrigger.hidden = false;
   historySection.hidden  = false;
   _loadSessionHistory(ev.id);
   _loadInsights(ev);

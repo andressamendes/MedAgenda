@@ -1094,9 +1094,35 @@
           </div>
         </form>
 
-        <div id="event-insights" class="smart-cards" hidden></div>
+        <!-- F13.4 — Cards inteligentes + histórico/estatísticas de sessões
+             saíram do corpo do modal de edição para um painel próprio, aberto
+             sob demanda (mesma gating de antes: só existe algo para mostrar
+             quando se está editando um compromisso já existente — ver
+             eventFormView.js/_populateForm). Evita que quem só quer mudar um
+             horário atravesse um relatório inteiro dentro do próprio modal de
+             edição. -->
+        <button type="button" class="btn btn-ghost" id="event-detail-trigger" hidden>Ver histórico e estatísticas</button>
+      </div>
+    </div>
+  </div>
 
-        <div id="session-history" class="session-history" hidden>
+  <!-- Painel: Histórico e estatísticas do compromisso (F13.4) — mesma
+       estrutura/comportamento de abrir-fechar de #ai-panel (aiPanelView.js). -->
+  <div id="event-detail-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
+  <aside id="event-detail-panel" class="ai-panel" hidden
+         role="dialog" aria-modal="true" aria-labelledby="event-detail-title">
+    <div class="ai-panel-header">
+      <div class="ai-panel-title-wrap">
+        <span class="ai-panel-title" id="event-detail-title">Histórico e estatísticas</span>
+      </div>
+      <button class="ai-panel-close" id="event-detail-close" aria-label="Fechar painel de histórico e estatísticas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+    </div>
+
+    <div class="ai-panel-actions">
+
+    <div id="event-insights" class="smart-cards" hidden></div>
+
+    <div id="session-history" class="session-history" hidden>
           <!-- Auditoria UX #26: estatísticas + histórico de sessões competiam
                visualmente com o formulário de edição — quem só quer mudar o
                horário atravessava um relatório inteiro. Colapsado por padrão;
@@ -1136,9 +1162,9 @@
             <ul id="session-history-list" class="session-history-list"></ul>
           </div>
         </div>
-      </div>
+
     </div>
-  </div>
+  </aside>
 
   <!-- ── Modal: Gerenciar Categorias ── -->
   <div id="cat-overlay" class="modal-overlay" hidden
