@@ -1893,12 +1893,11 @@ test("choosing 'cancel' in the abandoned-session dialog calls exactly activitySe
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
 });
 
-// ── Seções colapsáveis das Questões/Revisões na tela ativa (auditoria UX #04) ──
-// Questões e Revisões são etapas opcionais: nascem fechadas a cada sessão
-// nova (o cronômetro fica visível sem rolagem) e o contador no título reflete
-// o que já foi registrado sem precisar expandir.
+// ── F14.4 — Questões/Revisões nascem sempre expandidas dentro do painel ──
+// O painel inteiro já é um nível de disclosure (aberto sob demanda por
+// #ss-btn-open-panel); as seções por dentro não têm mais um segundo nível.
 
-test("UX #04 — Questões e Revisões nascem colapsadas, com aria-expanded=false, numa sessão nova", async (t) => {
+test("F14.4 — Questões e Revisões aparecem sempre expandidas dentro do painel, numa sessão nova", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
@@ -1906,15 +1905,68 @@ test("UX #04 — Questões e Revisões nascem colapsadas, com aria-expanded=fals
   await mod.initStudySessionView();
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("ss-questions-body").hidden, true);
-  assert.strictEqual(document.getElementById("ss-reviews-body").hidden, true);
-  assert.strictEqual(document.getElementById("ss-questions-toggle").getAttribute("aria-expanded"), "false");
-  assert.strictEqual(document.getElementById("ss-reviews-toggle").getAttribute("aria-expanded"), "false");
-
-  document.getElementById("ss-questions-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("ss-questions-body").hidden, false);
-  assert.strictEqual(document.getElementById("ss-questions-toggle").getAttribute("aria-expanded"), "true");
-  assert.strictEqual(document.getElementById("ss-questions-toggle").textContent, "Ocultar");
+  assert.strictEqual(document.getElementById("ss-reviews-body").hidden, false);
+  assert.strictEqual(document.getElementById("ss-questions-toggle"), null, "the internal disclosure toggle must be gone");
+  assert.strictEqual(document.getElementById("ss-reviews-toggle"), null, "the internal disclosure toggle must be gone");
+});
+
+// ── F14.4 — "+1 questão" na superfície principal do card ss-active, ao lado
+// do gatilho do painel: mesmo caminho de escrita do botão rápido de dentro
+// do painel (sqBtnQuick/_quickAddQuestion), sem exigir abrir nada.
+
+test("F14.4 — the '+1 questão' button on the main card registers an answered question in a single click", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-quick-question-main").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 1);
+  assert.strictEqual(addQuestionCalls[0].sessionId, "sess-1");
+  assert.deepStrictEqual(addQuestionCalls[0].data, {
+    question_type: "multiple_choice",
+    status:        "answered",
+    difficulty:    "medium",
+    subject:       null,
+    topic:         null,
+  });
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+  assert.match(document.getElementById("ss-quick-question-main-count").textContent, /1/);
+});
+
+test("F14.4 — the '+1 questão' button does nothing without an active session", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => null,
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-quick-question-main").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 0);
+});
+
+test("F14.4 — a double click on the '+1 questão' button never persists the question twice", async (t) => {
+  let resolveFirst;
+  const localAddQuestionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    addQuestion: async (sessionId, data) => new Promise(resolve => {
+      resolveFirst = () => { localAddQuestionCalls.push({ sessionId, data }); resolve({ id: "q-1", session_id: sessionId, ...data }); };
+    }),
+  });
+  await mod.initStudySessionView();
+
+  const btnQuickMain = document.getElementById("ss-btn-quick-question-main");
+  btnQuickMain.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  btnQuickMain.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  resolveFirst();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(localAddQuestionCalls.length, 1, "a double click must not persist the same question twice");
 });
 
 test("F13.1 — 'Mais detalhes' nasce colapsado e revela Conteúdo/Data/Horário/Tempo previsto ao expandir", async (t) => {

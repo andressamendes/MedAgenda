@@ -3313,6 +3313,23 @@ textarea { resize: vertical; }
   width: 100%;
 }
 
+/* F14.4 — "+1 questão" e o gatilho do painel lado a lado na superfície
+   principal da sessão ativa, mesmo padrão de largura/gap de .ss-actions. */
+.ss-quick-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .6rem;
+  width: 100%;
+  margin-top: .8rem;
+}
+
+.ss-quick-question-main-btn {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
 /* ── Resumo/encerramento da sessão (F7.3) ── */
 .ss-notes-label {
   display: block;

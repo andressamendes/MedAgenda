@@ -581,15 +581,27 @@
               <button type="button" class="btn btn-primary"   id="ss-btn-finish" hidden>Finalizar</button>
             </div>
 
-            <!-- F13.4 — Questões/Revisões saíram da coluna principal (empilhadas
-                 sob disclosure) para um painel lateral sob demanda, mesmo padrão
-                 de #ai-panel. Este botão é o único gatilho; o badge combina as
-                 duas contagens (ss-questions-count/ss-reviews-count nunca
-                 pararam de ser atualizados por studySessionView.js — só ganharam
-                 este espelho visível mesmo com o painel fechado). -->
-            <button type="button" class="btn btn-secondary ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
-              Questões e revisões<span id="ss-panel-badge" class="ss-section-count"></span>
-            </button>
+            <!-- F14.4 — registrar uma questão respondida sem sair da sessão
+                 ativa nem abrir o painel: mesmo defaults/escrita de
+                 _quickAddQuestion() (múltipla escolha, média, já respondida),
+                 só que a um toque de distância na superfície principal. O
+                 contador espelha ss-questions-count. -->
+            <div class="ss-quick-actions-row">
+              <button type="button" class="btn btn-primary ss-quick-question-main-btn" id="ss-btn-quick-question-main">
+                <span class="ss-quick-question-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="4 12.5 9.5 18 20 6"/></svg></span>
+                +1 questão<span id="ss-quick-question-main-count" class="ss-section-count"></span>
+              </button>
+
+              <!-- F13.4 — Questões/Revisões saíram da coluna principal (empilhadas
+                   sob disclosure) para um painel lateral sob demanda, mesmo padrão
+                   de #ai-panel. Este botão é o único gatilho; o badge combina as
+                   duas contagens (ss-questions-count/ss-reviews-count nunca
+                   pararam de ser atualizados por studySessionView.js — só ganharam
+                   este espelho visível mesmo com o painel fechado). -->
+              <button type="button" class="btn btn-secondary ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
+                Questões e revisões<span id="ss-panel-badge" class="ss-section-count"></span>
+              </button>
+            </div>
           </div>
 
           <!-- Painel: Questões Resolvidas + Revisões da sessão ativa (F13.4) —
@@ -613,15 +625,13 @@
                  no banco — sessionQuestionsService.addQuestion()/
                  reviewSessionService.associateReview() continuam sendo os
                  únicos pontos de escrita, agora chamados daqui em vez de só
-                 em _confirmFinish()). Nascem colapsadas (mesmo princípio da
-                 auditoria UX #04): o cronômetro continua sendo o elemento
-                 principal da tela, sem competir por atenção. -->
+                 em _confirmFinish()). F14.4 — nascem sempre expandidas: o
+                 painel inteiro já é um nível de disclosure (aberto sob
+                 demanda por #ss-btn-open-panel); colapsar de novo por dentro
+                 era porta atrás de porta. -->
             <div class="ss-questions-block">
-              <div class="ss-collapsible-header">
-                <h3 class="ss-questions-title">Questões Resolvidas<span id="ss-questions-count" class="ss-section-count"></span></h3>
-                <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-questions-toggle" aria-expanded="false" aria-controls="ss-questions-body"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
-              </div>
-              <div id="ss-questions-body" hidden>
+              <h3 class="ss-questions-title">Questões Resolvidas<span id="ss-questions-count" class="ss-section-count"></span></h3>
+              <div id="ss-questions-body">
 
               <ul id="ss-questions-list" class="ss-questions-list"></ul>
               <p id="ss-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
@@ -674,11 +684,8 @@
 
             <!-- Revisões (F7.5) — mesmo tratamento: registradas durante a sessão ativa -->
             <div class="ss-questions-block">
-              <div class="ss-collapsible-header">
-                <h3 class="ss-questions-title">Revisões<span id="ss-reviews-count" class="ss-section-count"></span></h3>
-                <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-reviews-toggle" aria-expanded="false" aria-controls="ss-reviews-body"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
-              </div>
-              <div id="ss-reviews-body" hidden>
+              <h3 class="ss-questions-title">Revisões<span id="ss-reviews-count" class="ss-section-count"></span></h3>
+              <div id="ss-reviews-body">
               <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
 
               <ul id="ss-reviews-list" class="ss-questions-list"></ul>
