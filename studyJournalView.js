@@ -120,6 +120,7 @@ import { buildMilestones } from "./studyMilestoneService.js";
 import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
+import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 
 const PAGE_SIZE = 10;
 
@@ -156,6 +157,13 @@ const REVIEW_STATUS_LABELS = {
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
 let milestonesPanelEl, milestonesListEl;
+
+// Painel "Analisar" (F13.4) — período, filtros avançados e marcos da
+// evolução saíram da coluna principal para este painel lateral sob demanda,
+// mesmo padrão de abrir/fechar/Focus Trap/Escape de #ai-panel
+// (aiPanelView.js). Busca continua sempre visível fora do painel.
+let sjPanelOverlayEl, sjPanelEl, sjPanelCloseEl, sjPanelOpenBtn;
+let _sjPanelPrevFocus = null;
 // F10 #4.2 — alterna entre a visão rica de "Concluídas" (finishedViewEl,
 // este módulo) e a visão compacta de "Canceladas"/"Todas" (otherViewEl,
 // activityHistoryView.js), sem afetar o carregamento/estado de nenhuma das
@@ -721,6 +729,30 @@ function _updateAdvancedFiltersCount() {
   advancedCountEl.textContent = active > 0 ? ` (${active})` : "";
 }
 
+// Painel "Analisar" (F13.4) — mesma estrutura de abrir/fechar de #ai-panel
+// (aiPanelView.js): captura/restaura foco, mostra painel + overlay juntos;
+// Escape/clique-fora/Focus Trap vêm de bindModalBehavior() (ligado uma única
+// vez em initStudyJournalView()).
+function _openSjPanel() {
+  if (!sjPanelEl || !sjPanelOverlayEl) return;
+  _sjPanelPrevFocus = captureFocus();
+  sjPanelEl.hidden = false;
+  sjPanelOverlayEl.hidden = false;
+  sjPanelEl.removeAttribute("aria-hidden");
+  sjPanelOverlayEl.removeAttribute("aria-hidden");
+  sjPanelCloseEl?.focus();
+}
+
+function _closeSjPanel() {
+  if (!sjPanelEl || !sjPanelOverlayEl) return;
+  sjPanelEl.hidden = true;
+  sjPanelOverlayEl.hidden = true;
+  sjPanelEl.setAttribute("aria-hidden", "true");
+  sjPanelOverlayEl.setAttribute("aria-hidden", "true");
+  restoreFocus(_sjPanelPrevFocus);
+  _sjPanelPrevFocus = null;
+}
+
 function _toggleAdvancedFilters() {
   const expand = advancedFiltersEl.hidden;
   advancedFiltersEl.hidden = !expand;
@@ -984,6 +1016,16 @@ export async function initStudyJournalView() {
     advancedFiltersEl = document.getElementById("sj-advanced-filters");
     advancedCountEl   = document.getElementById("sj-advanced-filters-count");
 
+    sjPanelOverlayEl = document.getElementById("sj-panel-overlay");
+    sjPanelEl        = document.getElementById("sj-panel");
+    sjPanelCloseEl   = document.getElementById("sj-panel-close");
+    sjPanelOpenBtn   = document.getElementById("sj-btn-open-panel");
+    sjPanelOpenBtn?.addEventListener("click", () => _openSjPanel());
+    sjPanelCloseEl?.addEventListener("click", () => _closeSjPanel());
+    if (sjPanelOverlayEl && sjPanelEl) {
+      bindModalBehavior(sjPanelOverlayEl, () => !sjPanelEl.hidden, _closeSjPanel, sjPanelEl);
+    }
+
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
     _bindFilters();
   }
@@ -1049,4 +1091,5 @@ export function resetStudyJournalView() {
   _updateAdvancedFiltersCount();
   if (advancedFiltersEl)  advancedFiltersEl.hidden = true;
   if (advancedToggleBtn)  advancedToggleBtn.setAttribute("aria-expanded", "false");
+  if (sjPanelEl && !sjPanelEl.hidden) _closeSjPanel();
 }

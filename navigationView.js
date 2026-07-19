@@ -9,7 +9,11 @@ import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.
 // (#page-calendar, "Mês") foi absorvida como aba dentro de 'agenda' (ver
 // #agenda-view-tabs em script.js/_setAgendaView). showPage('calendar') cai
 // no mesmo fallback 'agenda'.
-const APP_PAGES = ['agenda', 'appointments', 'study-session', 'journal', 'dashboard'];
+// 'progress' (F13.4) — página "Progresso" (#page-progress), alcançada só
+// pelo link "Ver progresso completo →" dentro do Dashboard, de propósito sem
+// item próprio na sidebar/bottom nav (evita reintroduzir o excesso de
+// destinos que a F13.2 já removeu de lá).
+const APP_PAGES = ['agenda', 'appointments', 'study-session', 'journal', 'dashboard', 'progress'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 
@@ -22,6 +26,7 @@ const PAGE_TITLES = {
   'study-session': 'Sessão',
   journal:         'Diário',
   dashboard:       'Dashboard',
+  progress:        'Progresso',
 };
 
 let appSidebar     = null;
