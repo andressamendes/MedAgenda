@@ -1732,36 +1732,6 @@ textarea { resize: vertical; }
   margin: 0 0 .6rem;
 }
 
-.dash-tabs {
-  display: flex;
-  gap: .4rem;
-  flex-wrap: wrap;
-  margin: 1.4rem 0 1rem;
-}
-
-.dash-tab {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  padding: .35rem .9rem;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-              color var(--transition-fast);
-}
-
-.dash-tab:hover:not(.dash-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
-
-.dash-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.dash-tab--active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
 /* ── Central de Insights (F2.4) ── */
 .insights-block + .insights-block {
   margin-top: 1.6rem;
@@ -1784,14 +1754,25 @@ textarea { resize: vertical; }
 }
 
 /* ── Histórico global de Sessões (F1.8) ── */
-.ah-filter-tabs {
+/* F11 E17 (auditoria #19) — componente único de abas: Histórico
+   (.ah-filter-tab), Dashboard (.dash-tab), Tema (.theme-tab), início de
+   Sessão (.ss-start-tab) e Minha Conta (.account-tab) compartilham agora um
+   único bloco de regras visuais em vez de 5 cópias idênticas. Cada contexto
+   mantém sua própria classe de contêiner/botão (nenhum HTML/JS/teste
+   precisou mudar — risco zero de regressão, já que a declaração aplicada a
+   cada elemento é literalmente a mesma de antes) só a margem/padding do
+   contêiner varia por tela. */
+.ah-filter-tabs, .dash-tabs, .theme-tabs, .ss-start-tabs, .account-tabs {
   display: flex;
   gap: .4rem;
-  margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
+.ah-filter-tabs { margin-bottom: var(--space-4); }
+.dash-tabs      { margin: 1.4rem 0 1rem; }
+.ss-start-tabs  { margin-bottom: var(--space-3); }
+.account-tabs   { padding: 1rem 1rem 0; }
 
-.ah-filter-tab {
+.ah-filter-tab, .dash-tab, .theme-tab, .ss-start-tab, .account-tab {
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-muted);
@@ -1804,43 +1785,19 @@ textarea { resize: vertical; }
               color var(--transition-fast);
 }
 
-.ah-filter-tab:hover:not(.ah-filter-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
+.ah-filter-tab:hover:not(.ah-filter-tab--active),
+.dash-tab:hover:not(.dash-tab--active),
+.theme-tab:hover:not(.theme-tab--active),
+.ss-start-tab:hover:not(.ss-start-tab--active),
+.account-tab:hover:not(.account-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
 
-.ah-filter-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ah-filter-tab:focus-visible,
+.dash-tab:focus-visible,
+.theme-tab:focus-visible,
+.ss-start-tab:focus-visible,
+.account-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-.ah-filter-tab--active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
-/* F10 #2.4 — mesmo padrão visual de .ah-filter-tab*, duplicado aqui (não
-   compartilhado) por ser um contexto diferente: seletor de tema nas
-   Configurações, não filtro de uma lista. */
-.theme-tabs {
-  display: flex;
-  gap: .4rem;
-  flex-wrap: wrap;
-}
-
-.theme-tab {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  padding: .35rem .9rem;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-              color var(--transition-fast);
-}
-
-.theme-tab:hover:not(.theme-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
-
-.theme-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.theme-tab--active {
+.ah-filter-tab--active, .dash-tab--active, .theme-tab--active, .ss-start-tab--active, .account-tab--active {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
@@ -3023,39 +2980,16 @@ textarea { resize: vertical; }
   margin-top: .4rem;
 }
 
-/* F10 PR12 — mesmo padrão visual de .ss-start-tab (duplicado por design, não
-   compartilhado — F10 #2.4 já documenta esse princípio para abas em
-   contextos diferentes deste app). .account-body tem padding:0 (cada
-   .account-section já traz o próprio), por isso a barra de abas define seu
-   próprio respiro lateral/inferior aqui. */
+/* Parte do componente único de abas (F11 E17) — .account-tab segue
+   .ah-filter-tab/.dash-tab/.theme-tab/.ss-start-tab, ver bloco compartilhado
+   junto de .ah-filter-tabs. .account-body tem padding:0 (cada
+   .account-section já traz o próprio), por isso a barra de abas continua
+   com seu próprio respiro lateral/inferior aqui. */
 .account-tabs {
   display: flex;
   gap: .4rem;
   flex-wrap: wrap;
   padding: 1rem 1rem 0;
-}
-
-.account-tab {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  padding: .35rem .9rem;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-              color var(--transition-fast);
-}
-
-.account-tab:hover:not(.account-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
-
-.account-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.account-tab--active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
 }
 
 /* Avatar */
@@ -3432,39 +3366,9 @@ textarea { resize: vertical; }
 
 /* Modal de configuração pré-início (#ss-start-modal) — os dois caminhos
    ("Novo estudo" digitado livremente x "Compromisso da agenda" já existente)
-   nunca ficam visíveis ao mesmo tempo; mesmo padrão visual de .theme-tab
-   (duplicado, não compartilhado — F10 #2.4 já documenta esse princípio para
-   contextos diferentes de abas neste app). */
-.ss-start-tabs {
-  display: flex;
-  gap: .4rem;
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-}
-
-.ss-start-tab {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  padding: .35rem .9rem;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-              color var(--transition-fast);
-}
-
-.ss-start-tab:hover:not(.ss-start-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
-
-.ss-start-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.ss-start-tab--active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
+   nunca ficam visíveis ao mesmo tempo; parte do componente único de abas
+   (F11 E17) — .ss-start-tabs/.ss-start-tab estão definidas junto de
+   .ah-filter-tab/.dash-tab/.theme-tab, ver bloco compartilhado mais acima. */
 /* BUG 09 — Resumo/confirmação de encerramento (#ss-finish-modal): conteúdo
    variável (Questões + Revisões adicionadas na hora) podia crescer além da
    viewport. Como .modal-card só tinha max-width (sem max-height/scroll), o
