@@ -258,6 +258,15 @@
 
         <!-- Primary nav -->
         <div class="sidebar-nav-group">
+          <!-- F14.1 — "Hoje" é a nova porta de entrada do app (ver
+               todayView.js): o item de topo, marcado ativo por padrão porque
+               showPage()/restoreLastPage() agora abrem aqui em vez da
+               Agenda. Fora do subgrupo "Compromissos" — não é mais uma visão
+               de compromissos, é a resposta a "o que eu faço agora". -->
+          <button class="nav-item nav-item--active" data-page="today" title="Atalho: G H" aria-keyshortcuts="g h">
+            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="21.5"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="21.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></span>
+            <span class="nav-label">Hoje</span>
+          </button>
           <!-- F13.2 — Agenda e Compromissos são duas visões do mesmo dado
                (compromissos): a primeira em calendário, a segunda em lista.
                Agrupadas sob um rótulo visual comum para deixar esse
@@ -269,7 +278,7 @@
                  própria página — agora é um único destino "Agenda", com
                  Semana/Mês como abas de visualização dentro da mesma página
                  (ver #agenda-view-tabs em page-agenda). -->
-            <button class="nav-item nav-item--active" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
+            <button class="nav-item" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
               <span class="nav-label">Agenda</span>
             </button>
@@ -320,6 +329,34 @@
       <!-- Content area -->
       <main class="app-content" id="app-content">
 
+        <!-- Page: Hoje (F14.1) — nova porta de entrada do app: em vez de
+             receber o estudante com um calendário para interpretar, responde
+             direto "o que eu faço agora" (compromissos de hoje + um único
+             caminho para estudar). Ver todayView.js. A Agenda permanece
+             intocada como segunda tela, alcançável pelo item de baixo. -->
+        <div id="page-today" class="app-page">
+          <div class="page-header">
+            <h1 class="page-title">Hoje</h1>
+          </div>
+
+          <!-- No máximo 1 card, só se houver uma decisão acionável para hoje
+               (auditoria F14 §5/§6 — Decision Engine já ordenado por
+               prioridade, mesma fonte de dado de weekView.js/#wk-tip). -->
+          <div id="today-tip" class="smart-cards" hidden></div>
+
+          <div class="today-hero">
+            <button type="button" id="today-btn-resume" class="btn btn-primary today-cta" hidden>Continuar sessão em andamento</button>
+            <button type="button" id="today-btn-start" class="btn btn-primary today-cta">Começar a estudar</button>
+            <button type="button" id="today-btn-continue" class="btn btn-secondary today-cta" hidden></button>
+          </div>
+
+          <section class="today-appointments" aria-labelledby="today-appointments-title">
+            <h2 id="today-appointments-title" class="today-section-title">Compromissos de hoje</h2>
+            <p id="today-appointments-empty" class="list-empty" hidden>Nenhum compromisso hoje.</p>
+            <ul id="today-appointments-list" class="today-appointments-list"></ul>
+          </section>
+        </div>
+
         <!-- Page: Agenda (Semana/Mês) —
              F10 #4.1: Semana e Mês eram duas páginas separadas mostrando o
              mesmo dado (compromissos) em duas granularidades — unificadas
@@ -327,7 +364,7 @@
              (#agenda-view-tabs), preservando toda a lógica de calendar.js e
              weekView.js sem alteração: ambos continuam sendo inicializados
              normalmente, só a visibilidade de suas seções é alternada. -->
-        <div id="page-agenda" class="app-page">
+        <div id="page-agenda" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Agenda</h1>
             <button id="btn-new-event" class="btn btn-primary btn-sm" title="Atalho: N" aria-keyshortcuts="n">+ Novo compromisso</button>

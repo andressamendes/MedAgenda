@@ -30,11 +30,11 @@ function press(key, opts = {}) {
   document.dispatchEvent(new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...opts }));
 }
 
-// Só a página "Agenda" fica visível por padrão na fixture (todas as outras
-// nascem com `hidden`) — simula estar em "Compromissos" (que tem busca) só
-// quando o teste precisa disso.
+// F14.1 — "Hoje" é a página visível por padrão na fixture agora (todas as
+// outras nascem com `hidden`) — simula estar em "Compromissos" (que tem
+// busca) só quando o teste precisa disso.
 function switchToPageWithSearch() {
-  document.getElementById("page-agenda").hidden = true;
+  document.getElementById("page-today").hidden = true;
   document.getElementById("page-appointments").hidden = false;
 }
 
@@ -72,7 +72,7 @@ test("'/' focuses the search input when the current page has one", async (t) => 
 test("'/' does nothing when the current page has no search input", async (t) => {
   const { initKeyboardShortcuts } = await loadService(t);
   initKeyboardShortcuts();
-  // Página padrão da fixture (Agenda) não tem busca.
+  // Página padrão da fixture (Hoje, F14.1) não tem busca.
 
   assert.doesNotThrow(() => press("/"));
 });
@@ -97,6 +97,17 @@ test("'G' then 'c'/'s'/'d'/'j' navigates to the matching page", async (t) => {
   press("g"); press("j");
 
   assert.deepStrictEqual(showPageCalls, ["appointments", "study-session", "dashboard", "journal"]);
+});
+
+// F14.1 — "Hoje" é a nova porta de entrada; ganha o mesmo atalho "go to" das
+// demais páginas.
+test("'G' then 'h' navigates to Hoje", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  press("g"); press("h");
+
+  assert.deepStrictEqual(showPageCalls, ["today"]);
 });
 
 test("'G' followed by an unmapped key navigates nowhere", async (t) => {

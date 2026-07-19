@@ -66,11 +66,16 @@ test("F11 E8 — showPage() updates document.title to match the destination page
 
   nav.showPage("agenda");
   assert.strictEqual(document.title, "Agenda · Anoti");
+
+  nav.showPage("today");
+  assert.strictEqual(document.title, "Hoje · Anoti");
 });
 
-test("F11 E8 — showPage() with an unknown page name falls back to the Agenda title", () => {
+// F14.1 — "Hoje" é a nova porta de entrada: qualquer nome de página
+// inválido/removido cai agora em "today", não mais em "agenda".
+test("F11 E8 — showPage() with an unknown page name falls back to the Hoje title", () => {
   nav.showPage("calendar");
-  assert.strictEqual(document.title, "Agenda · Anoti");
+  assert.strictEqual(document.title, "Hoje · Anoti");
 });
 
 test("showPage() marks the matching nav item as active with aria-current", () => {
@@ -87,11 +92,11 @@ test("showPage() marks the matching nav item as active with aria-current", () =>
 // F10 #4.1 — Mês deixou de ser uma página própria (#page-calendar removido);
 // foi absorvido como a aba "Mês" de #agenda-view-tabs, dentro da própria
 // página da Agenda. "calendar" não é mais um nome de página válido — cai no
-// fallback de showPage() para "agenda", como qualquer outro nome desconhecido.
-test("F10 #4.1 — showPage('calendar') falls back to agenda: 'calendar' is no longer a valid page", () => {
+// fallback de showPage(), hoje "today" (F14.1), não mais "agenda".
+test("F10 #4.1 — showPage('calendar') falls back to today: 'calendar' is no longer a valid page", () => {
   nav.showPage("calendar");
 
-  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-today").hidden, false);
   assert.strictEqual(document.getElementById("page-calendar"), null, "a página própria do Mês não existe mais no DOM");
 });
 
@@ -108,12 +113,12 @@ test("F10 #4.1 — a página Agenda tem as abas Semana/Mês que absorveram o Mê
 // F10 #4.2 — o Histórico de Sessões deixou de ser uma página própria
 // (#page-history removido); foi absorvido como as abas "Canceladas"/"Todas"
 // de #sj-status-tabs, dentro da própria página do Diário. "history" não é
-// mais um nome de página válido — cai no fallback de showPage() para
-// "agenda", como qualquer outro nome desconhecido (ver teste abaixo).
-test("F10 #4.2 — showPage('history') falls back to agenda: 'history' is no longer a valid page", () => {
+// mais um nome de página válido — cai no fallback de showPage(), hoje
+// "today" (F14.1), como qualquer outro nome desconhecido (ver teste abaixo).
+test("F10 #4.2 — showPage('history') falls back to today: 'history' is no longer a valid page", () => {
   nav.showPage("history");
 
-  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-today").hidden, false);
   assert.strictEqual(document.getElementById("page-journal").hidden, true);
   assert.strictEqual(document.getElementById("page-history"), null, "a página própria do Histórico não existe mais no DOM");
 });
@@ -127,9 +132,9 @@ test("F10 #4.2 — o Diário de Estudos tem as abas Concluídas/Canceladas/Todas
   assert.strictEqual(document.querySelector('.nav-item[data-page="history"]'), null, "o item de navegação do Histórico não existe mais na sidebar");
 });
 
-test("showPage() with an unknown page name falls back to agenda", () => {
+test("showPage() with an unknown page name falls back to today", () => {
   nav.showPage("nonexistent-page");
-  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-today").hidden, false);
 });
 
 test("showPage() persists the last page to localStorage", () => {
@@ -148,9 +153,11 @@ test("restoreLastPage() re-shows the previously saved page", () => {
   assert.strictEqual(document.getElementById("page-agenda").hidden, true);
 });
 
-test("restoreLastPage() defaults to agenda when nothing was saved", () => {
+// F14.1 — "Hoje" é a nova porta de entrada: sem nenhuma página salva, o app
+// abre nela, não mais na Agenda.
+test("restoreLastPage() defaults to today (F14.1) when nothing was saved", () => {
   nav.restoreLastPage();
-  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-today").hidden, false);
 });
 
 test("openSidebar()/closeSidebar() toggle the sidebar-open class and overlay visibility", () => {
@@ -240,4 +247,18 @@ test("F10 #4.4 — o bottom nav do mobile reflete Agenda/Compromissos/Sessão/Di
   journalBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("page-journal").hidden, false);
   assert.strictEqual(journalBtn.classList.contains("bottom-nav-item--active"), true);
+});
+
+// F14.1 — "Hoje" é o primeiro item da sidebar e o destino inicial do app.
+test("F14.1 — 'Hoje' é o primeiro item de navegação da sidebar e abre por padrão", () => {
+  const hojeBtn = document.querySelector('.nav-item[data-page="today"]');
+  assert.ok(hojeBtn, "existe um item de navegação 'Hoje' na sidebar");
+  assert.strictEqual(hojeBtn.querySelector(".nav-label").textContent, "Hoje");
+
+  const firstNavItem = document.querySelector(".sidebar-nav-group .nav-item[data-page]");
+  assert.strictEqual(firstNavItem, hojeBtn, "'Hoje' é o primeiro destino de navegação da sidebar");
+
+  hojeBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-today").hidden, false);
+  assert.strictEqual(hojeBtn.classList.contains("nav-item--active"), true);
 });

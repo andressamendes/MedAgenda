@@ -55,6 +55,7 @@ const SPECIFIERS = {
   insightsView: new URL("../insightsView.js", import.meta.url).href,
   aiContextService: new URL("../aiContextService.js", import.meta.url).href,
   onboardingTourView: new URL("../onboardingTourView.js", import.meta.url).href,
+  todayView: new URL("../todayView.js", import.meta.url).href,
 };
 
 let container;
@@ -184,6 +185,9 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
   t.mock.module(SPECIFIERS.aiContextService, { namedExports: { resetAIContextService: () => {} } });
   t.mock.module(SPECIFIERS.onboardingTourView, {
     namedExports: { initOnboardingTour: async () => {}, resetOnboardingTourView: () => {} },
+  });
+  t.mock.module(SPECIFIERS.todayView, {
+    namedExports: { initTodayView: async () => {}, resetTodayView: () => {} },
   });
 }
 

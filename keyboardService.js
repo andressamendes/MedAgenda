@@ -10,11 +10,12 @@
 import { openEventForm } from "./eventFormView.js";
 import { showPage } from "./navigationView.js";
 
-// Mesmas cinco páginas de navigationView.js/APP_PAGES — "G" seguido da
-// inicial de cada uma (a=Agenda, c=Compromissos, s=Sessão, d=Dashboard,
-// j=Diário). showPage() já cai em 'agenda' para qualquer nome inválido, então
-// nenhuma validação extra é necessária aqui.
+// Mesmas seis páginas de navigationView.js/APP_PAGES — "G" seguido da
+// inicial de cada uma (h=Hoje, a=Agenda, c=Compromissos, s=Sessão,
+// d=Dashboard, j=Diário). showPage() já cai em 'today' para qualquer nome
+// inválido, então nenhuma validação extra é necessária aqui.
 const GO_TO_PAGE = {
+  h: "today",
   a: "agenda",
   c: "appointments",
   s: "study-session",
