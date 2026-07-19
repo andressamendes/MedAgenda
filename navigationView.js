@@ -9,15 +9,17 @@ import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.
 // (#page-calendar, "Mês") foi absorvida como aba dentro de 'agenda' (ver
 // #agenda-view-tabs em script.js/_setAgendaView). showPage('calendar') cai
 // no mesmo fallback 'agenda'.
-// 'progress' (F13.4) — página "Progresso" (#page-progress), alcançada só
-// pelo link "Ver progresso completo →" dentro do Dashboard, de propósito sem
+// 'progress' (F13.4) — página "Progresso" (#page-progress), de propósito sem
 // item próprio na sidebar/bottom nav (evita reintroduzir o excesso de
-// destinos que a F13.2 já removeu de lá).
+// destinos que a F13.2 já removeu de lá); alcançável pelo botão de abrir a
+// sidebar/"Mais". F14.5 removeu 'dashboard': sua única seção ("Hoje") foi
+// absorvida por 'today' (ver index.html/page-today) — nenhum destino a
+// menos de fato, só um nome de página que deixou de existir.
 // 'today' (F14.1) — nova porta de entrada (ver todayView.js): primeiro item
 // da lista, novo destino padrão de showPage()/restoreLastPage() (ver abaixo)
 // e novo fallback para qualquer nome de página inválido/removido, no lugar de
 // 'agenda'.
-const APP_PAGES = ['today', 'agenda', 'appointments', 'study-session', 'journal', 'dashboard', 'progress'];
+const APP_PAGES = ['today', 'agenda', 'appointments', 'study-session', 'journal', 'progress'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 
@@ -30,7 +32,6 @@ const PAGE_TITLES = {
   appointments:    'Compromissos',
   'study-session': 'Sessão',
   journal:         'Diário',
-  dashboard:       'Dashboard',
   progress:        'Progresso',
 };
 

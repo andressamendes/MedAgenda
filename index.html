@@ -296,11 +296,12 @@
         <div class="sidebar-divider"></div>
 
         <!-- Secondary nav -->
+        <!-- F14.5 — "Dashboard" removido: sua única seção ("Hoje") foi
+             absorvida pela tela Hoje (#page-today, abaixo), e o restante já
+             vivia em "Progresso" (#page-progress), que segue acessível a
+             partir dela. Nenhum destino de navegação perdido, um a menos na
+             lista. -->
         <div class="sidebar-nav-group sidebar-nav-group--secondary">
-          <button class="nav-item" data-page="dashboard" title="Atalho: G D" aria-keyshortcuts="g d">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="20" x2="6" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/></svg></span>
-            <span class="nav-label">Dashboard</span>
-          </button>
           <button class="nav-item" data-page="journal" title="Atalho: G J" aria-keyshortcuts="g j">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
             <span class="nav-label">Diário</span>
@@ -354,6 +355,18 @@
             <h2 id="today-appointments-title" class="today-section-title">Compromissos de hoje</h2>
             <p id="today-appointments-empty" class="list-empty" hidden>Nenhum compromisso hoje.</p>
             <ul id="today-appointments-list" class="today-appointments-list"></ul>
+          </section>
+
+          <!-- F14.5 — página "Dashboard" (#page-dashboard) removida: sua
+               única seção ("Hoje" — meta diária, tempo estudado hoje, sessões
+               hoje) é absorvida aqui, abaixo do convite principal, para não
+               competir com ele. Mesmos ids de sempre (dash-cards-today) —
+               activityDashboardView.js continua renderizando exatamente como
+               antes, sem nenhum cálculo novo; só o destino no DOM mudou. -->
+          <section class="today-stats" aria-labelledby="today-stats-title">
+            <h2 id="today-stats-title" class="today-section-title">Hoje em números</h2>
+            <p id="dash-error-today" class="list-empty list-error" hidden></p>
+            <div id="dash-cards-today" class="stat-cards" hidden></div>
           </section>
         </div>
 
@@ -775,62 +788,61 @@
 
         </div>
 
-        <!-- Page: Dashboard de Execução (F2.1). F13.4 — a tela deixou de
-             alternar entre "Hoje" e as abas "Períodos"/"Progresso e
-             Conquistas": agora só mostra "Hoje" (o nível consultado com mais
-             frequência) e um link para a página dedicada "Progresso"
-             (#page-progress, abaixo), que reúne o que antes vivia atrás das
-             abas — nenhum dado a menos, só uma tela por destino em vez de
-             abas empilhadas na mesma tela. -->
-        <div id="page-dashboard" class="app-page" hidden>
-          <div class="page-header">
-            <h1 class="page-title">Dashboard</h1>
-          </div>
-          <p id="dash-error" class="list-empty list-error" hidden></p>
-
-          <h2 class="dash-tier-title">Hoje</h2>
-          <div id="dash-cards-today" class="stat-cards" hidden></div>
-
-          <button type="button" class="link-btn dash-progress-link" id="dash-progress-link" data-page="progress">Ver progresso completo →</button>
-        </div>
-
-        <!-- Page: Progresso (F13.4) — Períodos, Progresso e Conquistas,
-             Revisões e Produtividade: antes duas abas dentro do Dashboard,
-             agora uma página própria, acessada pelo link acima. Mesmos
-             containers/ids de sempre (dash-cards-weekmonth, dash-cards-records,
-             insights-revisoes-*, insights-produtividade-*) — só o destino no
-             DOM mudou; activityDashboardView.js/insightsView.js continuam
-             renderizando exatamente como antes, sem nenhum cálculo novo. -->
+        <!-- Page: Progresso narrativo (F14.5). Substitui a antiga página
+             "Dashboard" (#page-dashboard, removida — sua seção "Hoje" foi
+             absorvida por #page-today) e transforma a superfície de BI que
+             esta página era (12+ stat-cards soltos) numa interpretação em
+             frases: "Você estudou 6h30 esta semana — 1h a mais que a
+             anterior. Cardiologia concentrou metade do tempo." (auditoria F14
+             §10, modelo Apple Health). Os números completos continuam todos
+             aqui, intactos — só atrás de um único disclosure "Ver números"
+             (progressNarrativeService.js não substitui nenhum cálculo
+             existente, só compara duas semanas e resolve a matéria dominante,
+             que nenhuma função anterior fazia). -->
         <div id="page-progress" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Progresso</h1>
           </div>
+          <p id="dash-error" class="list-empty list-error" hidden></p>
 
-          <h2 class="dash-tier-title">Períodos</h2>
-          <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
+          <div id="progress-narrative" class="progress-narrative" aria-live="polite"></div>
 
-          <h2 class="dash-tier-title">Progresso e Conquistas</h2>
-          <div id="dash-cards-records" class="stat-cards" hidden></div>
+          <div class="progress-numbers-toggle-row">
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body"><span class="disclosure-label">Ver números</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+          </div>
 
-          <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
-               renderizados por insightsView.js. Execução e Metas não existem
-               mais lá: eram cards idênticos aos do Dashboard acima (auditoria
-               UX #01); só os blocos exclusivos (Revisões e Produtividade)
-               foram incorporados aqui. Mesmo id, mesmo módulo, nenhuma
-               mudança em insightsView.js. -->
-          <section class="insights-block" aria-labelledby="insights-revisoes-title">
-            <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
-            <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
-            <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
-            <div id="insights-revisoes-cards" class="stat-cards" hidden></div>
-          </section>
+          <!-- Mesmos containers/ids de sempre (dash-cards-weekmonth,
+               dash-cards-records, insights-revisoes-*, insights-
+               produtividade-*) — só passam a viver atrás do disclosure acima;
+               activityDashboardView.js/insightsView.js continuam
+               renderizando exatamente como antes, sem nenhum cálculo novo. -->
+          <div id="progress-numbers-body" class="progress-numbers-body" hidden>
+            <h2 class="dash-tier-title">Períodos</h2>
+            <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
 
-          <section class="insights-block" aria-labelledby="insights-produtividade-title">
-            <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
-            <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
-            <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
-            <div id="insights-produtividade-cards" class="stat-cards" hidden></div>
-          </section>
+            <h2 class="dash-tier-title">Progresso e Conquistas</h2>
+            <div id="dash-cards-records" class="stat-cards" hidden></div>
+
+            <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
+                 renderizados por insightsView.js. Execução e Metas não existem
+                 mais lá: eram cards idênticos aos do Dashboard acima (auditoria
+                 UX #01); só os blocos exclusivos (Revisões e Produtividade)
+                 foram incorporados aqui. Mesmo id, mesmo módulo, nenhuma
+                 mudança em insightsView.js. -->
+            <section class="insights-block" aria-labelledby="insights-revisoes-title">
+              <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
+              <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
+              <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
+              <div id="insights-revisoes-cards" class="stat-cards" hidden></div>
+            </section>
+
+            <section class="insights-block" aria-labelledby="insights-produtividade-title">
+              <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
+              <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
+              <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
+              <div id="insights-produtividade-cards" class="stat-cards" hidden></div>
+            </section>
+          </div>
         </div>
 
         <!-- Page: Diário (F8.1) -->

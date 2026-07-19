@@ -12,9 +12,14 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 
 const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
 const ACHIEVEMENT_SERVICE_SPECIFIER = new URL("../../achievementService.js", import.meta.url).href;
+const NARRATIVE_SERVICE_SPECIFIER  = new URL("../../progressNarrativeService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
 const ACCOUNT_VIEW_SPECIFIER       = new URL("../../accountView.js", import.meta.url).href;
 const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
+
+// F14.5 — dados neutros (sem sessões, sem sequência) para o resumo
+// narrativo, mesmo padrão de EMPTY_DATA/EMPTY_ACHIEVEMENTS acima.
+const EMPTY_NARRATIVE = { weekMinutes: 0, previousWeekMinutes: 0, dominantCategory: null, currentStreak: 0 };
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
@@ -56,6 +61,10 @@ function loadView(t, overrides = {}) {
 
   t.mock.module(ACHIEVEMENT_SERVICE_SPECIFIER, {
     namedExports: { getAchievementSummary: overrides.getAchievementSummary ?? (async () => EMPTY_ACHIEVEMENTS) },
+  });
+
+  t.mock.module(NARRATIVE_SERVICE_SPECIFIER, {
+    namedExports: { getProgressNarrativeData: overrides.getProgressNarrativeData ?? (async () => EMPTY_NARRATIVE) },
   });
 
   const openAccountCalls = [];
@@ -703,15 +712,14 @@ test("UX #23 — a failure fetching achievements never breaks the other executio
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
 });
 
-// F13.4 — o Dashboard deixou de alternar "Hoje"/"Períodos"/"Progresso e
-// Conquistas" por abas empilhadas na mesma tela: "Hoje" é a única seção do
-// Dashboard; "Períodos" e "Progresso e Conquistas" viraram seções sempre
-// visíveis (sem abas) da página dedicada "Progresso" (#page-progress),
-// alcançada por um link — nunca reduzindo os dados exibidos, nem mudando
-// como/quando são buscados (os três níveis continuam chegando juntos em uma
-// única _load()).
+// F13.4/F14.5 — "Hoje" (as três cards de sempre) vive agora dentro da página
+// "Hoje" (#page-today — a antiga #page-dashboard foi removida); "Períodos" e
+// "Progresso e Conquistas" seguem sempre visíveis (sem abas) na página
+// "Progresso" (#page-progress), atrás de um disclosure "Ver números" — nunca
+// reduzindo os dados exibidos, nem mudando como/quando são buscados (os três
+// níveis continuam chegando juntos em uma única _load()).
 
-test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always visible", async (t) => {
+test("F10 #3.1/F14.5 — 'Hoje' shows exactly the three today-scoped cards, always visible", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
@@ -722,9 +730,10 @@ test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always vis
   assert.match(today.textContent, /Meta diária/);
   assert.match(today.textContent, /Tempo estudado hoje/);
   assert.match(today.textContent, /Sessões hoje/);
+  assert.ok(document.getElementById("page-today").contains(today), "expected #dash-cards-today inside #page-today");
 });
 
-test("F13.4 — 'Períodos' and 'Progresso e Conquistas' cards render on the Progresso page without any tab click", async (t) => {
+test("F13.4/F14.5 — 'Períodos' and 'Progresso e Conquistas' cards render on the Progresso page without any tab click", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
@@ -742,12 +751,63 @@ test("F13.4 — 'Períodos' and 'Progresso e Conquistas' cards render on the Pro
   assert.match(records.textContent, /Conquistas recentes/);
 });
 
-test("F13.4 — the Dashboard page links to the dedicated Progresso page instead of stacking tabs", async (t) => {
-  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+// ── F14.5 — Progresso narrativo ─────────────────────────────────────────────
+
+test("F14.5 — the Progresso page opens with a narrative summary and no number grid visible", async (t) => {
+  const { mod } = await loadView(t, {
+    getProgressNarrativeData: async () => ({ weekMinutes: 90, previousWeekMinutes: 60, dominantCategory: { name: "Cardiologia", minutes: 60 }, currentStreak: 3 }),
+  });
+
   await mod.initActivityDashboardView();
 
-  const link = document.getElementById("dash-progress-link");
-  assert.ok(link, "expected a link/button to the Progresso page on the Dashboard");
-  assert.strictEqual(link.dataset.page, "progress");
-  assert.ok(document.getElementById("page-progress"), "expected a dedicated #page-progress");
+  const narrative = document.getElementById("progress-narrative");
+  assert.match(narrative.textContent, /1h 30min esta semana/);
+  assert.match(narrative.textContent, /30min a mais que a semana anterior/);
+  assert.match(narrative.textContent, /Cardiologia concentrou 67% do tempo/);
+  assert.match(narrative.textContent, /Sequência atual: 3 dias seguidos estudando/);
+
+  assert.strictEqual(document.getElementById("progress-numbers-body").hidden, true, "the number grid must start collapsed");
+  const toggle = document.getElementById("progress-numbers-toggle");
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+test("F14.5 — clicking 'Ver números' reveals the number grid behind the disclosure", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initActivityDashboardView();
+
+  const toggle = document.getElementById("progress-numbers-toggle");
+  const body   = document.getElementById("progress-numbers-body");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(body.hidden, false);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar números");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(body.hidden, true);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+test("F14.5 — with no sessions this week, the narrative says so instead of comparing to zero", async (t) => {
+  const { mod } = await loadView(t, { getProgressNarrativeData: async () => EMPTY_NARRATIVE });
+
+  await mod.initActivityDashboardView();
+
+  const text = document.getElementById("progress-narrative").textContent;
+  assert.match(text, /Você ainda não estudou esta semana\./);
+  assert.match(text, /Nenhuma sequência ativa no momento\./);
+});
+
+test("F14.5 — a failure building the narrative falls back to a neutral message without breaking the cards", async (t) => {
+  const { mod, handleErrorCalls } = await loadView(t, {
+    getProgressNarrativeData: async () => { throw new Error("network down"); },
+  });
+
+  await assert.doesNotReject(() => mod.initActivityDashboardView());
+
+  assert.match(document.getElementById("progress-narrative").textContent, /Não foi possível carregar o resumo desta semana\./);
+  assert.strictEqual(document.getElementById("dash-cards-weekmonth").hidden, false);
+  assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.narrative" && c.context.silent === true));
 });

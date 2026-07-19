@@ -62,6 +62,7 @@ const APP_SHELL = [
   './planListView.js',
   './planningService.js',
   './profileService.js',
+  './progressNarrativeService.js',
   './pushService.js',
   './pwa.js',
   './questionService.js',

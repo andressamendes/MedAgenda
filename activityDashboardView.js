@@ -4,10 +4,21 @@
 // agregação vem de activityDashboardService.getDashboardData(), que já busca
 // as sessões uma única vez e deriva todos os indicadores do mesmo conjunto.
 //
-// Sem gráficos, sem barras, sem animações: só números para leitura rápida.
+// Sem gráficos, sem barras, sem animações: só números para leitura rápida —
+// os cards, ao menos. F14.5 acrescenta, no topo da página Progresso, um
+// resumo narrativo (2-3 frases) que interpreta os mesmos números em vez de
+// só listá-los (ver _narrativeSentences() abaixo); os cards recuam para trás
+// de um disclosure ("Ver números").
+//
+// F14.5 — a antiga página "Dashboard" (#page-dashboard) foi removida: sua
+// única seção ("Hoje") passou a viver dentro da página "Hoje" (#page-today,
+// ver todayView.js/index.html). O container #dash-cards-today continua
+// existindo com o mesmo id — só o destino no DOM mudou, esta view não sabe
+// (nem precisa saber) qual página o envolve.
 
 import { getDashboardData } from "./activityDashboardService.js";
 import { getAchievementSummary } from "./achievementService.js";
+import { getProgressNarrativeData } from "./progressNarrativeService.js";
 import { open as openAccountModal } from "./accountView.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
@@ -199,9 +210,79 @@ const CARD_GROUPS = [
 ];
 
 let cardsElByGroup = [];
-let errorEl;
+// F14.5 — dois elementos de erro (um em cada página que consome
+// getDashboardData(): "Hoje" e "Progresso"), já que os dois passaram a viver
+// em páginas diferentes, mas continuam carregados juntos numa única _load().
+let errorEls = [];
+let narrativeEl;
+let numbersToggleEl, numbersBodyEl;
 let _unsubscribeProfile = null;
 let _loading = false;
+
+// ── Progresso narrativo (F14.5) ──────────────────────────────────────────────
+// Substitui a superfície de BI (grades de stat-cards) por uma interpretação
+// em frases, no topo da página Progresso (auditoria F14 §10, modelo Apple
+// Health: "uma frase que interpreta, não uma grade que reporta"). Os dados já
+// vêm prontos de progressNarrativeService.getProgressNarrativeData() — esta
+// função só decide a redação, nunca recalcula nada.
+
+function _formatCategoryPercentage(category, weekMinutes) {
+  if (!weekMinutes) return 0;
+  return Math.round((category.minutes / weekMinutes) * 100);
+}
+
+function _narrativeSentences(data) {
+  const { weekMinutes, previousWeekMinutes, dominantCategory, currentStreak } = data;
+  const sentences = [];
+
+  if (weekMinutes <= 0) {
+    sentences.push("Você ainda não estudou esta semana.");
+  } else {
+    const duration = _formatDuration(weekMinutes);
+    if (previousWeekMinutes > 0) {
+      const diff = weekMinutes - previousWeekMinutes;
+      if (Math.abs(diff) < 5) {
+        sentences.push(`Você estudou ${duration} esta semana — praticamente o mesmo tempo que a semana anterior.`);
+      } else {
+        const diffDuration = _formatDuration(Math.abs(diff));
+        const comparison = diff > 0 ? "a mais" : "a menos";
+        sentences.push(`Você estudou ${duration} esta semana — ${diffDuration} ${comparison} que a semana anterior.`);
+      }
+    } else {
+      sentences.push(`Você estudou ${duration} esta semana.`);
+    }
+
+    if (dominantCategory) {
+      const pct = _formatCategoryPercentage(dominantCategory, weekMinutes);
+      sentences.push(`${dominantCategory.name} concentrou ${pct}% do tempo.`);
+    }
+  }
+
+  sentences.push(currentStreak > 0
+    ? `Sequência atual: ${currentStreak} ${currentStreak === 1 ? "dia seguido" : "dias seguidos"} estudando.`
+    : "Nenhuma sequência ativa no momento.");
+
+  return sentences;
+}
+
+function _renderNarrative(data) {
+  if (!narrativeEl) return;
+  if (!data) {
+    narrativeEl.innerHTML = `<p class="progress-narrative-fallback">Não foi possível carregar o resumo desta semana.</p>`;
+    return;
+  }
+  narrativeEl.innerHTML = _narrativeSentences(data).map(s => `<p>${s}</p>`).join("");
+}
+
+function _toggleNumbers() {
+  if (!numbersToggleEl || !numbersBodyEl) return;
+  const expanded = numbersToggleEl.getAttribute("aria-expanded") === "true";
+  const next = !expanded;
+  numbersBodyEl.hidden = !next;
+  numbersToggleEl.setAttribute("aria-expanded", String(next));
+  numbersToggleEl.querySelector(".disclosure-label").textContent = next ? "Ocultar números" : "Ver números";
+  if (next) revealWithAnimation(numbersBodyEl);
+}
 
 // ── Sincronização com o barramento de eventos (F6.4) ────────────────────────
 // O dashboard assina SessionStarted/Finished/Cancelled/Updated diretamente no
@@ -265,9 +346,11 @@ function _cardsMarkup(defs, data) {
 }
 
 function _renderCards(data) {
-  errorEl.hidden = true;
-  errorEl.innerHTML = "";
-  clearStateBlock(errorEl);
+  errorEls.forEach(el => {
+    el.hidden = true;
+    el.innerHTML = "";
+    clearStateBlock(el);
+  });
   cardsElByGroup.forEach(({ defs, el }) => {
     el.hidden = false;
     el.innerHTML = _cardsMarkup(defs, data);
@@ -286,8 +369,11 @@ function _onCardsClick(ev) {
 
 function _renderError({ state, message }) {
   cardsElByGroup.forEach(({ el }) => { el.hidden = true; el.innerHTML = ""; });
-  errorEl.hidden = false;
-  renderStateBlock(errorEl, { state, message, onRetry: () => _load() });
+  if (narrativeEl) narrativeEl.innerHTML = "";
+  errorEls.forEach(el => {
+    el.hidden = false;
+    renderStateBlock(el, { state, message, onRetry: () => _load() });
+  });
 }
 
 async function _load() {
@@ -295,13 +381,14 @@ async function _load() {
   _loading = true;
   // Auditoria UX #20 — sem isto, os cards ficavam hidden (tela em branco)
   // durante a carga, diferente do Calendário (calendar.js/showLoading()).
-  errorEl.hidden = true;
+  errorEls.forEach(el => { el.hidden = true; });
   cardsElByGroup.forEach(({ defs, el }) => {
     el.hidden = false;
     el.innerHTML = skeletonCardsMarkup(defs.length);
   });
+  if (narrativeEl) narrativeEl.innerHTML = `<p class="progress-narrative-loading">Carregando…</p>`;
   try {
-    const [data, achievements] = await Promise.all([
+    const [data, achievements, narrative] = await Promise.all([
       getDashboardData(),
       // Isolado do carregamento principal: uma falha aqui vira "—" no card
       // de Conquistas (mesmo padrão de fallback parcial do bloco Revisões em
@@ -310,8 +397,15 @@ async function _load() {
         handleError(err, { context: "activityDashboardView.achievements", silent: true });
         return null;
       }),
+      // Mesmo isolamento (F14.5): uma falha ao montar a narrativa nunca
+      // esconde os cards — vira uma frase de fallback (ver _renderNarrative).
+      getProgressNarrativeData().catch(err => {
+        handleError(err, { context: "activityDashboardView.narrative", silent: true });
+        return null;
+      }),
     ]);
     _renderCards({ ...data, achievements });
+    _renderNarrative(narrative);
   } catch (err) {
     _renderError(errorToState(handleError(err, { context: "activityDashboardView.load", silent: true })));
   } finally {
@@ -327,7 +421,14 @@ async function _load() {
  */
 export async function initActivityDashboardView() {
   if (cardsElByGroup.length === 0) {
-    errorEl         = document.getElementById("dash-error");
+    errorEls = [
+      document.getElementById("dash-error-today"),
+      document.getElementById("dash-error"),
+    ].filter(Boolean);
+    narrativeEl     = document.getElementById("progress-narrative");
+    numbersToggleEl = document.getElementById("progress-numbers-toggle");
+    numbersBodyEl   = document.getElementById("progress-numbers-body");
+    numbersToggleEl?.addEventListener("click", _toggleNumbers);
 
     cardsElByGroup = CARD_GROUPS.map(({ defs, containerId }) => {
       const el = document.getElementById(containerId);
@@ -360,10 +461,17 @@ export function resetActivityDashboardView() {
   }
   if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
   cardsElByGroup.forEach(({ el }) => { el.innerHTML = ""; });
-  if (errorEl) {
-    errorEl.hidden = true;
-    errorEl.innerHTML = "";
-    clearStateBlock(errorEl);
+  errorEls.forEach(el => {
+    el.hidden = true;
+    el.innerHTML = "";
+    clearStateBlock(el);
+  });
+  if (narrativeEl) narrativeEl.innerHTML = "";
+  if (numbersBodyEl) numbersBodyEl.hidden = true;
+  if (numbersToggleEl) {
+    numbersToggleEl.setAttribute("aria-expanded", "false");
+    const label = numbersToggleEl.querySelector(".disclosure-label");
+    if (label) label.textContent = "Ver números";
   }
   _loading = false;
 }

@@ -1813,6 +1813,50 @@ textarea { resize: vertical; }
   white-space: nowrap;
 }
 
+/* F14.5 — seção "Hoje em números" (Meta diária, Tempo estudado hoje, Sessões
+   hoje), absorvida aqui da antiga página Dashboard: fica abaixo do convite
+   principal ("Começar a estudar") e dos compromissos, para não competir com
+   eles pela atenção de quem acabou de abrir o app. */
+.today-stats {
+  margin-top: 1.6rem;
+}
+
+/* ── Progresso narrativo (F14.5) ──
+   Substitui a leitura de grades de stat-cards por 2-3 frases interpretadas
+   (auditoria F14 §10, modelo Apple Health): tipografia maior que o resto do
+   corpo, sem nenhum card/borda ao redor — texto puro, para não competir
+   visualmente com os números que continuam disponíveis atrás do disclosure
+   logo abaixo. */
+.progress-narrative {
+  margin-bottom: var(--space-5);
+}
+
+.progress-narrative p {
+  margin: 0 0 .4rem;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--gray-800);
+}
+
+.progress-narrative p:last-child {
+  margin-bottom: 0;
+}
+
+.progress-narrative-loading,
+.progress-narrative-fallback {
+  color: var(--gray-500) !important;
+}
+
+.progress-numbers-toggle-row {
+  margin: 0 0 var(--space-5);
+}
+
+.progress-numbers-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
 /* ── Central de Insights (F2.4) ── */
 .insights-block + .insights-block {
   margin-top: 1.6rem;
