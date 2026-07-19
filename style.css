@@ -1551,7 +1551,6 @@ textarea { resize: vertical; }
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: .6rem;
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .75rem .9rem;
   margin-bottom: var(--space-4);
@@ -1862,10 +1861,10 @@ textarea { resize: vertical; }
 }
 
 .sj-entry {
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
   padding: .7rem .9rem;
   font-size: var(--font-size-sm);
+  background: var(--gray-50);
+  border-radius: var(--radius);
 }
 
 .sj-entry-header {
@@ -1992,7 +1991,6 @@ textarea { resize: vertical; }
 }
 
 .sj-week-summary {
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .7rem .9rem;
   display: flex;
@@ -2049,7 +2047,6 @@ textarea { resize: vertical; }
    studyJournalView.js), recolhido por padrão; mesmo espírito visual do
    .sj-week-narrative (marcador nativo do <summary>, sem toggle próprio). */
 .sj-milestones-panel {
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .7rem .9rem;
   background: var(--gray-50, transparent);
@@ -2153,7 +2150,6 @@ textarea { resize: vertical; }
   gap: .5rem .9rem;
   padding: .55rem .8rem;
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   font-size: .8rem;
   font-weight: 600;
@@ -2293,7 +2289,6 @@ textarea { resize: vertical; }
   padding: .5rem .6rem;
   border-radius: var(--radius-sm);
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
 }
 
 .cat-swatch {
@@ -2435,7 +2430,6 @@ textarea { resize: vertical; }
   padding: 1rem .75rem;
   margin-bottom: var(--space-3);
   background: var(--color-info-bg, var(--gray-50));
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   color: var(--color-text);
 }
@@ -2448,7 +2442,6 @@ textarea { resize: vertical; }
   padding: 1rem .75rem;
   margin-bottom: var(--space-3);
   background: var(--color-info-bg, var(--gray-50));
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   color: var(--color-text);
 }
@@ -2804,7 +2797,6 @@ textarea { resize: vertical; }
   gap: var(--space-4);
   padding: var(--space-3);
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
 }
 
@@ -2826,7 +2818,7 @@ textarea { resize: vertical; }
   font-size: .8rem;
   color: var(--color-warning-text);
   background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning-border);
+  border-left: 3px solid var(--color-warning-border);
   border-radius: var(--radius);
   padding: .6rem .85rem;
   margin: 0;
@@ -2927,7 +2919,6 @@ textarea { resize: vertical; }
   color: var(--gray-800);
   text-align: center;
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: var(--space-2);
   margin: .5rem 0 .75rem;
@@ -3317,7 +3308,7 @@ textarea { resize: vertical; }
   justify-content: space-between;
   gap: .6rem;
   padding: .5rem .6rem;
-  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
   border-radius: .5rem;
   font-size: var(--font-size-sm);
 }
@@ -3510,7 +3501,6 @@ textarea { resize: vertical; }
   gap: var(--space-3);
   padding: .65rem .85rem;
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
 }
 
@@ -3563,7 +3553,6 @@ textarea { resize: vertical; }
 /* ── Developer mode panel ── */
 .devmode-panel {
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .6rem .85rem;
   display: flex;
@@ -3705,7 +3694,6 @@ textarea { resize: vertical; }
   gap: .65rem;
   padding: .65rem .85rem;
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
 }
 
@@ -3787,7 +3775,6 @@ textarea { resize: vertical; }
   gap: .65rem;
   padding: .55rem .75rem;
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
 }
 
@@ -4017,7 +4004,6 @@ textarea { resize: vertical; }
   background: var(--gray-50);
   border-radius: var(--radius);
   padding: var(--space-4);
-  border: 1px solid var(--gray-200);
 }
 
 /* ── Plano da Semana (F3.3) — lista estruturada, sem ações que criem dados ── */
@@ -4033,14 +4019,12 @@ textarea { resize: vertical; }
 
 .ai-plan-empty {
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: var(--space-4);
 }
 
 .ai-plan-item {
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-left: 3px solid var(--gray-300);
   border-radius: var(--radius);
   padding: .75rem .9rem;
@@ -4122,7 +4106,6 @@ textarea { resize: vertical; }
 
 .ai-evolution-item {
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .65rem .85rem;
 }
@@ -4155,7 +4138,6 @@ textarea { resize: vertical; }
   align-items: flex-start;
   gap: var(--space-2);
   background: var(--gray-50);
-  border: 1px solid var(--gray-200);
   border-left: 3px solid var(--gray-300);
   border-radius: var(--radius);
   padding: .55rem .75rem;
