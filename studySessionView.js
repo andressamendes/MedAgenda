@@ -27,7 +27,7 @@ import { getEventById, getEvents } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
-import { initModal } from "./modalController.js";
+import { initModal, bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { showPage } from "./navigationView.js";
 import { handleError } from "./errorService.js";
 import { toast } from "./toastService.js";
@@ -125,6 +125,14 @@ let sqFormEl, sqBtnToggleForm, sqBtnCancel;
 let sqToggleEl, sqBodyEl, sqCountEl;
 let srToggleEl, srBodyEl, srCountEl;
 
+// Painel "Questões e revisões" (F13.4) — as duas seções acima saíram da
+// coluna principal para este painel lateral sob demanda, mesmo padrão de
+// abrir/fechar/Focus Trap/Escape de #ai-panel (aiPanelView.js). O badge
+// espelha as mesmas contagens de sqCountEl/srCountEl para ficar visível
+// mesmo com o painel fechado.
+let ssPanelOverlayEl, ssPanelEl, ssPanelCloseEl, ssPanelOpenBtn, ssPanelBadgeEl;
+let _ssPanelPrevFocus = null;
+
 // Revisões (F7.5) — F10 #4.3: mesma mudança das Questões, agora registradas
 // durante a sessão ativa. Toda persistência passa por reviewService.js
 // (criação) e reviewSessionService.associateReview()/unlinkReview()
@@ -207,6 +215,12 @@ function _queryElements() {
   srToggleEl = document.getElementById("ss-reviews-toggle");
   srBodyEl   = document.getElementById("ss-reviews-body");
   srCountEl  = document.getElementById("ss-reviews-count");
+
+  ssPanelOverlayEl = document.getElementById("ss-panel-overlay");
+  ssPanelEl        = document.getElementById("ss-panel");
+  ssPanelCloseEl   = document.getElementById("ss-panel-close");
+  ssPanelOpenBtn   = document.getElementById("ss-btn-open-panel");
+  ssPanelBadgeEl   = document.getElementById("ss-panel-badge");
   srListEl         = document.getElementById("ss-reviews-list");
   srEmptyEl        = document.getElementById("ss-reviews-empty");
   srAssociateRowEl = document.getElementById("ss-review-associate-row");
@@ -287,6 +301,10 @@ function _bindEvents() {
   sqToggleEl.addEventListener("click", () => _setSectionExpanded(sqToggleEl, sqBodyEl, sqBodyEl.hidden));
   srToggleEl.addEventListener("click", () => _setSectionExpanded(srToggleEl, srBodyEl, srBodyEl.hidden));
   ctxMoreToggleEl.addEventListener("click", () => _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, ctxMoreBodyEl.hidden));
+
+  ssPanelOpenBtn.addEventListener("click", () => _openSsPanel());
+  ssPanelCloseEl.addEventListener("click", () => _closeSsPanel());
+  bindModalBehavior(ssPanelOverlayEl, () => !ssPanelEl.hidden, _closeSsPanel, ssPanelEl);
   sqBtnAdd.addEventListener("click", () => _submitQuestionForm());
   sqBtnQuick.addEventListener("click", () => _quickAddQuestion());
   srBtnAssociate.addEventListener("click", () => _associateExistingReview());
@@ -681,6 +699,37 @@ function _setSectionExpanded(toggleBtn, bodyEl, expanded) {
   if (expanded) revealWithAnimation(bodyEl);
 }
 
+// Painel "Questões e revisões" (F13.4) — mesma estrutura de abrir/fechar de
+// #ai-panel (aiPanelView.js): captura/restaura foco, mostra os dois
+// elementos (painel + overlay) juntos, Escape/clique-fora/Focus Trap vêm de
+// bindModalBehavior() (ligado uma única vez em _bindEvents()).
+function _openSsPanel() {
+  _ssPanelPrevFocus = captureFocus();
+  ssPanelEl.hidden = false;
+  ssPanelOverlayEl.hidden = false;
+  ssPanelEl.removeAttribute("aria-hidden");
+  ssPanelOverlayEl.removeAttribute("aria-hidden");
+  ssPanelCloseEl.focus();
+}
+
+function _closeSsPanel() {
+  ssPanelEl.hidden = true;
+  ssPanelOverlayEl.hidden = true;
+  ssPanelEl.setAttribute("aria-hidden", "true");
+  ssPanelOverlayEl.setAttribute("aria-hidden", "true");
+  restoreFocus(_ssPanelPrevFocus);
+  _ssPanelPrevFocus = null;
+}
+
+// Espelha as contagens de sqCountEl/srCountEl no gatilho do painel, para que
+// fiquem visíveis mesmo com o painel fechado (auditoria #04 continua valendo:
+// nascer fechado não pode significar "esconder que há dados registrados").
+function _updateSsPanelBadge() {
+  if (!ssPanelBadgeEl) return;
+  const total = _sessionQuestions.length + _sessionReviews.length;
+  ssPanelBadgeEl.textContent = total ? ` (${total})` : "";
+}
+
 // F10 #3.3 — o formulário de adicionar questão/revisão e o botão
 // "+ Adicionar..." que o revela nunca ficam visíveis ao mesmo tempo: a
 // lista compacta (já existente) passa a ser o que aparece por padrão dentro
@@ -709,6 +758,7 @@ function _syncSessionQuestionsAndReviews() {
   _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
   _setSectionExpanded(srToggleEl, srBodyEl, false);
   _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
+  if (ssPanelEl && !ssPanelEl.hidden) _closeSsPanel();
 
   if (!_session) {
     _sessionQuestions = [];
@@ -779,6 +829,7 @@ function _renderQuestionsList() {
   if (sqCountEl) {
     sqCountEl.textContent = _sessionQuestions.length ? ` (${_sessionQuestions.length})` : "";
   }
+  _updateSsPanelBadge();
 
   _sessionQuestions.forEach(q => {
     const li = document.createElement("li");
@@ -931,6 +982,7 @@ function _renderReviewsList() {
   if (srCountEl) {
     srCountEl.textContent = _sessionReviews.length ? ` (${_sessionReviews.length})` : "";
   }
+  _updateSsPanelBadge();
 
   _sessionReviews.forEach(r => {
     const li = document.createElement("li");
@@ -1269,6 +1321,7 @@ export function resetStudySessionView() {
   _reviewOptionsRequestId++;
   if (finishModalEl && !finishModalEl.hidden) finishModal.close();
   if (startModalEl && !startModalEl.hidden) startModal.close();
+  if (ssPanelEl && !ssPanelEl.hidden) _closeSsPanel();
   if (emptyEl) _render();
 
   // _render() acima só esconde activeEl quando _session é null — não limpa o

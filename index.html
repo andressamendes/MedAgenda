@@ -539,6 +539,32 @@
               <button type="button" class="btn btn-primary"   id="ss-btn-finish" hidden>Finalizar</button>
             </div>
 
+            <!-- F13.4 — Questões/Revisões saíram da coluna principal (empilhadas
+                 sob disclosure) para um painel lateral sob demanda, mesmo padrão
+                 de #ai-panel. Este botão é o único gatilho; o badge combina as
+                 duas contagens (ss-questions-count/ss-reviews-count nunca
+                 pararam de ser atualizados por studySessionView.js — só ganharam
+                 este espelho visível mesmo com o painel fechado). -->
+            <button type="button" class="btn btn-secondary ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
+              Questões e revisões<span id="ss-panel-badge" class="ss-section-count"></span>
+            </button>
+          </div>
+
+          <!-- Painel: Questões Resolvidas + Revisões da sessão ativa (F13.4) —
+               mesma estrutura/comportamento de abrir-fechar de #ai-panel
+               (aiPanelView.js), reaproveitando as mesmas classes .ai-panel*. -->
+          <div id="ss-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
+          <aside id="ss-panel" class="ai-panel" hidden
+                 role="dialog" aria-modal="true" aria-labelledby="ss-panel-title">
+            <div class="ai-panel-header">
+              <div class="ai-panel-title-wrap">
+                <span class="ai-panel-title" id="ss-panel-title">Questões e revisões</span>
+              </div>
+              <button class="ai-panel-close" id="ss-panel-close" aria-label="Fechar painel de questões e revisões"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+
+            <div class="ai-panel-actions">
+
             <!-- F10 #4.3 — Questões e Revisões deixaram de ser exclusivas do
                  encerramento: são registradas aqui, durante a sessão ativa, e
                  persistidas imediatamente a cada adição (a sessão já existe
@@ -633,7 +659,9 @@
               </div>
               </div>
             </div>
-          </div>
+
+            </div>
+          </aside>
 
           <!-- Resumo da sessão / confirmação de encerramento (F7.3) -->
           <div id="ss-finish-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ss-finish-title">
