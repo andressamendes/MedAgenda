@@ -106,7 +106,7 @@ import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js"
 import { skeletonRowsMarkup } from "./skeletonView.js";
 import { toast } from "./toastService.js";
 import { pad, localDate, escapeHtml } from "./utils.js";
-import { revealWithAnimation } from "./transitionUtils.js";
+import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import {
   summarizeDayEntries,
@@ -723,10 +723,16 @@ function _onFilterChange() {
 // Contador em "Filtros avançados" (auditoria UX #21) — quantos dos filtros
 // escondidos estão ativos, para que o usuário não precise abrir o painel só
 // para conferir.
+let _advancedFiltersLastCount = null;
+
 function _updateAdvancedFiltersCount() {
   if (!advancedCountEl) return;
   const active = ADVANCED_FILTER_KEYS.filter(key => _filters[key] !== _DEFAULT_FILTERS[key]).length;
   advancedCountEl.textContent = active > 0 ? ` (${active})` : "";
+  // F13.6 — o número muda silenciosamente hoje; um pulso curto chama atenção
+  // para a mudança sem precisar abrir o painel para conferir.
+  if (active !== _advancedFiltersLastCount) pulseUpdate(advancedCountEl);
+  _advancedFiltersLastCount = active;
 }
 
 // Painel "Analisar" (F13.4) — mesma estrutura de abrir/fechar de #ai-panel
@@ -971,6 +977,9 @@ function _setStatusTab(status) {
   const showFinished = status === "finished";
   if (finishedViewEl) finishedViewEl.hidden = !showFinished;
   if (otherViewEl)    otherViewEl.hidden    = showFinished;
+  // F13.6 — mesmo feedback de "conteúdo novo" das disclosures, aplicado à
+  // troca de aba entre "Concluídas" e "Canceladas/Todas".
+  revealWithAnimation(showFinished ? finishedViewEl : otherViewEl);
   if (!showFinished) setHistoryStatus(status);
 }
 

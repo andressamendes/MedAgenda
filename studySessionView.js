@@ -32,7 +32,7 @@ import { showPage } from "./navigationView.js";
 import { handleError } from "./errorService.js";
 import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate } from "./utils.js";
-import { revealWithAnimation } from "./transitionUtils.js";
+import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
 const TICK_MS = 1000;
@@ -162,6 +162,15 @@ let _sessionReviews = [];
 let _sessionDataLoadedFor = null;
 let _reviewOptionsRequestId = 0; // descarta respostas obsoletas de _loadReviewOptions()
 let _qrBusy = false; // evita cliques duplicados nas ações de Questões/Revisões (independente de _busy)
+
+// F13.6 — microinterações das listas de Questões/Revisões: qual item acabou
+// de entrar (recebe animação de entrada, não a lista toda) e qual foi a
+// última contagem exibida (contador só pulsa quando o número muda de fato,
+// não a cada re-render por remoção/edição).
+let _lastAddedQuestionId = null;
+let _lastAddedReviewId = null;
+let _sqLastCount = null;
+let _srLastCount = null;
 
 function _queryElements() {
   emptyEl             = document.getElementById("ss-empty");
@@ -577,6 +586,9 @@ function _switchStartTab(which) {
   startTabEventEl.setAttribute("aria-selected", String(!isManual));
   startManualPanelEl.hidden = !isManual;
   startEventPanelEl.hidden  = isManual;
+  // F13.6 — a troca de aba passa a ter o mesmo feedback de "conteúdo novo"
+  // que já existe em disclosures, em vez de trocar instantaneamente.
+  revealWithAnimation(isManual ? startManualPanelEl : startEventPanelEl);
 }
 
 async function _openStartModal() {
@@ -828,6 +840,8 @@ function _renderQuestionsList() {
   sqEmptyEl.hidden = _sessionQuestions.length > 0;
   if (sqCountEl) {
     sqCountEl.textContent = _sessionQuestions.length ? ` (${_sessionQuestions.length})` : "";
+    if (_sessionQuestions.length !== _sqLastCount) pulseUpdate(sqCountEl);
+    _sqLastCount = _sessionQuestions.length;
   }
   _updateSsPanelBadge();
 
@@ -850,7 +864,11 @@ function _renderQuestionsList() {
     li.querySelector("[data-question-edit]").addEventListener("click", () => _editQuestion(q.id));
     li.querySelector("[data-question-remove]").addEventListener("click", () => _removeQuestionEntry(q.id));
     sqListEl.appendChild(li);
+    // F13.6 — só o item recém-adicionado anima a entrada; a lista toda
+    // re-renderiza a cada mudança, mas os já existentes não devem "piscar".
+    if (q.id === _lastAddedQuestionId) revealWithAnimation(li);
   });
+  _lastAddedQuestionId = null;
 }
 
 // Auditoria UX #09 (F11 E15) — registrar uma questão respondida sem abrir o
@@ -880,6 +898,7 @@ async function _quickAddQuestion() {
     sqBtnQuick.disabled = false;
   }
   _sessionQuestions.push(created);
+  _lastAddedQuestionId = created.id;
   _renderQuestionsList();
   toast.info("Questão registrada.", 2000);
 }
@@ -905,6 +924,7 @@ async function _submitQuestionForm() {
     } else {
       const created = await addQuestion(_session.id, fields);
       _sessionQuestions.push(created);
+      _lastAddedQuestionId = created.id;
     }
   } catch (err) {
     handleError(err, { context: "studySessionView.submitQuestion" });
@@ -981,6 +1001,8 @@ function _renderReviewsList() {
   srEmptyEl.hidden = _sessionReviews.length > 0;
   if (srCountEl) {
     srCountEl.textContent = _sessionReviews.length ? ` (${_sessionReviews.length})` : "";
+    if (_sessionReviews.length !== _srLastCount) pulseUpdate(srCountEl);
+    _srLastCount = _sessionReviews.length;
   }
   _updateSsPanelBadge();
 
@@ -997,7 +1019,9 @@ function _renderReviewsList() {
     `;
     li.querySelector("[data-review-remove]").addEventListener("click", () => _removeReviewEntry(r.id));
     srListEl.appendChild(li);
+    if (r.id === _lastAddedReviewId) revealWithAnimation(li);
   });
+  _lastAddedReviewId = null;
 }
 
 async function _removeReviewEntry(reviewId) {
@@ -1028,6 +1052,7 @@ async function _createAndAssociateReview() {
     created = await createReview({ event_id: _session.event_id, scheduled_date });
     const linked = await associateReview(created.id, _session.id);
     _sessionReviews.push(linked);
+    _lastAddedReviewId = linked.id;
     srDateEl.value = "";
     _renderReviewsList();
   } catch (err) {
@@ -1054,6 +1079,7 @@ async function _associateExistingReview() {
   try {
     const linked = await associateReview(reviewId, _session.id);
     _sessionReviews.push(linked);
+    _lastAddedReviewId = linked.id;
     _renderReviewsList();
     await _loadReviewOptions(); // a revisão associada não pode ser oferecida de novo
   } catch (err) {
