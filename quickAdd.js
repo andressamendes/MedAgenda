@@ -6,8 +6,8 @@ import { iconX } from "./icons.js";
 const WEEKDAYS_LONG = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const MONTHS_LONG   = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
-let overlay, titleInput, timeInput, errorEl, saveBtn, modal;
-let selectedDate, onSaveCallback;
+let overlay, titleInput, timeInput, errorEl, saveBtn, moreOptionsBtn, modal;
+let selectedDate, onSaveCallback, onMoreOptionsCallback;
 
 function init() {
   overlay = document.createElement("div");
@@ -26,6 +26,7 @@ function init() {
         <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" aria-label="Título do compromisso" maxlength="120" />
         <input type="time"  id="qa-time" aria-label="Hora do compromisso" />
         <p class="error" id="qa-error"></p>
+        <button type="button" class="link-btn" id="qa-more-options">Mais opções</button>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost"   id="qa-cancel">Cancelar</button>
@@ -35,14 +36,16 @@ function init() {
   `;
   document.body.appendChild(overlay);
 
-  titleInput = overlay.querySelector("#qa-title");
-  timeInput  = overlay.querySelector("#qa-time");
-  errorEl    = overlay.querySelector("#qa-error");
-  saveBtn    = overlay.querySelector("#qa-save");
+  titleInput     = overlay.querySelector("#qa-title");
+  timeInput      = overlay.querySelector("#qa-time");
+  errorEl        = overlay.querySelector("#qa-error");
+  saveBtn        = overlay.querySelector("#qa-save");
+  moreOptionsBtn = overlay.querySelector("#qa-more-options");
 
   overlay.querySelector("#qa-close").addEventListener("click", close);
   overlay.querySelector("#qa-cancel").addEventListener("click", close);
   saveBtn.addEventListener("click", handleSave);
+  moreOptionsBtn.addEventListener("click", handleMoreOptions);
 
   modal = initModal(overlay, close);
 
@@ -54,11 +57,12 @@ function init() {
   });
 }
 
-export function openQuickAdd(date, onSave, time = "") {
+export function openQuickAdd(date, onSave, time = "", onMoreOptions) {
   if (!overlay) init();
 
-  selectedDate   = date;
-  onSaveCallback = onSave;
+  selectedDate           = date;
+  onSaveCallback         = onSave;
+  onMoreOptionsCallback  = onMoreOptions;
 
   const [y, m, d] = date.split("-").map(Number);
   const dow = new Date(y, m - 1, d).getDay();
@@ -76,6 +80,19 @@ export function openQuickAdd(date, onSave, time = "") {
 
 function close() {
   modal?.close();
+}
+
+// F11 E16 (auditoria #20) — "expandir ao formulário completo sem perder o
+// que foi digitado": o que já está nos campos do QuickAdd vira o prefill do
+// formulário completo, nunca é descartado.
+function handleMoreOptions() {
+  const prefill = {
+    title:      titleInput.value.trim(),
+    event_date: selectedDate,
+    start_time: timeInput.value,
+  };
+  close();
+  onMoreOptionsCallback?.(prefill);
 }
 
 async function handleSave() {

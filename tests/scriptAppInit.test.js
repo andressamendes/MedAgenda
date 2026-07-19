@@ -136,7 +136,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
     namedExports: { initCategoryView: () => {}, initCategories: async () => {}, categoryColor: () => "#3b82f6", resetCategories: () => {} },
   });
   t.mock.module(SPECIFIERS.eventFormView, {
-    namedExports: { initEventForm: () => {}, openEventForm: () => {}, handleEventClick: () => {}, resetEventForm: () => {} },
+    namedExports: { initEventForm: () => {}, openEventForm: () => {}, openEventFormPrefilled: () => {}, handleEventClick: () => {}, resetEventForm: () => {} },
   });
   t.mock.module(SPECIFIERS.authView, {
     namedExports: {

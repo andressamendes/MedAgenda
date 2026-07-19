@@ -48,7 +48,7 @@ import { initAIPanel, resetAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { initNavigation, restoreLastPage, restoreSidebarState, showPage } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor, resetCategories } from "./categoryView.js";
-import { initEventForm, openEventForm, handleEventClick, resetEventForm } from "./eventFormView.js";
+import { initEventForm, openEventForm, openEventFormPrefilled, handleEventClick, resetEventForm } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
 import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
 import { skeletonRowsMarkup } from "./skeletonView.js";
@@ -324,13 +324,13 @@ async function _initApp(session) {
     await Promise.all([
       safeInit("semana", () => initWeekView(document.getElementById("week-container"), {
         onSlotClick: (date, time) =>
-          openQuickAdd(date, refreshAll, time),
+          openQuickAdd(date, refreshAll, time, openEventFormPrefilled),
         onEventClick: handleEventClick,
         onAcademicEventClick: openAcademicCalendarModal,
       })),
       safeInit("calendário", () => initCalendar(document.getElementById("calendar-container"), {
         onDayClick: (date) =>
-          openQuickAdd(date, refreshAll),
+          openQuickAdd(date, refreshAll, "", openEventFormPrefilled),
         onEventClick: handleEventClick,
         onAcademicEventClick: openAcademicCalendarModal,
       })),

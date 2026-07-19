@@ -137,6 +137,41 @@ test("clicking 'Novo compromisso' opens the modal, resets the form and focuses t
   assert.strictEqual(document.activeElement, document.getElementById("f-title"));
 });
 
+// F11 E16 (auditoria #20) — "Mais opções" a partir do QuickAdd: abre o
+// formulário completo já preenchido, continuando um cadastro novo (nunca uma
+// edição).
+test("F11 E16 — openEventFormPrefilled() opens the modal as a new event, pre-filled with what was typed in QuickAdd", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventFormPrefilled } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventFormPrefilled({ title: "Revisar Cardiologia", event_date: "2026-08-10", start_time: "14:00" });
+
+  assert.strictEqual(document.getElementById("event-modal").hidden, false);
+  assert.strictEqual(document.getElementById("f-title").value, "Revisar Cardiologia");
+  assert.strictEqual(document.getElementById("f-date").value, "2026-08-10");
+  assert.strictEqual(document.getElementById("f-start").value, "14:00");
+  // Continua um cadastro NOVO — nunca uma edição do QuickAdd (que nem chega a
+  // criar o compromisso antes de "Mais opções" ser clicado).
+  assert.strictEqual(document.getElementById("form-title").textContent, "Novo compromisso");
+  assert.strictEqual(document.getElementById("btn-save").textContent, "Salvar compromisso");
+  assert.strictEqual(document.getElementById("event-id").value, "");
+  assert.strictEqual(document.getElementById("btn-start-session").hidden, true);
+  assert.strictEqual(document.getElementById("btn-delete-event").hidden, true);
+});
+
+test("F11 E16 — openEventFormPrefilled() with no time typed yet leaves the time field empty for the user to fill in", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventFormPrefilled } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventFormPrefilled({ title: "", event_date: "2026-08-10", start_time: "" });
+
+  assert.strictEqual(document.getElementById("f-title").value, "");
+  assert.strictEqual(document.getElementById("f-date").value, "2026-08-10");
+  assert.strictEqual(document.getElementById("f-start").value, "");
+});
+
 // F11 E10 (auditoria #13) — perguntar a cor em todo cadastro era uma decisão
 // a mais sem necessidade, já que ela segue a categoria escolhida
 // (categoryView.js). O picker de cor nasce escondido atrás de "Mais opções".
