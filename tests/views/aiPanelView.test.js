@@ -1,6 +1,13 @@
 /**
  * Golden path: Assistente IA — aiPanelView.js wired to a mocked aiService.js
  * (no real Gemini/Edge Function call), exercised through the real DOM.
+ *
+ * F14.6 — o painel expõe só 2 ações (btn-ai-plan/"Planejar minha semana" e
+ * btn-ai-evolution/"Como estou indo"); os testes das 4 ações removidas
+ * (btn-ai-weekly/btn-ai-study/btn-ai-analysis/btn-ai-recommendations) foram
+ * substituídos por equivalentes usando as 2 ações que restaram — o
+ * comportamento genérico do painel (loading/erro/retry/cancelar) não muda
+ * conforme a ação escolhida.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -50,28 +57,19 @@ test("closing the panel hides it and restores focus to the trigger", async (t) =
   assert.strictEqual(document.activeElement, trigger);
 });
 
-test("running the weekly-summary action shows the mocked AI result", async (t) => {
-  const { initAIPanel } = await loadAiPanel(t, { weeklySummary: "Você tem 3 provas esta semana." });
+test("running the evolution action shows the mocked result", async (t) => {
+  const { initAIPanel } = await loadAiPanel(t, {
+    myEvolution: { status: "ok", resumo: "Você concluiu 82% do planejamento.", pontosPositivos: [], pontosAtencao: [], evolucaoRecente: [], insights: [{ id: "plan_completion" }] },
+  });
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-evolution").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
-  assert.strictEqual(document.getElementById("ai-result-body").textContent, "Você tem 3 provas esta semana.");
-});
-
-test("running the recommendations action shows the mocked result, without calling Gemini", async (t) => {
-  const { initAIPanel } = await loadAiPanel(t, { recommendations: "• Você tem 2 revisões pendentes." });
-  initAIPanel();
-  document.getElementById("nav-ai-assistant").click();
-
-  document.getElementById("btn-ai-recommendations").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
-  assert.strictEqual(document.getElementById("ai-result-body").textContent, "• Você tem 2 revisões pendentes.");
+  assert.strictEqual(document.getElementById("ai-result-title").textContent, "Como estou indo");
+  assert.match(document.getElementById("ai-result-body").textContent, /82%/);
 });
 
 test("a failing AI call shows a friendly error instead of throwing", async (t) => {
@@ -79,7 +77,7 @@ test("a failing AI call shows a friendly error instead of throwing", async (t) =
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-study").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-evolution").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
@@ -141,7 +139,7 @@ test("the back button returns from the result view to the actions view", async (
   const { initAIPanel } = await loadAiPanel(t);
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
-  document.getElementById("btn-ai-analysis").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-plan").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   document.getElementById("btn-ai-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -160,7 +158,7 @@ test("the loading message progresses through stages while the AI call is in flig
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-evolution").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await flushMicrotasks();
 
   const loadingText = document.getElementById("ai-loading-text");
@@ -183,7 +181,7 @@ test("a failing AI call shows a retry button that re-runs the same action", asyn
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-evolution").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   const retryBtn = document.getElementById("btn-ai-retry");
@@ -197,11 +195,11 @@ test("a failing AI call shows a retry button that re-runs the same action", asyn
 });
 
 test("a successful AI call keeps the retry button hidden", async (t) => {
-  const { initAIPanel } = await loadAiPanel(t, { weeklySummary: "Tudo certo." });
+  const { initAIPanel } = await loadAiPanel(t);
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-evolution").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("btn-ai-retry").hidden, true);
@@ -214,7 +212,7 @@ test("resetAIPanel() (logout, A1.3) aborts an in-flight AI call and hides the pa
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-plan").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await flushMicrotasks();
   assert.strictEqual(document.getElementById("ai-panel-loading").hidden, false);
 
@@ -228,10 +226,10 @@ test("resetAIPanel() (logout, A1.3) aborts an in-flight AI call and hides the pa
 });
 
 test("resetAIPanel() clears the previous result, so the next login never sees the last user's AI answer", async (t) => {
-  const { initAIPanel, resetAIPanel } = await loadAiPanel(t, { weeklySummary: "Dados do usuário anterior." });
+  const { initAIPanel, resetAIPanel } = await loadAiPanel(t);
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-evolution").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
   assert.strictEqual(document.getElementById("ai-panel-result").hidden, false);
 
@@ -251,7 +249,7 @@ test("clicking cancel while an AI call is in flight returns to the actions view"
   initAIPanel();
   document.getElementById("nav-ai-assistant").click();
 
-  document.getElementById("btn-ai-weekly").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-ai-plan").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await flushMicrotasks();
   assert.strictEqual(document.getElementById("ai-panel-loading").hidden, false);
 

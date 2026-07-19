@@ -10,6 +10,17 @@ import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEventBus.js";
 
+// t.mock.module(DECISION_ENGINE_SPECIFIER, ...) substitui TODOS os exports
+// do módulo — não dá pra importar o filtro real de decisionEngine.js aqui
+// (import estático rodaria antes de qualquer mock e arrastaria toda a cadeia
+// de dependências reais, incluindo supabase.js). Reproduz só a regra pura
+// que filterSpontaneousDecisions() aplica (F14.6): mesmo conjunto de
+// assuntos acionáveis, sem nenhuma lógica nova.
+const SPONTANEOUS_SUBJECTS = new Set(["revisoes_pendentes", "compromissos_atrasados"]);
+function filterSpontaneousDecisions(decisions) {
+  return (decisions || []).filter(d => SPONTANEOUS_SUBJECTS.has(d.assunto));
+}
+
 const EVENT_SERVICE_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
 const RECURRENCE_SPECIFIER       = new URL("../../recurrence.js", import.meta.url).href;
 const ACADEMIC_SPECIFIER         = new URL("../../academicCalendarView.js", import.meta.url).href;
@@ -62,7 +73,10 @@ function loadView(t, overrides = {}) {
     namedExports: { showPage: (name) => { showPageCalls.push(name); } },
   });
   t.mock.module(DECISION_ENGINE_SPECIFIER, {
-    namedExports: { getDecisions: overrides.getDecisions ?? (async () => ({ decisions: [], planning: [] })) },
+    namedExports: {
+      getDecisions: overrides.getDecisions ?? (async () => ({ decisions: [], planning: [] })),
+      filterSpontaneousDecisions,
+    },
   });
 
   return import(`../../todayView.js?t=${Math.random()}`);
@@ -197,12 +211,15 @@ test("personal events hidden (isPersonalVisible() false) show no appointments", 
   assert.strictEqual(document.getElementById("today-appointments-empty").hidden, false);
 });
 
+// F14.6 — a dica espontânea só considera decisões acionáveis (assunto
+// "revisoes_pendentes"/"compromissos_atrasados"); mesmo havendo duas
+// decisões acionáveis, nunca mais de um card aparece de graça.
 test("at most one smart card is shown, taken from the Decision Engine", async (t) => {
   const { initTodayView } = await loadView(t, {
     getDecisions: async () => ({
       decisions: [
-        { origem: "recommendation", origemTipo: "study", mensagem: "Revise Anatomia hoje." },
-        { origem: "recommendation", origemTipo: "goal", mensagem: "Meta quase batida." },
+        { origem: "recommendation", origemTipo: "pending_reviews", assunto: "revisoes_pendentes", mensagem: "Você tem 3 revisões pendentes." },
+        { origem: "recommendation", origemTipo: "overdue_events", assunto: "compromissos_atrasados", mensagem: "Você tem 2 compromissos atrasados." },
       ],
       planning: [],
     }),
@@ -212,11 +229,26 @@ test("at most one smart card is shown, taken from the Decision Engine", async (t
   const tip = document.getElementById("today-tip");
   assert.strictEqual(tip.hidden, false);
   assert.strictEqual(tip.querySelectorAll(".smart-card").length, 1);
-  assert.match(tip.textContent, /Revise Anatomia hoje\./);
+  assert.match(tip.textContent, /Você tem 3 revisões pendentes\./);
 });
 
 test("no decisions at all keeps the tip container hidden", async (t) => {
   const { initTodayView } = await loadView(t);
+  await initTodayView();
+
+  assert.strictEqual(document.getElementById("today-tip").hidden, true);
+});
+
+test("F14.6 — a non-actionable decision (no matching assunto) never shows as a spontaneous tip", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDecisions: async () => ({
+      decisions: [
+        { origem: "recommendation", origemTipo: "study", assunto: "carga_semana", mensagem: "Revise Anatomia hoje." },
+        { origem: "recommendation", origemTipo: "goal", assunto: "meta_semanal", mensagem: "Meta quase batida." },
+      ],
+      planning: [],
+    }),
+  });
   await initTodayView();
 
   assert.strictEqual(document.getElementById("today-tip").hidden, true);

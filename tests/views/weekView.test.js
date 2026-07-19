@@ -9,6 +9,17 @@ import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 import { mondayOf, isoDate } from "../../utils.js";
 
+// t.mock.module(DECISION_ENGINE_SPECIFIER, ...) substitui TODOS os exports
+// do módulo — não dá pra importar o filtro real de decisionEngine.js aqui
+// (import estático rodaria antes de qualquer mock e arrastaria toda a cadeia
+// de dependências reais, incluindo supabase.js). Reproduz só a regra pura
+// que filterSpontaneousDecisions() aplica (F14.6): mesmo conjunto de
+// assuntos acionáveis, sem nenhuma lógica nova.
+const SPONTANEOUS_SUBJECTS = new Set(["revisoes_pendentes", "compromissos_atrasados"]);
+function filterSpontaneousDecisions(decisions) {
+  return (decisions || []).filter(d => SPONTANEOUS_SUBJECTS.has(d.assunto));
+}
+
 const EVENT_SERVICE_SPECIFIER = new URL("../../eventService.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const DECISION_ENGINE_SPECIFIER = new URL("../../decisionEngine.js", import.meta.url).href;
@@ -20,8 +31,19 @@ let summaryCalls;
 let container;
 let destroyWeekView;
 
-function decision({ origem = "recommendation", origemTipo = "empty_week", prioridade = "informativo", mensagem, dadosUtilizados = {}, acaoSugerida = null }) {
-  return { origem, origemTipo, prioridade, mensagem, assunto: `${origem}:${origemTipo}`, confianca: "alta", dadosUtilizados, acaoSugerida };
+// `assunto` espelha a classificação real de decisionEngine.js (só o
+// suficiente para os testes: os dois assuntos acionáveis do F14.6 —
+// "compromissos_atrasados"/"revisoes_pendentes" — e um valor não-acionável
+// para o resto, já que é só isso que filterSpontaneousDecisions() olha).
+const SUBJECT_BY_TYPE = {
+  overdue_events: "compromissos_atrasados",
+  overdue:        "compromissos_atrasados",
+  pending_reviews: "revisoes_pendentes",
+  review:          "revisoes_pendentes",
+};
+
+function decision({ origem = "recommendation", origemTipo = "empty_week", prioridade = "informativo", mensagem, dadosUtilizados = {}, acaoSugerida = null, assunto } = {}) {
+  return { origem, origemTipo, prioridade, mensagem, assunto: assunto ?? SUBJECT_BY_TYPE[origemTipo] ?? `${origem}:${origemTipo}`, confianca: "alta", dadosUtilizados, acaoSugerida };
 }
 
 // weekView.js reaproveita decisionEngine.getDecisions() (F3.7 — Decision
@@ -51,7 +73,7 @@ function mockEventService(t, { events = [], fail = false, summaries = {}, summar
     },
   });
   t.mock.module(DECISION_ENGINE_SPECIFIER, {
-    namedExports: { getDecisions: getDecisions ?? (async () => EMPTY_DECISIONS) },
+    namedExports: { getDecisions: getDecisions ?? (async () => EMPTY_DECISIONS), filterSpontaneousDecisions },
   });
 }
 
@@ -265,7 +287,11 @@ async function flush() {
   await new Promise(r => setTimeout(r, 0));
 }
 
-test("a decision with an understudied category shows the 'Hoje seria interessante revisar X' tip", async (t) => {
+// F14.6 — o card espontâneo (sem o usuário pedir) só aparece para decisões
+// acionáveis (revisão pendente, compromisso atrasado); crítica-passiva como
+// "categoria negligenciada" fica de fora, mesmo sendo a de maior prioridade
+// — continua disponível via getDecisions() para o painel de IA, sob demanda.
+test("F14.6 — a non-actionable decision (understudied category) never shows as a spontaneous tip", async (t) => {
   mockEventService(t, {
     events: [],
     getDecisions: async () => ({
@@ -284,9 +310,51 @@ test("a decision with an understudied category shows the 'Hoje seria interessant
   await initWeekView(container, {});
   await flush();
 
+  assert.strictEqual(container.querySelector("#wk-tip").hidden, true);
+});
+
+test("F14.6 — a pending-review decision shows as a spontaneous tip", async (t) => {
+  mockEventService(t, {
+    events: [],
+    getDecisions: async () => ({
+      decisions: [decision({
+        origem: "recommendation", origemTipo: "pending_reviews", prioridade: "urgente",
+        mensagem: "Você tem 3 revisões pendentes.",
+      })],
+      planning: [], unavailable: [],
+    }),
+  });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  await flush();
+
   const tip = container.querySelector("#wk-tip");
   assert.strictEqual(tip.hidden, false);
-  assert.match(tip.textContent, /Hoje seria interessante revisar Anatomia\./);
+  assert.match(tip.textContent, /Você tem 3 revisões pendentes\./);
+});
+
+test("F14.6 — an overdue-event decision shows as a spontaneous tip", async (t) => {
+  mockEventService(t, {
+    events: [],
+    getDecisions: async () => ({
+      decisions: [decision({
+        origem: "recommendation", origemTipo: "overdue_events", prioridade: "urgente",
+        mensagem: "Você tem 2 compromissos atrasados.",
+      })],
+      planning: [], unavailable: [],
+    }),
+  });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  await flush();
+
+  const tip = container.querySelector("#wk-tip");
+  assert.strictEqual(tip.hidden, false);
+  assert.match(tip.textContent, /Você tem 2 compromissos atrasados\./);
 });
 
 test("no decisions hides the tip and the plan toggle — never invents anything", async (t) => {
@@ -456,7 +524,7 @@ test("rapid navigation renders only the result of the most recent request, disca
     namedExports: { getEventExecutionSummaries: async () => ({}) },
   });
   t.mock.module(DECISION_ENGINE_SPECIFIER, {
-    namedExports: { getDecisions: async () => EMPTY_DECISIONS },
+    namedExports: { getDecisions: async () => EMPTY_DECISIONS, filterSpontaneousDecisions },
   });
 
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);

@@ -1425,49 +1425,24 @@
     </div>
 
     <div class="ai-panel-actions">
-      <p class="ai-panel-desc">Escolha uma análise com seus dados reais:</p>
+      <p class="ai-panel-desc">Duas respostas, com seus dados reais — não um menu de seis:</p>
 
-      <!-- F10 PR16: as 6 ações eram uma lista única, sem nenhuma hierarquia
-           entre ações que planejam o que fazer (futuro) e ações que analisam
-           o que já aconteceu (passado/presente) — agrupadas em duas
-           categorias para reduzir a carga de decisão ao ler a lista. -->
-      <span class="ai-panel-group-title">Planejar</span>
-      <button id="btn-ai-study"    class="btn ai-action-btn" aria-label="Encontrar horários para estudar" title="Sugestões de blocos livres nos próximos 14 dias">
-        <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
-        <div class="ai-action-text">
-          <strong>Encontrar horários para estudar</strong>
-        </div>
-      </button>
-      <button id="btn-ai-plan" class="btn ai-action-btn" aria-label="Gerar plano da semana" title="Sugestões organizadas por prioridade — você decide o que fazer">
+      <!-- F14.6 — as 6 ações (já agrupadas em "Planejar"/"Analisar" desde
+           F10 PR16) viram 2 respostas diretas. Os motores por trás das 4
+           ações removidas (getWeeklySummary/getStudySuggestion/
+           getScheduleAnalysis/getContextualRecommendations, em
+           services/ai/aiService.js) continuam no código — só deixaram de
+           ter botão próprio aqui (auditoria F14 §4/§9). -->
+      <button id="btn-ai-plan" class="btn ai-action-btn" aria-label="Planejar minha semana" title="Sugestões organizadas por prioridade — você decide o que fazer">
         <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
         <div class="ai-action-text">
-          <strong>Gerar Plano da Semana</strong>
+          <strong>Planejar minha semana</strong>
         </div>
       </button>
-
-      <span class="ai-panel-group-title">Analisar</span>
-      <button id="btn-ai-weekly"   class="btn ai-action-btn" aria-label="Resumir minha semana" title="Análise narrativa dos compromissos desta semana">
-        <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
-        <div class="ai-action-text">
-          <strong>Resumir minha semana</strong>
-        </div>
-      </button>
-      <button id="btn-ai-analysis" class="btn ai-action-btn" aria-label="Analisar conflitos da agenda" title="Conflitos e sobrecarga nos próximos 30 dias">
-        <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <div class="ai-action-text">
-          <strong>Analisar conflitos da agenda</strong>
-        </div>
-      </button>
-      <button id="btn-ai-recommendations" class="btn ai-action-btn" aria-label="Ver recomendações" title="Pontos de atenção com base nos seus dados reais">
-        <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></span>
-        <div class="ai-action-text">
-          <strong>Recomendações</strong>
-        </div>
-      </button>
-      <button id="btn-ai-evolution" class="btn ai-action-btn" aria-label="Ver minha evolução" title="Reflexão sobre como você executou o planejamento">
+      <button id="btn-ai-evolution" class="btn ai-action-btn" aria-label="Ver como estou indo" title="Reflexão sobre como você executou o planejamento">
         <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg></span>
         <div class="ai-action-text">
-          <strong>Minha Evolução</strong>
+          <strong>Como estou indo</strong>
         </div>
       </button>
     </div>

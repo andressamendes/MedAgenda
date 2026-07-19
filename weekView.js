@@ -5,7 +5,7 @@ import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml, readableTextColor } from "./utils.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock } from "./stateView.js";
-import { getDecisions } from "./decisionEngine.js";
+import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { renderPlanList } from "./planListView.js";
 import { iconCalendarWeek, iconChevronDown } from "./icons.js";
@@ -275,11 +275,15 @@ function updateEmptyTip(isEmpty) {
 // Reflection Engine uma única vez e devolve, via decisionEngine.js, a lista
 // final priorizada e sem duplicidade — junto com o plano bruto do Planning
 // Engine (mesma rodada, sem recalcular nada), usado só pela lista completa
-// por trás do botão "Mostrar plano da semana". A dica é a decisão de origem
-// "planning" cuja data sugerida é hoje (mais concreta: já tem tempo e data);
-// na ausência de uma para hoje, cai para a decisão de maior prioridade geral
-// (já ordenada pelo Decision Engine). Nunca cria, altera ou agenda nada — é
-// só leitura.
+// por trás do botão "Mostrar plano da semana". A dica espontânea só considera
+// decisões acionáveis (revisão pendente, compromisso atrasado —
+// filterSpontaneousDecisions(), F14.6): críticas passivas como "baixa
+// execução" ou "muito tempo sem sessões" continuam disponíveis via
+// getDecisions() para o painel de IA, só deixam de aparecer sem serem
+// pedidas. Dentro do que sobra, prioriza a decisão de origem "planning" cuja
+// data sugerida é hoje (mais concreta: já tem tempo e data); na ausência de
+// uma para hoje, cai para a de maior prioridade geral (já ordenada pelo
+// Decision Engine). Nunca cria, altera ou agenda nada — é só leitura.
 async function loadTip() {
   const tipEl = _el?.querySelector("#wk-tip");
   const toggleBtn = _el?.querySelector("#wk-plan-toggle");
@@ -297,18 +301,10 @@ async function loadTip() {
   }
 
   const todayISO = isoToday();
-  const todayDecision = decisions.find(d => d.origem === "planning" && d.acaoSugerida?.dataSugerida === todayISO);
-  const decision = todayDecision || decisions[0] || null;
-  let tip = null;
-  if (decision) {
-    tip = decisionToCard(decision);
-    // "study" com categoria conhecida vira a frase de exemplo do enunciado
-    // ("Hoje seria interessante revisar Anatomia."); os demais tipos mantêm
-    // a própria mensagem já redigida pelo motor de origem.
-    if (decision.origemTipo === "study" && decision.dadosUtilizados?.categoria) {
-      tip = { ...tip, mensagem: `Hoje seria interessante revisar ${decision.dadosUtilizados.categoria}.` };
-    }
-  }
+  const spontaneous = filterSpontaneousDecisions(decisions);
+  const todayDecision = spontaneous.find(d => d.origem === "planning" && d.acaoSugerida?.dataSugerida === todayISO);
+  const decision = todayDecision || spontaneous[0] || null;
+  const tip = decision ? decisionToCard(decision) : null;
   renderSmartCards(tipEl, tip ? [tip] : []);
 
   toggleBtn.hidden = _weeklyPlan.length === 0;
