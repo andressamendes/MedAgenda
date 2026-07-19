@@ -1476,7 +1476,7 @@ textarea { resize: vertical; }
 }
 
 /* ── Base compartilhada dos cards de conteúdo (F10 #2.3) — .event-card e
-   .dashboard-card repetiam, cada um na sua própria regra, exatamente as
+   .stat-card repetiam, cada um na sua própria regra, exatamente as
    mesmas quatro declarações (background/border/border-radius/transition);
    agrupadas aqui uma única vez, sem mudar nenhum valor computado.
    `.card` (login/superfícies elevadas — radius/shadow/padding maiores) e
@@ -1485,7 +1485,7 @@ textarea { resize: vertical; }
    continuam com suas próprias regras, sem forçar uma unificação que mudaria
    como aparecem hoje. ── */
 .event-card,
-.dashboard-card {
+.stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -1555,26 +1555,6 @@ textarea { resize: vertical; }
   border-radius: var(--radius);
   padding: .75rem .9rem;
   margin-bottom: var(--space-4);
-}
-
-.session-stat {
-  display: flex;
-  flex-direction: column;
-  gap: .15rem;
-}
-
-.session-stat-label {
-  font-size: .68rem;
-  font-weight: 600;
-  color: var(--gray-500);
-  text-transform: uppercase;
-  letter-spacing: .02em;
-}
-
-.session-stat-value {
-  font-size: .95rem;
-  font-weight: 700;
-  color: var(--gray-800);
 }
 
 .session-history-empty {
@@ -1664,26 +1644,29 @@ textarea { resize: vertical; }
 .review-status--skipped   { background: var(--color-danger-bg); color: var(--color-danger-text); }
 .review-status--pending   { background: var(--color-info-bg); color: var(--color-info-text); }
 
-/* ── Dashboard de Execução (F2.1) ── */
-.dashboard-cards {
+/* ── Card estatístico único do design system (F13.3) ──
+   Substitui .dashboard-card/.dashboard-cards (Dashboard, Insights) e
+   .session-stat (estatísticas de histórico do modal de evento): mesmo
+   componente, só o tamanho muda (.stat-card--sm). */
+.stat-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: .8rem;
 }
 
-.dashboard-card {
+.stat-card {
   padding: 1rem 1.1rem;
   display: flex;
   flex-direction: column;
   gap: .3rem;
 }
 
-.dashboard-card:hover {
+.stat-card:hover {
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }
 
-.dashboard-card-title {
+.stat-card-title {
   font-size: .78rem;
   font-weight: 600;
   color: var(--gray-500);
@@ -1691,22 +1674,32 @@ textarea { resize: vertical; }
   letter-spacing: .02em;
 }
 
-.dashboard-card-value {
+.stat-card-value {
   font-family: var(--font-display);
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--gray-800);
 }
 
-.dashboard-card-desc {
+.stat-card-desc {
   margin: 0;
   font-size: .8rem;
   color: var(--gray-600);
 }
 
+/* Variante compacta — tile menor usado dentro de .session-stats (histórico
+   de sessões do compromisso), onde não há espaço para o tamanho padrão. */
+.stat-card--sm {
+  padding: 0;
+  gap: .15rem;
+}
+.stat-card--sm:hover { box-shadow: none; transform: none; }
+.stat-card--sm .stat-card-title { font-size: .68rem; }
+.stat-card--sm .stat-card-value { font-family: inherit; font-size: .95rem; color: var(--gray-800); }
+
 /* F11 E11 — barra de progresso das metas de tempo (dailyGoal/weeklyGoal/
    monthlyGoal), puramente visual: o percentual continua escrito em
-   .dashboard-card-desc e em aria-valuenow, então nada depende só da cor. */
+   .stat-card-desc e em aria-valuenow, então nada depende só da cor. */
 .dashboard-progress {
   height: 6px;
   border-radius: 999px;
@@ -1767,25 +1760,23 @@ textarea { resize: vertical; }
 }
 
 /* ── Histórico global de Sessões (F1.8) ── */
-/* F11 E17 (auditoria #19) — componente único de abas: Histórico
-   (.ah-filter-tab), Dashboard (.dash-tab), Tema (.theme-tab), início de
-   Sessão (.ss-start-tab) e Minha Conta (.account-tab) compartilham agora um
-   único bloco de regras visuais em vez de 5 cópias idênticas. Cada contexto
-   mantém sua própria classe de contêiner/botão (nenhum HTML/JS/teste
-   precisou mudar — risco zero de regressão, já que a declaração aplicada a
-   cada elemento é literalmente a mesma de antes) só a margem/padding do
-   contêiner varia por tela. */
-.ah-filter-tabs, .dash-tabs, .theme-tabs, .ss-start-tabs, .account-tabs {
+/* F13.3 — componente único de abas do design system: Histórico, Dashboard,
+   Tema, início de Sessão e Minha Conta usam agora a mesma classe de
+   contêiner (.tabs) e de botão (.tab/.tab--active) em vez de 5 nomes
+   paralelos (.ah-filter-tab, .dash-tab, .theme-tab, .ss-start-tab,
+   .account-tab) para o mesmo padrão visual. A margem/padding externo, que
+   varia por tela, é resolvido pelo id do contêiner. */
+.tabs {
   display: flex;
   gap: .4rem;
   flex-wrap: wrap;
 }
-.ah-filter-tabs { margin-bottom: var(--space-4); }
-.dash-tabs      { margin: 1.4rem 0 1rem; }
-.ss-start-tabs  { margin-bottom: var(--space-3); }
-.account-tabs   { padding: 1rem 1rem 0; }
+#agenda-view-tabs, #sj-status-tabs { margin-bottom: var(--space-4); }
+#dash-tabs                         { margin: 1.4rem 0 1rem; }
+#ss-start-tabs                     { margin-bottom: var(--space-3); }
+#account-tabs                      { padding: 1rem 1rem 0; }
 
-.ah-filter-tab, .dash-tab, .theme-tab, .ss-start-tab, .account-tab {
+.tab {
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-muted);
@@ -1798,19 +1789,11 @@ textarea { resize: vertical; }
               color var(--transition-fast);
 }
 
-.ah-filter-tab:hover:not(.ah-filter-tab--active),
-.dash-tab:hover:not(.dash-tab--active),
-.theme-tab:hover:not(.theme-tab--active),
-.ss-start-tab:hover:not(.ss-start-tab--active),
-.account-tab:hover:not(.account-tab--active) { border-color: var(--gray-400); color: var(--color-text); }
+.tab:hover:not(.tab--active) { border-color: var(--gray-400); color: var(--color-text); }
 
-.ah-filter-tab:focus-visible,
-.dash-tab:focus-visible,
-.theme-tab:focus-visible,
-.ss-start-tab:focus-visible,
-.account-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-.ah-filter-tab--active, .dash-tab--active, .theme-tab--active, .ss-start-tab--active, .account-tab--active {
+.tab--active {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
@@ -2993,18 +2976,6 @@ textarea { resize: vertical; }
   margin-top: .4rem;
 }
 
-/* Parte do componente único de abas (F11 E17) — .account-tab segue
-   .ah-filter-tab/.dash-tab/.theme-tab/.ss-start-tab, ver bloco compartilhado
-   junto de .ah-filter-tabs. .account-body tem padding:0 (cada
-   .account-section já traz o próprio), por isso a barra de abas continua
-   com seu próprio respiro lateral/inferior aqui. */
-.account-tabs {
-  display: flex;
-  gap: .4rem;
-  flex-wrap: wrap;
-  padding: 1rem 1rem 0;
-}
-
 /* Avatar */
 .avatar-wrap {
   display: flex;
@@ -3396,9 +3367,8 @@ textarea { resize: vertical; }
 
 /* Modal de configuração pré-início (#ss-start-modal) — os dois caminhos
    ("Novo estudo" digitado livremente x "Compromisso da agenda" já existente)
-   nunca ficam visíveis ao mesmo tempo; parte do componente único de abas
-   (F11 E17) — .ss-start-tabs/.ss-start-tab estão definidas junto de
-   .ah-filter-tab/.dash-tab/.theme-tab, ver bloco compartilhado mais acima. */
+   nunca ficam visíveis ao mesmo tempo; usa o componente único de abas
+   (.tabs/.tab), ver bloco compartilhado mais acima. */
 /* BUG 09 — Resumo/confirmação de encerramento (#ss-finish-modal): conteúdo
    variável (Questões + Revisões adicionadas na hora) podia crescer além da
    viewport. Como .modal-card só tinha max-width (sem max-height/scroll), o

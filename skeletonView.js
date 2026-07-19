@@ -14,8 +14,8 @@ const LOADING_TEXT = "Carregando…";
 
 /**
  * Placeholder para grids de cards de estatística (Dashboard, Insights) —
- * mesma grade (`.dashboard-cards`), cada item um bloco cinza do tamanho de
- * um `.dashboard-card` real.
+ * mesma grade (`.stat-cards`), cada item um bloco cinza do tamanho de
+ * um `.stat-card` real.
  */
 export function skeletonCardsMarkup(count = 4) {
   const cards = Array

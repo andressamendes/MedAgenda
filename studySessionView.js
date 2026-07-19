@@ -553,8 +553,8 @@ async function _populateStartEventOptions() {
 
 function _switchStartTab(which) {
   const isManual = which === "manual";
-  startTabManualEl.classList.toggle("ss-start-tab--active", isManual);
-  startTabEventEl.classList.toggle("ss-start-tab--active", !isManual);
+  startTabManualEl.classList.toggle("tab--active", isManual);
+  startTabEventEl.classList.toggle("tab--active", !isManual);
   startTabManualEl.setAttribute("aria-selected", String(isManual));
   startTabEventEl.setAttribute("aria-selected", String(!isManual));
   startManualPanelEl.hidden = !isManual;

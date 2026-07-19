@@ -714,8 +714,8 @@ test("F11 E12 — the dashboard tabs are labeled 'Períodos' and 'Progresso e Co
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
   await mod.initActivityDashboardView();
 
-  const weekMonthTab = document.querySelector('#dash-tabs .dash-tab[data-panel="week-month"]');
-  const recordsTab   = document.querySelector('#dash-tabs .dash-tab[data-panel="records"]');
+  const weekMonthTab = document.querySelector('#dash-tabs .tab[data-panel="week-month"]');
+  const recordsTab   = document.querySelector('#dash-tabs .tab[data-panel="records"]');
   assert.strictEqual(weekMonthTab.textContent, "Períodos");
   assert.strictEqual(recordsTab.textContent, "Progresso e Conquistas");
 });
@@ -738,10 +738,10 @@ test("F10 #3.1 — 'Períodos' tab is active by default; 'Progresso e Conquistas
 
   await mod.initActivityDashboardView();
 
-  const weekMonthTab  = document.querySelector('#dash-tabs .dash-tab[data-panel="week-month"]');
-  const recordsTab    = document.querySelector('#dash-tabs .dash-tab[data-panel="records"]');
+  const weekMonthTab  = document.querySelector('#dash-tabs .tab[data-panel="week-month"]');
+  const recordsTab    = document.querySelector('#dash-tabs .tab[data-panel="records"]');
   assert.strictEqual(weekMonthTab.getAttribute("aria-selected"), "true");
-  assert.ok(weekMonthTab.classList.contains("dash-tab--active"));
+  assert.ok(weekMonthTab.classList.contains("tab--active"));
   assert.strictEqual(recordsTab.getAttribute("aria-selected"), "false");
 
   assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, false);
@@ -762,13 +762,13 @@ test("F10 #3.1 — clicking 'Progresso e Conquistas' switches panels without re-
   await mod.initActivityDashboardView();
   assert.strictEqual(calls, 1);
 
-  document.querySelector('#dash-tabs .dash-tab[data-panel="records"]')
+  document.querySelector('#dash-tabs .tab[data-panel="records"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(document.getElementById("dash-panel-records").hidden, false);
   assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, true);
   assert.strictEqual(
-    document.querySelector('#dash-tabs .dash-tab[data-panel="records"]').getAttribute("aria-selected"),
+    document.querySelector('#dash-tabs .tab[data-panel="records"]').getAttribute("aria-selected"),
     "true"
   );
   assert.strictEqual(calls, 1, "switching tabs never re-fetches — both levels loaded together");
@@ -783,7 +783,7 @@ test("F10 #3.1 — re-opening the dashboard resets to the 'Períodos' tab", asyn
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
-  document.querySelector('#dash-tabs .dash-tab[data-panel="records"]')
+  document.querySelector('#dash-tabs .tab[data-panel="records"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("dash-panel-records").hidden, false);
 

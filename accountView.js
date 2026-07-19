@@ -115,14 +115,14 @@ function _renderProfile(p) {
   // F10 PR12 — Perfil/Foto/Metas (edição de rotina) e Senha/Exclusão (ações
   // sensíveis/destrutivas) viviam empilhados num único scroll longo, sem
   // nenhuma separação entre "editar meus dados" e "mudar minha segurança ou
-  // apagar minha conta". Duas abas (mesmo padrão visual de .ss-start-tab —
-  // duplicado por design, não compartilhado, ver nota em style.css) separam
-  // essas duas naturezas de ação; nenhum campo, valor ou fluxo mudou de lugar
-  // dentro de cada seção, só o agrupamento em abas.
+  // apagar minha conta". Duas abas (componente único do design system,
+  // .tabs/.tab, ver style.css) separam essas duas naturezas de ação; nenhum
+  // campo, valor ou fluxo mudou de lugar dentro de cada seção, só o
+  // agrupamento em abas.
   body.innerHTML = `
-    <div class="account-tabs" role="tablist">
-      <button type="button" class="account-tab account-tab--active" id="account-tab-profile" role="tab" aria-selected="true" aria-controls="account-panel-profile">Perfil</button>
-      <button type="button" class="account-tab" id="account-tab-security" role="tab" aria-selected="false" aria-controls="account-panel-security">Segurança e Conta</button>
+    <div class="tabs" id="account-tabs" role="tablist">
+      <button type="button" class="tab tab--active" id="account-tab-profile" role="tab" aria-selected="true" aria-controls="account-panel-profile">Perfil</button>
+      <button type="button" class="tab" id="account-tab-security" role="tab" aria-selected="false" aria-controls="account-panel-security">Segurança e Conta</button>
     </div>
 
     <div id="account-panel-profile" role="tabpanel">
@@ -237,8 +237,8 @@ function _renderProfile(p) {
 
 function _switchAccountTab(tab) {
   const isProfile = tab === 'profile';
-  document.getElementById('account-tab-profile')?.classList.toggle('account-tab--active', isProfile);
-  document.getElementById('account-tab-security')?.classList.toggle('account-tab--active', !isProfile);
+  document.getElementById('account-tab-profile')?.classList.toggle('tab--active', isProfile);
+  document.getElementById('account-tab-security')?.classList.toggle('tab--active', !isProfile);
   document.getElementById('account-tab-profile')?.setAttribute('aria-selected', String(isProfile));
   document.getElementById('account-tab-security')?.setAttribute('aria-selected', String(!isProfile));
   const profilePanel  = document.getElementById('account-panel-profile');
