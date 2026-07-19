@@ -1407,7 +1407,7 @@ test("reload restores the linked event's context from event_id", async (t) => {
 
   assert.strictEqual(document.getElementById("ss-event-title").textContent, "Ambulatório");
   assert.strictEqual(document.getElementById("ss-category").textContent, "Ambulatório");
-  assert.strictEqual(document.getElementById("ss-expected-duration").textContent, "—");
+  assert.strictEqual(document.getElementById("ss-expected-duration-row").hidden, true);
 });
 
 test("if the linked event was deleted, the page still restores the session with a generic label", async (t) => {
@@ -1513,21 +1513,21 @@ test("the progress bar stays hidden for a standalone session (no event at all)",
   assert.strictEqual(document.getElementById("ss-progress").hidden, true);
 });
 
-test("a standalone session shows an explicit 'Sem compromisso vinculado' label instead of a bare dash", async (t) => {
+test("F13.1 — a standalone session hides context rows it has no value for, instead of showing a label or a dash", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
 
   await mod.initStudySessionView();
 
-  assert.strictEqual(document.getElementById("ss-category").textContent, "Sem compromisso vinculado");
+  assert.strictEqual(document.getElementById("ss-category-row").hidden, true);
+  assert.strictEqual(document.getElementById("ss-content-row").hidden, true);
+  assert.strictEqual(document.getElementById("ss-date-row").hidden, true);
   assert.strictEqual(document.getElementById("ss-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
   assert.strictEqual(document.getElementById("ss-objective"), null, "a linha 'Objetivo' sempre exibia '—' (sem campo no domínio) e foi removida (auditoria UX #06)");
-  assert.strictEqual(document.getElementById("ss-content").textContent, "Sem compromisso vinculado");
-  assert.strictEqual(document.getElementById("ss-date").textContent, "Sem compromisso vinculado");
 });
 
-test("a linked event still shows a plain dash for its own empty fields, not the standalone label", async (t) => {
+test("F13.1 — a linked event also hides its own empty fields' rows", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Aula", category: null, description: null, duration_minutes: null, event_date: null }),
@@ -1535,8 +1535,8 @@ test("a linked event still shows a plain dash for its own empty fields, not the 
 
   await mod.initStudySessionView();
 
-  assert.strictEqual(document.getElementById("ss-category").textContent, "—");
-  assert.strictEqual(document.getElementById("ss-date").textContent, "—");
+  assert.strictEqual(document.getElementById("ss-category-row").hidden, true);
+  assert.strictEqual(document.getElementById("ss-date-row").hidden, true);
 });
 
 test("the context panel shows the event date, and the session status lives only in the badge", async (t) => {
@@ -1732,6 +1732,25 @@ test("UX #04 — Questões e Revisões nascem colapsadas, com aria-expanded=fals
   assert.strictEqual(document.getElementById("ss-questions-body").hidden, false);
   assert.strictEqual(document.getElementById("ss-questions-toggle").getAttribute("aria-expanded"), "true");
   assert.strictEqual(document.getElementById("ss-questions-toggle").textContent, "Ocultar");
+});
+
+test("F13.1 — 'Mais detalhes' nasce colapsado e revela Conteúdo/Data/Horário/Tempo previsto ao expandir", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Sepse", duration_minutes: 60, event_date: "2026-07-19" }),
+  });
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-context-more").hidden, true);
+  assert.strictEqual(document.getElementById("ss-context-more-toggle").getAttribute("aria-expanded"), "false");
+  // Compromisso e Categoria continuam sempre visíveis, fora do disclosure.
+  assert.strictEqual(document.getElementById("ss-category-row").hidden, false);
+
+  document.getElementById("ss-context-more-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-context-more").hidden, false);
+  assert.strictEqual(document.getElementById("ss-context-more-toggle").getAttribute("aria-expanded"), "true");
+  assert.strictEqual(document.getElementById("ss-content").textContent, "Sepse");
+  assert.strictEqual(document.getElementById("ss-expected-duration").textContent, "1h 0min");
 });
 
 test("UX #04 — o contador no título reflete questões/revisões adicionadas sem expandir a seção", async (t) => {

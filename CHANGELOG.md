@@ -2,6 +2,30 @@
 
 ---
 
+## [Unreleased] — F13.1: redução da carga cognitiva da Sessão ativa
+
+Primeira etapa do roadmap F13 (docs/F12-AUDITORIA-RADICAL-UX-UI.md), que
+ataca excesso de componentes visíveis por padrão em vez de bugs. O contexto
+da sessão ativa (`<dl class="ss-context">`) sempre mostrou 6 linhas de uma
+vez, várias com "—" quando a sessão não tinha aquele dado — a tela mais
+usada do produto carregava metadado que não se aplicava à maioria das
+sessões.
+
+- `index.html`/`studySessionView.js` — só **Compromisso** e **Categoria**
+  ficam visíveis por padrão no card de sessão ativa; **Conteúdo**, **Data**,
+  **Horário de início** e **Tempo previsto** entram atrás de um disclosure
+  "Mais detalhes" (mesmo padrão `aria-expanded`/"Mostrar"↔"Ocultar" já usado
+  em Questões/Revisões), que nasce fechado a cada sessão nova. Cada linha
+  (incluindo Categoria, que pode ficar sem valor) só é renderizada quando há
+  dado real — nenhuma volta a exibir "—".
+- Removida a distinção "Sem compromisso vinculado" vs. "—" (`_eventFieldText`/
+  `NO_EVENT_TEXT`): como a linha some quando vazia, a diferenciação textual
+  deixou de ser necessária — o título da sessão continua com o fallback
+  "Sessão sem compromisso" para o caso de sessão avulsa sem contexto.
+- `tests/views/studySessionView.test.js` — testes atualizados para a nova
+  expectativa (linha oculta em vez de rótulo/traço) e um teste novo cobrindo
+  o disclosure "Mais detalhes".
+
 ## [Unreleased] — Modal de configuração pré-início da Sessão de Estudo
 
 Corrige o único ponto de entrada do fluxo "Sessão de Estudo" ("Iniciar sessão
