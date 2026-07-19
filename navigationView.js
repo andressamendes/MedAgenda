@@ -13,7 +13,11 @@ import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.
 // pelo link "Ver progresso completo →" dentro do Dashboard, de propósito sem
 // item próprio na sidebar/bottom nav (evita reintroduzir o excesso de
 // destinos que a F13.2 já removeu de lá).
-const APP_PAGES = ['agenda', 'appointments', 'study-session', 'journal', 'dashboard', 'progress'];
+// 'today' (F14.1) — nova porta de entrada (ver todayView.js): primeiro item
+// da lista, novo destino padrão de showPage()/restoreLastPage() (ver abaixo)
+// e novo fallback para qualquer nome de página inválido/removido, no lugar de
+// 'agenda'.
+const APP_PAGES = ['today', 'agenda', 'appointments', 'study-session', 'journal', 'dashboard', 'progress'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 
@@ -21,6 +25,7 @@ const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 // inúteis para uma SPA com várias páginas (auditoria #15). Rótulos abaixo
 // espelham os mesmos nomes canônicos usados na sidebar/bottom nav.
 const PAGE_TITLES = {
+  today:           'Hoje',
   agenda:          'Agenda',
   appointments:    'Compromissos',
   'study-session': 'Sessão',
@@ -88,7 +93,7 @@ export function restoreSidebarState() {
 }
 
 export function showPage(name) {
-  if (!APP_PAGES.includes(name)) name = 'agenda';
+  if (!APP_PAGES.includes(name)) name = 'today';
 
   APP_PAGES.forEach(p => {
     const el = document.getElementById(`page-${p}`);
@@ -123,9 +128,9 @@ export function showPage(name) {
 export function restoreLastPage() {
   try {
     const saved = localStorage.getItem(LAST_PAGE_KEY);
-    showPage(saved || 'agenda');
+    showPage(saved || 'today');
   } catch {
-    showPage('agenda');
+    showPage('today');
   }
 }
 

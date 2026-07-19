@@ -1757,6 +1757,62 @@ textarea { resize: vertical; }
   margin: 0 0 .6rem;
 }
 
+/* ── Tela "Hoje" (F14.1) — porta de entrada do app ──
+   Botão primário único ("Começar a estudar"/"Continuar sessão em
+   andamento"), com "Continuar: {último estudo}" como ação secundária — nunca
+   os três ao mesmo tempo (ver todayView.js/_refreshHero). */
+.today-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .6rem;
+  margin: 1rem 0 1.6rem;
+}
+
+.today-cta {
+  min-width: 220px;
+}
+
+.today-section-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--gray-700);
+  margin: 0 0 .6rem;
+}
+
+.today-appointments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.today-appt-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .6rem .8rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.today-appt-time {
+  font-weight: 600;
+  color: var(--gray-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.today-appt-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Central de Insights (F2.4) ── */
 .insights-block + .insights-block {
   margin-top: 1.6rem;

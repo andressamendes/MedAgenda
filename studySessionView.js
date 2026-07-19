@@ -1260,6 +1260,17 @@ export async function initStudySessionView() {
   return !!_session;
 }
 
+/**
+ * Abre o modal de início de sessão avulsa (F14.1 — botão "Começar a
+ * estudar" da tela "Hoje"). Mesmo modal/guarda de "Iniciar sessão" nesta
+ * própria tela (_openStartModal já não faz nada se houver sessão em
+ * andamento ou uma ação em curso); só é exportado para que outra tela possa
+ * disparar o mesmo fluxo sem duplicar o modal.
+ */
+export function openStartModal() {
+  return _openStartModal();
+}
+
 // Mostra o diálogo de decisão (F7.9) e aplica exatamente a escolha do
 // usuário — "continuar" não faz nenhuma chamada (a sessão restaurada já está
 // na tela, intocada); "finalizar"/"cancelar" chamam só o service de domínio
