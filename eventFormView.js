@@ -336,6 +336,21 @@ export function openEventForm(ev) {
   modal?.open(fTitle);
 }
 
+/**
+ * Abre o formulário completo já preenchido com o que foi digitado no
+ * QuickAdd (F11 E16, auditoria #20) — "Mais opções" a partir do QuickAdd.
+ * Continua um cadastro NOVO (nunca uma edição): _clearForm() já cobre
+ * todo o resto do estado (categoria, lembrete, recorrência etc.), só os três
+ * campos já preenchidos no QuickAdd são sobrescritos por cima do reset.
+ */
+export function openEventFormPrefilled({ title = "", event_date = "", start_time = "" } = {}) {
+  _clearForm();
+  fTitle.value = title;
+  fDate.value  = event_date;
+  fStart.value = start_time;
+  modal?.open(fDuration);
+}
+
 function _closeEventModal() {
   modal?.close();
 }
