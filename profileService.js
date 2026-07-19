@@ -46,6 +46,8 @@ export async function upsertProfile(fields) {
     'semester', 'timezone', 'notification_enabled', 'theme',
     // Metas de Tempo (F2.2) — ver sql/12_time_goals.sql.
     'daily_goal_minutes', 'weekly_goal_minutes', 'monthly_goal_minutes',
+    // Fechar o dia (F14.8) — ver sql/22_next_study_plan.sql.
+    'next_study_title', 'next_study_category_id',
   ];
   const payload = { id };
   for (const key of allowed) {

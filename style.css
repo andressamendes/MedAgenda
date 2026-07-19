@@ -1832,6 +1832,16 @@ textarea { resize: vertical; }
   margin-top: 1.6rem;
 }
 
+/* ── Fechar o dia (F14.8) ──
+   Ação de saída discreta — não compete com "Começar a estudar" nem com os
+   compromissos/números acima; fica ao final da página, centralizada, como o
+   último gesto do dia. */
+.today-close-day {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
 /* ── Progresso narrativo (F14.5) ──
    Substitui a leitura de grades de stat-cards por 2-3 frases interpretadas
    (auditoria F14 §10, modelo Apple Health): tipografia maior que o resto do

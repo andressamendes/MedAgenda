@@ -357,6 +357,14 @@
             <p id="dash-error-today" class="list-empty list-error" hidden></p>
             <div id="dash-cards-today" class="stat-cards" hidden></div>
           </section>
+
+          <!-- F14.8 — desfecho do dia: só faz sentido sem uma sessão em
+               andamento (mesma condição de today-btn-start/continue, ver
+               todayView.js/_refreshHero). Abre um recap de 15 segundos, não
+               um relatório — ver #close-day-modal e todayView.js. -->
+          <div class="today-close-day">
+            <button type="button" id="today-btn-close-day" class="btn btn-ghost">Fechar o dia</button>
+          </div>
         </div>
 
         <!-- Page: Agenda (Semana/Mês) —
@@ -1014,6 +1022,49 @@
       </button>
     </nav>
 
+  </div>
+
+  <!-- ── Modal: Fechar o dia (F14.8) ──────────────────────────────────────
+       Recap de 15 segundos (tempo, sessões, questões, sequência — nenhum
+       cálculo novo, ver closeDayService.getDayRecap()) + um único campo
+       opcional para o primeiro estudo de amanhã, que reaparece como chip no
+       próximo início de sessão (studySessionView.js/_loadStartSuggestions). -->
+  <div id="close-day-modal" class="modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="close-day-title">
+    <div class="modal-card modal-session">
+      <div class="modal-header">
+        <h2 class="modal-title" id="close-day-title">Fechar o dia</h2>
+      </div>
+      <div class="modal-body">
+        <dl class="ss-context" id="close-day-recap">
+          <div class="ss-context-row">
+            <dt>Tempo estudado hoje</dt>
+            <dd id="cd-minutes">—</dd>
+          </div>
+          <div class="ss-context-row">
+            <dt>Sessões concluídas</dt>
+            <dd id="cd-sessions">—</dd>
+          </div>
+          <div class="ss-context-row">
+            <dt>Questões registradas</dt>
+            <dd id="cd-questions">—</dd>
+          </div>
+          <div class="ss-context-row">
+            <dt>Sequência de dias</dt>
+            <dd id="cd-streak">—</dd>
+          </div>
+        </dl>
+
+        <div class="field">
+          <label for="cd-next-study">O que você vai estudar amanhã? (opcional)</label>
+          <input type="text" id="cd-next-study" placeholder="Ex.: Cardiologia" maxlength="120">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost"   id="cd-btn-back">Voltar</button>
+        <button type="button" class="btn btn-primary" id="cd-btn-confirm">Fechar o dia</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Modal: Novo / Editar compromisso ── -->

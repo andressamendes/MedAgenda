@@ -31,6 +31,7 @@ const EVENT_SERVICE_SPECIFIER    = new URL("../../eventService.js", import.meta.
 const CATEGORY_SERVICE_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
 const CONFIRM_DIALOG_SPECIFIER   = new URL("../../confirmDialog.js", import.meta.url).href;
 const ABANDONED_DIALOG_SPECIFIER = new URL("../../abandonedSessionDialog.js", import.meta.url).href;
+const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 
 function loadStudySessionView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -156,12 +157,25 @@ function loadStudySessionView(t, overrides = {}) {
     },
   });
 
+  // F14.8 — o chip "Amanhã: {título}" (_loadStartSuggestions) lê/consome o
+  // plano gravado por "Fechar o dia"; sem histórico nenhum por padrão, o
+  // mesmo padrão vazio de todo o resto deste mock.
+  const clearNextStudyPlanCalls = [];
+  t.mock.module(CLOSE_DAY_SPECIFIER, {
+    namedExports: {
+      getNextStudyPlan: overrides.getNextStudyPlan ?? (async () => null),
+      clearNextStudyPlan: overrides.clearNextStudyPlan ?? (async () => {
+        clearNextStudyPlanCalls.push(true);
+      }),
+    },
+  });
+
   return import(`../../studySessionView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls, confirmDialogCalls, abandonedDialogCalls,
       addQuestionCalls, updateQuestionCalls, removeQuestionCalls, listQuestionsCalls,
       createReviewCalls, associateReviewCalls, unlinkReviewCalls, listSessionReviewsCalls,
-      saveReflectionCalls,
+      saveReflectionCalls, clearNextStudyPlanCalls,
     }));
 }
 
@@ -456,6 +470,48 @@ test("F14.2 — the 'Compromisso da agenda' tab stays visible when at least one 
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ss-start-tab-event").hidden, false);
+});
+
+// F14.8 — o plano de "amanhã" gravado por "Fechar o dia" (todayView.js)
+// reaparece aqui como o primeiro chip, à frente dos títulos recentes, e é
+// consumido (clearNextStudyPlan()) assim que usado.
+test("F14.8 — a saved 'tomorrow' plan shows as the first chip and clicking it fills the form and clears the plan", async (t) => {
+  const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
+    getNextStudyPlan: async () => ({ title: "Cardiologia", category_id: "cat-1" }),
+    getCategories: async () => [{ id: "cat-1", name: "Cardiologia" }],
+    listSessions: async () => ({
+      sessions: [{ id: "s1", title: "Anatomia do coração", category_id: null, event_id: null }],
+    }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const chips = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")];
+  assert.deepStrictEqual(chips.map(c => c.textContent), ["Amanhã: Cardiologia", "Anatomia do coração"]);
+
+  chips[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-start-title-input").value, "Cardiologia");
+  assert.strictEqual(document.getElementById("ss-start-category").value, "cat-1");
+  assert.strictEqual(clearNextStudyPlanCalls.length, 1);
+});
+
+test("F14.8 — with no plan saved, no 'Amanhã' chip is rendered and the plan is never cleared", async (t) => {
+  const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
+    listSessions: async () => ({
+      sessions: [{ id: "s1", title: "Anatomia do coração", category_id: null, event_id: null }],
+    }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const labels = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")].map(c => c.textContent);
+  assert.ok(!labels.some(l => l.startsWith("Amanhã:")));
+  assert.strictEqual(clearNextStudyPlanCalls.length, 0);
 });
 
 test("executando: only Pausar and Finalizar are shown — never Continuar/Cancelar", async (t) => {

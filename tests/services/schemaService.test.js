@@ -21,7 +21,7 @@ function loadSchemaService(t, tableResponses) {
 
 test("diagnoseSchema() — banco na versão esperada é compatível", async (t) => {
   const { mod } = await loadSchemaService(t, {
-    schema_version: { data: { version: 21 }, error: null },
+    schema_version: { data: { version: 22 }, error: null },
   });
 
   const diagnosis = await mod.diagnoseSchema();
@@ -93,7 +93,7 @@ test("getSchemaVersion() — retorna null quando não há linha (data null, sem 
 
 test("assertSchemaCompatible() — resolve silenciosamente quando compatível", async (t) => {
   const { mod } = await loadSchemaService(t, {
-    schema_version: { data: { version: 21 }, error: null },
+    schema_version: { data: { version: 22 }, error: null },
   });
 
   await assert.doesNotReject(() => mod.assertSchemaCompatible());

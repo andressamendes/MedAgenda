@@ -40,6 +40,7 @@ const APP_SHELL = [
   './calendar.js',
   './categoryService.js',
   './categoryView.js',
+  './closeDayService.js',
   './config/ai.js',
   './confirmDialog.js',
   './decisionEngine.js',

@@ -40,7 +40,10 @@ export const REQUIRED_TABLES = [
 // tabela existe (o caso concreto de 12_time_goals.sql: profiles já existia,
 // só faltavam as colunas de meta de tempo que o Dashboard de Execução lê).
 export const REQUIRED_COLUMNS = {
-  profiles: ['daily_goal_minutes', 'weekly_goal_minutes', 'monthly_goal_minutes'],
+  profiles: [
+    'daily_goal_minutes', 'weekly_goal_minutes', 'monthly_goal_minutes',
+    'next_study_title', 'next_study_category_id',
+  ],
 };
 
 /** Lê EXPECTED_SCHEMA_VERSION do código-fonte de schemaService.js (nunca importa o módulo — ele depende do SDK do Supabase via CDN, inutilizável em Node puro). */

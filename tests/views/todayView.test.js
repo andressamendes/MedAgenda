@@ -29,17 +29,20 @@ const STUDY_SESSION_SPECIFIER    = new URL("../../studySessionView.js", import.m
 const NAVIGATION_SPECIFIER       = new URL("../../navigationView.js", import.meta.url).href;
 const DECISION_ENGINE_SPECIFIER  = new URL("../../decisionEngine.js", import.meta.url).href;
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
+const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 
 let showPageCalls;
 let startSessionForEventCalls;
 let openStartModalCalls;
 let startSessionCalls;
+let setNextStudyPlanCalls;
 
 function loadView(t, overrides = {}) {
   showPageCalls = [];
   startSessionForEventCalls = [];
   openStartModalCalls = [];
   startSessionCalls = [];
+  setNextStudyPlanCalls = [];
 
   t.mock.module(ERROR_SERVICE_SPECIFIER, {
     namedExports: { handleError: (err) => ({ category: "unknown", friendly: err?.message }) },
@@ -76,6 +79,12 @@ function loadView(t, overrides = {}) {
     namedExports: {
       getDecisions: overrides.getDecisions ?? (async () => ({ decisions: [], planning: [] })),
       filterSpontaneousDecisions,
+    },
+  });
+  t.mock.module(CLOSE_DAY_SPECIFIER, {
+    namedExports: {
+      getDayRecap: overrides.getDayRecap ?? (async () => ({ minutes: 0, sessionsCount: 0, questionsCount: 0, currentStreak: 0 })),
+      setNextStudyPlan: overrides.setNextStudyPlan ?? (async (fields) => { setNextStudyPlanCalls.push(fields); }),
     },
   });
 
@@ -287,4 +296,63 @@ test("initTodayView() called twice never registers duplicate click listeners", a
   document.getElementById("today-btn-start").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(openStartModalCalls.length, 1, "a second init must not double-bind the click listener");
+});
+
+// ── Fechar o dia (F14.8) ──────────────────────────────────────────────────
+
+test("F14.8 — 'Fechar o dia' is hidden while a session is active", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getActiveSession: async () => ({ id: "s1", status: "running" }),
+  });
+  await initTodayView();
+
+  assert.strictEqual(document.getElementById("today-btn-close-day").hidden, true);
+});
+
+test("F14.8 — 'Fechar o dia' is visible with no active session, and opens the recap modal filled from getDayRecap()", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDayRecap: async () => ({ minutes: 90, sessionsCount: 2, questionsCount: 12, currentStreak: 3 }),
+  });
+  await initTodayView();
+
+  const btn = document.getElementById("today-btn-close-day");
+  assert.strictEqual(btn.hidden, false);
+
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("close-day-modal").hidden, false);
+  assert.strictEqual(document.getElementById("cd-minutes").textContent, "1h 30min");
+  assert.strictEqual(document.getElementById("cd-sessions").textContent, "2");
+  assert.strictEqual(document.getElementById("cd-questions").textContent, "12");
+  assert.strictEqual(document.getElementById("cd-streak").textContent, "3 dias");
+});
+
+test("F14.8 — confirming 'Fechar o dia' saves the optional plan for tomorrow and closes the modal", async (t) => {
+  const { initTodayView } = await loadView(t);
+  await initTodayView();
+
+  document.getElementById("today-btn-close-day").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("cd-next-study").value = "Cardiologia";
+  document.getElementById("cd-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(setNextStudyPlanCalls, [{ title: "Cardiologia" }]);
+  assert.strictEqual(document.getElementById("close-day-modal").hidden, true);
+});
+
+test("F14.8 — confirming 'Fechar o dia' with an empty plan field still closes the day", async (t) => {
+  const { initTodayView } = await loadView(t);
+  await initTodayView();
+
+  document.getElementById("today-btn-close-day").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("cd-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(setNextStudyPlanCalls, [{ title: "" }]);
+  assert.strictEqual(document.getElementById("close-day-modal").hidden, true);
 });
