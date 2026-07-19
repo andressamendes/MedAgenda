@@ -55,6 +55,7 @@ test("banco em versão de schema antiga (migrations pendentes): a cadeia real sc
   const { errorToState, renderStateBlock, STATES } = await import(`../../stateView.js?t=${Math.random()}`);
 
   let reloaded = false;
+  let container = null;
 
   // Simula _checkSchemaGate() de script.js: nunca deixa a exceção escapar
   // sem antes render a tela dedicada — Dashboard/Insights/Histórico/IA/
@@ -67,7 +68,7 @@ test("banco em versão de schema antiga (migrations pendentes): a cadeia real sc
       return true;
     } catch (err) {
       const { category, friendly } = handleError(err, { context: "initApp.schemaCheck", silent: true });
-      const container = document.createElement("div");
+      container = document.createElement("div");
       renderStateBlock(container, {
         ...errorToState({ category, friendly }),
         onRetry: () => { reloaded = true; },
@@ -82,13 +83,13 @@ test("banco em versão de schema antiga (migrations pendentes): a cadeia real sc
   assert.strictEqual(proceeded, false);
   assert.strictEqual(dashboardInitialized, false, "Dashboard/Insights/Histórico/IA/Sessões nunca devem inicializar com schema incompatível");
 
-  const title = document.querySelector(".state-block-title").textContent;
-  const desc  = document.querySelector(".state-block-desc").textContent;
+  const title = container.querySelector(".state-block-title").textContent;
+  const desc  = container.querySelector(".state-block-desc").textContent;
   assert.strictEqual(title, "Banco de dados desatualizado");
   assert.strictEqual(desc, "Esta versão do sistema requer uma atualização do banco de dados antes de poder ser utilizada.");
   assert.notStrictEqual(title, "Erro ao comunicar com o servidor");
 
-  const btn = document.querySelector(".state-block-action");
+  const btn = container.querySelector(".state-block-action");
   assert.strictEqual(btn.textContent, "Recarregar");
   btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(reloaded, true);
@@ -117,16 +118,17 @@ test("banco sem a tabela schema_version (cenário do incidente original: migrati
   const { errorToState, renderStateBlock } = await import(`../../stateView.js?t=${Math.random()}`);
 
   let dashboardInitialized = false;
+  let container = null;
   try {
     await assertSchemaCompatible();
     dashboardInitialized = true;
   } catch (err) {
     const { category, friendly } = handleError(err, { silent: true });
-    const container = document.createElement("div");
+    container = document.createElement("div");
     renderStateBlock(container, { ...errorToState({ category, friendly }) });
     document.body.appendChild(container);
   }
 
   assert.strictEqual(dashboardInitialized, false);
-  assert.strictEqual(document.querySelector(".state-block-title").textContent, "Banco de dados desatualizado");
+  assert.strictEqual(container.querySelector(".state-block-title").textContent, "Banco de dados desatualizado");
 });
