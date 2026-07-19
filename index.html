@@ -222,6 +222,12 @@
           <span class="active-session-chip-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
           <span id="active-session-chip-time" class="active-session-chip-time"></span>
         </button>
+        <!-- F13.2 — "Assistente IA" abre um painel (não troca de página), então
+             vive como ação de header, não como item da sidebar: a lista
+             principal de navegação passa a conter só destinos reais. -->
+        <button type="button" id="nav-ai-assistant" class="btn-icon" title="Assistente IA" aria-label="Assistente IA">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" focusable="false"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+        </button>
         <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar</button>
         <div class="user-menu-wrap" id="user-menu-wrap">
           <button id="btn-user-menu" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
@@ -252,26 +258,29 @@
 
         <!-- Primary nav -->
         <div class="sidebar-nav-group">
-          <!-- F10 #4.1: Semana e Mês eram dois destinos de navegação
-               separados para o mesmo dado (compromissos), cada um com sua
-               própria página — agora é um único destino "Agenda", com
-               Semana/Mês como abas de visualização dentro da mesma página
-               (ver #agenda-view-tabs em page-agenda). -->
-          <button class="nav-item nav-item--active" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
-            <span class="nav-label">Agenda</span>
-          </button>
-          <button class="nav-item" data-page="appointments" title="Atalho: G C" aria-keyshortcuts="g c">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
-            <span class="nav-label">Compromissos</span>
-          </button>
+          <!-- F13.2 — Agenda e Compromissos são duas visões do mesmo dado
+               (compromissos): a primeira em calendário, a segunda em lista.
+               Agrupadas sob um rótulo visual comum para deixar esse
+               parentesco claro, sem fundir as duas páginas. -->
+          <div class="sidebar-nav-subgroup">
+            <span class="sidebar-group-label">Compromissos</span>
+            <!-- F10 #4.1: Semana e Mês eram dois destinos de navegação
+                 separados para o mesmo dado (compromissos), cada um com sua
+                 própria página — agora é um único destino "Agenda", com
+                 Semana/Mês como abas de visualização dentro da mesma página
+                 (ver #agenda-view-tabs em page-agenda). -->
+            <button class="nav-item nav-item--active" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
+              <span class="nav-label">Agenda</span>
+            </button>
+            <button class="nav-item" data-page="appointments" title="Atalho: G C" aria-keyshortcuts="g c">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
+              <span class="nav-label">Compromissos</span>
+            </button>
+          </div>
           <button class="nav-item" data-page="study-session" title="Atalho: G S" aria-keyshortcuts="g s">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
             <span class="nav-label">Sessão</span>
-          </button>
-          <button class="nav-item" id="nav-ai-assistant">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" focusable="false"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg></span>
-            <span class="nav-label">Assistente IA</span>
           </button>
         </div>
 

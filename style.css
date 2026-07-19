@@ -568,6 +568,19 @@ body {
   letter-spacing: .05em;
 }
 
+/* F13.2 — Agenda e Compromissos são duas visões do mesmo dado; o subgrupo
+   reaproveita .sidebar-group-label para deixar esse parentesco visível sem
+   fundir as duas páginas em uma só. */
+.sidebar-nav-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.app-sidebar.sidebar-collapsed .sidebar-nav-subgroup .sidebar-group-label {
+  display: none;
+}
+
 /* ── Nav items ── */
 .nav-item {
   display: flex;
