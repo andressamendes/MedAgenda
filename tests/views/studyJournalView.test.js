@@ -1650,3 +1650,45 @@ test("F10 #4.2 — resetStudyJournalView() resets the status tab back to 'Conclu
   assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
   assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
 });
+
+// F11 E21 (auditoria #30) — a aba escolhida sobrevive a um reload da página
+// (mesma sessão de navegador, mesmo localStorage).
+test("F11 E21 — the chosen status tab survives a reload, restored from localStorage", async (t) => {
+  const { mod: firstLoad } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await firstLoad.initStudyJournalView();
+
+  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(localStorage.getItem("medagenda_journal_status_tab"), "cancelled");
+
+  // Simula um reload: reimporta o módulo do zero (mesmos mocks já
+  // registrados por loadView() acima, t.mock.module() não pode ser chamado
+  // duas vezes para o mesmo especificador), mesmo documento/localStorage.
+  const secondLoad = await import(`../../studyJournalView.js?t=${Math.random()}`);
+  await secondLoad.initStudyJournalView();
+
+  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]').classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
+  assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
+});
+
+test("F11 E21 — with nothing persisted yet, the status tab defaults to 'Concluídas'", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
+});
+
+test("F11 E21 — a corrupted/unexpected persisted value falls back to 'Concluídas', never crashing", async (t) => {
+  localStorage.setItem("medagenda_journal_status_tab", "not-a-real-status");
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+
+  await assert.doesNotReject(() => mod.initStudyJournalView());
+  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
+});

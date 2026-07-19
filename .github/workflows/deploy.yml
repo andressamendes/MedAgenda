@@ -63,6 +63,13 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npm run check:schema
 
+      # F11 E21 — remove comentários internos de index.html só nesta cópia
+      # efêmera do runner, depois de todas as checagens acima já terem
+      # passado; o repositório (e o index.html com comentários, útil para
+      # quem desenvolve) nunca é alterado.
+      - name: Strip internal comments from index.html (production build)
+        run: node scripts/strip-html-comments.js index.html
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
