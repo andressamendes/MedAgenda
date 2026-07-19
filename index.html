@@ -483,20 +483,33 @@
 
             <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa não será contabilizado na duração final.</p>
 
+            <!-- F13.1 — só o essencial fica visível por padrão (Compromisso,
+                 Categoria); linhas sem valor são ocultadas em vez de mostrar
+                 "—". O resto do contexto (Conteúdo/Data/Horário de início/
+                 Tempo previsto) fica atrás do mesmo padrão de disclosure já
+                 usado no restante do app — reduz o card de sessão ativa sem
+                 remover nenhum dado. -->
             <dl class="ss-context">
               <div class="ss-context-row">
                 <dt>Compromisso</dt>
                 <dd id="ss-event-title">—</dd>
               </div>
-              <div class="ss-context-row">
+              <div class="ss-context-row" id="ss-category-row">
                 <dt>Categoria</dt>
                 <dd id="ss-category">—</dd>
               </div>
-              <div class="ss-context-row">
+            </dl>
+
+            <div class="ss-collapsible-header ss-context-more-header">
+              <h3 class="ss-questions-title">Mais detalhes</h3>
+              <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-context-more-toggle" aria-expanded="false" aria-controls="ss-context-more"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+            </div>
+            <dl class="ss-context ss-context-more" id="ss-context-more" hidden>
+              <div class="ss-context-row" id="ss-content-row">
                 <dt>Conteúdo</dt>
                 <dd id="ss-content">—</dd>
               </div>
-              <div class="ss-context-row">
+              <div class="ss-context-row" id="ss-date-row">
                 <dt>Data</dt>
                 <dd id="ss-date">—</dd>
               </div>
@@ -504,7 +517,7 @@
                 <dt>Horário de início</dt>
                 <dd id="ss-started-at">—</dd>
               </div>
-              <div class="ss-context-row">
+              <div class="ss-context-row" id="ss-expected-duration-row">
                 <dt>Tempo previsto</dt>
                 <dd id="ss-expected-duration">—</dd>
               </div>

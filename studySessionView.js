@@ -80,7 +80,14 @@ let _startEventsCache = [];
 
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
+let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
 let btnPause, btnResume, btnCancel, btnFinish;
+
+// F13.1 — só Compromisso/Categoria ficam sempre visíveis no contexto da
+// sessão ativa; o resto (Conteúdo/Data/Horário de início/Tempo previsto)
+// entra atrás do mesmo disclosure "Mostrar"/"Ocultar" já usado em
+// Questões/Revisões logo abaixo, nascendo fechado a cada sessão nova.
+let ctxMoreToggleEl, ctxMoreBodyEl;
 
 // Painel de Contexto (F7.6) — barra de progresso temporal (só quando o
 // compromisso tem tempo previsto). Nenhum cálculo novo: os mesmos valores
@@ -88,8 +95,6 @@ let btnPause, btnResume, btnCancel, btnFinish;
 // rápidos" e a linha "Status" do contexto foram removidos na auditoria UX
 // #07 — repetiam badge/timer/painel na mesma tela.
 let progressEl, progressBarEl, progressTextEl;
-
-const NO_EVENT_TEXT = "Sem compromisso vinculado";
 
 // Modal de encerramento (F7.3) — resumo somente leitura + confirmação, entre
 // clicar em "Finalizar" e de fato chamar activitySessionService.finishSession().
@@ -166,6 +171,13 @@ function _queryElements() {
   dateEl               = document.getElementById("ss-date");
   startedAtEl          = document.getElementById("ss-started-at");
   expectedDurationEl   = document.getElementById("ss-expected-duration");
+
+  categoryRowEl          = document.getElementById("ss-category-row");
+  contentRowEl           = document.getElementById("ss-content-row");
+  dateRowEl              = document.getElementById("ss-date-row");
+  expectedDurationRowEl  = document.getElementById("ss-expected-duration-row");
+  ctxMoreToggleEl        = document.getElementById("ss-context-more-toggle");
+  ctxMoreBodyEl          = document.getElementById("ss-context-more");
 
   progressEl      = document.getElementById("ss-progress");
   progressBarEl   = document.getElementById("ss-progress-bar");
@@ -274,6 +286,7 @@ function _bindEvents() {
 
   sqToggleEl.addEventListener("click", () => _setSectionExpanded(sqToggleEl, sqBodyEl, sqBodyEl.hidden));
   srToggleEl.addEventListener("click", () => _setSectionExpanded(srToggleEl, srBodyEl, srBodyEl.hidden));
+  ctxMoreToggleEl.addEventListener("click", () => _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, ctxMoreBodyEl.hidden));
   sqBtnAdd.addEventListener("click", () => _submitQuestionForm());
   sqBtnQuick.addEventListener("click", () => _quickAddQuestion());
   srBtnAssociate.addEventListener("click", () => _associateExistingReview());
@@ -326,15 +339,6 @@ function _formatEventDate(dateStr) {
   if (!dateStr) return null;
   const d = localDate(dateStr);
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-
-// Campos que só existem quando a sessão tem contexto (compromisso vinculado
-// OU um nome de estudo digitado no modal de pré-início) — só a sessão avulsa
-// do formato antigo (sem event_id e sem título, _eventMeta null) mostra o
-// aviso explícito em vez do "—" ambíguo (F7.6, escopo 4).
-function _eventFieldText(value) {
-  if (value) return value;
-  return _eventMeta ? "—" : NO_EVENT_TEXT;
 }
 
 // O tempo exibido é sempre recalculado a partir de started_at (o banco é a
@@ -406,11 +410,22 @@ function _render() {
   pauseNoteEl.hidden = status !== "paused";
 
   titleEl.textContent    = _eventMeta?.title || "Sessão sem compromisso";
-  categoryEl.textContent = _eventFieldText(_eventMeta?.category);
-  contentEl.textContent  = _eventFieldText(_eventMeta?.description);
-  dateEl.textContent      = _eventFieldText(_formatEventDate(_eventMeta?.event_date));
+
+  // F13.1 — cada linha de contexto só existe quando há valor real; nenhuma
+  // volta a mostrar "—" (auditoria F11 #27 / F12 item 5).
+  categoryRowEl.hidden = !_eventMeta?.category;
+  categoryEl.textContent = _eventMeta?.category || "";
+
+  contentRowEl.hidden = !_eventMeta?.description;
+  contentEl.textContent = _eventMeta?.description || "";
+
+  dateRowEl.hidden = !_eventMeta?.event_date;
+  dateEl.textContent = _formatEventDate(_eventMeta?.event_date) || "";
+
   startedAtEl.textContent = _formatClockTime(_session.started_at);
-  expectedDurationEl.textContent = _formatExpectedDuration(_eventMeta?.duration_minutes);
+
+  expectedDurationRowEl.hidden = !_eventMeta?.duration_minutes;
+  expectedDurationEl.textContent = _eventMeta?.duration_minutes ? _formatExpectedDuration(_eventMeta.duration_minutes) : "";
 
   if (status === "running") {
     _startTicking();
@@ -439,7 +454,8 @@ function _applySession(session) {
 // planned_duration_minutes, sql/21_activity_sessions_standalone_fields.sql)
 // quando o usuário escolheu "Novo estudo" no modal de pré-início em vez de um
 // compromisso. Sem nenhuma das duas (sessão avulsa do formato antigo, sem
-// nome digitado), retorna null — o mesmo "Sem compromisso vinculado" de antes.
+// nome digitado), retorna null — o título cai no fallback "Sessão sem
+// compromisso" e as demais linhas de contexto ficam ocultas (F13.1).
 async function _resolveEventMeta(session) {
   if (session?.event_id) {
     try {
@@ -692,6 +708,7 @@ function _syncSessionQuestionsAndReviews() {
   srDateEl.value = "";
   _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
   _setSectionExpanded(srToggleEl, srBodyEl, false);
+  _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
 
   if (!_session) {
     _sessionQuestions = [];
@@ -1295,5 +1312,8 @@ export function resetStudySessionView() {
   if (srToggleEl) _setSectionExpanded(srToggleEl, srBodyEl, false);
   if (sqFormEl) _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
   if (srFormEl) _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
+  if (ctxMoreToggleEl) _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
+  if (categoryRowEl) categoryRowEl.hidden = false;
+  [contentRowEl, dateRowEl, expectedDurationRowEl].forEach(row => { if (row) row.hidden = false; });
   if (srDateEl) srDateEl.value = "";
 }
