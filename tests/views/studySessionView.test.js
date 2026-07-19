@@ -10,7 +10,11 @@
  * active/paused session card (#ss-active) and are persisted immediately via
  * sessionQuestionsService.js/reviewService.js/reviewSessionService.js —
  * nothing is "pending" anymore. The finish modal (#ss-finish-modal) now only
- * shows a read-only recap plus the Observações field.
+ * shows a read-only recap plus a single reflection field.
+ *
+ * F14.3: that field ("O que ficou desta sessão?") no longer writes to
+ * activity_sessions.notes — it saves via studyReflectionService.saveReflection(),
+ * the same domain the Diário de Estudos already reads/writes.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -21,6 +25,7 @@ const SERVICE_SPECIFIER          = new URL("../../activitySessionService.js", im
 const QUESTIONS_SERVICE_SPECIFIER = new URL("../../sessionQuestionsService.js", import.meta.url).href;
 const REVIEW_SERVICE_SPECIFIER            = new URL("../../reviewService.js", import.meta.url).href;
 const REVIEW_SESSION_SERVICE_SPECIFIER    = new URL("../../reviewSessionService.js", import.meta.url).href;
+const REFLECTION_SERVICE_SPECIFIER        = new URL("../../studyReflectionService.js", import.meta.url).href;
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const EVENT_SERVICE_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
 const CATEGORY_SERVICE_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
@@ -111,6 +116,16 @@ function loadStudySessionView(t, overrides = {}) {
     },
   });
 
+  const saveReflectionCalls = [];
+  t.mock.module(REFLECTION_SERVICE_SPECIFIER, {
+    namedExports: {
+      saveReflection: overrides.saveReflection ?? (async (sessionId, content) => {
+        saveReflectionCalls.push({ sessionId, content });
+        return { session_id: sessionId, content };
+      }),
+    },
+  });
+
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
       getEventById: overrides.getEventById ?? (async () => null),
@@ -146,6 +161,7 @@ function loadStudySessionView(t, overrides = {}) {
       mod, handleErrorCalls, confirmDialogCalls, abandonedDialogCalls,
       addQuestionCalls, updateQuestionCalls, removeQuestionCalls, listQuestionsCalls,
       createReviewCalls, associateReviewCalls, unlinkReviewCalls, listSessionReviewsCalls,
+      saveReflectionCalls,
     }));
 }
 
@@ -636,7 +652,7 @@ test("the summary modal shows the session's read-only data, sourced from the exi
   assert.strictEqual(document.getElementById("ssf-total-duration"), null);
 });
 
-test("the summary modal has an Observações field and no add-question form (nor the removed read-only recap)", async (t) => {
+test("the summary modal has a reflection field and no add-question form (nor the removed read-only recap)", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
   });
@@ -645,7 +661,7 @@ test("the summary modal has an Observações field and no add-question form (nor
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.ok(document.getElementById("ssf-notes"), "observações textarea must exist");
+  assert.ok(document.getElementById("ssf-reflection"), "reflection textarea must exist");
   // F10 PR9 — o recap textual ssf-recap-questions/ssf-recap-reviews foi
   // removido: repetia, em prosa, a mesma contagem já visível no título das
   // seções de Questões/Revisões na tela ativa.
@@ -1098,7 +1114,7 @@ test("confirming the finish modal closes it, shows a success toast, and navigate
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-notes").value = "Revisar arritmias amanhã.";
+  document.getElementById("ssf-reflection").value = "Revisar arritmias amanhã.";
 
   document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
@@ -1113,23 +1129,50 @@ test("confirming the finish modal closes it, shows a success toast, and navigate
   assert.strictEqual(document.getElementById("page-journal").hidden, false, "navigates straight to the Diário");
 });
 
-test("finishSession() receives the typed notes so they end up persisted in activity_sessions.notes", async (t) => {
+// F14.3 — a reflexão digitada no encerramento grava direto em
+// studyReflectionService (o mesmo domínio lido/escrito pelo Diário de
+// Estudos), não mais em activity_sessions.notes: a distinção
+// Observações×Reflexão deixa de ser exposta neste modal.
+test("finishSession() no longer receives notes; the typed text is saved via studyReflectionService.saveReflection() instead", async (t) => {
   const finishCalls = [];
+  const saveReflectionCalls = [];
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
-    finishSession: async (id, endedAt, notes) => { finishCalls.push({ id, notes }); return { id, status: "finished" }; },
+    finishSession: async (id, endedAt) => { finishCalls.push({ id, endedAt }); return { id, status: "finished" }; },
+    saveReflection: async (sessionId, content) => { saveReflectionCalls.push({ sessionId, content }); return { session_id: sessionId, content }; },
   });
   await mod.initStudySessionView();
 
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  document.getElementById("ssf-notes").value = "Revisar arritmias amanhã.";
+  document.getElementById("ssf-reflection").value = "Revisar arritmias amanhã.";
   document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(finishCalls.length, 1);
-  assert.strictEqual(finishCalls[0].notes, "Revisar arritmias amanhã.");
+  assert.strictEqual(finishCalls[0].id, "sess-1");
+  assert.strictEqual(saveReflectionCalls.length, 1);
+  assert.strictEqual(saveReflectionCalls[0].sessionId, "sess-1");
+  assert.strictEqual(saveReflectionCalls[0].content, "Revisar arritmias amanhã.");
+});
+
+test("leaving the reflection field blank never calls studyReflectionService.saveReflection()", async (t) => {
+  const saveReflectionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id) => ({ id, status: "finished" }),
+    saveReflection: async (sessionId, content) => { saveReflectionCalls.push({ sessionId, content }); return { session_id: sessionId, content }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(saveReflectionCalls.length, 0);
 });
 
 test("clicking Voltar (cancelling the finish flow) never finishes the session or navigates away", async (t) => {

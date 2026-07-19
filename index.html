@@ -739,8 +739,8 @@
                   </div>
                 </dl>
 
-                <label for="ssf-notes" class="ss-notes-label">Observações da sessão</label>
-                <textarea id="ssf-notes" class="ss-notes-textarea" rows="3" placeholder="Dificuldades encontradas, pontos importantes, lembretes…"></textarea>
+                <label for="ssf-reflection" class="ss-notes-label">O que ficou desta sessão?</label>
+                <textarea id="ssf-reflection" class="ss-notes-textarea" rows="3" placeholder="O que aprendeu, dificuldades, o que revisar depois… (opcional)"></textarea>
 
                 <!-- F10 PR9: o recap textual de Questões/Revisões que existia
                      aqui ("N questão(ões) registrada(s)...") repetia, em
@@ -749,7 +749,15 @@
                      vista pelo usuário segundos antes de abrir este resumo —
                      zero informação nova. "Continuar sessão" ainda fecha este
                      resumo sem encerrar nada, voltando à tela onde as seções
-                     continuam disponíveis. -->
+                     continuam disponíveis.
+
+                     F14.3: este campo único substitui "Observações da
+                     sessão" — grava em studyReflectionService (o mesmo
+                     domínio do Diário de Estudos), com a memória do estudo
+                     ainda quente, em vez de exigir uma visita separada ao
+                     Diário depois. Sessões antigas continuam mostrando suas
+                     observações (activity_sessions.notes) na leitura do
+                     Diário; este campo não escreve mais nelas. -->
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-ghost"   id="ssf-btn-back">Continuar sessão</button>
