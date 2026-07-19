@@ -759,6 +759,17 @@ body {
   align-items: center;
 }
 
+/* F14.7 — "Lista" (antes a página própria "Compromissos") virou uma aba da
+   Agenda; a mesma toolbar/lista só precisa de um respiro acima, já que agora
+   convive com #agenda-view-tabs em vez de ser o topo da própria página. */
+.appointments-list-section {
+  margin-top: 1rem;
+}
+
+.sj-other-filter {
+  margin-bottom: .75rem;
+}
+
 .search-input {
   flex: 1;
   min-width: 180px;

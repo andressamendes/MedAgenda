@@ -224,14 +224,22 @@ function _renderAllFilterBars() {
 // os dois continuam inicializados normalmente (ver Promise.all em _initApp);
 // isto só alterna qual seção fica visível, e lembra a última aba escolhida
 // entre recarregamentos (mesmo padrão de medagenda_sidebar_collapsed).
+// F14.7 — "Lista" (antes a página própria "Compromissos") entrou como
+// terceira aba, mesmo padrão: nenhuma lógica de busca/filtro/ordenação da
+// lista muda, só o contêiner (#appointments-list-container) que passa a
+// alternar com #week-container/#calendar-container em vez de viver numa
+// página separada.
 const AGENDA_VIEW_KEY = "medagenda_agenda_view";
+const AGENDA_VIEWS = ["week", "month", "list"];
 let _agendaViewBound = false;
 
 function _setAgendaView(view) {
   const weekEl  = document.getElementById("week-container");
   const monthEl = document.getElementById("calendar-container");
+  const listEl  = document.getElementById("appointments-list-container");
   if (weekEl)  weekEl.hidden  = view !== "week";
   if (monthEl) monthEl.hidden = view !== "month";
+  if (listEl)  listEl.hidden  = view !== "list";
 
   document.querySelectorAll("#agenda-view-tabs .tab").forEach(btn => {
     const active = btn.dataset.view === view;
@@ -251,7 +259,7 @@ function _initAgendaViewTabs() {
 
   let saved;
   try { saved = localStorage.getItem(AGENDA_VIEW_KEY); } catch { /* storage unavailable */ }
-  _setAgendaView(saved === "month" ? "month" : "week");
+  _setAgendaView(AGENDA_VIEWS.includes(saved) ? saved : "week");
 }
 
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────

@@ -11,14 +11,15 @@ import { openEventForm } from "./eventFormView.js";
 import { showPage } from "./navigationView.js";
 
 // Mesmas páginas de navigationView.js/APP_PAGES — "G" seguido da inicial de
-// cada uma (h=Hoje, a=Agenda, c=Compromissos, s=Sessão, j=Diário). showPage()
-// já cai em 'today' para qualquer nome inválido, então nenhuma validação
-// extra é necessária aqui. F14.5 removeu "d" (Dashboard): a página deixou de
-// existir, sua seção foi absorvida por "Hoje".
+// cada uma (h=Hoje, a=Agenda, s=Sessão, j=Diário). showPage() já cai em
+// 'today' para qualquer nome inválido, então nenhuma validação extra é
+// necessária aqui. F14.5 removeu "d" (Dashboard): a página deixou de existir,
+// sua seção foi absorvida por "Hoje". F14.7 removeu "c" (Compromissos): a
+// página virou a aba "Lista" dentro de "Agenda" (já alcançável por "g a"),
+// não um destino próprio.
 const GO_TO_PAGE = {
   h: "today",
   a: "agenda",
-  c: "appointments",
   s: "study-session",
   j: "journal",
 };
@@ -38,9 +39,25 @@ function _isTypingTarget(el) {
   return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
 }
 
+// F14.7 — a Agenda passou a ter uma busca própria (aba "Lista", antes a
+// página própria "Compromissos"), que convive escondida no DOM quando
+// Semana/Mês está ativa (só o contêiner da aba tem `hidden`, não a página
+// inteira) — por isso não basta achar o primeiro input[type="search"] da
+// página visível, é preciso pular qualquer um cujo ancestral (até a própria
+// página, exclusive) esteja marcado `hidden`.
 function _activeSearchInput() {
   const page = document.querySelector(".app-page:not([hidden])");
-  return page?.querySelector('input[type="search"]') ?? null;
+  if (!page) return null;
+  for (const input of page.querySelectorAll('input[type="search"]')) {
+    let node = input;
+    let hiddenWithinPage = false;
+    while (node && node !== page) {
+      if (node.hidden) { hiddenWithinPage = true; break; }
+      node = node.parentElement;
+    }
+    if (!hiddenWithinPage) return input;
+  }
+  return null;
 }
 
 function _clearPendingGo() {

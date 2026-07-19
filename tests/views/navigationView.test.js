@@ -41,10 +41,10 @@ test("F11 E9 — showPage() called again for the already-active page does not re
 });
 
 test("showPage() shows only the target page and hides the others", () => {
-  nav.showPage("appointments");
+  nav.showPage("agenda");
 
-  assert.strictEqual(document.getElementById("page-agenda").hidden, true);
-  assert.strictEqual(document.getElementById("page-appointments").hidden, false);
+  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-today").hidden, true);
   assert.strictEqual(document.getElementById("page-study-session").hidden, true);
 });
 
@@ -52,9 +52,6 @@ test("showPage() shows only the target page and hides the others", () => {
 // da página; sem isso o histórico do navegador e o alt-tab entre abas eram
 // inúteis para diferenciar telas do app.
 test("F11 E8 — showPage() updates document.title to match the destination page", () => {
-  nav.showPage("appointments");
-  assert.strictEqual(document.title, "Compromissos · Anoti");
-
   nav.showPage("study-session");
   assert.strictEqual(document.title, "Sessão · Anoti");
 
@@ -79,14 +76,14 @@ test("F11 E8 — showPage() with an unknown page name falls back to the Hoje tit
 });
 
 test("showPage() marks the matching nav item as active with aria-current", () => {
-  nav.showPage("appointments");
+  nav.showPage("agenda");
 
-  const aptBtn = document.querySelector('.nav-item[data-page="appointments"]');
   const agendaBtn = document.querySelector('.nav-item[data-page="agenda"]');
-  assert.strictEqual(aptBtn.classList.contains("nav-item--active"), true);
-  assert.strictEqual(aptBtn.getAttribute("aria-current"), "page");
-  assert.strictEqual(agendaBtn.classList.contains("nav-item--active"), false);
-  assert.strictEqual(agendaBtn.hasAttribute("aria-current"), false);
+  const sessionBtn = document.querySelector('.nav-item[data-page="study-session"]');
+  assert.strictEqual(agendaBtn.classList.contains("nav-item--active"), true);
+  assert.strictEqual(agendaBtn.getAttribute("aria-current"), "page");
+  assert.strictEqual(sessionBtn.classList.contains("nav-item--active"), false);
+  assert.strictEqual(sessionBtn.hasAttribute("aria-current"), false);
 });
 
 // F10 #4.1 — Mês deixou de ser uma página própria (#page-calendar removido);
@@ -100,14 +97,17 @@ test("F10 #4.1 — showPage('calendar') falls back to today: 'calendar' is no lo
   assert.strictEqual(document.getElementById("page-calendar"), null, "a página própria do Mês não existe mais no DOM");
 });
 
-test("F10 #4.1 — a página Agenda tem as abas Semana/Mês que absorveram o Mês", () => {
+// F14.7 — "Lista" (antes a página própria "Compromissos") entrou como
+// terceira aba de #agenda-view-tabs, ao lado de Semana/Mês.
+test("F10 #4.1/F14.7 — a página Agenda tem as abas Semana/Mês/Lista que absorveram Mês e Compromissos", () => {
   nav.showPage("agenda");
 
   const tabs = Array.from(document.querySelectorAll("#agenda-view-tabs .tab"));
   const labels = tabs.map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Semana", "Mês"]);
+  assert.deepStrictEqual(labels, ["Semana", "Mês", "Lista"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="calendar"]'), null, "não existe mais um item de navegação próprio para o Mês na sidebar");
-  assert.strictEqual(document.querySelectorAll('.nav-item[data-page="agenda"]').length, 1, "Semana e Mês compartilham um único item 'Agenda' na sidebar");
+  assert.strictEqual(document.querySelector('.nav-item[data-page="appointments"]'), null, "não existe mais um item de navegação próprio para Compromissos na sidebar");
+  assert.strictEqual(document.querySelectorAll('.nav-item[data-page="agenda"]').length, 1, "Semana, Mês e Lista compartilham um único item 'Agenda' na sidebar");
 });
 
 // F10 #4.2 — o Histórico de Sessões deixou de ser uma página própria
@@ -123,12 +123,14 @@ test("F10 #4.2 — showPage('history') falls back to today: 'history' is no long
   assert.strictEqual(document.getElementById("page-history"), null, "a página própria do Histórico não existe mais no DOM");
 });
 
-test("F10 #4.2 — o Diário de Estudos tem as abas Concluídas/Canceladas/Todas que absorveram o Histórico", () => {
+// F14.7 — "Canceladas" deixou de ser uma aba própria: virou um filtro
+// (#sj-other-only-cancelled) dentro de "Todas".
+test("F10 #4.2/F14.7 — o Diário de Estudos tem as abas Concluídas/Todas que absorveram o Histórico", () => {
   nav.showPage("journal");
 
   const tabs = Array.from(document.querySelectorAll("#sj-status-tabs .tab"));
   const labels = tabs.map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Concluídas", "Canceladas", "Todas"]);
+  assert.deepStrictEqual(labels, ["Concluídas", "Todas"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="history"]'), null, "o item de navegação do Histórico não existe mais na sidebar");
 });
 
@@ -138,18 +140,18 @@ test("showPage() with an unknown page name falls back to today", () => {
 });
 
 test("showPage() persists the last page to localStorage", () => {
-  nav.showPage("appointments");
-  assert.strictEqual(localStorage.getItem("medagenda_last_page"), "appointments");
+  nav.showPage("journal");
+  assert.strictEqual(localStorage.getItem("medagenda_last_page"), "journal");
 });
 
 test("restoreLastPage() re-shows the previously saved page", () => {
-  nav.showPage("appointments");
+  nav.showPage("journal");
   nav.showPage("agenda"); // move away
-  localStorage.setItem("medagenda_last_page", "appointments");
+  localStorage.setItem("medagenda_last_page", "journal");
 
   nav.restoreLastPage();
 
-  assert.strictEqual(document.getElementById("page-appointments").hidden, false);
+  assert.strictEqual(document.getElementById("page-journal").hidden, false);
   assert.strictEqual(document.getElementById("page-agenda").hidden, true);
 });
 
@@ -179,10 +181,10 @@ test("showPage() closes an open sidebar as a side effect", () => {
 });
 
 test("clicking a [data-page] nav button navigates via showPage()", () => {
-  const aptBtn = document.querySelector('.nav-item[data-page="appointments"]');
-  aptBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const agendaBtn = document.querySelector('.nav-item[data-page="agenda"]');
+  agendaBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
-  assert.strictEqual(document.getElementById("page-appointments").hidden, false);
+  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
 });
 
 test("UX #09 — os itens que abrem modais (Calendários/Categorias) ficam num grupo 'Gerenciar' separado, sem misturar com páginas", () => {
@@ -220,28 +222,24 @@ test("UX #18 — o bottom nav do mobile abre a Sessão de Estudo diretamente", (
   assert.strictEqual(sessionBtn.classList.contains("bottom-nav-item--active"), true);
 });
 
-// F10 #4.4 — reorganiza o bottom nav para refletir a prioridade real de uso
-// (Semana, Compromissos, Sessão, Diário, Mais) em vez de destacar o
-// Assistente IA. Isto substitui a decisão da UX #18 de excluir Compromissos
-// do bottom nav por "redundância com Semana/Mês": a auditoria F10 aponta o
-// oposto — Compromissos é usado com mais frequência que Mês ou o Assistente
-// IA no mobile, então passa a ocupar um dos 4 lugares fixos; Mês e IA
-// continuam a um toque de distância dentro de "Mais" (mesma sidebar do
-// desktop, inalterada).
-test("F10 #4.4 — o bottom nav do mobile reflete Agenda/Compromissos/Sessão/Diário/Mais, sem destacar Mês ou o Assistente IA", () => {
+// F14.7 — "Compromissos" deixou de ser um destino próprio (virou a aba
+// "Lista" da Agenda); o lugar que ocupava no bottom nav (F10 #4.4) passa
+// para "Hoje" (F14.1), a nova porta de entrada do app.
+test("F14.7 — o bottom nav do mobile reflete Hoje/Agenda/Sessão/Diário/Mais, sem destacar Mês, Compromissos ou o Assistente IA", () => {
   const items = Array.from(document.querySelectorAll(".bottom-nav-item"));
   const labels = items.map(el => el.querySelector(".bottom-nav-label").textContent);
   // F10 #4.1 — o rótulo "Semana" virou "Agenda" (Semana/Mês agora são abas
   // da mesma página, ver testes F10 #4.1 acima).
-  assert.deepStrictEqual(labels, ["Agenda", "Compromissos", "Sessão", "Diário", "Mais"]);
+  assert.deepStrictEqual(labels, ["Hoje", "Agenda", "Sessão", "Diário", "Mais"]);
 
   assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="calendar"]'), null, "Mês não ocupa mais um lugar fixo no bottom nav");
+  assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="appointments"]'), null, "Compromissos não ocupa mais um lugar fixo no bottom nav");
   assert.strictEqual(document.getElementById("bottom-nav-ai"), null, "o Assistente IA não ocupa mais um lugar fixo no bottom nav");
 
-  const appointmentsBtn = document.querySelector('.bottom-nav-item[data-page="appointments"]');
-  appointmentsBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("page-appointments").hidden, false);
-  assert.strictEqual(appointmentsBtn.classList.contains("bottom-nav-item--active"), true);
+  const agendaBtn = document.querySelector('.bottom-nav-item[data-page="agenda"]');
+  agendaBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(agendaBtn.classList.contains("bottom-nav-item--active"), true);
 
   const journalBtn = document.querySelector('.bottom-nav-item[data-page="journal"]');
   journalBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));

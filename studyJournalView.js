@@ -87,14 +87,19 @@
 // entre eles.
 //
 // F10 #4.2 — o Histórico de Sessões (activityHistoryView.js, antes uma
-// página própria) foi absorvido aqui como as abas "Canceladas"/"Todas" de
-// #sj-status-tabs, ao lado de "Concluídas" (a visão rica de sempre, tudo
-// acima). Trocar de aba só alterna qual <div> fica visível — #sj-finished-
-// view (este módulo) ou #sj-other-view (activityHistoryView.js, controlado
-// via setHistoryStatus()) — nenhuma sessão não concluída passa a ser
-// carregada, filtrada ou agrupada por este módulo: agrupamento por dia,
-// resumos semanais e marcos continuam presumindo sessão concluída, porque
-// só sessões concluídas chegam a `_allEntries`/`filtered` aqui.
+// página própria) foi absorvido aqui como a aba "Todas" de #sj-status-tabs,
+// ao lado de "Concluídas" (a visão rica de sempre, tudo acima). Trocar de
+// aba só alterna qual <div> fica visível — #sj-finished-view (este módulo)
+// ou #sj-other-view (activityHistoryView.js, controlado via
+// setHistoryStatus()) — nenhuma sessão não concluída passa a ser carregada,
+// filtrada ou agrupada por este módulo: agrupamento por dia, resumos
+// semanais e marcos continuam presumindo sessão concluída, porque só
+// sessões concluídas chegam a `_allEntries`/`filtered` aqui.
+//
+// F14.7 — "Canceladas" deixou de ser uma aba própria: virou o checkbox
+// #sj-other-only-cancelled dentro de "Todas" (ver _setStatusTab/
+// _onOtherOnlyCancelledChange abaixo) — mesmo dado, mesma
+// activityHistoryView.js, um lugar a menos na tab bar.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -133,7 +138,7 @@ const PAGE_SIZE = 10;
 // hábito real de uso (ex.: alguém que só olha "Canceladas" para entender
 // desistências).
 const JOURNAL_STATUS_TAB_KEY = "medagenda_journal_status_tab";
-const JOURNAL_STATUS_TAB_VALUES = new Set(["finished", "cancelled", "all"]);
+const JOURNAL_STATUS_TAB_VALUES = new Set(["finished", "all"]);
 
 // Rótulos de exibição — mesmos valores já usados em studySessionView.js
 // (F7.4/F7.5) e permitidos pelos CHECK constraints de sql/15_questions.sql/
@@ -168,9 +173,8 @@ let _sjPanelPrevFocus = null;
 // este módulo) e a visão compacta de "Canceladas"/"Todas" (otherViewEl,
 // activityHistoryView.js), sem afetar o carregamento/estado de nenhuma das
 // duas — ver _setStatusTab().
-let statusTabsEl, finishedViewEl, otherViewEl;
+let statusTabsEl, finishedViewEl, otherViewEl, otherOnlyCancelledCheck;
 let periodSelect, categorySelect, searchInput;
-let questionTypeSelect, questionStatusSelect, questionDifficultySelect;
 let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
 let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
 
@@ -201,7 +205,6 @@ const _DEFAULT_FILTERS = {
   onlyWithReflection: false, onlyWithNotes: false, onlyWithReviews: false,
   onlyWithQuestions: false, onlyWithoutQuestions: false,
   onlyLong: false, onlyShort: false,
-  questionType: "", questionStatus: "", questionDifficulty: "",
 };
 
 // Estado dos filtros (F8.4/F8.8) — puramente client-side, nenhum valor novo
@@ -712,9 +715,6 @@ function _onFilterChange() {
     onlyWithoutQuestions: questionsSelect?.value === "without",
     onlyLong: durationSelect?.value === "long",
     onlyShort: durationSelect?.value === "short",
-    questionType: questionTypeSelect?.value || "",
-    questionStatus: questionStatusSelect?.value || "",
-    questionDifficulty: questionDifficultySelect?.value || "",
   };
   _updateAdvancedFiltersCount();
   _render();
@@ -770,9 +770,6 @@ function _bindFilters() {
   periodSelect?.addEventListener("change", _onFilterChange);
   categorySelect?.addEventListener("change", _onFilterChange);
   searchInput?.addEventListener("input", _onFilterChange);
-  questionTypeSelect?.addEventListener("change", _onFilterChange);
-  questionStatusSelect?.addEventListener("change", _onFilterChange);
-  questionDifficultySelect?.addEventListener("change", _onFilterChange);
   questionsSelect?.addEventListener("change", _onFilterChange);
   durationSelect?.addEventListener("change", _onFilterChange);
   [reflectionCheck, notesCheck, reviewsCheck]
@@ -965,9 +962,12 @@ async function _loadPage(reset) {
 }
 
 // F10 #4.2 — troca entre a visão rica de "Concluídas" (finishedViewEl) e a
-// visão compacta de "Canceladas"/"Todas" (otherViewEl, activityHistoryView.js).
-// "finished" nunca chama setHistoryStatus() — essa aba não usa
-// activityHistoryView.js para nada, é só este módulo mostrado normalmente.
+// visão compacta de "Todas" (otherViewEl, activityHistoryView.js). "finished"
+// nunca chama setHistoryStatus() — essa aba não usa activityHistoryView.js
+// para nada, é só este módulo mostrado normalmente.
+// F14.7 — "cancelled" deixou de ser uma aba própria: dentro de "Todas", o
+// checkbox #sj-other-only-cancelled decide se setHistoryStatus() recebe
+// "all" ou "cancelled" (ver _onOtherOnlyCancelledChange abaixo).
 function _setStatusTab(status) {
   statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
     const active = btn.dataset.status === status;
@@ -978,9 +978,13 @@ function _setStatusTab(status) {
   if (finishedViewEl) finishedViewEl.hidden = !showFinished;
   if (otherViewEl)    otherViewEl.hidden    = showFinished;
   // F13.6 — mesmo feedback de "conteúdo novo" das disclosures, aplicado à
-  // troca de aba entre "Concluídas" e "Canceladas/Todas".
+  // troca de aba entre "Concluídas" e "Todas".
   revealWithAnimation(showFinished ? finishedViewEl : otherViewEl);
-  if (!showFinished) setHistoryStatus(status);
+  if (!showFinished) setHistoryStatus(otherOnlyCancelledCheck?.checked ? "cancelled" : "all");
+}
+
+function _onOtherOnlyCancelledChange() {
+  setHistoryStatus(otherOnlyCancelledCheck?.checked ? "cancelled" : "all");
 }
 
 /**
@@ -1000,20 +1004,18 @@ export async function initStudyJournalView() {
     statusTabsEl   = document.getElementById("sj-status-tabs");
     finishedViewEl = document.getElementById("sj-finished-view");
     otherViewEl    = document.getElementById("sj-other-view");
+    otherOnlyCancelledCheck = document.getElementById("sj-other-only-cancelled");
     statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
       btn.addEventListener("click", () => {
         _setStatusTab(btn.dataset.status);
         try { localStorage.setItem(JOURNAL_STATUS_TAB_KEY, btn.dataset.status); } catch { /* storage unavailable */ }
       });
     });
+    otherOnlyCancelledCheck?.addEventListener("change", _onOtherOnlyCancelledChange);
 
     periodSelect   = document.getElementById("sj-filter-period");
     categorySelect = document.getElementById("sj-filter-category");
     searchInput    = document.getElementById("sj-filter-search");
-
-    questionTypeSelect       = document.getElementById("sj-filter-question-type");
-    questionStatusSelect     = document.getElementById("sj-filter-question-status");
-    questionDifficultySelect = document.getElementById("sj-filter-question-difficulty");
 
     reflectionCheck = document.getElementById("sj-filter-reflection");
     notesCheck      = document.getElementById("sj-filter-notes");
@@ -1082,6 +1084,7 @@ export function resetStudyJournalView() {
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
   if (milestonesPanelEl) milestonesPanelEl.hidden = true;
   if (milestonesListEl) milestonesListEl.innerHTML = "";
+  if (otherOnlyCancelledCheck) otherOnlyCancelledCheck.checked = false;
   if (statusTabsEl) _setStatusTab("finished");
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
@@ -1090,9 +1093,6 @@ export function resetStudyJournalView() {
   if (periodSelect)   periodSelect.value = "all";
   if (categorySelect) categorySelect.value = "";
   if (searchInput)    searchInput.value = "";
-  if (questionTypeSelect)       questionTypeSelect.value = "";
-  if (questionStatusSelect)     questionStatusSelect.value = "";
-  if (questionDifficultySelect) questionDifficultySelect.value = "";
   if (questionsSelect) questionsSelect.value = "";
   if (durationSelect)  durationSelect.value = "";
   [reflectionCheck, notesCheck, reviewsCheck]

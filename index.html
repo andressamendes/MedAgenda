@@ -267,26 +267,15 @@
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="21.5"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="21.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></span>
             <span class="nav-label">Hoje</span>
           </button>
-          <!-- F13.2 — Agenda e Compromissos são duas visões do mesmo dado
-               (compromissos): a primeira em calendário, a segunda em lista.
-               Agrupadas sob um rótulo visual comum para deixar esse
-               parentesco claro, sem fundir as duas páginas. -->
-          <div class="sidebar-nav-subgroup">
-            <span class="sidebar-group-label">Compromissos</span>
-            <!-- F10 #4.1: Semana e Mês eram dois destinos de navegação
-                 separados para o mesmo dado (compromissos), cada um com sua
-                 própria página — agora é um único destino "Agenda", com
-                 Semana/Mês como abas de visualização dentro da mesma página
-                 (ver #agenda-view-tabs em page-agenda). -->
-            <button class="nav-item" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
-              <span class="nav-label">Agenda</span>
-            </button>
-            <button class="nav-item" data-page="appointments" title="Atalho: G C" aria-keyshortcuts="g c">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
-              <span class="nav-label">Compromissos</span>
-            </button>
-          </div>
+          <!-- F14.7 — "Compromissos" deixou de ser um destino de navegação
+               próprio: virou a aba "Lista" dentro da própria Agenda (ver
+               #agenda-view-tabs em page-agenda), então o subgrupo que
+               agrupava as duas páginas (F13.2) não tem mais motivo para
+               existir — resta um único destino "Agenda". -->
+          <button class="nav-item" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
+            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
+            <span class="nav-label">Agenda</span>
+          </button>
           <button class="nav-item" data-page="study-session" title="Atalho: G S" aria-keyshortcuts="g s">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
             <span class="nav-label">Sessão</span>
@@ -395,9 +384,10 @@
                Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
-          <div class="tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana e Mês">
+          <div class="tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana, Mês e Lista">
             <button type="button" class="tab tab--active" data-view="week" role="tab" aria-selected="true">Semana</button>
             <button type="button" class="tab" data-view="month" role="tab" aria-selected="false">Mês</button>
+            <button type="button" class="tab" data-view="list" role="tab" aria-selected="false">Lista</button>
           </div>
 
           <!-- Weekly view -->
@@ -405,30 +395,30 @@
 
           <!-- Monthly view -->
           <section class="calendar-section" id="calendar-container" hidden></section>
-        </div>
 
-        <!-- Page: Compromissos -->
-        <div id="page-appointments" class="app-page" hidden>
-          <div class="page-header">
-            <h1 class="page-title">Compromissos</h1>
-            <button id="btn-new-event-apt" class="btn btn-primary btn-sm" title="Atalho: N" aria-keyshortcuts="n">+ Novo compromisso</button>
-          </div>
-          <div class="appointments-toolbar">
-            <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" maxlength="120" title="Atalho: /" aria-keyshortcuts="/" />
-            <div class="toolbar-filters">
-              <select id="filter-category-apt" class="toolbar-select">
-                <option value="">Todas as categorias</option>
-              </select>
-              <select id="sort-appointments" class="toolbar-select">
-                <option value="date-asc">Data (próximos)</option>
-                <option value="date-desc">Data (anteriores)</option>
-                <option value="title">Título A–Z</option>
-              </select>
+          <!-- F14.7 — "Compromissos" deixou de ser um destino de navegação
+               próprio: é a mesma lista/busca/filtro/ordenação de sempre,
+               agora aba "Lista" desta página (ver #agenda-view-tabs acima) —
+               nenhum dado, id ou lógica de script.js muda, só o contêiner
+               que a envolve. -->
+          <section class="appointments-list-section" id="appointments-list-container" hidden>
+            <div class="appointments-toolbar">
+              <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" maxlength="120" title="Atalho: /" aria-keyshortcuts="/" />
+              <div class="toolbar-filters">
+                <select id="filter-category-apt" class="toolbar-select">
+                  <option value="">Todas as categorias</option>
+                </select>
+                <select id="sort-appointments" class="toolbar-select">
+                  <option value="date-asc">Data (próximos)</option>
+                  <option value="date-desc">Data (anteriores)</option>
+                  <option value="title">Título A–Z</option>
+                </select>
+              </div>
+              <div class="filter-bar" id="filter-bar-appointments"></div>
             </div>
-            <div class="filter-bar" id="filter-bar-appointments"></div>
-          </div>
-          <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
-          <div id="event-list"></div>
+            <p id="list-empty" class="list-empty" hidden>Nenhum compromisso encontrado.</p>
+            <div id="event-list"></div>
+          </section>
         </div>
 
         <!-- Page: Sessão (F7.2) — único local onde o cronômetro existe -->
@@ -847,25 +837,32 @@
 
         <!-- Page: Diário (F8.1) -->
         <!-- F10 #4.2 — o Histórico de Sessões (antes uma página própria,
-             #page-history) foi absorvido aqui como a aba "Canceladas"/
-             "Todas" abaixo. #sj-status-tabs alterna entre a visão rica de
-             "Concluídas" (#sj-finished-view — este módulo, com agrupamento
-             por dia/resumos/marcos/busca) e a visão compacta reaproveitada
-             de activityHistoryView.js sem nenhuma mudança de lógica
+             #page-history) foi absorvido aqui como a aba "Todas" abaixo.
+             #sj-status-tabs alterna entre a visão rica de "Concluídas"
+             (#sj-finished-view — este módulo, com agrupamento por
+             dia/resumos/marcos/busca) e a visão compacta reaproveitada de
+             activityHistoryView.js sem nenhuma mudança de lógica
              (#sj-other-view — sessões canceladas nunca passam pelos
              cálculos de studyTimelineService/studyMilestoneService/
-             studySummaryService, que presumem sessão concluída). -->
+             studySummaryService, que presumem sessão concluída).
+             F14.7 — a aba própria "Canceladas" virou um filtro dentro de
+             "Todas" (#sj-other-only-cancelled): ruído histórico que quase
+             ninguém folheia diariamente não merecia um dos três lugares
+             fixos da tab bar. -->
         <div id="page-journal" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Diário</h1>
           </div>
           <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
             <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
-            <button type="button" class="tab" data-status="cancelled" role="tab" aria-selected="false">Canceladas</button>
             <button type="button" class="tab" data-status="all" role="tab" aria-selected="false">Todas</button>
           </div>
 
           <div id="sj-other-view" hidden>
+            <label class="filter-toggle sj-other-filter">
+              <input type="checkbox" id="sj-other-only-cancelled" />
+              <span>Somente canceladas</span>
+            </label>
             <p id="ah-list-empty" class="list-empty" hidden></p>
             <ul id="ah-list" class="session-history-list"></ul>
             <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
@@ -933,25 +930,6 @@
               <select id="sj-filter-category" class="toolbar-select">
                 <option value="">Todas as categorias</option>
               </select>
-              <select id="sj-filter-question-type" class="toolbar-select">
-                <option value="">Qualquer tipo de questão</option>
-                <option value="multiple_choice">Múltipla escolha</option>
-                <option value="true_false">Verdadeiro/Falso</option>
-                <option value="open">Dissertativa</option>
-                <option value="flashcard">Flashcard</option>
-              </select>
-              <select id="sj-filter-question-status" class="toolbar-select">
-                <option value="">Qualquer status de questão</option>
-                <option value="pending">Pendente</option>
-                <option value="answered">Respondida</option>
-                <option value="skipped">Pulada</option>
-              </select>
-              <select id="sj-filter-question-difficulty" class="toolbar-select">
-                <option value="">Qualquer dificuldade</option>
-                <option value="easy">Fácil</option>
-                <option value="medium">Médio</option>
-                <option value="hard">Difícil</option>
-              </select>
             </div>
             <!-- F10 PR11: "+ Mais filtros" era um segundo nível de disclosure
                  aninhado dentro de "Filtros avançados" — que já é, em si, um
@@ -1007,22 +985,20 @@
     </div>
 
     <!-- ── Bottom navigation (mobile only) ──
-         F10 #4.4: Semana/Compromissos/Sessão/Diário/Mais — os 4 destinos de
-         maior frequência real de uso (auditoria) mais "Mais" (abre a
-         sidebar completa). Antes, "Mês" e "Assistente IA" ocupavam dois dos
-         4 lugares fixos, dando à IA mais destaque que Compromissos e Diário
-         de Estudos; Mês, IA e o resto continuam a um toque de distância
-         dentro de "Mais" (mesma sidebar já usada no desktop).
+         F14.7: "Compromissos" deixou de ser um destino próprio (virou a aba
+         "Lista" da Agenda) — o lugar que ocupava no bottom nav (F10 #4.4)
+         passa para "Hoje" (F14.1), a nova porta de entrada do app. Agenda,
+         Sessão, Diário e "Mais" seguem inalterados.
          F10 #4.1: "Semana" virou "Agenda" — a página agora abre com Semana e
          Mês como abas da mesma tela (ver #agenda-view-tabs). -->
     <nav class="bottom-nav" aria-label="Navegação">
-      <button class="bottom-nav-item bottom-nav-item--active" data-page="agenda">
+      <button class="bottom-nav-item bottom-nav-item--active" data-page="today">
+        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="21.5"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="21.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></span>
+        <span class="bottom-nav-label">Hoje</span>
+      </button>
+      <button class="bottom-nav-item" data-page="agenda">
         <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
         <span class="bottom-nav-label">Agenda</span>
-      </button>
-      <button class="bottom-nav-item" data-page="appointments">
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
-        <span class="bottom-nav-label">Compromissos</span>
       </button>
       <button class="bottom-nav-item" data-page="study-session">
         <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>

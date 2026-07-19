@@ -164,9 +164,7 @@ export function initEventForm(onSave) {
     bindModalBehavior(eventDetailOverlay, () => !eventDetailPanel.hidden, _closeEventDetailPanel, eventDetailPanel);
   }
 
-  ["btn-new-event", "btn-new-event-apt"].forEach(id => {
-    document.getElementById(id)?.addEventListener("click", () => openEventForm());
-  });
+  document.getElementById("btn-new-event")?.addEventListener("click", () => openEventForm());
 
   fReminder?.addEventListener("change", () => {
     reminderCustomWrap.hidden = fReminder.value !== "custom";
