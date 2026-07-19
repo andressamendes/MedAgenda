@@ -24,6 +24,7 @@ import {
 import { addQuestion, listQuestions, updateQuestion, removeQuestion } from "./sessionQuestionsService.js";
 import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
 import { associateReview, unlinkReview, listBySession as listSessionReviews } from "./reviewSessionService.js";
+import { saveReflection } from "./studyReflectionService.js";
 import { getEventById, getEvents } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
@@ -105,7 +106,7 @@ let progressEl, progressBarEl, progressTextEl;
 // sessão ativa).
 let finishModalEl, finishModal;
 let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl;
-let ssfNotesEl, ssfBtnBack, ssfBtnConfirm;
+let ssfReflectionEl, ssfBtnBack, ssfBtnConfirm;
 
 // Cadastro de Questões Resolvidas (F7.4) — F10 #4.3: vive na própria tela da
 // sessão ativa (não mais no modal de encerramento) e cada item é persistido
@@ -251,7 +252,7 @@ function _queryElements() {
   ssfStartedAtEl       = document.getElementById("ssf-started-at");
   ssfEndedAtEl         = document.getElementById("ssf-ended-at");
   ssfNetTimeEl         = document.getElementById("ssf-net-time");
-  ssfNotesEl           = document.getElementById("ssf-notes");
+  ssfReflectionEl      = document.getElementById("ssf-reflection");
   ssfBtnBack           = document.getElementById("ssf-btn-back");
   ssfBtnConfirm        = document.getElementById("ssf-btn-confirm");
 
@@ -1213,7 +1214,7 @@ function _openFinishModal() {
   ssfStartedAtEl.textContent     = _formatClockTime(_session.started_at);
   ssfEndedAtEl.textContent       = _formatClockTime(_pendingEndedAt.toISOString());
   ssfNetTimeEl.textContent = _formatExpectedDuration(netMinutes);
-  ssfNotesEl.value = "";
+  ssfReflectionEl.value = "";
   ssfBtnConfirm.disabled = false;
   ssfBtnBack.disabled = false;
 
@@ -1235,14 +1236,14 @@ async function _confirmFinish() {
   if (_busy || !_session || !_pendingEndedAt) return;
   const sessionId = _session.id;
   const endedAt = _pendingEndedAt;
-  const notes = ssfNotesEl.value;
+  const reflectionContent = ssfReflectionEl.value;
 
   let finishedSession = null;
   ssfBtnConfirm.disabled = true;
   ssfBtnBack.disabled = true;
   try {
     await _run(async () => {
-      finishedSession = await finishSession(sessionId, endedAt, notes);
+      finishedSession = await finishSession(sessionId, endedAt);
       return finishedSession;
     });
   } finally {
@@ -1255,6 +1256,19 @@ async function _confirmFinish() {
   // novo, em vez de fechar o modal silenciosamente e deixar a sessão presa
   // num limbo (nem finalizada, nem com o resumo aberto).
   if (!finishedSession) return;
+
+  // F14.3 — a reflexão vive no mesmo instante do encerramento, com a memória
+  // ainda quente: em vez de exigir uma visita separada ao Diário de Estudos,
+  // este único campo já grava via studyReflectionService (a distinção
+  // Observações×Reflexão deixa de ser exposta ao usuário aqui). Opcional —
+  // uma falha ao salvar não deve travar um encerramento que já aconteceu.
+  if (reflectionContent.trim()) {
+    try {
+      await saveReflection(sessionId, reflectionContent);
+    } catch (err) {
+      handleError(err, { context: "studySessionView.confirmFinish.saveReflection" });
+    }
+  }
 
   // F10 #3.4 — a tela somente-leitura "Sessão concluída" (F7.10) foi removida:
   // era uma etapa extra que só repetia dados já disponíveis no Diário de
@@ -1455,7 +1469,7 @@ export function resetStudySessionView() {
   // o modal permanece fechado.
   [ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl]
     .forEach(el => { if (el) el.textContent = ""; });
-  if (ssfNotesEl) ssfNotesEl.value = "";
+  if (ssfReflectionEl) ssfReflectionEl.value = "";
 
   // Campos do modal de configuração pré-início: mesma simetria — o nome de
   // estudo/categoria/conteúdo digitados pelo usuário anterior não podem
