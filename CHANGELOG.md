@@ -2,6 +2,29 @@
 
 ---
 
+## [Unreleased] — F13.5: polimento visual (hierarquia por tipografia/espaço)
+
+Última etapa do roadmap F13 (docs/F12-AUDITORIA-RADICAL-UX-UI.md) antes das
+microinterações: reduz o número de blocos internos com moldura própria em
+`style.css`, deixando borda reservada a elementos genuinamente clicáveis ou
+independentes (cards de evento, tabs, inputs, itens de lista com ação
+própria). Nenhuma estrutura de dado, view ou marcação HTML mudou — só regras
+de CSS.
+
+- `style.css` — remove `border` de painéis internos que já usam fundo
+  (`--gray-50`) e espaçamento para se agrupar (`.session-stats`,
+  `.sj-week-summary`, `.sj-milestones-panel`, `.sj-search-stats`,
+  `.cat-row`, `.settings-row`, `.auth-email-display`, `.diag-item`,
+  `.devmode-panel`, `.acal-row`, `.acal-ev-row`, `.wk-empty-tip`,
+  `.onboarding-tour-card`, `.ai-result-body`, `.ai-plan-empty`,
+  `.ai-evolution-item`, `.ss-question-item`, `.sj-entry`); em
+  `.ai-plan-item` e `.smart-card`, a moldura completa dá lugar ao
+  `border-left` de destaque (cor de prioridade/categoria) que já existia;
+  `.settings-hint` passa de borda inteira para `border-left` de aviso.
+- Contagem de `border:` em `style.css` cai de 70 para 49 (-30%, meta da
+  auditoria F12 #8/critério de aceite do F13.5), sem remover nenhuma ação ou
+  caminho existente — apenas a moldura visual.
+
 ## [Unreleased] — F13.1: redução da carga cognitiva da Sessão ativa
 
 Primeira etapa do roadmap F13 (docs/F12-AUDITORIA-RADICAL-UX-UI.md), que
