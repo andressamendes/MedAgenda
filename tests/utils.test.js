@@ -4,7 +4,7 @@
  * Or open tests/index.html in a browser.
  */
 
-import { pad, isoDate, localDate, escapeHtml, isoToday, mondayOf } from "../utils.js";
+import { pad, isoDate, localDate, escapeHtml, isoToday, mondayOf, readableTextColor } from "../utils.js";
 
 let passed = 0;
 let failed = 0;
@@ -81,6 +81,18 @@ assert("Monday → same Monday", isoDate(mondayOf(new Date(2024, 2, 11))), "2024
 assert("Sunday → previous Monday", isoDate(mondayOf(new Date(2024, 2, 17))), "2024-03-11");
 // 2024-03-16 is a Saturday
 assert("Saturday → previous Monday", isoDate(mondayOf(new Date(2024, 2, 16))), "2024-03-11");
+
+// ── readableTextColor (F11 E18, auditoria #21) ──────────────────────────────
+console.log("\nreadableTextColor()");
+assert("very dark background → white text", readableTextColor("#1a1a1a"), "#fff");
+assert("very light background → dark text", readableTextColor("#fef9c3"), "#1f2937");
+assert("white background → dark text", readableTextColor("#ffffff"), "#1f2937");
+assert("black background → white text", readableTextColor("#000000"), "#fff");
+assert("mid-tone blue (default category color) → white text", readableTextColor("#3b82f6"), "#fff");
+assert("without leading #", readableTextColor("fef9c3"), "#1f2937");
+assert("missing color falls back to white", readableTextColor(null), "#fff");
+assert("empty string falls back to white", readableTextColor(""), "#fff");
+assert("malformed hex falls back to white", readableTextColor("not-a-color"), "#fff");
 
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(40)}`);

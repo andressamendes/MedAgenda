@@ -2,7 +2,7 @@ import { getEventsByRange } from "./eventService.js";
 import { getEventExecutionSummaries } from "./activitySessionService.js";
 import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
-import { pad, isoDate, isoToday } from "./utils.js";
+import { pad, isoDate, isoToday, readableTextColor } from "./utils.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock } from "./stateView.js";
 
@@ -207,9 +207,11 @@ function renderGrid(byDate, summaries = {}) {
       const chip = document.createElement("div");
       const isAcademic = !!ev._isAcademic;
       chip.className = isAcademic ? "cal-chip cal-chip-academic" : "cal-chip";
-      chip.style.background = isAcademic
+      const chipColor = isAcademic
         ? (ev.color || ev._calendarColor || "#7c3aed")
         : (ev.color || "#3b82f6");
+      chip.style.background = chipColor;
+      chip.style.color      = readableTextColor(chipColor);
       chip.title = isAcademic
         ? `[${ev._calendarName}] ${ev.title}`
         : ev.title;

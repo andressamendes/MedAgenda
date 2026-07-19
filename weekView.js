@@ -2,7 +2,7 @@ import { getEventsByRange } from "./eventService.js";
 import { getEventExecutionSummaries } from "./activitySessionService.js";
 import { describeExecutionIndicator } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
-import { pad, isoDate, isoToday, mondayOf, escapeHtml } from "./utils.js";
+import { pad, isoDate, isoToday, mondayOf, escapeHtml, readableTextColor } from "./utils.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock } from "./stateView.js";
 import { getDecisions } from "./decisionEngine.js";
@@ -421,7 +421,9 @@ function renderEvents(events, summaries = {}) {
     block.className = indicator ? `wk-event wk-event-${indicator.state}` : "wk-event";
     block.style.top      = `${top}px`;
     block.style.height   = `${height}px`;
-    block.style.background = ev.color || "#3b82f6";
+    const bgColor = ev.color || "#3b82f6";
+    block.style.background = bgColor;
+    block.style.color      = readableTextColor(bgColor);
     block.innerHTML = `
       <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
       ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
@@ -451,7 +453,9 @@ function renderAcademicEvents(events) {
       if (!col) return;
       const chip = document.createElement("div");
       chip.className = "wk-allday-chip";
-      chip.style.background = ev.color || ev._calendarColor || "#7c3aed";
+      const chipColor = ev.color || ev._calendarColor || "#7c3aed";
+      chip.style.background = chipColor;
+      chip.style.color      = readableTextColor(chipColor);
       chip.title = `[${ev._calendarName}] ${ev.title}`;
       chip.textContent = ev.title;
       if (_cbs.onAcademicEventClick) {
@@ -470,7 +474,9 @@ function renderAcademicEvents(events) {
       block.className = "wk-event wk-event-academic";
       block.style.top        = `${top}px`;
       block.style.height     = `${height}px`;
-      block.style.background = ev.color || ev._calendarColor || "#7c3aed";
+      const blockColor = ev.color || ev._calendarColor || "#7c3aed";
+      block.style.background = blockColor;
+      block.style.color      = readableTextColor(blockColor);
       block.innerHTML = `
         <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
         <span class="wk-ev-cat">${escapeHtml(ev._calendarName || "Acadêmico")}</span>

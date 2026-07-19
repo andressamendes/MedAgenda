@@ -96,6 +96,20 @@ test("an event is rendered as a chip on its day, and clicking it triggers onEven
   assert.strictEqual(clicked.id, "evt-1");
 });
 
+// F11 E18 (auditoria #21) — cor de categoria é livre; o chip precisa
+// continuar legível mesmo com uma cor muito clara.
+test("F11 E18 — a chip with a light custom color gets dark text, not the hardcoded white", async (t) => {
+  const { day15 } = currentMonthInfo();
+  const ev = { id: "evt-1", title: "Revisão", event_date: day15, recurrence_type: "none", color: "#fef9c3" };
+  mockEventService(t, { events: [ev] });
+  const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
+  await initCalendar(container, {});
+
+  const chip = findCellByDayNum(15).querySelector(".cal-chip");
+  assert.strictEqual(chip.style.background, "rgb(254, 249, 195)");
+  assert.strictEqual(chip.style.color, "rgb(31, 41, 55)");
+});
+
 test("clicking an empty day cell triggers onDayClick with that day's date", async (t) => {
   mockEventService(t, { events: [] });
   const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);
