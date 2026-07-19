@@ -31,11 +31,13 @@ function press(key, opts = {}) {
 }
 
 // F14.1 — "Hoje" é a página visível por padrão na fixture agora (todas as
-// outras nascem com `hidden`) — simula estar em "Compromissos" (que tem
-// busca) só quando o teste precisa disso.
+// outras nascem com `hidden`) — simula estar na Agenda, aba "Lista" (que tem
+// busca; antes a página própria "Compromissos", ver F14.7), só quando o
+// teste precisa disso.
 function switchToPageWithSearch() {
   document.getElementById("page-today").hidden = true;
-  document.getElementById("page-appointments").hidden = false;
+  document.getElementById("page-agenda").hidden = false;
+  document.getElementById("appointments-list-container").hidden = false;
 }
 
 beforeEach(() => installDom());
@@ -87,15 +89,26 @@ test("'G' then 'a' navigates to Agenda", async (t) => {
   assert.deepStrictEqual(showPageCalls, ["agenda"]);
 });
 
-test("'G' then 'c'/'s'/'j' navigates to the matching page", async (t) => {
+test("'G' then 's'/'j' navigates to the matching page", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  press("g"); press("s");
+  press("g"); press("j");
+
+  assert.deepStrictEqual(showPageCalls, ["study-session", "journal"]);
+});
+
+// F14.7 — "c" (Compromissos) foi removido: a página virou a aba "Lista"
+// dentro de "Agenda" (já alcançável por "g a"), não é mais um destino
+// próprio de navegação.
+test("'G' then 'c' navigates nowhere: 'Compromissos' is no longer its own destination", async (t) => {
   const { initKeyboardShortcuts } = await loadService(t);
   initKeyboardShortcuts();
 
   press("g"); press("c");
-  press("g"); press("s");
-  press("g"); press("j");
 
-  assert.deepStrictEqual(showPageCalls, ["appointments", "study-session", "journal"]);
+  assert.deepStrictEqual(showPageCalls, []);
 });
 
 // F14.1 — "Hoje" é a nova porta de entrada; ganha o mesmo atalho "go to" das

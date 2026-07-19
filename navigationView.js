@@ -19,7 +19,11 @@ import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.
 // da lista, novo destino padrão de showPage()/restoreLastPage() (ver abaixo)
 // e novo fallback para qualquer nome de página inválido/removido, no lugar de
 // 'agenda'.
-const APP_PAGES = ['today', 'agenda', 'appointments', 'study-session', 'journal', 'progress'];
+// F14.7 — 'appointments' removido: a página "Compromissos" (mesmo dado da
+// Agenda, em lista) virou a aba "Lista" de #agenda-view-tabs, dentro da
+// própria página 'agenda' (ver index.html/script.js). showPage('appointments')
+// cai no fallback 'today', como qualquer outro nome de página inválido.
+const APP_PAGES = ['today', 'agenda', 'study-session', 'journal', 'progress'];
 const LAST_PAGE_KEY     = 'medagenda_last_page';
 const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 
@@ -29,7 +33,6 @@ const SIDEBAR_STATE_KEY = 'medagenda_sidebar_collapsed';
 const PAGE_TITLES = {
   today:           'Hoje',
   agenda:          'Agenda',
-  appointments:    'Compromissos',
   'study-session': 'Sessão',
   journal:         'Diário',
   progress:        'Progresso',

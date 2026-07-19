@@ -1550,12 +1550,13 @@ test("UX #21 — resetStudyJournalView() collapses the panel and clears the coun
   assert.strictEqual(countEl.textContent, "");
 });
 
-// ── Histórico absorvido como abas Concluídas/Canceladas/Todas (F10 #4.2) ────
+// ── Histórico absorvido como abas Concluídas/Todas (F10 #4.2/F14.7) ─────────
 // O Histórico de Sessões (activityHistoryView.js) deixou de ser uma página
-// própria: agora vive dentro do Diário, como as abas "Canceladas"/"Todas" ao
-// lado de "Concluídas" (a visão rica de sempre, inalterada). Trocar de aba só
+// própria: agora vive dentro do Diário, como a aba "Todas" ao lado de
+// "Concluídas" (a visão rica de sempre, inalterada). Trocar de aba só
 // alterna qual <div> fica visível — nenhuma sessão não concluída chega a
-// _allEntries/filtered deste módulo.
+// _allEntries/filtered deste módulo. F14.7 — "Canceladas" deixou de ser uma
+// aba própria: virou o checkbox #sj-other-only-cancelled dentro de "Todas".
 
 test("F10 #4.2 — 'Concluídas' é a aba ativa por padrão, mostrando a visão rica e ocultando a compacta", async (t) => {
   const { mod } = await loadView(t, {
@@ -1576,20 +1577,41 @@ test("F10 #4.2 — 'Concluídas' é a aba ativa por padrão, mostrando a visão 
 // status certo e alterna a visibilidade certa, não o comportamento interno
 // de activityHistoryView.js (já coberto por activityHistoryView.test.js).
 
-test("F10 #4.2 — clicking 'Canceladas' shows the compact view and calls setHistoryStatus('cancelled')", async (t) => {
+// F14.7 — "Canceladas" deixou de ser uma aba própria: virou o checkbox
+// #sj-other-only-cancelled dentro de "Todas", que decide se
+// setHistoryStatus() recebe "all" ou "cancelled".
+test("F14.7 — checking 'Somente canceladas' inside 'Todas' calls setHistoryStatus('cancelled')", async (t) => {
   const { mod, setHistoryStatusCalls } = await loadView(t, {
     listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
   });
   await mod.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  setHistoryStatusCalls.length = 0;
+
+  const onlyCancelled = document.getElementById("sj-other-only-cancelled");
+  onlyCancelled.checked = true;
+  onlyCancelled.dispatchEvent(new window.Event("change", { bubbles: true }));
 
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
   assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
   assert.deepStrictEqual(setHistoryStatusCalls, ["cancelled"]);
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]').classList.contains("tab--active"), true);
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), false);
+
+  onlyCancelled.checked = false;
+  onlyCancelled.dispatchEvent(new window.Event("change", { bubbles: true }));
+  assert.deepStrictEqual(setHistoryStatusCalls, ["cancelled", "all"]);
+});
+
+test("F14.7 — 'Somente canceladas' does not exist as its own tab anymore", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]'), null);
+  const labels = Array.from(document.querySelectorAll("#sj-status-tabs .tab")).map(btn => btn.textContent);
+  assert.deepStrictEqual(labels, ["Concluídas", "Todas"]);
 });
 
 test("F10 #4.2 — clicking 'Todas' shows the compact view and calls setHistoryStatus('all')", async (t) => {
@@ -1659,9 +1681,9 @@ test("F11 E21 — the chosen status tab survives a reload, restored from localSt
   });
   await firstLoad.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(localStorage.getItem("medagenda_journal_status_tab"), "cancelled");
+  assert.strictEqual(localStorage.getItem("medagenda_journal_status_tab"), "all");
 
   // Simula um reload: reimporta o módulo do zero (mesmos mocks já
   // registrados por loadView() acima, t.mock.module() não pode ser chamado
@@ -1669,7 +1691,7 @@ test("F11 E21 — the chosen status tab survives a reload, restored from localSt
   const secondLoad = await import(`../../studyJournalView.js?t=${Math.random()}`);
   await secondLoad.initStudyJournalView();
 
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]').classList.contains("tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="all"]').classList.contains("tab--active"), true);
   assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
 });
