@@ -300,6 +300,21 @@ export function consolidateDecisions({ recommendations, planning, reflection } =
   return { decisions, unavailable };
 }
 
+// ── Filtro para exibição espontânea (F14.6) ─────────────────────────────────
+// weekView.js/#wk-tip e todayView.js/#today-tip mostram, no máximo, 1 card
+// sem o usuário pedir nada (auditoria F14 §5/§6) — mas nem toda decisão
+// merece interromper de graça. Só "revisão pendente" e "compromisso
+// atrasado" já têm uma ação clara e inadiável; os demais assuntos (execução
+// baixa, muito tempo sem sessões, categoria negligenciada etc.) são
+// retrospecto/crítica-passiva e continuam disponíveis via getDecisions()
+// para quem pede (painel de IA) — só deixam de ser empurrados.
+const SPONTANEOUS_SUBJECTS = new Set(["revisoes_pendentes", "compromissos_atrasados"]);
+
+/** Mantém, de uma lista já consolidada, só as decisões que valem mostrar sem o usuário pedir (F14.6). */
+export function filterSpontaneousDecisions(decisions) {
+  return (decisions || []).filter(d => SPONTANEOUS_SUBJECTS.has(d.assunto));
+}
+
 // ── Ponto de entrada com I/O — roda os três motores e consolida (ETAPA 7) ───
 
 /**

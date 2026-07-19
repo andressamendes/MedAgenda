@@ -18,7 +18,7 @@ import { isPersonalVisible } from "./academicCalendarView.js";
 import { getActiveSession, listSessions, startSession } from "./activitySessionService.js";
 import { startSessionForEvent, openStartModal } from "./studySessionView.js";
 import { showPage } from "./navigationView.js";
-import { getDecisions } from "./decisionEngine.js";
+import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { handleError } from "./errorService.js";
@@ -178,10 +178,13 @@ function _buildApptItem(ev) {
   return li;
 }
 
-// ── Dica contextual (no máximo 1 card) ──────────────────────────────────
+// ── Dica contextual (no máximo 1 card, só se acionável) ──────────────────
 // Mesma leitura do Decision Engine que weekView.js/loadTip() — nenhuma regra
 // nova, só reaproveitada aqui para que a chegada nunca abra sem nenhuma
-// orientação, mas também nunca com mais de um card (auditoria F14 §5).
+// orientação, mas também nunca com mais de um card (auditoria F14 §5) e nunca
+// com um card crítico-passivo (auditoria F14.6): filterSpontaneousDecisions()
+// só deixa passar revisão pendente e compromisso atrasado — o resto continua
+// disponível via getDecisions() para o painel de IA, sob demanda.
 
 async function _refreshTip() {
   if (!tipEl) return;
@@ -195,8 +198,9 @@ async function _refreshTip() {
   }
 
   const todayISO = isoToday();
-  const todayDecision = decisions.find(d => d.origem === "planning" && d.acaoSugerida?.dataSugerida === todayISO);
-  const decision = todayDecision || decisions[0] || null;
+  const spontaneous = filterSpontaneousDecisions(decisions);
+  const todayDecision = spontaneous.find(d => d.origem === "planning" && d.acaoSugerida?.dataSugerida === todayISO);
+  const decision = todayDecision || spontaneous[0] || null;
   renderSmartCards(tipEl, decision ? [decisionToCard(decision)] : []);
 }
 

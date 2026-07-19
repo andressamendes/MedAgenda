@@ -1,13 +1,15 @@
-// ── aiPanelView.js — Painel de IA (Gemini): resumo, sugestão, análise e
-// recomendações (F3.2). A View nunca busca nem monta contexto: cada ação só
-// chama uma função do gateway (services/ai/aiService.js), que por sua vez
-// consulta exclusivamente aiContextService.getAIContext() — a única fonte
-// de contexto do app (ver aiContextService.js).
+// ── aiPanelView.js — Painel de IA: plano da semana e retrospecto de execução
+// (F3.2). A View nunca busca nem monta contexto: cada ação só chama uma
+// função do gateway (services/ai/aiService.js), que por sua vez consulta
+// exclusivamente aiContextService.getAIContext() — a única fonte de contexto
+// do app (ver aiContextService.js).
 
-import {
-  getWeeklySummary, getStudySuggestion, getScheduleAnalysis, getContextualRecommendations, getWeeklyPlan,
-  getMyEvolution,
-} from "./services/ai/aiService.js";
+// F14.6 — o painel só expõe 2 ações (Planejar minha semana / Como estou
+// indo), não mais 6: getWeeklySummary/getStudySuggestion/getScheduleAnalysis/
+// getContextualRecommendations continuam existindo em services/ai/aiService.js
+// (os motores internos não saem do código, ver auditoria F14 §4/§9), só
+// deixam de ter botão próprio aqui.
+import { getWeeklyPlan, getMyEvolution } from "./services/ai/aiService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { categoryToState, STATES, triggerReauth } from "./stateView.js";
@@ -168,7 +170,7 @@ export function initAIPanel() {
   }
 
   function showEvolutionResult(report) {
-    resultTitle.textContent = 'Minha Evolução';
+    resultTitle.textContent = 'Como estou indo';
     resultBody.textContent = '';
     resultBody.classList.add('ai-result-body--plan');
     actionsDiv.hidden = true;
@@ -195,28 +197,6 @@ export function initAIPanel() {
 
   function setActionBtnsDisabled(disabled) {
     document.querySelectorAll('.ai-action-btn').forEach(b => { b.disabled = disabled; });
-  }
-
-  async function runAIAction(label, fn) {
-    lastAction = { kind: 'text', label, fn };
-    showLoading();
-    setActionBtnsDisabled(true);
-    currentController = new AbortController();
-    try {
-      const result = await fn(currentController);
-      showResult(label, result || 'O assistente não retornou resposta. Tente novamente.', result ? null : STATES.SERVER);
-    } catch (err) {
-      if (err?.code === 'CANCELLED') {
-        showActions();
-        return;
-      }
-      const { category } = handleError(err, { context: 'aiPanel.runAIAction', silent: true });
-      showResult(label, err.message || 'Ocorreu um erro ao contatar o assistente de IA. Verifique sua conexão e tente novamente.', categoryToState(category));
-    } finally {
-      stopLoadingStages();
-      setActionBtnsDisabled(false);
-      currentController = null;
-    }
   }
 
   async function runPlanAction() {
@@ -251,7 +231,7 @@ export function initAIPanel() {
       showEvolutionResult(report);
     } catch (err) {
       const { category } = handleError(err, { context: 'aiPanel.runEvolutionAction', silent: true });
-      showResult('Minha Evolução', err.message || 'Ocorreu um erro ao gerar sua reflexão. Verifique sua conexão e tente novamente.', categoryToState(category));
+      showResult('Como estou indo', err.message || 'Ocorreu um erro ao gerar sua reflexão. Verifique sua conexão e tente novamente.', categoryToState(category));
     } finally {
       stopLoadingStages();
       setActionBtnsDisabled(false);
@@ -270,7 +250,6 @@ export function initAIPanel() {
     if (!lastAction) return;
     if (lastAction.kind === 'plan') runPlanAction();
     else if (lastAction.kind === 'evolution') runEvolutionAction();
-    else runAIAction(lastAction.label, lastAction.fn);
   });
 
   // Estrutura em dois elementos (painel + backdrop separado) — usa as
@@ -278,18 +257,6 @@ export function initAIPanel() {
   // overlay único, mas reutiliza a mesma lógica de Escape/clique fora/Focus Trap.
   bindModalBehavior(overlay, () => !panel.hidden, closePanel, panel);
 
-  document.getElementById('btn-ai-weekly')?.addEventListener('click', () =>
-    runAIAction('Resumo da semana', getWeeklySummary)
-  );
-  document.getElementById('btn-ai-study')?.addEventListener('click', () =>
-    runAIAction('Horários para estudo', getStudySuggestion)
-  );
-  document.getElementById('btn-ai-analysis')?.addEventListener('click', () =>
-    runAIAction('Análise da agenda', getScheduleAnalysis)
-  );
-  document.getElementById('btn-ai-recommendations')?.addEventListener('click', () =>
-    runAIAction('Recomendações', getContextualRecommendations)
-  );
   document.getElementById('btn-ai-plan')?.addEventListener('click', runPlanAction);
   document.getElementById('btn-ai-evolution')?.addEventListener('click', runEvolutionAction);
 

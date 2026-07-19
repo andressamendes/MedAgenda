@@ -261,6 +261,55 @@ test("consolidateDecisions() defaults to an empty, non-throwing result when call
   });
 });
 
+// ── filterSpontaneousDecisions() (F14.6) ─────────────────────────────────────
+// weekView.js/#wk-tip e todayView.js/#today-tip mostram, no máximo, 1 card
+// sem o usuário pedir — mas só quando há uma ação clara e inadiável (revisão
+// pendente, compromisso atrasado). O resto (categoria negligenciada, semana
+// vazia, execução baixa etc.) continua disponível via getDecisions() para o
+// painel de IA, só deixa de ser empurrado sem ser pedido.
+
+test("filterSpontaneousDecisions() keeps overdue-events and pending-reviews decisions", async (t) => {
+  const { consolidateDecisions, filterSpontaneousDecisions } = await loadDecisionEngine(t);
+  const { decisions } = consolidateDecisions({
+    recommendations: [overdueRecommendation(), pendingReviewsRecommendation()],
+    planning: [], reflection: [],
+  });
+  const spontaneous = filterSpontaneousDecisions(decisions);
+  assert.strictEqual(spontaneous.length, 2);
+  assert.deepStrictEqual(spontaneous.map(d => d.assunto).sort(), ["compromissos_atrasados", "revisoes_pendentes"]);
+});
+
+test("filterSpontaneousDecisions() drops non-actionable decisions (understudied category, empty week, long gap)", async (t) => {
+  const { consolidateDecisions, filterSpontaneousDecisions } = await loadDecisionEngine(t);
+  const { decisions } = consolidateDecisions({
+    recommendations: [understudiedRecommendation(), emptyWeekRecommendation(), longGapRecommendation()],
+    planning: [], reflection: [],
+  });
+  assert.deepStrictEqual(filterSpontaneousDecisions(decisions), []);
+});
+
+test("filterSpontaneousDecisions() drops a plan item for the same non-actionable subjects", async (t) => {
+  const { consolidateDecisions, filterSpontaneousDecisions } = await loadDecisionEngine(t);
+  const { decisions } = consolidateDecisions({
+    recommendations: [], planning: [studyPlanItem("Anatomia"), emptyWeekPlanItem(), goalPlanItem()], reflection: [],
+  });
+  assert.deepStrictEqual(filterSpontaneousDecisions(decisions), []);
+});
+
+test("filterSpontaneousDecisions() keeps a review plan item (origem 'planning', mesmo assunto)", async (t) => {
+  const { consolidateDecisions, filterSpontaneousDecisions } = await loadDecisionEngine(t);
+  const { decisions } = consolidateDecisions({ recommendations: [], planning: [reviewPlanItem()], reflection: [] });
+  const spontaneous = filterSpontaneousDecisions(decisions);
+  assert.strictEqual(spontaneous.length, 1);
+  assert.strictEqual(spontaneous[0].assunto, "revisoes_pendentes");
+});
+
+test("filterSpontaneousDecisions() never throws on an empty or undefined list", async (t) => {
+  const { filterSpontaneousDecisions } = await loadDecisionEngine(t);
+  assert.deepStrictEqual(filterSpontaneousDecisions([]), []);
+  assert.deepStrictEqual(filterSpontaneousDecisions(undefined), []);
+});
+
 // ── getDecisions() — ponto de entrada com I/O (ETAPA 7/8) ───────────────────
 
 test("getDecisions() runs the three engines once and returns the consolidated, deduplicated list", async (t) => {
