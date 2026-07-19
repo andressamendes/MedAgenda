@@ -444,6 +444,11 @@
                 <button class="modal-close" id="ss-start-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
               </div>
               <div class="modal-body">
+                <!-- F14.2 — chips de um toque: preenchem nome+categoria (estudo
+                     recente) ou selecionam direto um compromisso/revisão
+                     elegível, sem exigir digitação. Nasce vazio/oculto; só
+                     aparece quando há alguma sugestão (ver _renderStartSuggestions). -->
+                <div class="ss-start-suggestions" id="ss-start-suggestions" hidden></div>
                 <div class="tabs" id="ss-start-tabs" role="tablist">
                   <button type="button" class="tab tab--active" id="ss-start-tab-manual" role="tab" aria-selected="true">Novo estudo</button>
                   <button type="button" class="tab" id="ss-start-tab-event" role="tab" aria-selected="false">Compromisso da agenda</button>

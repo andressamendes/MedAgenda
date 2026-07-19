@@ -46,6 +46,7 @@ function loadStudySessionView(t, overrides = {}) {
       resumeSession:     overrides.resumeSession ?? (async (id) => ({ id, status: "running", started_at: new Date().toISOString() })),
       finishSession:     overrides.finishSession ?? (async (id) => ({ id, status: "finished" })),
       cancelSession:     overrides.cancelSession ?? (async (id) => ({ id, status: "cancelled" })),
+      listSessions:      overrides.listSessions ?? (async () => ({ sessions: [], total: 0, hasMore: false })),
     },
   });
 
@@ -300,6 +301,145 @@ test("the 'Compromisso da agenda' path requires selecting an event and starts th
 
   assert.strictEqual(document.getElementById("ss-start-modal").hidden, true);
   assert.strictEqual(document.getElementById("ss-event-title").textContent, "Plantão UTI");
+});
+
+// F14.2 — início de sessão sem digitação: chips de um toque em cima do modal
+// de pré-início, preenchendo o caminho manual ou selecionando um compromisso/
+// revisão elegível, sem nunca iniciar a sessão sozinhos.
+test("F14.2 — chips show up to 3 distinct recent standalone titles and clicking one fills name+category without starting", async (t) => {
+  const startSessionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    listSessions: async () => ({
+      sessions: [
+        { id: "s5", title: "Revisão de Cardiologia", category_id: "cat-1", event_id: null },
+        { id: "s4", title: "Revisão de Cardiologia", category_id: "cat-1", event_id: null }, // duplicate title, must not repeat the chip
+        { id: "s3", event_id: "evt-9" }, // event-linked session (no standalone title), must be skipped
+        { id: "s2", title: "Farmaco: antibióticos", category_id: null, event_id: null },
+        { id: "s1", title: "Anatomia do coração", category_id: null, event_id: null },
+        { id: "s0", title: "Estudo antigo demais", category_id: null, event_id: null }, // beyond the 3-chip cap
+      ],
+    }),
+    getCategories: async () => [{ id: "cat-1", name: "Cardiologia" }],
+    startSession: async (fields) => { startSessionCalls.push(fields); return { id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const chips = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")];
+  assert.strictEqual(document.getElementById("ss-start-suggestions").hidden, false);
+  assert.deepStrictEqual(chips.map(c => c.textContent), [
+    "Revisão de Cardiologia",
+    "Farmaco: antibióticos",
+    "Anatomia do coração",
+  ]);
+
+  chips[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-start-title-input").value, "Revisão de Cardiologia");
+  assert.strictEqual(document.getElementById("ss-start-category").value, "cat-1");
+  assert.strictEqual(startSessionCalls.length, 0, "a chip only fills the form — the user still confirms with 'Iniciar sessão'");
+
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionCalls.length, 1);
+  assert.strictEqual(startSessionCalls[0].title, "Revisão de Cardiologia");
+});
+
+test("F14.2 — a chip for today's appointment switches to the event tab and preselects it", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-19T12:00:00Z").getTime());
+
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [
+      { id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-19" },
+      { id: "evt-2", title: "Aula de amanhã", category: null, description: null, duration_minutes: null, event_date: "2026-07-20" },
+    ],
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-19" }),
+    startSession: async (fields) => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const chip = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")]
+    .find(c => c.textContent === "Hoje: Plantão UTI");
+  assert.ok(chip, "the chip for today's event must be rendered");
+
+  chip.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-start-tab-event").classList.contains("tab--active"), true);
+  assert.strictEqual(document.getElementById("ss-start-event").value, "evt-1");
+
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-event-title").textContent, "Plantão UTI");
+});
+
+test("F14.2 — a chip for the nearest due review preselects its linked event, skipping today's own appointment", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-19T12:00:00Z").getTime());
+
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [
+      { id: "evt-1", title: "Plantão UTI", category: "Plantão", event_date: "2026-07-19" },
+      { id: "evt-2", title: "Farmacologia: antiarrítmicos", category: null, event_date: "2026-07-10" },
+    ],
+    listPendingReviews: async () => [
+      { id: "rev-2", event_id: "evt-2", scheduled_date: "2026-07-15" }, // due, oldest
+      { id: "rev-3", event_id: "evt-2", scheduled_date: "2026-07-25" }, // not due yet
+    ],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const labels = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")].map(c => c.textContent);
+  assert.ok(labels.includes("Revisar: Farmacologia: antiarrítmicos"));
+
+  const chip = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")]
+    .find(c => c.textContent === "Revisar: Farmacologia: antiarrítmicos");
+  chip.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-start-event").value, "evt-2");
+});
+
+test("F14.2 — no chips at all when there is no history, no appointment today and no pending review", async (t) => {
+  const { mod } = await loadStudySessionView(t, {});
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-start-suggestions").hidden, true);
+  assert.strictEqual(document.getElementById("ss-start-suggestions").children.length, 0);
+});
+
+test("F14.2 — the 'Compromisso da agenda' tab is hidden entirely when there is no appointment to pick from", async (t) => {
+  const { mod } = await loadStudySessionView(t, { getEvents: async () => [] });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-start-tab-event").hidden, true);
+});
+
+test("F14.2 — the 'Compromisso da agenda' tab stays visible when at least one appointment exists", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [{ id: "evt-1", title: "Plantão UTI", category: null, event_date: "2026-07-30" }],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-start-tab-event").hidden, false);
 });
 
 test("executando: only Pausar and Finalizar are shown — never Continuar/Cancelar", async (t) => {
