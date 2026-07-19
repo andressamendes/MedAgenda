@@ -799,16 +799,52 @@
           </div>
 
           <div id="sj-finished-view">
+          <!-- F13.4 — busca continua sempre visível (é a ação principal:
+               "ler o diário"); período, filtros avançados e marcos da
+               evolução — antes sempre presentes acima da lista, ou atrás de
+               um disclosure isolado — se consolidaram num único painel sob
+               demanda, mesmo padrão de #ai-panel. O contador de filtros
+               ativos (sj-advanced-filters-count) não mudou de lógica, só de
+               lugar: agora é o badge do botão "Analisar". -->
           <div class="appointments-toolbar">
             <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" title="Atalho: /" aria-keyshortcuts="/" />
-            <div class="toolbar-filters">
-              <select id="sj-filter-period" class="toolbar-select">
-                <option value="all">Todo o período</option>
-                <option value="today">Hoje</option>
-                <option value="7d">Últimos 7 dias</option>
-                <option value="30d">Últimos 30 dias</option>
-              </select>
+            <button type="button" class="btn btn-secondary" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel">Analisar<span id="sj-advanced-filters-count" class="ss-section-count"></span></button>
+          </div>
+          <div id="sj-search-stats" class="sj-search-stats" hidden></div>
+          <!-- Auditoria UX #02: os filtros do Diário operam só sobre as
+               sessões já carregadas em memória (F8.4/F8.8) — quando há filtro
+               ativo e ainda existem páginas no servidor, este aviso impede o
+               usuário de tomar contagens parciais como totais. -->
+          <p id="sj-filter-partial-notice" class="insights-block-notice" hidden></p>
+          <h2 class="sr-only">Sessões e resumos</h2>
+          <p id="sj-list-empty" class="list-empty" hidden></p>
+          <ul id="sj-list" class="sj-list"></ul>
+          <button type="button" id="sj-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
+          </div>
+        </div>
+
+        <!-- Painel: Analisar (período, filtros avançados, marcos da
+             evolução) do Diário (F13.4) — mesma estrutura/comportamento de
+             abrir-fechar de #ai-panel (aiPanelView.js). -->
+        <div id="sj-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
+        <aside id="sj-panel" class="ai-panel" hidden
+               role="dialog" aria-modal="true" aria-labelledby="sj-panel-title">
+          <div class="ai-panel-header">
+            <div class="ai-panel-title-wrap">
+              <span class="ai-panel-title" id="sj-panel-title">Analisar</span>
             </div>
+            <button class="ai-panel-close" id="sj-panel-close" aria-label="Fechar painel de análise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+          </div>
+
+          <div class="ai-panel-actions">
+
+          <div class="toolbar-filters">
+            <select id="sj-filter-period" class="toolbar-select">
+              <option value="all">Todo o período</option>
+              <option value="today">Hoje</option>
+              <option value="7d">Últimos 7 dias</option>
+              <option value="30d">Últimos 30 dias</option>
+            </select>
           </div>
           <!-- Auditoria UX #21: a tela narrativa ("diário") abria como um
                formulário de BI, com 11 controles extras sempre visíveis
@@ -818,7 +854,7 @@
                usado em "Mostrar"/"Ocultar" (abaixo, _toggleEntry) e no resumo
                da Sessão (UX #04). F11 E8: chevron rotativo (.disclosure-toggle)
                padroniza o mesmo par rótulo+ícone em todos os toggles. -->
-          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters"><span class="disclosure-label">Filtros avançados</span><span id="sj-advanced-filters-count" class="ss-section-count"></span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters"><span class="disclosure-label">Filtros avançados</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
           <div id="sj-advanced-filters" hidden>
             <div class="toolbar-filters">
               <select id="sj-filter-category" class="toolbar-select">
@@ -886,22 +922,13 @@
               </select>
             </div>
           </div>
-          <div id="sj-search-stats" class="sj-search-stats" hidden></div>
-          <!-- Auditoria UX #02: os filtros do Diário operam só sobre as
-               sessões já carregadas em memória (F8.4/F8.8) — quando há filtro
-               ativo e ainda existem páginas no servidor, este aviso impede o
-               usuário de tomar contagens parciais como totais. -->
-          <p id="sj-filter-partial-notice" class="insights-block-notice" hidden></p>
           <details id="sj-milestones-panel" class="sj-milestones-panel" hidden>
             <summary class="sj-milestones-panel-title">Marcos da Evolução</summary>
             <ul id="sj-milestones-list" class="sj-milestones-list"></ul>
           </details>
-          <h2 class="sr-only">Sessões e resumos</h2>
-          <p id="sj-list-empty" class="list-empty" hidden></p>
-          <ul id="sj-list" class="sj-list"></ul>
-          <button type="button" id="sj-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
+
           </div>
-        </div>
+        </aside>
 
       </main>
     </div>
