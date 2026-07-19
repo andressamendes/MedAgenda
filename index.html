@@ -718,16 +718,13 @@
 
         </div>
 
-        <!-- Page: Dashboard de Execução (F2.1; reestruturado em níveis — F10
-             #3.1). Antes, até 15 cards apareciam juntos, sem nenhuma
-             hierarquia — "Hoje" (o que a maioria consulta) tinha o mesmo peso
-             visual que recordes históricos e conquistas raramente checadas.
-             Agora só o nível "Hoje" é sempre visível; o resto vive atrás de
-             abas (Períodos, Progresso e Conquistas) — sem reduzir nenhum
-             dado, só a quantidade exibida de uma vez. F11 E12 — os nomes
-             antigos ("Semana/Mês", "Recordes e Conquistas") não anunciavam
-             que Revisões e Produtividade também vivem na segunda aba
-             (auditoria #12, #29); os blocos em si não mudaram de lugar. -->
+        <!-- Page: Dashboard de Execução (F2.1). F13.4 — a tela deixou de
+             alternar entre "Hoje" e as abas "Períodos"/"Progresso e
+             Conquistas": agora só mostra "Hoje" (o nível consultado com mais
+             frequência) e um link para a página dedicada "Progresso"
+             (#page-progress, abaixo), que reúne o que antes vivia atrás das
+             abas — nenhum dado a menos, só uma tela por destino em vez de
+             abas empilhadas na mesma tela. -->
         <div id="page-dashboard" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Dashboard</h1>
@@ -737,39 +734,46 @@
           <h2 class="dash-tier-title">Hoje</h2>
           <div id="dash-cards-today" class="stat-cards" hidden></div>
 
-          <div class="tabs" id="dash-tabs" role="tablist" aria-label="Mais indicadores do Dashboard">
-            <button type="button" class="tab tab--active" data-panel="week-month" role="tab" aria-selected="true">Períodos</button>
-            <button type="button" class="tab" data-panel="records" role="tab" aria-selected="false">Progresso e Conquistas</button>
+          <button type="button" class="link-btn dash-progress-link" id="dash-progress-link" data-page="progress">Ver progresso completo →</button>
+        </div>
+
+        <!-- Page: Progresso (F13.4) — Períodos, Progresso e Conquistas,
+             Revisões e Produtividade: antes duas abas dentro do Dashboard,
+             agora uma página própria, acessada pelo link acima. Mesmos
+             containers/ids de sempre (dash-cards-weekmonth, dash-cards-records,
+             insights-revisoes-*, insights-produtividade-*) — só o destino no
+             DOM mudou; activityDashboardView.js/insightsView.js continuam
+             renderizando exatamente como antes, sem nenhum cálculo novo. -->
+        <div id="page-progress" class="app-page" hidden>
+          <div class="page-header">
+            <h1 class="page-title">Progresso</h1>
           </div>
 
-          <div id="dash-panel-week-month" class="dash-tab-panel">
-            <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
-          </div>
+          <h2 class="dash-tier-title">Períodos</h2>
+          <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
 
-          <div id="dash-panel-records" class="dash-tab-panel" hidden>
-            <div id="dash-cards-records" class="stat-cards" hidden></div>
+          <h2 class="dash-tier-title">Progresso e Conquistas</h2>
+          <div id="dash-cards-records" class="stat-cards" hidden></div>
 
-            <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
-                 renderizados por insightsView.js. Execução e Metas não existem
-                 mais lá: eram cards idênticos aos do Dashboard acima (auditoria
-                 UX #01); só os blocos exclusivos (Revisões e Produtividade)
-                 foram incorporados aqui. Movidos para dentro da aba "Recordes
-                 e Conquistas" (F10 #3.1) — mesmo id, mesmo módulo, nenhuma
-                 mudança em insightsView.js. -->
-            <section class="insights-block" aria-labelledby="insights-revisoes-title">
-              <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
-              <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
-              <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
-              <div id="insights-revisoes-cards" class="stat-cards" hidden></div>
-            </section>
+          <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
+               renderizados por insightsView.js. Execução e Metas não existem
+               mais lá: eram cards idênticos aos do Dashboard acima (auditoria
+               UX #01); só os blocos exclusivos (Revisões e Produtividade)
+               foram incorporados aqui. Mesmo id, mesmo módulo, nenhuma
+               mudança em insightsView.js. -->
+          <section class="insights-block" aria-labelledby="insights-revisoes-title">
+            <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
+            <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
+            <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
+            <div id="insights-revisoes-cards" class="stat-cards" hidden></div>
+          </section>
 
-            <section class="insights-block" aria-labelledby="insights-produtividade-title">
-              <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
-              <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
-              <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
-              <div id="insights-produtividade-cards" class="stat-cards" hidden></div>
-            </section>
-          </div>
+          <section class="insights-block" aria-labelledby="insights-produtividade-title">
+            <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
+            <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
+            <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
+            <div id="insights-produtividade-cards" class="stat-cards" hidden></div>
+          </section>
         </div>
 
         <!-- Page: Diário (F8.1) -->

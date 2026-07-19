@@ -74,12 +74,13 @@ function tick() {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
 
-// F10 #3.1 — o Dashboard passou de um único container (#dash-cards) para
-// três níveis (#dash-cards-today sempre visível; #dash-cards-weekmonth e
-// #dash-cards-records atrás de abas). Os testes abaixo, em sua maioria,
-// não precisam saber em qual nível um card específico caiu — só que os 12
-// cards de sempre continuam todos lá, com os mesmos dados. Estes helpers
-// tratam os três containers como um só para esse propósito.
+// F10 #3.1 / F13.4 — o Dashboard passou de um único container (#dash-cards)
+// para três níveis (#dash-cards-today, na página Dashboard; #dash-cards-
+// weekmonth e #dash-cards-records, na página Progresso — ver #page-progress
+// em index.html). Os testes abaixo, em sua maioria, não precisam saber em
+// qual nível/página um card específico caiu — só que os 12 cards de sempre
+// continuam todos lá, com os mesmos dados. Estes helpers tratam os três
+// containers como um só para esse propósito.
 const CARD_GROUP_IDS = ["dash-cards-today", "dash-cards-weekmonth", "dash-cards-records"];
 
 function cardGroupEls() {
@@ -702,23 +703,13 @@ test("UX #23 — a failure fetching achievements never breaks the other executio
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
 });
 
-// F10 #3.1 — reestruturação em níveis: "Hoje" sempre visível; "Períodos" e
-// "Progresso e Conquistas" (F11 E12: renomeadas de "Semana/Mês"/"Recordes e
-// Conquistas") atrás de abas (puramente apresentacional — os dados dos dois
-// níveis já chegam juntos em uma única _load()).
-
-// F11 E12 (auditoria #12, #29) — "Recordes e Conquistas" não anunciava que
-// Revisões e Produtividade também vivem ali; os rótulos passam a ser
-// "Períodos" e "Progresso e Conquistas".
-test("F11 E12 — the dashboard tabs are labeled 'Períodos' and 'Progresso e Conquistas'", async (t) => {
-  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
-  await mod.initActivityDashboardView();
-
-  const weekMonthTab = document.querySelector('#dash-tabs .tab[data-panel="week-month"]');
-  const recordsTab   = document.querySelector('#dash-tabs .tab[data-panel="records"]');
-  assert.strictEqual(weekMonthTab.textContent, "Períodos");
-  assert.strictEqual(recordsTab.textContent, "Progresso e Conquistas");
-});
+// F13.4 — o Dashboard deixou de alternar "Hoje"/"Períodos"/"Progresso e
+// Conquistas" por abas empilhadas na mesma tela: "Hoje" é a única seção do
+// Dashboard; "Períodos" e "Progresso e Conquistas" viraram seções sempre
+// visíveis (sem abas) da página dedicada "Progresso" (#page-progress),
+// alcançada por um link — nunca reduzindo os dados exibidos, nem mudando
+// como/quando são buscados (os três níveis continuam chegando juntos em uma
+// única _load()).
 
 test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always visible", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
@@ -733,62 +724,30 @@ test("F10 #3.1 — 'Hoje' shows exactly the three today-scoped cards, always vis
   assert.match(today.textContent, /Sessões hoje/);
 });
 
-test("F10 #3.1 — 'Períodos' tab is active by default; 'Progresso e Conquistas' panel starts hidden", async (t) => {
+test("F13.4 — 'Períodos' and 'Progresso e Conquistas' cards render on the Progresso page without any tab click", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
 
-  const weekMonthTab  = document.querySelector('#dash-tabs .tab[data-panel="week-month"]');
-  const recordsTab    = document.querySelector('#dash-tabs .tab[data-panel="records"]');
-  assert.strictEqual(weekMonthTab.getAttribute("aria-selected"), "true");
-  assert.ok(weekMonthTab.classList.contains("tab--active"));
-  assert.strictEqual(recordsTab.getAttribute("aria-selected"), "false");
-
-  assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, false);
-  assert.strictEqual(document.getElementById("dash-panel-records").hidden, true);
-
   const weekMonth = document.getElementById("dash-cards-weekmonth");
+  assert.strictEqual(weekMonth.hidden, false);
   assert.strictEqual(weekMonth.children.length, 7);
   assert.match(weekMonth.textContent, /Meta semanal/);
   assert.match(weekMonth.textContent, /Tempo médio por sessão/);
-});
-
-test("F10 #3.1 — clicking 'Progresso e Conquistas' switches panels without re-fetching", async (t) => {
-  let calls = 0;
-  const { mod } = await loadView(t, {
-    getDashboardData: async () => { calls += 1; return EMPTY_DATA; },
-  });
-
-  await mod.initActivityDashboardView();
-  assert.strictEqual(calls, 1);
-
-  document.querySelector('#dash-tabs .tab[data-panel="records"]')
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("dash-panel-records").hidden, false);
-  assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, true);
-  assert.strictEqual(
-    document.querySelector('#dash-tabs .tab[data-panel="records"]').getAttribute("aria-selected"),
-    "true"
-  );
-  assert.strictEqual(calls, 1, "switching tabs never re-fetches — both levels loaded together");
 
   const records = document.getElementById("dash-cards-records");
+  assert.strictEqual(records.hidden, false);
   assert.strictEqual(records.children.length, 2);
   assert.match(records.textContent, /Maior sessão/);
   assert.match(records.textContent, /Conquistas recentes/);
 });
 
-test("F10 #3.1 — re-opening the dashboard resets to the 'Períodos' tab", async (t) => {
+test("F13.4 — the Dashboard page links to the dedicated Progresso page instead of stacking tabs", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
-
-  await mod.initActivityDashboardView();
-  document.querySelector('#dash-tabs .tab[data-panel="records"]')
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("dash-panel-records").hidden, false);
-
   await mod.initActivityDashboardView();
 
-  assert.strictEqual(document.getElementById("dash-panel-week-month").hidden, false);
-  assert.strictEqual(document.getElementById("dash-panel-records").hidden, true);
+  const link = document.getElementById("dash-progress-link");
+  assert.ok(link, "expected a link/button to the Progresso page on the Dashboard");
+  assert.strictEqual(link.dataset.page, "progress");
+  assert.ok(document.getElementById("page-progress"), "expected a dedicated #page-progress");
 });

@@ -200,7 +200,6 @@ const CARD_GROUPS = [
 
 let cardsElByGroup = [];
 let errorEl;
-let tabsEl, panelWeekMonthEl, panelRecordsEl;
 let _unsubscribeProfile = null;
 let _loading = false;
 
@@ -285,23 +284,6 @@ function _onCardsClick(ev) {
   }
 }
 
-// F10 #3.1 — Abas "Períodos" / "Progresso e Conquistas" (F11 E12: renomeadas
-// de "Semana/Mês"/"Recordes e Conquistas"): puramente apresentacional, sem
-// re-fetch — os dados dos dois níveis já foram carregados juntos em _load(),
-// só a visibilidade do painel muda. A aba "Períodos" começa ativa em toda
-// visita à tela (sem persistência): diferente do tema (F10 #2.4), aqui não
-// há uma escolha estável para lembrar — os dois painéis são igualmente
-// prováveis de interessar.
-function _setActiveTab(panel) {
-  tabsEl?.querySelectorAll(".tab").forEach(btn => {
-    const active = btn.dataset.panel === panel;
-    btn.classList.toggle("tab--active", active);
-    btn.setAttribute("aria-selected", String(active));
-  });
-  if (panelWeekMonthEl) panelWeekMonthEl.hidden = panel !== "week-month";
-  if (panelRecordsEl)   panelRecordsEl.hidden   = panel !== "records";
-}
-
 function _renderError({ state, message }) {
   cardsElByGroup.forEach(({ el }) => { el.hidden = true; el.innerHTML = ""; });
   errorEl.hidden = false;
@@ -346,21 +328,13 @@ async function _load() {
 export async function initActivityDashboardView() {
   if (cardsElByGroup.length === 0) {
     errorEl         = document.getElementById("dash-error");
-    tabsEl          = document.getElementById("dash-tabs");
-    panelWeekMonthEl = document.getElementById("dash-panel-week-month");
-    panelRecordsEl   = document.getElementById("dash-panel-records");
 
     cardsElByGroup = CARD_GROUPS.map(({ defs, containerId }) => {
       const el = document.getElementById(containerId);
       el.addEventListener("click", _onCardsClick);
       return { defs, el };
     });
-
-    tabsEl?.querySelectorAll(".tab").forEach(btn => {
-      btn.addEventListener("click", () => _setActiveTab(btn.dataset.panel));
-    });
   }
-  _setActiveTab("week-month");
   _subscribeToEventBus();
   if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
   await _load();
