@@ -29,7 +29,7 @@ export function initSettingsModal() {
   pushStatusText   = document.getElementById("push-status-text");
   btnPushToggle    = document.getElementById("btn-push-toggle");
   pushErrorHint    = document.getElementById("push-error-hint");
-  themeTabs        = Array.from(document.querySelectorAll("#theme-tabs .theme-tab"));
+  themeTabs        = Array.from(document.querySelectorAll("#theme-tabs .tab"));
 
   if (!settingsOverlay) return;
 
@@ -109,7 +109,7 @@ function renderThemeState() {
   const current = getTheme();
   themeTabs.forEach(tab => {
     const active = tab.dataset.theme === current;
-    tab.classList.toggle("theme-tab--active", active);
+    tab.classList.toggle("tab--active", active);
     tab.setAttribute("aria-selected", String(active));
   });
 }
@@ -149,7 +149,9 @@ function renderSettingsState() {
       ? "Desativadas — clique em Ativar para autorizar o navegador."
       : "Desativadas.";
     btnNotifToggle.textContent  = "Ativar";
-    btnNotifToggle.className    = "btn btn-sm btn-primary";
+    // F13.3 — btn-primary é reservado para 1 ação por tela; este toggle
+    // (como o de Push abaixo) não é a ação principal da tela de Configurações.
+    btnNotifToggle.className    = "btn btn-sm btn-secondary";
   }
 }
 
@@ -188,6 +190,6 @@ function renderPushState() {
   } else {
     pushStatusText.textContent = "Desativadas — ative para receber lembretes com o app fechado.";
     btnPushToggle.textContent  = "Ativar Push";
-    btnPushToggle.className    = "btn btn-sm btn-primary";
+    btnPushToggle.className    = "btn btn-sm btn-secondary";
   }
 }

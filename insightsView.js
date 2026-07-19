@@ -139,10 +139,10 @@ function _renderBlock(blockDef, block) {
   clearStateBlock(errorEl);
   cardsEl.hidden = false;
   cardsEl.innerHTML = blockDef.cardDefs.map(def => `
-    <div class="dashboard-card">
-      <span class="dashboard-card-title">${def.title}</span>
-      <span class="dashboard-card-value">${def.value(block.data)}</span>
-      <p class="dashboard-card-desc">${def.desc(block.data)}</p>
+    <div class="stat-card">
+      <span class="stat-card-title">${def.title}</span>
+      <span class="stat-card-value">${def.value(block.data)}</span>
+      <p class="stat-card-desc">${def.desc(block.data)}</p>
     </div>
   `).join("");
   revealWithAnimation(cardsEl);

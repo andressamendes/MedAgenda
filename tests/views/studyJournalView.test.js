@@ -1565,8 +1565,8 @@ test("F10 #4.2 — 'Concluídas' é a aba ativa por padrão, mostrando a visão 
 
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
   assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
-  const finishedTab = document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]');
-  assert.strictEqual(finishedTab.classList.contains("ah-filter-tab--active"), true);
+  const finishedTab = document.querySelector('#sj-status-tabs .tab[data-status="finished"]');
+  assert.strictEqual(finishedTab.classList.contains("tab--active"), true);
   assert.strictEqual(finishedTab.getAttribute("aria-selected"), "true");
 });
 
@@ -1582,14 +1582,14 @@ test("F10 #4.2 — clicking 'Canceladas' shows the compact view and calls setHis
   });
   await mod.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
   assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
   assert.deepStrictEqual(setHistoryStatusCalls, ["cancelled"]);
-  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]').classList.contains("ah-filter-tab--active"), true);
-  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), false);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]').classList.contains("tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), false);
 });
 
 test("F10 #4.2 — clicking 'Todas' shows the compact view and calls setHistoryStatus('all')", async (t) => {
@@ -1598,7 +1598,7 @@ test("F10 #4.2 — clicking 'Todas' shows the compact view and calls setHistoryS
   });
   await mod.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="all"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
@@ -1619,12 +1619,12 @@ test("F10 #4.2 — switching back to 'Concluídas' restores the rich view withou
   await mod.initStudyJournalView();
   assert.strictEqual(entries().length, 1);
 
-  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="all"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   listSessionsCalls.length = 0;
   setHistoryStatusCalls.length = 0;
 
-  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="finished"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
@@ -1640,7 +1640,7 @@ test("F10 #4.2 — resetStudyJournalView() resets the status tab back to 'Conclu
   });
   await mod.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="all"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
 
@@ -1648,7 +1648,7 @@ test("F10 #4.2 — resetStudyJournalView() resets the status tab back to 'Conclu
 
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
   assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
-  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), true);
 });
 
 // F11 E21 (auditoria #30) — a aba escolhida sobrevive a um reload da página
@@ -1659,7 +1659,7 @@ test("F11 E21 — the chosen status tab survives a reload, restored from localSt
   });
   await firstLoad.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]')
+  document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(localStorage.getItem("medagenda_journal_status_tab"), "cancelled");
 
@@ -1669,7 +1669,7 @@ test("F11 E21 — the chosen status tab survives a reload, restored from localSt
   const secondLoad = await import(`../../studyJournalView.js?t=${Math.random()}`);
   await secondLoad.initStudyJournalView();
 
-  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="cancelled"]').classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]').classList.contains("tab--active"), true);
   assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
   assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
 });
@@ -1680,7 +1680,7 @@ test("F11 E21 — with nothing persisted yet, the status tab defaults to 'Conclu
   });
   await mod.initStudyJournalView();
 
-  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), true);
 });
 
 test("F11 E21 — a corrupted/unexpected persisted value falls back to 'Concluídas', never crashing", async (t) => {
@@ -1690,5 +1690,5 @@ test("F11 E21 — a corrupted/unexpected persisted value falls back to 'Concluí
   });
 
   await assert.doesNotReject(() => mod.initStudyJournalView());
-  assert.strictEqual(document.querySelector('#sj-status-tabs .ah-filter-tab[data-status="finished"]').classList.contains("ah-filter-tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), true);
 });

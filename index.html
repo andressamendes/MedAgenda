@@ -345,9 +345,9 @@
                Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
-          <div class="ah-filter-tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana e Mês">
-            <button type="button" class="ah-filter-tab ah-filter-tab--active" data-view="week" role="tab" aria-selected="true">Semana</button>
-            <button type="button" class="ah-filter-tab" data-view="month" role="tab" aria-selected="false">Mês</button>
+          <div class="tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana e Mês">
+            <button type="button" class="tab tab--active" data-view="week" role="tab" aria-selected="true">Semana</button>
+            <button type="button" class="tab" data-view="month" role="tab" aria-selected="false">Mês</button>
           </div>
 
           <!-- Weekly view -->
@@ -407,9 +407,9 @@
                 <button class="modal-close" id="ss-start-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
               </div>
               <div class="modal-body">
-                <div class="ss-start-tabs" role="tablist">
-                  <button type="button" class="ss-start-tab ss-start-tab--active" id="ss-start-tab-manual" role="tab" aria-selected="true">Novo estudo</button>
-                  <button type="button" class="ss-start-tab" id="ss-start-tab-event" role="tab" aria-selected="false">Compromisso da agenda</button>
+                <div class="tabs" id="ss-start-tabs" role="tablist">
+                  <button type="button" class="tab tab--active" id="ss-start-tab-manual" role="tab" aria-selected="true">Novo estudo</button>
+                  <button type="button" class="tab" id="ss-start-tab-event" role="tab" aria-selected="false">Compromisso da agenda</button>
                 </div>
 
                 <div id="ss-start-manual-panel" role="tabpanel">
@@ -533,10 +533,10 @@
             </dl>
 
             <div class="ss-actions">
-              <button type="button" class="btn btn-ghost"   id="ss-btn-pause"  hidden>Pausar</button>
-              <button type="button" class="btn btn-primary" id="ss-btn-resume" hidden>Continuar</button>
-              <button type="button" class="btn btn-danger"  id="ss-btn-cancel" hidden>Cancelar</button>
-              <button type="button" class="btn btn-primary" id="ss-btn-finish" hidden>Finalizar</button>
+              <button type="button" class="btn btn-ghost"     id="ss-btn-pause"  hidden>Pausar</button>
+              <button type="button" class="btn btn-secondary" id="ss-btn-resume" hidden>Continuar</button>
+              <button type="button" class="btn btn-danger"    id="ss-btn-cancel" hidden>Cancelar</button>
+              <button type="button" class="btn btn-primary"   id="ss-btn-finish" hidden>Finalizar</button>
             </div>
 
             <!-- F10 #4.3 — Questões e Revisões deixaram de ser exclusivas do
@@ -558,7 +558,7 @@
               <ul id="ss-questions-list" class="ss-questions-list"></ul>
               <p id="ss-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
 
-              <button type="button" class="btn btn-primary btn-sm ss-quick-question-btn" id="ss-btn-quick-question">
+              <button type="button" class="btn btn-secondary btn-sm ss-quick-question-btn" id="ss-btn-quick-question">
                 <span class="ss-quick-question-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="4 12.5 9.5 18 20 6"/></svg></span>
                 Registrar questão respondida
               </button>
@@ -707,19 +707,19 @@
           <p id="dash-error" class="list-empty list-error" hidden></p>
 
           <h2 class="dash-tier-title">Hoje</h2>
-          <div id="dash-cards-today" class="dashboard-cards" hidden></div>
+          <div id="dash-cards-today" class="stat-cards" hidden></div>
 
-          <div class="dash-tabs" id="dash-tabs" role="tablist" aria-label="Mais indicadores do Dashboard">
-            <button type="button" class="dash-tab dash-tab--active" data-panel="week-month" role="tab" aria-selected="true">Períodos</button>
-            <button type="button" class="dash-tab" data-panel="records" role="tab" aria-selected="false">Progresso e Conquistas</button>
+          <div class="tabs" id="dash-tabs" role="tablist" aria-label="Mais indicadores do Dashboard">
+            <button type="button" class="tab tab--active" data-panel="week-month" role="tab" aria-selected="true">Períodos</button>
+            <button type="button" class="tab" data-panel="records" role="tab" aria-selected="false">Progresso e Conquistas</button>
           </div>
 
           <div id="dash-panel-week-month" class="dash-tab-panel">
-            <div id="dash-cards-weekmonth" class="dashboard-cards" hidden></div>
+            <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
           </div>
 
           <div id="dash-panel-records" class="dash-tab-panel" hidden>
-            <div id="dash-cards-records" class="dashboard-cards" hidden></div>
+            <div id="dash-cards-records" class="stat-cards" hidden></div>
 
             <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
                  renderizados por insightsView.js. Execução e Metas não existem
@@ -732,14 +732,14 @@
               <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
               <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
               <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
-              <div id="insights-revisoes-cards" class="dashboard-cards" hidden></div>
+              <div id="insights-revisoes-cards" class="stat-cards" hidden></div>
             </section>
 
             <section class="insights-block" aria-labelledby="insights-produtividade-title">
               <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
               <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
               <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
-              <div id="insights-produtividade-cards" class="dashboard-cards" hidden></div>
+              <div id="insights-produtividade-cards" class="stat-cards" hidden></div>
             </section>
           </div>
         </div>
@@ -758,10 +758,10 @@
           <div class="page-header">
             <h1 class="page-title">Diário</h1>
           </div>
-          <div class="ah-filter-tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
-            <button type="button" class="ah-filter-tab ah-filter-tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
-            <button type="button" class="ah-filter-tab" data-status="cancelled" role="tab" aria-selected="false">Canceladas</button>
-            <button type="button" class="ah-filter-tab" data-status="all" role="tab" aria-selected="false">Todas</button>
+          <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
+            <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
+            <button type="button" class="tab" data-status="cancelled" role="tab" aria-selected="false">Canceladas</button>
+            <button type="button" class="tab" data-status="all" role="tab" aria-selected="false">Todas</button>
           </div>
 
           <div id="sj-other-view" hidden>
@@ -1082,25 +1082,25 @@
           </div>
           <div id="session-history-body" hidden>
             <div id="session-stats" class="session-stats" hidden>
-              <div class="session-stat">
-                <span class="session-stat-label">Tempo executado</span>
-                <span class="session-stat-value" id="stat-total"></span>
+              <div class="stat-card stat-card--sm">
+                <span class="stat-card-title">Tempo executado</span>
+                <span class="stat-card-value" id="stat-total"></span>
               </div>
-              <div class="session-stat">
-                <span class="session-stat-label">Sessões</span>
-                <span class="session-stat-value" id="stat-count"></span>
+              <div class="stat-card stat-card--sm">
+                <span class="stat-card-title">Sessões</span>
+                <span class="stat-card-value" id="stat-count"></span>
               </div>
-              <div class="session-stat">
-                <span class="session-stat-label">Última sessão</span>
-                <span class="session-stat-value" id="stat-last"></span>
+              <div class="stat-card stat-card--sm">
+                <span class="stat-card-title">Última sessão</span>
+                <span class="stat-card-value" id="stat-last"></span>
               </div>
-              <div class="session-stat">
-                <span class="session-stat-label">Maior sessão</span>
-                <span class="session-stat-value" id="stat-longest"></span>
+              <div class="stat-card stat-card--sm">
+                <span class="stat-card-title">Maior sessão</span>
+                <span class="stat-card-value" id="stat-longest"></span>
               </div>
-              <div class="session-stat">
-                <span class="session-stat-label">Média</span>
-                <span class="session-stat-value" id="stat-average"></span>
+              <div class="stat-card stat-card--sm">
+                <span class="stat-card-title">Média</span>
+                <span class="stat-card-value" id="stat-average"></span>
               </div>
             </div>
 
@@ -1151,10 +1151,10 @@
             <div class="settings-label">Tema</div>
             <div class="settings-desc">Escolha entre claro, escuro ou seguir o sistema.</div>
           </div>
-          <div class="theme-tabs" id="theme-tabs" role="tablist" aria-label="Tema da interface">
-            <button type="button" class="theme-tab" data-theme="light" role="tab" aria-selected="false">Claro</button>
-            <button type="button" class="theme-tab" data-theme="dark" role="tab" aria-selected="false">Escuro</button>
-            <button type="button" class="theme-tab" data-theme="auto" role="tab" aria-selected="false">Sistema</button>
+          <div class="tabs" id="theme-tabs" role="tablist" aria-label="Tema da interface">
+            <button type="button" class="tab" data-theme="light" role="tab" aria-selected="false">Claro</button>
+            <button type="button" class="tab" data-theme="dark" role="tab" aria-selected="false">Escuro</button>
+            <button type="button" class="tab" data-theme="auto" role="tab" aria-selected="false">Sistema</button>
           </div>
         </div>
 
@@ -1166,7 +1166,7 @@
             <div class="settings-label">Lembretes no navegador</div>
             <div id="notif-status-text" class="settings-desc">Lembretes exibidos enquanto o app está aberto.</div>
           </div>
-          <button id="btn-notif-toggle" class="btn btn-sm btn-primary">Ativar</button>
+          <button id="btn-notif-toggle" class="btn btn-sm btn-secondary">Ativar</button>
         </div>
         <p id="notif-perm-hint" class="settings-hint" hidden role="alert"></p>
 
@@ -1178,7 +1178,7 @@
             <div class="settings-label">Lembretes com o app fechado</div>
             <div id="push-status-text" class="settings-desc" aria-live="polite">Receba lembretes mesmo com o app fechado.</div>
           </div>
-          <button id="btn-push-toggle" class="btn btn-sm btn-primary">Ativar</button>
+          <button id="btn-push-toggle" class="btn btn-sm btn-secondary">Ativar</button>
         </div>
         <p id="push-error-hint" class="settings-hint" hidden role="alert"></p>
 

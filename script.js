@@ -232,9 +232,9 @@ function _setAgendaView(view) {
   if (weekEl)  weekEl.hidden  = view !== "week";
   if (monthEl) monthEl.hidden = view !== "month";
 
-  document.querySelectorAll("#agenda-view-tabs .ah-filter-tab").forEach(btn => {
+  document.querySelectorAll("#agenda-view-tabs .tab").forEach(btn => {
     const active = btn.dataset.view === view;
-    btn.classList.toggle("ah-filter-tab--active", active);
+    btn.classList.toggle("tab--active", active);
     btn.setAttribute("aria-selected", String(active));
   });
 
@@ -244,7 +244,7 @@ function _setAgendaView(view) {
 function _initAgendaViewTabs() {
   if (_agendaViewBound) return;
   _agendaViewBound = true;
-  document.querySelectorAll("#agenda-view-tabs .ah-filter-tab").forEach(btn => {
+  document.querySelectorAll("#agenda-view-tabs .tab").forEach(btn => {
     btn.addEventListener("click", () => _setAgendaView(btn.dataset.view));
   });
 

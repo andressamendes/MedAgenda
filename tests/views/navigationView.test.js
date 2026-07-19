@@ -98,7 +98,7 @@ test("F10 #4.1 — showPage('calendar') falls back to agenda: 'calendar' is no l
 test("F10 #4.1 — a página Agenda tem as abas Semana/Mês que absorveram o Mês", () => {
   nav.showPage("agenda");
 
-  const tabs = Array.from(document.querySelectorAll("#agenda-view-tabs .ah-filter-tab"));
+  const tabs = Array.from(document.querySelectorAll("#agenda-view-tabs .tab"));
   const labels = tabs.map(btn => btn.textContent);
   assert.deepStrictEqual(labels, ["Semana", "Mês"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="calendar"]'), null, "não existe mais um item de navegação próprio para o Mês na sidebar");
@@ -121,7 +121,7 @@ test("F10 #4.2 — showPage('history') falls back to agenda: 'history' is no lon
 test("F10 #4.2 — o Diário de Estudos tem as abas Concluídas/Canceladas/Todas que absorveram o Histórico", () => {
   nav.showPage("journal");
 
-  const tabs = Array.from(document.querySelectorAll("#sj-status-tabs .ah-filter-tab"));
+  const tabs = Array.from(document.querySelectorAll("#sj-status-tabs .tab"));
   const labels = tabs.map(btn => btn.textContent);
   assert.deepStrictEqual(labels, ["Concluídas", "Canceladas", "Todas"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="history"]'), null, "o item de navegação do Histórico não existe mais na sidebar");

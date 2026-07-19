@@ -13,7 +13,7 @@
 // #sj-other-view (onde #ah-list/#ah-list-empty/#ah-load-more agora vivem)
 // e controla o status exibido via setHistoryStatus(), exportada abaixo.
 // Nenhuma lógica de carregamento/paginação/cache de eventos mudou — só o
-// <div class="ah-filter-tabs"> próprio (com Todos/Finalizadas/Canceladas)
+// <div class="tabs"> próprio (com Todos/Finalizadas/Canceladas)
 // foi removido e substituído pelo tab bar único do Diário, que nunca
 // repassa "finished" para cá (essa é a visão rica do próprio Diário).
 

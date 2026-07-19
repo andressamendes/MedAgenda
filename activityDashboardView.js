@@ -248,15 +248,15 @@ function _cardsMarkup(defs, data) {
     // não repetir em prosa o que o título e o número acima já mostram.
     // O parágrafo só é impresso quando há algo a acrescentar de fato (ex.:
     // metas com valor real, ou desambiguações como "este mês"/"esta semana").
-    const desc = def.desc ? `<p class="dashboard-card-desc">${def.desc(data)}</p>` : "";
+    const desc = def.desc ? `<p class="stat-card-desc">${def.desc(data)}</p>` : "";
     // F11 E11 — slot opcional para conteúdo visual extra (barra de progresso
     // das metas, minigráfico semanal); a maioria dos cards não define `extra`
     // e permanece só título+valor+desc, como antes.
     const extra = def.extra ? def.extra(data) : "";
     return `
-    <div class="dashboard-card">
-      <span class="dashboard-card-title">${def.title}</span>
-      <span class="dashboard-card-value">${def.value(data)}</span>
+    <div class="stat-card">
+      <span class="stat-card-title">${def.title}</span>
+      <span class="stat-card-value">${def.value(data)}</span>
       ${desc}
       ${extra}
       ${configureLink}
@@ -293,9 +293,9 @@ function _onCardsClick(ev) {
 // há uma escolha estável para lembrar — os dois painéis são igualmente
 // prováveis de interessar.
 function _setActiveTab(panel) {
-  tabsEl?.querySelectorAll(".dash-tab").forEach(btn => {
+  tabsEl?.querySelectorAll(".tab").forEach(btn => {
     const active = btn.dataset.panel === panel;
-    btn.classList.toggle("dash-tab--active", active);
+    btn.classList.toggle("tab--active", active);
     btn.setAttribute("aria-selected", String(active));
   });
   if (panelWeekMonthEl) panelWeekMonthEl.hidden = panel !== "week-month";
@@ -356,7 +356,7 @@ export async function initActivityDashboardView() {
       return { defs, el };
     });
 
-    tabsEl?.querySelectorAll(".dash-tab").forEach(btn => {
+    tabsEl?.querySelectorAll(".tab").forEach(btn => {
       btn.addEventListener("click", () => _setActiveTab(btn.dataset.panel));
     });
   }

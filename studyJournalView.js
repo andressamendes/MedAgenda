@@ -931,9 +931,9 @@ async function _loadPage(reset) {
 // "finished" nunca chama setHistoryStatus() — essa aba não usa
 // activityHistoryView.js para nada, é só este módulo mostrado normalmente.
 function _setStatusTab(status) {
-  statusTabsEl?.querySelectorAll(".ah-filter-tab").forEach(btn => {
+  statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
     const active = btn.dataset.status === status;
-    btn.classList.toggle("ah-filter-tab--active", active);
+    btn.classList.toggle("tab--active", active);
     btn.setAttribute("aria-selected", String(active));
   });
   const showFinished = status === "finished";
@@ -959,7 +959,7 @@ export async function initStudyJournalView() {
     statusTabsEl   = document.getElementById("sj-status-tabs");
     finishedViewEl = document.getElementById("sj-finished-view");
     otherViewEl    = document.getElementById("sj-other-view");
-    statusTabsEl?.querySelectorAll(".ah-filter-tab").forEach(btn => {
+    statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
       btn.addEventListener("click", () => {
         _setStatusTab(btn.dataset.status);
         try { localStorage.setItem(JOURNAL_STATUS_TAB_KEY, btn.dataset.status); } catch { /* storage unavailable */ }

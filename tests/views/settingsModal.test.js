@@ -117,10 +117,10 @@ test("openSettings() marks the currently active theme tab as selected", async (t
 
   settings.openSettings();
 
-  const darkTab  = document.querySelector('#theme-tabs .theme-tab[data-theme="dark"]');
-  const lightTab = document.querySelector('#theme-tabs .theme-tab[data-theme="light"]');
+  const darkTab  = document.querySelector('#theme-tabs .tab[data-theme="dark"]');
+  const lightTab = document.querySelector('#theme-tabs .tab[data-theme="light"]');
   assert.strictEqual(darkTab.getAttribute("aria-selected"), "true");
-  assert.ok(darkTab.classList.contains("theme-tab--active"));
+  assert.ok(darkTab.classList.contains("tab--active"));
   assert.strictEqual(lightTab.getAttribute("aria-selected"), "false");
 });
 
@@ -132,13 +132,13 @@ test("clicking a theme tab switches the theme, persists it, and updates the sele
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
-  document.querySelector('#theme-tabs .theme-tab[data-theme="dark"]')
+  document.querySelector('#theme-tabs .tab[data-theme="dark"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(getTheme(), "dark");
   assert.strictEqual(document.documentElement.getAttribute("data-theme"), "dark");
   assert.strictEqual(
-    document.querySelector('#theme-tabs .theme-tab[data-theme="dark"]').getAttribute("aria-selected"),
+    document.querySelector('#theme-tabs .tab[data-theme="dark"]').getAttribute("aria-selected"),
     "true"
   );
 });
