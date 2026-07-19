@@ -61,8 +61,8 @@ test("F11 E8 — showPage() updates document.title to match the destination page
   nav.showPage("journal");
   assert.strictEqual(document.title, "Diário · Anoti");
 
-  nav.showPage("dashboard");
-  assert.strictEqual(document.title, "Dashboard · Anoti");
+  nav.showPage("progress");
+  assert.strictEqual(document.title, "Progresso · Anoti");
 
   nav.showPage("agenda");
   assert.strictEqual(document.title, "Agenda · Anoti");

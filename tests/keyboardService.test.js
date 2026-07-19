@@ -87,16 +87,15 @@ test("'G' then 'a' navigates to Agenda", async (t) => {
   assert.deepStrictEqual(showPageCalls, ["agenda"]);
 });
 
-test("'G' then 'c'/'s'/'d'/'j' navigates to the matching page", async (t) => {
+test("'G' then 'c'/'s'/'j' navigates to the matching page", async (t) => {
   const { initKeyboardShortcuts } = await loadService(t);
   initKeyboardShortcuts();
 
   press("g"); press("c");
   press("g"); press("s");
-  press("g"); press("d");
   press("g"); press("j");
 
-  assert.deepStrictEqual(showPageCalls, ["appointments", "study-session", "dashboard", "journal"]);
+  assert.deepStrictEqual(showPageCalls, ["appointments", "study-session", "journal"]);
 });
 
 // F14.1 — "Hoje" é a nova porta de entrada; ganha o mesmo atalho "go to" das
