@@ -25,6 +25,7 @@ import { addQuestion, listQuestions, updateQuestion, removeQuestion } from "./se
 import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
 import { associateReview, unlinkReview, listBySession as listSessionReviews } from "./reviewSessionService.js";
 import { saveReflection } from "./studyReflectionService.js";
+import { getNextStudyPlan, clearNextStudyPlan } from "./closeDayService.js";
 import { getEventById, getEvents } from "./eventService.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
@@ -595,6 +596,26 @@ async function _loadStartSuggestions() {
   const suggestions = [];
   const todayISO = _todayDateInputValue();
 
+  // F14.8 — "Fechar o dia" grava, opcionalmente, o primeiro estudo de
+  // amanhã; ele aparece aqui como o primeiro chip, à frente dos títulos
+  // recentes (é uma intenção deliberada de ontem, não um padrão observado).
+  // Consumido (clearNextStudyPlan()) no clique — ver _renderStartSuggestions —
+  // para não repetir uma sugestão já atendida em sessões futuras.
+  try {
+    const plan = await getNextStudyPlan();
+    if (plan) {
+      suggestions.push({
+        kind: "manual",
+        label: `Amanhã: ${plan.title}`,
+        title: plan.title,
+        category_id: plan.category_id,
+        consumesPlan: true,
+      });
+    }
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadNextStudyPlan", silent: true });
+  }
+
   try {
     const { sessions } = await listSessions({ status: "all", limit: 15 });
     const seen = new Set();
@@ -647,6 +668,11 @@ function _renderStartSuggestions(suggestions) {
         startTitleInputEl.value = s.title;
         if (s.category_id) startCategoryEl.value = s.category_id;
         startManualErrorEl.hidden = true;
+      }
+      if (s.consumesPlan) {
+        clearNextStudyPlan().catch(err =>
+          handleError(err, { context: "studySessionView.clearNextStudyPlan", silent: true })
+        );
       }
     });
     startSuggestionsEl.appendChild(btn);

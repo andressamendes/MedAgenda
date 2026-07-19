@@ -21,13 +21,19 @@ import { showPage } from "./navigationView.js";
 import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
+import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
+import { initModal } from "./modalController.js";
+import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
 import { escapeHtml, isoToday } from "./utils.js";
 
 let tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
+let closeDayBtn, closeDayModalEl, closeDayModal;
+let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
 let _bound = false; // AUD-005: a página não é reconstruída entre logins na mesma sessão do app — sem esta guarda, cada login empilharia mais um listener nos mesmos botões
 let _unsubscribers = [];
 let _continueSuggestion = null; // { title, category_id } | null — ver _loadContinueSuggestion()
+let _closingDay = false;
 
 export async function initTodayView() {
   tipEl       = document.getElementById("today-tip");
@@ -38,6 +44,16 @@ export async function initTodayView() {
   apptEmptyEl = document.getElementById("today-appointments-empty");
   if (!resumeBtn) return;
 
+  closeDayBtn      = document.getElementById("today-btn-close-day");
+  closeDayModalEl  = document.getElementById("close-day-modal");
+  cdMinutesEl      = document.getElementById("cd-minutes");
+  cdSessionsEl     = document.getElementById("cd-sessions");
+  cdQuestionsEl    = document.getElementById("cd-questions");
+  cdStreakEl       = document.getElementById("cd-streak");
+  cdNextStudyEl    = document.getElementById("cd-next-study");
+  cdBtnBack        = document.getElementById("cd-btn-back");
+  cdBtnConfirm     = document.getElementById("cd-btn-confirm");
+
   if (!_bound) {
     _bound = true;
     resumeBtn.addEventListener("click", () => showPage("study-session"));
@@ -46,6 +62,11 @@ export async function initTodayView() {
       openStartModal();
     });
     continueBtn.addEventListener("click", () => _handleContinue());
+
+    closeDayModal = initModal(closeDayModalEl, _closeCloseDayModal);
+    closeDayBtn.addEventListener("click", () => _openCloseDayModal());
+    cdBtnBack.addEventListener("click", () => _closeCloseDayModal());
+    cdBtnConfirm.addEventListener("click", () => _confirmCloseDay());
   }
 
   if (_unsubscribers.length === 0) {
@@ -81,11 +102,13 @@ async function _refreshHero() {
     resumeBtn.hidden   = false;
     startBtn.hidden    = true;
     continueBtn.hidden = true;
+    closeDayBtn.hidden = true; // fechar o dia não faz sentido com uma sessão em andamento
     return;
   }
 
-  resumeBtn.hidden = true;
-  startBtn.hidden  = false;
+  resumeBtn.hidden   = true;
+  startBtn.hidden    = false;
+  closeDayBtn.hidden = false;
 
   _continueSuggestion = await _loadContinueSuggestion();
   if (_continueSuggestion) {
@@ -202,6 +225,66 @@ async function _refreshTip() {
   const todayDecision = spontaneous.find(d => d.origem === "planning" && d.acaoSugerida?.dataSugerida === todayISO);
   const decision = todayDecision || spontaneous[0] || null;
   renderSmartCards(tipEl, decision ? [decisionToCard(decision)] : []);
+}
+
+// ── Fechar o dia (F14.8) ──────────────────────────────────────────────────
+// O dia nunca tinha desfecho (auditoria F14 §7/§13): a última sessão
+// terminava e nada dizia "pronto, seu dia está encerrado". Este modal cobre
+// as duas metades desse fechamento — um recap de 15 segundos (nenhum
+// cálculo novo, ver closeDayService.getDayRecap()) e um único campo
+// opcional para o primeiro estudo de amanhã, que reaparece como chip no
+// próximo início de sessão (studySessionView.js/_loadStartSuggestions lê o
+// mesmo closeDayService.getNextStudyPlan()).
+
+function _formatMinutes(minutes) {
+  const total = Math.max(0, Math.round(minutes || 0));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h <= 0) return `${m}min`;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+async function _openCloseDayModal() {
+  if (_closingDay) return;
+
+  cdMinutesEl.textContent   = "—";
+  cdSessionsEl.textContent  = "—";
+  cdQuestionsEl.textContent = "—";
+  cdStreakEl.textContent    = "—";
+  cdNextStudyEl.value       = "";
+  cdBtnConfirm.disabled     = false;
+
+  closeDayModal.open(cdNextStudyEl);
+
+  try {
+    const recap = await getDayRecap();
+    cdMinutesEl.textContent   = _formatMinutes(recap.minutes);
+    cdSessionsEl.textContent  = String(recap.sessionsCount);
+    cdQuestionsEl.textContent = String(recap.questionsCount);
+    cdStreakEl.textContent    = recap.currentStreak === 1 ? "1 dia" : `${recap.currentStreak} dias`;
+  } catch (err) {
+    handleError(err, { context: "todayView.closeDayRecap", silent: true });
+  }
+}
+
+function _closeCloseDayModal() {
+  closeDayModal.close();
+}
+
+async function _confirmCloseDay() {
+  if (_closingDay) return;
+  _closingDay = true;
+  cdBtnConfirm.disabled = true;
+  try {
+    await setNextStudyPlan({ title: cdNextStudyEl.value });
+    _closeCloseDayModal();
+    toast.success("Dia encerrado. Até amanhã!");
+  } catch (err) {
+    handleError(err, { context: "todayView.confirmCloseDay" });
+  } finally {
+    _closingDay = false;
+    cdBtnConfirm.disabled = false;
+  }
 }
 
 // Chamado no logout (ver script.js) — mesma simetria init/reset dos demais
