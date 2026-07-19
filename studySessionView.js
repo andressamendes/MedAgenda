@@ -19,6 +19,7 @@ import {
   resumeSession,
   finishSession,
   cancelSession,
+  listSessions,
 } from "./activitySessionService.js";
 import { addQuestion, listQuestions, updateQuestion, removeQuestion } from "./sessionQuestionsService.js";
 import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
@@ -76,6 +77,7 @@ let startTitleInputEl, startCategoryEl, startContentEl, startDateEl, startDurati
 let startEventSelectEl, startEventErrorEl;
 let startCancelEl, startCloseEl, startConfirmEl;
 let startMoreToggleEl, startMoreBodyEl;
+let startSuggestionsEl;
 let _startEventsCache = [];
 
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
@@ -273,6 +275,7 @@ function _queryElements() {
   startConfirmEl      = document.getElementById("ss-start-confirm");
   startMoreToggleEl   = document.getElementById("ss-start-more-toggle");
   startMoreBodyEl     = document.getElementById("ss-start-more-body");
+  startSuggestionsEl  = document.getElementById("ss-start-suggestions");
 
   startModal = initModal(startModalEl, _closeStartModal);
 }
@@ -578,6 +581,74 @@ async function _populateStartEventOptions() {
   }
 }
 
+// F14.2 — sugestões de início sem digitação: até 3 nomes de estudo avulso
+// recentes (distintos, sem compromisso vinculado — sessões de compromisso já
+// têm sugestão própria abaixo), o compromisso de hoje (se existir) e a
+// revisão pendente mais próxima. Nenhuma sugestão inicia a sessão sozinha:
+// cada chip só preenche/seleciona o caminho correspondente, e quem confirma
+// continua sendo o clique em "Iniciar sessão" (ver _renderStartSuggestions).
+async function _loadStartSuggestions() {
+  const suggestions = [];
+  const todayISO = _todayDateInputValue();
+
+  try {
+    const { sessions } = await listSessions({ status: "all", limit: 15 });
+    const seen = new Set();
+    for (const s of sessions) {
+      if (!s.title || s.event_id || seen.has(s.title)) continue;
+      seen.add(s.title);
+      suggestions.push({ kind: "manual", label: s.title, title: s.title, category_id: s.category_id || null });
+      if (seen.size >= 3) break;
+    }
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadRecentTitles", silent: true });
+  }
+
+  const todayEvent = _startEventsCache.find(ev => ev.event_date === todayISO);
+  if (todayEvent) {
+    suggestions.push({ kind: "event", label: `Hoje: ${todayEvent.title}`, eventId: todayEvent.id });
+  }
+
+  try {
+    const pending = await listPendingReviews();
+    const due = (pending || [])
+      .filter(r => r.scheduled_date <= todayISO)
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))[0];
+    if (due && due.event_id !== todayEvent?.id) {
+      const event = _startEventsCache.find(ev => ev.id === due.event_id);
+      if (event) suggestions.push({ kind: "event", label: `Revisar: ${event.title}`, eventId: event.id });
+    }
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadPendingReview", silent: true });
+  }
+
+  return suggestions;
+}
+
+function _renderStartSuggestions(suggestions) {
+  startSuggestionsEl.innerHTML = "";
+  startSuggestionsEl.hidden = suggestions.length === 0;
+  suggestions.forEach(s => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ss-suggestion-chip";
+    btn.textContent = s.label;
+    btn.addEventListener("click", () => {
+      if (s.kind === "event") {
+        _switchStartTab("event");
+        startEventSelectEl.value = s.eventId;
+        startEventErrorEl.hidden = true;
+      } else {
+        _switchStartTab("manual");
+        startTitleInputEl.value = s.title;
+        if (s.category_id) startCategoryEl.value = s.category_id;
+        startManualErrorEl.hidden = true;
+      }
+    });
+    startSuggestionsEl.appendChild(btn);
+  });
+}
+
 function _switchStartTab(which) {
   const isManual = which === "manual";
   startTabManualEl.classList.toggle("tab--active", isManual);
@@ -607,6 +678,13 @@ async function _openStartModal() {
 
   _switchStartTab("manual");
   await Promise.all([_populateStartCategoryOptions(), _populateStartEventOptions()]);
+
+  // F14.2 — a aba "Compromisso da agenda" só aparece se houver algum
+  // compromisso para escolher; sem isso, forçar o usuário a decidir entre
+  // duas abas era perguntar algo que a própria agenda já respondia.
+  startTabEventEl.hidden = _startEventsCache.length === 0;
+
+  _renderStartSuggestions(await _loadStartSuggestions());
 
   startModal.open(startTitleInputEl);
 }
@@ -1391,6 +1469,8 @@ export function resetStudySessionView() {
   if (startManualErrorEl) { startManualErrorEl.textContent = ""; startManualErrorEl.hidden = true; }
   if (startEventErrorEl) { startEventErrorEl.textContent = ""; startEventErrorEl.hidden = true; }
   if (startMoreToggleEl) _setSectionExpanded(startMoreToggleEl, startMoreBodyEl, false);
+  if (startSuggestionsEl) { startSuggestionsEl.innerHTML = ""; startSuggestionsEl.hidden = true; }
+  if (startTabEventEl) startTabEventEl.hidden = false;
   _startEventsCache = [];
 
   // Seções de Questões/Revisões (F10 #4.3, agora na tela ativa): mesma
