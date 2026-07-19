@@ -115,18 +115,22 @@ let ssfReflectionEl, ssfBtnBack, ssfBtnConfirm;
 // aguardando a confirmação do encerramento.
 let sqListEl, sqEmptyEl;
 let sqTypeEl, sqStatusEl, sqDifficultyEl, sqSubjectEl, sqTopicEl, sqBtnAdd, sqBtnQuick;
+// F14.4 — "+1 questão": mesmo caminho de escrita de sqBtnQuick, só que na
+// superfície principal do card ss-active, sem exigir abrir o painel.
+let sqBtnQuickMain, sqQuickMainCountEl;
 // F10 #3.3 — o formulário de adicionar/editar questão nasce oculto atrás de
 // "+ Adicionar questão"; só aparece ao abrir (sqBtnToggleForm), ao editar um
 // item da lista (_editQuestion) ou permanece aberto entre adições
 // consecutivas (auditoria UX #25) até "Cancelar" fechá-lo de volta.
 let sqFormEl, sqBtnToggleForm, sqBtnCancel;
 
-// Seções colapsáveis (auditoria UX #04) — Questões e Revisões nascem
-// fechadas a cada sessão nova, para que o cronômetro (elemento principal da
-// tela) fique visível sem rolagem; o contador no título reflete o que já foi
-// registrado sem precisar expandir.
-let sqToggleEl, sqBodyEl, sqCountEl;
-let srToggleEl, srBodyEl, srCountEl;
+// Questões/Revisões vivem dentro do painel sob demanda (ver ssPanel* abaixo);
+// o contador no título reflete o que já foi registrado sem precisar abri-lo.
+// F14.4 — as duas seções nascem sempre expandidas dentro do painel: abrir o
+// painel já é um nível de disclosure, colapsar de novo por dentro seria
+// porta atrás de porta (auditoria F14 §9).
+let sqBodyEl, sqCountEl;
+let srBodyEl, srCountEl;
 
 // Painel "Questões e revisões" (F13.4) — as duas seções acima saíram da
 // coluna principal para este painel lateral sob demanda, mesmo padrão de
@@ -210,7 +214,6 @@ function _queryElements() {
 
   sqListEl       = document.getElementById("ss-questions-list");
   sqEmptyEl      = document.getElementById("ss-questions-empty");
-  sqToggleEl     = document.getElementById("ss-questions-toggle");
   sqBodyEl       = document.getElementById("ss-questions-body");
   sqCountEl      = document.getElementById("ss-questions-count");
   sqTypeEl       = document.getElementById("ss-q-type");
@@ -220,11 +223,12 @@ function _queryElements() {
   sqTopicEl      = document.getElementById("ss-q-topic");
   sqBtnAdd       = document.getElementById("ss-btn-add-question");
   sqBtnQuick     = document.getElementById("ss-btn-quick-question");
+  sqBtnQuickMain    = document.getElementById("ss-btn-quick-question-main");
+  sqQuickMainCountEl = document.getElementById("ss-quick-question-main-count");
   sqFormEl        = document.getElementById("ss-question-form");
   sqBtnToggleForm = document.getElementById("ss-btn-toggle-question-form");
   sqBtnCancel     = document.getElementById("ss-btn-cancel-question");
 
-  srToggleEl = document.getElementById("ss-reviews-toggle");
   srBodyEl   = document.getElementById("ss-reviews-body");
   srCountEl  = document.getElementById("ss-reviews-count");
 
@@ -311,8 +315,6 @@ function _bindEvents() {
     }
   });
 
-  sqToggleEl.addEventListener("click", () => _setSectionExpanded(sqToggleEl, sqBodyEl, sqBodyEl.hidden));
-  srToggleEl.addEventListener("click", () => _setSectionExpanded(srToggleEl, srBodyEl, srBodyEl.hidden));
   ctxMoreToggleEl.addEventListener("click", () => _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, ctxMoreBodyEl.hidden));
 
   ssPanelOpenBtn.addEventListener("click", () => _openSsPanel());
@@ -320,6 +322,7 @@ function _bindEvents() {
   bindModalBehavior(ssPanelOverlayEl, () => !ssPanelEl.hidden, _closeSsPanel, ssPanelEl);
   sqBtnAdd.addEventListener("click", () => _submitQuestionForm());
   sqBtnQuick.addEventListener("click", () => _quickAddQuestion());
+  sqBtnQuickMain.addEventListener("click", () => _quickAddQuestion());
   srBtnAssociate.addEventListener("click", () => _associateExistingReview());
   srBtnCreate.addEventListener("click", () => _createAndAssociateReview());
 
@@ -844,10 +847,8 @@ function _syncSessionQuestionsAndReviews() {
 
   _resetQuestionForm();
   _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
-  _setSectionExpanded(sqToggleEl, sqBodyEl, false);
   srDateEl.value = "";
   _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
-  _setSectionExpanded(srToggleEl, srBodyEl, false);
   _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
   if (ssPanelEl && !ssPanelEl.hidden) _closeSsPanel();
 
@@ -922,6 +923,9 @@ function _renderQuestionsList() {
     if (_sessionQuestions.length !== _sqLastCount) pulseUpdate(sqCountEl);
     _sqLastCount = _sessionQuestions.length;
   }
+  if (sqQuickMainCountEl) {
+    sqQuickMainCountEl.textContent = _sessionQuestions.length ? ` (${_sessionQuestions.length})` : "";
+  }
   _updateSsPanelBadge();
 
   _sessionQuestions.forEach(q => {
@@ -960,6 +964,7 @@ async function _quickAddQuestion() {
   if (_qrBusy || !_session) return;
   _qrBusy = true;
   sqBtnQuick.disabled = true;
+  sqBtnQuickMain.disabled = true;
   let created;
   try {
     created = await addQuestion(_session.id, {
@@ -975,6 +980,7 @@ async function _quickAddQuestion() {
   } finally {
     _qrBusy = false;
     sqBtnQuick.disabled = false;
+    sqBtnQuickMain.disabled = false;
   }
   _sessionQuestions.push(created);
   _lastAddedQuestionId = created.id;
@@ -1492,8 +1498,6 @@ export function resetStudySessionView() {
   // podem sobreviver no DOM, mesmo dentro de uma seção hidden.
   if (sqListEl) _renderQuestionsList();
   if (srListEl) _renderReviewsList();
-  if (sqToggleEl) _setSectionExpanded(sqToggleEl, sqBodyEl, false);
-  if (srToggleEl) _setSectionExpanded(srToggleEl, srBodyEl, false);
   if (sqFormEl) _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
   if (srFormEl) _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
   if (ctxMoreToggleEl) _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
