@@ -82,6 +82,13 @@ let startMoreToggleEl, startMoreBodyEl;
 let startSuggestionsEl;
 let _startEventsCache = [];
 
+let appScreenEl;
+// F14.9 — Modo foco: nasce sempre desligado a cada carga da tela (não
+// persiste em storage) — nenhuma sessão restaurada "prende" o usuário atrás
+// de uma moldura escondida sem que ele mesmo tenha ligado o modo nesta visita.
+let _focusMode = false;
+let ssBtnFocusToggle, ssFocusToggleLabelEl;
+
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
@@ -181,6 +188,24 @@ let _sqLastCount = null;
 let _srLastCount = null;
 
 function _queryElements() {
+  // F14.9 — registrado antes de qualquer initModal()/bindModalBehavior()
+  // abaixo (finishModal, startModal, painel de Questões/Revisões): a ordem
+  // de registro decide a ordem de execução quando várias listeners de
+  // "keydown" no mesmo document reagem ao mesmo Escape. Registrando este
+  // primeiro, ele sempre roda ANTES do handler que fecha um modal aberto por
+  // cima — pode então checar "ainda hidden === false" e desistir de sair do
+  // foco, deixando o Escape resolver só o modal (não os dois de uma vez).
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !_focusMode) return;
+    const modalOpen = (finishModalEl && !finishModalEl.hidden)
+      || (startModalEl && !startModalEl.hidden)
+      || (ssPanelEl && !ssPanelEl.hidden);
+    if (modalOpen) return;
+    _setFocusMode(false);
+  });
+
+  appScreenEl         = document.getElementById("app-screen");
+
   emptyEl             = document.getElementById("ss-empty");
   emptyMessageEl      = document.getElementById("ss-empty-message");
   btnStartStandalone  = document.getElementById("ss-btn-start-standalone");
@@ -189,6 +214,8 @@ function _queryElements() {
   statusBadgeEl        = document.getElementById("ss-status-badge");
   timeEl               = document.getElementById("ss-time");
   pauseNoteEl          = document.getElementById("ss-pause-note");
+  ssBtnFocusToggle     = document.getElementById("ss-btn-focus-toggle");
+  ssFocusToggleLabelEl = document.getElementById("ss-focus-toggle-label");
 
   titleEl              = document.getElementById("ss-event-title");
   categoryEl           = document.getElementById("ss-category");
@@ -318,6 +345,8 @@ function _bindEvents() {
 
   ctxMoreToggleEl.addEventListener("click", () => _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, ctxMoreBodyEl.hidden));
 
+  ssBtnFocusToggle.addEventListener("click", () => _setFocusMode(!_focusMode));
+
   ssPanelOpenBtn.addEventListener("click", () => _openSsPanel());
   ssPanelCloseEl.addEventListener("click", () => _closeSsPanel());
   bindModalBehavior(ssPanelOverlayEl, () => !ssPanelEl.hidden, _closeSsPanel, ssPanelEl);
@@ -424,6 +453,17 @@ function _startTicking() {
   _tickId.unref?.(); // no-op em browser; evita segurar o processo vivo nos testes
 }
 
+// F14.9 — liga/desliga o modo foco: puro toggle de classe em #app-screen (a
+// ocultação de header/sidebar/bottom-nav é só CSS, ver style.css) + o rótulo
+// do próprio botão, que continua visível e alcançável (o card da sessão não
+// é ocultado pelo modo foco).
+function _setFocusMode(enabled) {
+  _focusMode = enabled;
+  appScreenEl.classList.toggle("focus-mode", enabled);
+  ssBtnFocusToggle.setAttribute("aria-pressed", String(enabled));
+  ssFocusToggleLabelEl.textContent = enabled ? "Sair do foco" : "Foco";
+}
+
 function _render() {
   const status = _session?.status ?? null;
 
@@ -431,6 +471,12 @@ function _render() {
   activeEl.hidden = !_session;
   if (!_session) {
     _stopTicking();
+    // F14.9 — sem sessão ativa não há mais o que "focar"; principalmente,
+    // isto evita que o app fique preso com header/sidebar/bottom-nav
+    // escondidos depois que a sessão termina (finalizar/cancelar) — o único
+    // gatilho para ligar o modo (o botão acima) só existe dentro do card
+    // ativo, então nunca poderia ser desligado de novo sem isto.
+    if (_focusMode) _setFocusMode(false);
     return;
   }
 
@@ -1467,6 +1513,7 @@ export async function startSessionForEvent(event) {
 // mostrando/tiquetaqueando a sessão do usuário anterior.
 export function resetStudySessionView() {
   _stopTicking();
+  if (_focusMode) _setFocusMode(false);
   _unsubscribers.forEach(off => off());
   _unsubscribers = [];
   _session   = null;

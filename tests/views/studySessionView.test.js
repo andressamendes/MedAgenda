@@ -2163,3 +2163,99 @@ test("F10 #3.3 — o formulário de revisão nasce oculto atrás de '+ Adicionar
   assert.strictEqual(document.getElementById("ss-review-form").hidden, true);
   assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1, "cancelar não remove a revisão já adicionada");
 });
+
+// ── F14.9 — Modo foco ────────────────────────────────────────────────────
+// Durante a sessão ativa, oculta header/sidebar/bottom-nav via a classe
+// "focus-mode" em #app-screen; o botão "Foco" (dentro do próprio card, que
+// nunca é ocultado) liga/desliga o mesmo estado que Esc desfaz.
+
+test("F14.9 — clicking 'Foco' toggles the focus-mode class and the button label/aria-pressed", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  const appScreen = document.getElementById("app-screen");
+  const toggle = document.getElementById("ss-btn-focus-toggle");
+  const label  = document.getElementById("ss-focus-toggle-label");
+
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), false);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "false");
+  assert.strictEqual(label.textContent, "Foco");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), true);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "true");
+  assert.strictEqual(label.textContent, "Sair do foco");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), false);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "false");
+  assert.strictEqual(label.textContent, "Foco");
+});
+
+test("F14.9 — Escape exits focus mode when no modal/panel is open", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
+
+  document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), false);
+});
+
+test("F14.9 — Escape does not exit focus mode while the finish modal is open (the modal's own Escape handler takes it)", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false);
+
+  document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+  // The finish modal's own listener closes the modal; focus mode is
+  // untouched by this same Escape press.
+  assert.strictEqual(document.getElementById("ss-finish-modal").hidden, true);
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
+});
+
+test("F14.9 — finishing the session automatically turns focus mode off", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-active").hidden, true);
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), false);
+  assert.strictEqual(document.getElementById("ss-btn-focus-toggle").getAttribute("aria-pressed"), "false");
+});
+
+test("F14.9 — cancelling the session automatically turns focus mode off", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: new Date().toISOString() }),
+    confirmDialogResolvesTo: true,
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
+
+  document.getElementById("ss-btn-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.getElementById("ss-active").hidden, true);
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), false);
+});

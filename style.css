@@ -871,6 +871,18 @@ body {
 
 .bottom-nav-label { font-size: .62rem; font-weight: 600; }
 
+/* F14.9 — Modo foco: com uma sessão de estudo rodando, oculta a moldura do
+   app inteiro (header, sidebar, seu overlay mobile e bottom-nav) — só o
+   conteúdo da página (aqui, sempre #page-study-session) permanece na tela.
+   Puro CSS + toggle de classe em #app-screen (studySessionView.js); nenhum
+   layout novo, só esconder o que já existe. */
+#app-screen.focus-mode .app-header,
+#app-screen.focus-mode .app-sidebar,
+#app-screen.focus-mode .sidebar-overlay,
+#app-screen.focus-mode .bottom-nav {
+  display: none;
+}
+
 /* ── Mobile: sidebar as drawer, bottom nav visible ──
    Breakpoint "Mobile" do registro (F10 #2.2) — ver :root. */
 @media (max-width: 767px) {
@@ -3236,6 +3248,26 @@ textarea { resize: vertical; }
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+
+/* F14.9 — badge de status + gatilho do modo foco lado a lado, mesma largura
+   total do card (mesmo padrão de .ss-context-more-header acima). */
+.ss-active-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.ss-focus-toggle {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.ss-focus-toggle[aria-pressed="true"] {
+  background: var(--color-primary-bg, var(--gray-100));
+  color: var(--color-primary, #383f87);
 }
 
 /* F10 #5.2 — mesma forma/tokens de .session-history-status: o mesmo estado
