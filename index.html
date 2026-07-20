@@ -526,7 +526,18 @@
 
           <!-- Estado: sessão executando ou pausada -->
           <div id="ss-active" class="ss-card" hidden>
-            <span id="ss-status-badge" class="ss-status-badge"></span>
+            <div class="ss-active-header">
+              <span id="ss-status-badge" class="ss-status-badge"></span>
+              <!-- F14.9 — Modo foco: oculta header/sidebar/bottom-nav para que,
+                   com a sessão rodando, só reste cronômetro + "+1 questão" +
+                   Pausar/Finalizar. Este botão continua visível (o card de
+                   sessão não é ocultado pelo modo foco) e alterna o mesmo
+                   estado que Esc desfaz — ver studySessionView.js. -->
+              <button type="button" class="btn btn-ghost btn-sm ss-focus-toggle" id="ss-btn-focus-toggle" aria-pressed="false">
+                <span class="ss-focus-toggle-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></span>
+                <span id="ss-focus-toggle-label">Foco</span>
+              </button>
+            </div>
 
             <div class="ss-timer" aria-live="off">
               <span id="ss-time" class="ss-timer-value">00:00</span>
