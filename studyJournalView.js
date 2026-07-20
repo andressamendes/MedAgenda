@@ -122,7 +122,7 @@ import {
 } from "./studyTimelineService.js";
 import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown } from "./icons.js";
+import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown, iconBookOpen } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -393,7 +393,13 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
   });
 }
 
-function _renderDetail(detailEl, questions, reviews, notes, query = "") {
+// Etapa 2 (auditoria UX radical) — data completa, intervalo de horário e
+// "Conteúdo:" saíram do cartão fechado (a data completa já está no
+// cabeçalho do grupo do dia, uma linha acima; o horário raramente é o que o
+// estudante quer saber de cara). Viram a primeira seção do detalhe
+// expandido, antes de Questões/Revisões/Observações/Reflexão — mesmo
+// conteúdo e classes de antes, só de lugar.
+function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
   const questionsHtml = questions.length
     ? `<ul class="sj-detail-items">${questions.map(q => `
         <li class="sj-detail-item">
@@ -411,11 +417,18 @@ function _renderDetail(detailEl, questions, reviews, notes, query = "") {
         </li>`).join("")}</ul>`
     : `<p class="sj-detail-empty">Nenhuma revisão vinculada.</p>`;
 
-  const notesHtml = notes
-    ? `<p class="sj-detail-notes">${highlightMatches(notes, query)}</p>`
+  const notesHtml = s.notes
+    ? `<p class="sj-detail-notes">${highlightMatches(s.notes, query)}</p>`
     : `<p class="sj-detail-empty">Nenhuma observação registrada.</p>`;
 
   detailEl.innerHTML = `
+    <div class="session-history-row session-history-meta">
+      <span class="session-history-date">${_formatDate(s.started_at)}</span>
+      <span>${_formatTime(s.started_at)} – ${_formatTime(s.ended_at)}</span>
+    </div>
+    <div class="session-history-row session-history-meta">
+      <span>Conteúdo: ${meta.content ? highlightMatches(meta.content, query) : "—"}</span>
+    </div>
     <div class="sj-detail-section">
       <h3 class="sj-detail-title">Questões</h3>
       ${questionsHtml}
@@ -598,7 +611,12 @@ function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
 // quais campos geraram o resultado (entry.matches, anexado por
 // searchEntries()) — nunca só a sessão, sempre o contexto do que casou com
 // a busca.
-const _MATCH_LABELS_IN_ENTRY = new Set(["commitment", "category", "subject", "content"]);
+//
+// Etapa 2 — "content" (o "Conteúdo:" do cartão) mudou de lugar: não é mais
+// visível no cartão fechado, só dentro do detalhe expandido (ver
+// _renderDetail). Um match em "content" agora precisa do badge "Encontrado
+// em" para não ficar invisível sem o usuário clicar em "Mostrar".
+const _MATCH_LABELS_IN_ENTRY = new Set(["commitment", "category", "subject"]);
 
 function _matchedFieldsBadge(matches) {
   const extra = matches.filter(m => !_MATCH_LABELS_IN_ENTRY.has(m.field));
@@ -607,6 +625,13 @@ function _matchedFieldsBadge(matches) {
   return `<div class="sj-entry-matches">Encontrado em: ${escapeHtml(labels.join(", "))}</div>`;
 }
 
+// Etapa 2 (auditoria UX radical) — o cartão fechado mostrava 7 unidades
+// visuais (título, categoria, botão, data, horário, duração, conteúdo,
+// 2 contagens) antes de qualquer expansão. Fica só com o que responde às
+// duas primeiras perguntas do estudante ("o que estudei" / "quanto tempo")
+// mais um sinal — não o texto — de que há reflexão a lembrar: título,
+// duração e indicadores leves de questões/revisões/reflexão. Data, horário
+// e "Conteúdo:" mudam de lugar (não somem) para dentro de _renderDetail.
 function _buildEntryEl(entry) {
   const { session: s, meta, extras, matches = [] } = entry;
   const { questions, reviews, reflection } = extras;
@@ -622,17 +647,11 @@ function _buildEntryEl(entry) {
       </div>
       <button type="button" class="btn btn-ghost btn-sm sj-toggle disclosure-toggle" aria-expanded="false"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
     </div>
-    <div class="session-history-row session-history-meta">
-      <span class="session-history-date">${_formatDate(s.started_at)}</span>
-      <span>${_formatTime(s.started_at)} – ${_formatTime(s.ended_at)}</span>
-      <span>${_formatDuration(s.duration_minutes)}</span>
-    </div>
-    <div class="session-history-row session-history-meta">
-      <span>Conteúdo: ${meta.content ? highlightMatches(meta.content, query) : "—"}</span>
-    </div>
-    <div class="session-history-row session-history-meta">
-      <span>${questions.length} questão(ões)</span>
-      <span>${reviews.length} revisão(ões)</span>
+    <div class="sj-entry-summary">
+      <span class="sj-entry-duration">${_formatDuration(s.duration_minutes)}</span>
+      ${questions.length ? `<span class="sj-entry-indicator">${questions.length} questão(ões)</span>` : ""}
+      ${reviews.length ? `<span class="sj-entry-indicator">${reviews.length} revisão(ões)</span>` : ""}
+      ${reflection ? `<span class="sj-entry-reflection-signal" title="Reflexão registrada" aria-label="Reflexão registrada">${iconBookOpen}</span>` : ""}
     </div>
     ${_matchedFieldsBadge(matches)}
     <div class="sj-entry-detail" hidden></div>
@@ -640,7 +659,7 @@ function _buildEntryEl(entry) {
 
   const toggleBtn = li.querySelector(".sj-toggle");
   const detailEl  = li.querySelector(".sj-entry-detail");
-  _renderDetail(detailEl, questions, reviews, s.notes, query);
+  _renderDetail(detailEl, s, meta, questions, reviews, query);
   _renderReflectionView(detailEl.querySelector(".sj-reflection"), entry, reflection, query);
   toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
 
