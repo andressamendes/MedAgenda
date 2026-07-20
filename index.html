@@ -877,16 +877,28 @@
           </div>
 
           <div id="sj-finished-view">
-          <!-- F13.4 — busca continua sempre visível (é a ação principal:
-               "ler o diário"); período, filtros avançados e marcos da
-               evolução — antes sempre presentes acima da lista, ou atrás de
-               um disclosure isolado — se consolidaram num único painel sob
-               demanda, mesmo padrão de #ai-panel. O contador de filtros
-               ativos (sj-advanced-filters-count) não mudou de lógica, só de
-               lugar: agora é o badge do botão "Analisar". -->
-          <div class="appointments-toolbar">
-            <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" title="Atalho: /" aria-keyshortcuts="/" />
-            <button type="button" class="btn btn-secondary" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel">Analisar<span id="sj-advanced-filters-count" class="ss-section-count"></span></button>
+          <!-- Auditoria UX radical, Etapa 1 — busca e filtros eram os dois
+               elementos com maior peso permanente da toolbar (input sempre
+               aberto + botão de texto), competindo com a lista logo na
+               entrada da página por um uso ocasional. Ambos viram botões de
+               ícone: a busca revela o input só quando pedida (mesmo padrão
+               de disclosure de _toggleAdvancedFilters), e "Analisar" perde o
+               rótulo de texto — o badge de contagem (sj-advanced-filters-
+               count) não mudou de lógica, só de apresentação (número solto
+               em vez de "(N)" ao lado do texto). Período, filtros avançados
+               e marcos continuam consolidados no painel sob demanda, mesmo
+               padrão de #ai-panel. -->
+          <div class="appointments-toolbar sj-toolbar">
+            <button type="button" class="btn-icon" id="sj-search-toggle" aria-expanded="false" aria-controls="sj-search-wrap" aria-label="Buscar no diário" title="Buscar (atalho: /)" aria-keyshortcuts="/">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
+            </button>
+            <div id="sj-search-wrap" class="sj-search-wrap" hidden>
+              <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
+            </div>
+            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: filtros e resumos" title="Analisar">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
+              <span id="sj-advanced-filters-count" class="sj-toolbar-badge" hidden></span>
+            </button>
           </div>
           <div id="sj-search-stats" class="sj-search-stats" hidden></div>
           <!-- Auditoria UX #02: os filtros do Diário operam só sobre as

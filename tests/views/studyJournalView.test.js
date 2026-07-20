@@ -1474,12 +1474,12 @@ test("UX #20 — shows a 'Carregando…' indicator while sessions are being fetc
 
 // ── Auditoria UX #21: filtros avançados recolhidos por padrão ───────────────
 
-test("UX #21 — advanced filters (category, question filters, 'Somente' checkboxes) start collapsed; period and search stay visible", async (t) => {
+test("UX #21 — advanced filters (category, question filters, 'Somente' checkboxes) start collapsed; period stays visible, search lives outside the panel", async (t) => {
   const { mod } = await loadView(t);
   await mod.initStudyJournalView();
 
   assert.strictEqual(document.getElementById("sj-filter-period").closest("#sj-advanced-filters"), null, "período continua sempre visível");
-  assert.strictEqual(document.getElementById("sj-filter-search").closest("#sj-advanced-filters"), null, "busca continua sempre visível");
+  assert.strictEqual(document.getElementById("sj-filter-search").closest("#sj-advanced-filters"), null, "busca não faz parte do painel de filtros avançados");
 
   const advanced = document.getElementById("sj-advanced-filters");
   assert.strictEqual(advanced.hidden, true, "filtros avançados nascem recolhidos");
@@ -1487,6 +1487,29 @@ test("UX #21 — advanced filters (category, question filters, 'Somente' checkbo
   assert.ok(advanced.contains(document.getElementById("sj-filter-reflection")));
 
   const toggle = document.getElementById("sj-advanced-filters-toggle");
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+// ── Etapa 1 (auditoria UX radical): busca vira botão de ícone ──────────────
+
+test("Etapa 1 — search starts collapsed behind an icon button; clicking it reveals and focuses the field", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  const toggle = document.getElementById("sj-search-toggle");
+  const wrap   = document.getElementById("sj-search-wrap");
+  const input  = document.getElementById("sj-filter-search");
+
+  assert.strictEqual(wrap.hidden, true, "campo de busca nasce escondido");
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(wrap.hidden, false);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
+  assert.strictEqual(document.activeElement, input, "abrir a busca já foca o campo");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(wrap.hidden, true);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
 });
 
@@ -1511,23 +1534,25 @@ test("UX #21 — the toggle shows a count of active advanced filters, without co
   await mod.initStudyJournalView();
 
   const countEl = document.getElementById("sj-advanced-filters-count");
+  assert.strictEqual(countEl.hidden, true, "no filter active, badge stays hidden");
   assert.strictEqual(countEl.textContent, "", "no filter active, no count shown");
 
   document.getElementById("sj-filter-period").value = "7d";
   document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
-  assert.strictEqual(countEl.textContent, "", "período não conta como filtro avançado");
+  assert.strictEqual(countEl.hidden, true, "período não conta como filtro avançado");
 
   document.getElementById("sj-filter-reflection").checked = true;
   document.getElementById("sj-filter-reflection").dispatchEvent(new window.Event("change"));
-  assert.strictEqual(countEl.textContent, " (1)");
+  assert.strictEqual(countEl.hidden, false);
+  assert.strictEqual(countEl.textContent, "1");
 
   document.getElementById("sj-filter-notes").checked = true;
   document.getElementById("sj-filter-notes").dispatchEvent(new window.Event("change"));
-  assert.strictEqual(countEl.textContent, " (2)");
+  assert.strictEqual(countEl.textContent, "2");
 
   document.getElementById("sj-filter-reflection").checked = false;
   document.getElementById("sj-filter-reflection").dispatchEvent(new window.Event("change"));
-  assert.strictEqual(countEl.textContent, " (1)");
+  assert.strictEqual(countEl.textContent, "1");
 });
 
 test("UX #21 — resetStudyJournalView() collapses the panel and clears the count (no leftover between users)", async (t) => {
@@ -1541,13 +1566,30 @@ test("UX #21 — resetStudyJournalView() collapses the panel and clears the coun
   toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   document.getElementById("sj-filter-reflection").checked = true;
   document.getElementById("sj-filter-reflection").dispatchEvent(new window.Event("change"));
-  assert.strictEqual(countEl.textContent, " (1)");
+  assert.strictEqual(countEl.textContent, "1");
 
   mod.resetStudyJournalView();
 
   assert.strictEqual(advanced.hidden, true);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
   assert.strictEqual(countEl.textContent, "");
+  assert.strictEqual(countEl.hidden, true);
+});
+
+test("Etapa 1 — resetStudyJournalView() also collapses the search field back behind its toggle", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  const searchToggle = document.getElementById("sj-search-toggle");
+  const searchWrap    = document.getElementById("sj-search-wrap");
+
+  searchToggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(searchWrap.hidden, false);
+
+  mod.resetStudyJournalView();
+
+  assert.strictEqual(searchWrap.hidden, true);
+  assert.strictEqual(searchToggle.getAttribute("aria-expanded"), "false");
 });
 
 // ── Histórico absorvido como abas Concluídas/Todas (F10 #4.2/F14.7) ─────────

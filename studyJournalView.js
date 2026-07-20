@@ -175,6 +175,7 @@ let _sjPanelPrevFocus = null;
 // duas — ver _setStatusTab().
 let statusTabsEl, finishedViewEl, otherViewEl, otherOnlyCancelledCheck;
 let periodSelect, categorySelect, searchInput;
+let searchToggleBtn, searchWrapEl;
 let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
 let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
 
@@ -728,11 +729,31 @@ let _advancedFiltersLastCount = null;
 function _updateAdvancedFiltersCount() {
   if (!advancedCountEl) return;
   const active = ADVANCED_FILTER_KEYS.filter(key => _filters[key] !== _DEFAULT_FILTERS[key]).length;
-  advancedCountEl.textContent = active > 0 ? ` (${active})` : "";
+  // Etapa 1 — o botão "Analisar" perdeu o rótulo de texto, então o badge não
+  // tem mais "(N)" ao lado de uma palavra para dar contexto: vira um número
+  // solto sobre o ícone, visível só quando há filtro avançado ativo.
+  advancedCountEl.textContent = active > 0 ? String(active) : "";
+  advancedCountEl.hidden = active === 0;
   // F13.6 — o número muda silenciosamente hoje; um pulso curto chama atenção
   // para a mudança sem precisar abrir o painel para conferir.
   if (active !== _advancedFiltersLastCount) pulseUpdate(advancedCountEl);
   _advancedFiltersLastCount = active;
+}
+
+// Etapa 1 (auditoria UX radical) — a busca deixou de ser um input sempre
+// aberto na toolbar (era o elemento de maior peso permanente da página para
+// um uso ocasional). Mesmo padrão de disclosure de _toggleAdvancedFilters:
+// o botão de ícone só revela o campo quando pedido; fechar não limpa o
+// valor digitado, só esconde o campo (mesma decisão de "Filtros avançados").
+function _toggleSearch(forceExpand) {
+  if (!searchToggleBtn || !searchWrapEl) return;
+  const expand = forceExpand ?? searchWrapEl.hidden;
+  searchWrapEl.hidden = !expand;
+  searchToggleBtn.setAttribute("aria-expanded", String(expand));
+  if (expand) {
+    revealWithAnimation(searchWrapEl);
+    searchInput?.focus();
+  }
 }
 
 // Painel "Analisar" (F13.4) — mesma estrutura de abrir/fechar de #ai-panel
@@ -1016,6 +1037,9 @@ export async function initStudyJournalView() {
     periodSelect   = document.getElementById("sj-filter-period");
     categorySelect = document.getElementById("sj-filter-category");
     searchInput    = document.getElementById("sj-filter-search");
+    searchToggleBtn = document.getElementById("sj-search-toggle");
+    searchWrapEl    = document.getElementById("sj-search-wrap");
+    searchToggleBtn?.addEventListener("click", () => _toggleSearch());
 
     reflectionCheck = document.getElementById("sj-filter-reflection");
     notesCheck      = document.getElementById("sj-filter-notes");
@@ -1093,6 +1117,7 @@ export function resetStudyJournalView() {
   if (periodSelect)   periodSelect.value = "all";
   if (categorySelect) categorySelect.value = "";
   if (searchInput)    searchInput.value = "";
+  if (searchWrapEl && searchToggleBtn) _toggleSearch(false);
   if (questionsSelect) questionsSelect.value = "";
   if (durationSelect)  durationSelect.value = "";
   [reflectionCheck, notesCheck, reviewsCheck]

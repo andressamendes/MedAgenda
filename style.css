@@ -766,6 +766,45 @@ body {
   margin-top: 1rem;
 }
 
+/* Etapa 1 (auditoria UX radical) — busca e "Analisar" do Diário viram botões
+   de ícone em vez de input+texto sempre abertos, para não competir com a
+   lista logo abaixo. .sj-search-wrap ocupa o espaço que o input sempre
+   aberto ocupava antes, mas só quando revelado. */
+.sj-search-wrap {
+  display: flex;
+  flex: 1;
+  min-width: 180px;
+}
+
+/* Mesmo bug de especificidade de .state-block[hidden] (ver F10 #1.1): sem
+   isto, `.sj-search-wrap { display: flex }` (autor) vence `[hidden] {
+   display: none }` (user-agent) por origem, não por especificidade, e o
+   campo de busca ficaria sempre visível mesmo com o atributo hidden. */
+.sj-search-wrap[hidden] {
+  display: none;
+}
+
+.sj-toolbar-filter-btn {
+  position: relative;
+}
+
+.sj-toolbar-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .sj-other-filter {
   margin-bottom: .75rem;
 }
