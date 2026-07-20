@@ -171,6 +171,56 @@ test("a single session renders compromisso, categoria, conteúdo, data, horário
   assert.strictEqual(document.getElementById("sj-list-empty").hidden, true);
 });
 
+// ── Etapa 2 (auditoria UX radical): cartão fechado enxuto ───────────────────
+
+test("Etapa 2 — closed card shows only title, duration and light indicators; date/time/conteúdo only exist inside the hidden detail", async (t) => {
+  const session = {
+    id: "sess-1", event_id: "event-1", status: "finished",
+    started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:30:00.000Z",
+    duration_minutes: 90, notes: "Revisão de cardiologia",
+  };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "event-1", title: "Plantão UPA", category: "Estágio", description: "Rotina de emergência" }],
+    listQuestions: async () => [{ id: "q1", question_type: "multiple_choice", status: "answered", subject: "Cardio" }],
+    listReviewsBySession: async () => [{ id: "r1", scheduled_date: "2026-03-17", status: "pending" }],
+    getReflectionBySession: async () => ({ id: "refl-1", content: "Entendi bem a fisiopatologia." }),
+  });
+
+  await mod.initStudyJournalView();
+
+  const item     = firstEntry();
+  const summary  = item.querySelector(".sj-entry-summary");
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  assert.match(summary.textContent, /1h 30min/, "duração continua visível de cara");
+  assert.match(summary.textContent, /1 questão\(ões\)/, "indicador leve de questões continua visível");
+  assert.match(summary.textContent, /1 revisão\(ões\)/, "indicador leve de revisões continua visível");
+  assert.ok(item.querySelector(".sj-entry-reflection-signal"), "sinal de reflexão aparece sem mostrar o texto");
+  assert.doesNotMatch(summary.textContent, /Entendi bem a fisiopatologia/, "o texto da reflexão não aparece no cartão fechado");
+
+  // Data, horário e "Conteúdo:" não são mais linhas do cartão fechado —
+  // só existem dentro do detalhe (ainda escondido neste ponto).
+  assert.doesNotMatch(summary.textContent, /Rotina de emergência/);
+  assert.strictEqual(detailEl.hidden, true);
+  assert.match(detailEl.textContent, /Rotina de emergência/, "conteúdo mudou de lugar, não sumiu");
+  assert.match(detailEl.textContent, /10\/03\/2026/, "data completa mudou para o detalhe (já está no cabeçalho do dia)");
+});
+
+test("Etapa 2 — a session without a reflection shows no reflection signal on the closed card", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getReflectionBySession: async () => null,
+  });
+
+  await mod.initStudyJournalView();
+
+  const item = firstEntry();
+  assert.strictEqual(item.querySelector(".sj-entry-reflection-signal"), null);
+  assert.strictEqual(item.querySelector(".sj-entry-summary").querySelector(".sj-entry-indicator"), null, "sem questões/revisões, nenhum indicador extra aparece");
+});
+
 test("a manual session with no linked event shows a generic label", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {

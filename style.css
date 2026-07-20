@@ -2073,6 +2073,40 @@ textarea { resize: vertical; }
   flex-wrap: wrap;
 }
 
+/* Etapa 2 (auditoria UX radical) — o cartão fechado responde só a "o que
+   estudei" (título, acima) e "quanto tempo" (duração, aqui, com peso maior
+   que o resto do cartão); questões/revisões viram indicadores leves em vez
+   de linha de texto própria, e a reflexão vira um sinal (ícone), nunca o
+   texto em si — que só aparece ao expandir. */
+.sj-entry-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem .7rem;
+  margin-top: .35rem;
+}
+
+.sj-entry-duration {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.sj-entry-indicator {
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+}
+
+.sj-entry-reflection-signal {
+  display: inline-flex;
+  color: var(--color-primary);
+}
+
+.sj-entry-reflection-signal svg {
+  width: 15px;
+  height: 15px;
+}
+
 .sj-entry-detail {
   margin-top: .6rem;
   padding-top: .6rem;
