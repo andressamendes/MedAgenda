@@ -82,6 +82,12 @@ let startMoreToggleEl, startMoreBodyEl;
 let startSuggestionsEl;
 let _startEventsCache = [];
 
+// F15.4 — o chip "Amanhã: X" não consome mais o plano no clique: apenas marca
+// esta flag, e clearNextStudyPlan() só roda depois de startSession() bem-
+// -sucedido (ver _confirmStartModal). Fechar o modal sem iniciar limpa a
+// marca, preservando o plano para a próxima abertura.
+let _startConsumesPlan = false;
+
 let appScreenEl;
 // F14.9 — Modo foco: nasce sempre desligado a cada carga da tela (não
 // persiste em storage) — nenhuma sessão restaurada "prende" o usuário atrás
@@ -645,8 +651,9 @@ async function _loadStartSuggestions() {
   // F14.8 — "Fechar o dia" grava, opcionalmente, o primeiro estudo de
   // amanhã; ele aparece aqui como o primeiro chip, à frente dos títulos
   // recentes (é uma intenção deliberada de ontem, não um padrão observado).
-  // Consumido (clearNextStudyPlan()) no clique — ver _renderStartSuggestions —
-  // para não repetir uma sugestão já atendida em sessões futuras.
+  // Consumido (clearNextStudyPlan()) apenas quando a sessão de fato inicia —
+  // ver _confirmStartModal (F15.4) — para não repetir uma sugestão já
+  // atendida, sem perder o plano de quem toca o chip e desiste do modal.
   try {
     const plan = await getNextStudyPlan();
     if (plan) {
@@ -715,11 +722,7 @@ function _renderStartSuggestions(suggestions) {
         if (s.category_id) startCategoryEl.value = s.category_id;
         startManualErrorEl.hidden = true;
       }
-      if (s.consumesPlan) {
-        clearNextStudyPlan().catch(err =>
-          handleError(err, { context: "studySessionView.clearNextStudyPlan", silent: true })
-        );
-      }
+      _startConsumesPlan = Boolean(s.consumesPlan);
     });
     startSuggestionsEl.appendChild(btn);
   });
@@ -750,6 +753,7 @@ async function _openStartModal() {
   startEventErrorEl.hidden = true;
   startEventErrorEl.textContent = "";
   startEventSelectEl.value = "";
+  _startConsumesPlan = false;
   _setSectionExpanded(startMoreToggleEl, startMoreBodyEl, false);
 
   _switchStartTab("manual");
@@ -766,7 +770,20 @@ async function _openStartModal() {
 }
 
 function _closeStartModal() {
+  _startConsumesPlan = false;
   startModal.close();
+}
+
+// F15.4 — chamado somente após um startSession() bem-sucedido disparado pelo
+// modal de início: se o chip "Amanhã: X" foi usado nesta abertura, o plano é
+// consumido agora (fire-and-forget — falhar em limpar nunca bloqueia a sessão
+// já iniciada; no pior caso o chip reaparece uma vez).
+function _consumeStartPlanIfMarked() {
+  if (!_startConsumesPlan) return;
+  _startConsumesPlan = false;
+  clearNextStudyPlan().catch(err =>
+    handleError(err, { context: "studySessionView.clearNextStudyPlan", silent: true })
+  );
 }
 
 async function _confirmStartModal() {
@@ -787,7 +804,10 @@ async function _confirmStartModal() {
       return;
     }
     const started = await startSessionForEvent(event);
-    if (started) _closeStartModal();
+    if (started) {
+      _consumeStartPlanIfMarked();
+      _closeStartModal();
+    }
     return;
   }
 
@@ -805,7 +825,10 @@ async function _confirmStartModal() {
     session_date: startDateEl.value || null,
     planned_duration_minutes: startDurationEl.value ? Number(startDurationEl.value) : null,
   });
-  if (_session) _closeStartModal();
+  if (_session) {
+    _consumeStartPlanIfMarked();
+    _closeStartModal();
+  }
 }
 
 async function _startManualSession(fields) {
@@ -1565,6 +1588,7 @@ export function resetStudySessionView() {
   if (startSuggestionsEl) { startSuggestionsEl.innerHTML = ""; startSuggestionsEl.hidden = true; }
   if (startTabEventEl) startTabEventEl.hidden = false;
   _startEventsCache = [];
+  _startConsumesPlan = false;
 
   // Seções de Questões/Revisões (F10 #4.3, agora na tela ativa): mesma
   // simetria init/reset — nem a lista nem o formulário do usuário anterior

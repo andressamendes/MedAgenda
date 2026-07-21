@@ -473,9 +473,10 @@ test("F14.2 — the 'Compromisso da agenda' tab stays visible when at least one 
 });
 
 // F14.8 — o plano de "amanhã" gravado por "Fechar o dia" (todayView.js)
-// reaparece aqui como o primeiro chip, à frente dos títulos recentes, e é
-// consumido (clearNextStudyPlan()) assim que usado.
-test("F14.8 — a saved 'tomorrow' plan shows as the first chip and clicking it fills the form and clears the plan", async (t) => {
+// reaparece aqui como o primeiro chip, à frente dos títulos recentes.
+// F15.4 — o clique no chip só preenche o formulário; o plano é consumido
+// (clearNextStudyPlan()) apenas quando a sessão de fato inicia.
+test("F14.8 — a saved 'tomorrow' plan shows as the first chip and clicking it fills the form without clearing the plan", async (t) => {
   const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
     getNextStudyPlan: async () => ({ title: "Cardiologia", category_id: "cat-1" }),
     getCategories: async () => [{ id: "cat-1", name: "Cardiologia" }],
@@ -495,7 +496,83 @@ test("F14.8 — a saved 'tomorrow' plan shows as the first chip and clicking it 
 
   assert.strictEqual(document.getElementById("ss-start-title-input").value, "Cardiologia");
   assert.strictEqual(document.getElementById("ss-start-category").value, "cat-1");
+  assert.strictEqual(clearNextStudyPlanCalls.length, 0);
+});
+
+test("F15.4 — clicking the 'Amanhã' chip and dismissing the modal keeps the plan: the chip is back on reopen", async (t) => {
+  const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
+    getNextStudyPlan: async () => ({ title: "Cardiologia", category_id: null }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  let chips = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")];
+  chips[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-start-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(clearNextStudyPlanCalls.length, 0);
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  chips = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")];
+  assert.deepStrictEqual(chips.map(c => c.textContent), ["Amanhã: Cardiologia"]);
+});
+
+test("F15.4 — the plan is cleared exactly once when the session started from the chip actually begins", async (t) => {
+  const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
+    getNextStudyPlan: async () => ({ title: "Cardiologia", category_id: null }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const chips = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")];
+  chips[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
   assert.strictEqual(clearNextStudyPlanCalls.length, 1);
+  assert.strictEqual(document.getElementById("ss-active").hidden, false);
+});
+
+test("F15.4 — starting a session without touching the 'Amanhã' chip leaves the plan untouched", async (t) => {
+  const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
+    getNextStudyPlan: async () => ({ title: "Cardiologia", category_id: null }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-start-title-input").value = "Neurologia";
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(clearNextStudyPlanCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-active").hidden, false);
+});
+
+test("F15.4 — if the session fails to start, the plan survives for the next attempt", async (t) => {
+  const { mod, clearNextStudyPlanCalls } = await loadStudySessionView(t, {
+    getNextStudyPlan: async () => ({ title: "Cardiologia", category_id: null }),
+    startSession: async () => { throw new Error("network down"); },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const chips = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")];
+  chips[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(clearNextStudyPlanCalls.length, 0);
 });
 
 test("F14.8 — with no plan saved, no 'Amanhã' chip is rendered and the plan is never cleared", async (t) => {
