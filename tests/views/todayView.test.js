@@ -162,6 +162,42 @@ test("a last finished session linked to a (still existing) event resolves the ti
   assert.strictEqual(document.getElementById("today-btn-continue").textContent, "Continuar: Plantão UPA");
 });
 
+// F15.7 — continuar uma sessão de compromisso recria uma sessão de
+// compromisso (startSessionForEvent, com event_id e progresso temporal),
+// nunca uma avulsa com o mesmo título.
+test("F15.7 — 'Continuar' on an event-linked session starts via startSessionForEvent, keeping the link", async (t) => {
+  const event = { id: "evt-9", title: "Plantão UPA", category: "Estudo" };
+  const { initTodayView } = await loadView(t, {
+    listSessions: async () => ({ sessions: [{ id: "s0", event_id: "evt-9", category_id: null }], total: 1, hasMore: false }),
+    getEventById: async (id) => (id === "evt-9" ? event : null),
+  });
+  await initTodayView();
+
+  document.getElementById("today-btn-continue").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionForEventCalls.length, 1);
+  assert.strictEqual(startSessionForEventCalls[0].id, "evt-9");
+  assert.strictEqual(startSessionCalls.length, 0, "an event-linked continuation must never degrade to a manual session");
+  assert.ok(showPageCalls.includes("study-session"));
+});
+
+test("F15.7 — startSessionForEvent returning false (e.g. session already running) does not navigate", async (t) => {
+  const event = { id: "evt-9", title: "Plantão UPA" };
+  const { initTodayView } = await loadView(t, {
+    listSessions: async () => ({ sessions: [{ id: "s0", event_id: "evt-9", category_id: null }], total: 1, hasMore: false }),
+    getEventById: async () => event,
+    startSessionForEvent: async () => false,
+  });
+  await initTodayView();
+
+  document.getElementById("today-btn-continue").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.ok(!showPageCalls.includes("study-session"));
+  assert.strictEqual(document.getElementById("today-btn-continue").disabled, false, "the button is re-enabled after the attempt");
+});
+
 test("no last session at all keeps 'Continuar' hidden", async (t) => {
   const { initTodayView } = await loadView(t, {
     listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),

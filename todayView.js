@@ -32,7 +32,7 @@ let closeDayBtn, closeDayModalEl, closeDayModal;
 let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
 let _bound = false; // AUD-005: a página não é reconstruída entre logins na mesma sessão do app — sem esta guarda, cada login empilharia mais um listener nos mesmos botões
 let _unsubscribers = [];
-let _continueSuggestion = null; // { title, category_id } | null — ver _loadContinueSuggestion()
+let _continueSuggestion = null; // { title, category_id, event } | null — ver _loadContinueSuggestion()
 let _closingDay = false;
 
 export async function initTodayView() {
@@ -122,7 +122,9 @@ async function _refreshHero() {
 // Sugestão de retomada (F14.1, §1: "não existe retomar") — a última sessão
 // concluída, resolvendo o título do mesmo jeito que
 // studySessionView.js/_resolveEventMeta(): compromisso vinculado (se ainda
-// existir) ou o nome digitado numa sessão avulsa.
+// existir) ou o nome digitado numa sessão avulsa. O evento resolvido fica
+// guardado inteiro: continuar uma sessão de compromisso deve recriar uma
+// sessão de compromisso (F15.7), não uma avulsa com o mesmo nome.
 async function _loadContinueSuggestion() {
   try {
     const { sessions } = await listSessions({ status: "finished", limit: 1 });
@@ -130,13 +132,14 @@ async function _loadContinueSuggestion() {
     if (!last) return null;
 
     let title = last.title || null;
+    let event = null;
     if (last.event_id) {
-      const event = await getEventById(last.event_id).catch(() => null);
+      event = await getEventById(last.event_id).catch(() => null);
       title = event?.title || null;
     }
     if (!title) return null;
 
-    return { title, category_id: last.category_id || null };
+    return { title, category_id: last.category_id || null, event };
   } catch (err) {
     handleError(err, { context: "todayView.loadContinueSuggestion", silent: true });
     return null;
@@ -147,6 +150,15 @@ async function _handleContinue() {
   if (!_continueSuggestion) return;
   continueBtn.disabled = true;
   try {
+    // F15.7 — sessão de compromisso continua como sessão de compromisso:
+    // startSessionForEvent() preserva event_id, categoria herdada e a barra
+    // de progresso temporal. O caminho manual fica só para sessões avulsas
+    // (ou compromisso já excluído, quando resta apenas o título).
+    if (_continueSuggestion.event) {
+      const started = await startSessionForEvent(_continueSuggestion.event);
+      if (started) showPage("study-session");
+      return;
+    }
     await startSession({
       source:      "manual",
       title:       _continueSuggestion.title,

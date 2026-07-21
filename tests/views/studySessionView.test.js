@@ -341,17 +341,21 @@ test("the 'Compromisso da agenda' path requires selecting an event and starts th
 // revisão elegível, sem nunca iniciar a sessão sozinhos.
 test("F14.2 — chips show up to 3 distinct recent standalone titles and clicking one fills name+category without starting", async (t) => {
   const startSessionCalls = [];
+  const listSessionsCalls = [];
   const { mod } = await loadStudySessionView(t, {
-    listSessions: async () => ({
-      sessions: [
-        { id: "s5", title: "Revisão de Cardiologia", category_id: "cat-1", event_id: null },
-        { id: "s4", title: "Revisão de Cardiologia", category_id: "cat-1", event_id: null }, // duplicate title, must not repeat the chip
-        { id: "s3", event_id: "evt-9" }, // event-linked session (no standalone title), must be skipped
-        { id: "s2", title: "Farmaco: antibióticos", category_id: null, event_id: null },
-        { id: "s1", title: "Anatomia do coração", category_id: null, event_id: null },
-        { id: "s0", title: "Estudo antigo demais", category_id: null, event_id: null }, // beyond the 3-chip cap
-      ],
-    }),
+    listSessions: async (opts) => {
+      listSessionsCalls.push(opts);
+      return {
+        sessions: [
+          { id: "s5", title: "Revisão de Cardiologia", category_id: "cat-1", event_id: null },
+          { id: "s4", title: "Revisão de Cardiologia", category_id: "cat-1", event_id: null }, // duplicate title, must not repeat the chip
+          { id: "s3", event_id: "evt-9" }, // event-linked session (no standalone title), must be skipped
+          { id: "s2", title: "Farmaco: antibióticos", category_id: null, event_id: null },
+          { id: "s1", title: "Anatomia do coração", category_id: null, event_id: null },
+          { id: "s0", title: "Estudo antigo demais", category_id: null, event_id: null }, // beyond the 3-chip cap
+        ],
+      };
+    },
     getCategories: async () => [{ id: "cat-1", name: "Cardiologia" }],
     startSession: async (fields) => { startSessionCalls.push(fields); return { id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }; },
   });
@@ -367,6 +371,11 @@ test("F14.2 — chips show up to 3 distinct recent standalone titles and clickin
     "Farmaco: antibióticos",
     "Anatomia do coração",
   ]);
+
+  // F15.7 — títulos recentes vêm só de sessões concluídas: uma sessão
+  // cancelada nunca vira chip de sugestão.
+  assert.strictEqual(listSessionsCalls.length, 1);
+  assert.strictEqual(listSessionsCalls[0].status, "finished");
 
   chips[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
