@@ -282,7 +282,7 @@ Ver seção [Tratamento de Erros](#tratamento-de-erros) para o mapeamento comple
 
 ## Edge Functions
 
-Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em runtime Deno, respondem a `OPTIONS` e retornam sempre JSON. `delete-account` e `send-push-notifications` respondem com CORS liberado (`Access-Control-Allow-Origin: *`); `ai-chat` restringe a origem a uma allowlist (produção + localhost/127.0.0.1) — ver detalhe abaixo.
+Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em runtime Deno, respondem a `OPTIONS` e retornam sempre JSON. `ai-chat` e `delete-account` restringem a origem a uma allowlist (produção + localhost/127.0.0.1) — ver detalhe abaixo; `send-push-notifications` responde com CORS liberado (`Access-Control-Allow-Origin: *`), inócuo por não ser invocada por navegador.
 
 ### `ai-chat`
 
@@ -316,11 +316,11 @@ Todas as três funções vivem em `supabase/functions/<nome>/index.ts`, rodam em
 | **Endpoint** | `POST {SUPABASE_URL}/functions/v1/delete-account` |
 | **Autenticação** | Header `Authorization: Bearer <jwt do usuário>` obrigatório. A função identifica o usuário chamando `userClient.auth.getUser()` com um client criado com `SUPABASE_ANON_KEY` + o token recebido. |
 | **Chamada no frontend** | `accountView.js` chama via SDK: `supabase.functions.invoke('delete-account')` (o SDK anexa o JWT da sessão automaticamente — não é um `fetch` manual como no `aiService`). |
-| **Headers** | Anexados automaticamente pelo SDK (`apikey`, `authorization`, `content-type`). |
+| **Headers** | Anexados automaticamente pelo SDK (`apikey`, `authorization`, `content-type`); resposta com `Access-Control-Allow-Origin` restrito à mesma allowlist do `ai-chat` (produção `https://andressamendes.github.io` + `http://localhost`/`http://127.0.0.1` em qualquer porta). |
 | **Payload** | Nenhum — a função opera apenas sobre o usuário autenticado, identificado pelo próprio token. |
-| **Processamento** | Cria um client **admin** com `SUPABASE_SERVICE_ROLE_KEY` (bypassa RLS) e apaga, na ordem que respeita as foreign keys: `notification_logs`, `push_subscriptions`, `events`, `categories` do usuário; remove os arquivos do usuário no bucket `avatars`; por fim chama `admin.auth.admin.deleteUser(userId)`, que apaga o usuário em `auth.users` — a linha em `profiles` é removida automaticamente por `ON DELETE CASCADE`. Note que `academic_calendars`/`academic_events` e `ai_metrics` **não são apagados explicitamente** por esta função — dependem do `ON DELETE CASCADE` das FKs para `auth.users(id)` ser acionado quando o usuário é excluído do Auth. |
+| **Processamento** | Cria um client **admin** com `SUPABASE_SERVICE_ROLE_KEY` (bypassa RLS), remove os arquivos do usuário no bucket `avatars` (com erro checado — falha aborta a exclusão) e por fim chama `admin.auth.admin.deleteUser(userId)`, que apaga o usuário em `auth.users`. **Nenhuma tabela é apagada manualmente**: todas as tabelas de dados de usuário têm FK `user_id → auth.users(id) ON DELETE CASCADE`, e o cascade do `deleteUser` é o mecanismo oficial de limpeza relacional (ver `docs/SECURITY.md`). |
 | **Resposta** | `200 { success: true }` |
-| **Erros** | `401 { error: 'Não autorizado.' }` sem header ou token inválido · `500 { error: <mensagem> }` se `deleteUser` falhar ou qualquer exceção não tratada ocorrer (capturada pelo `try/catch` externo, que serializa o erro com `String(err)`). |
+| **Erros** | `401 { error: 'Não autorizado.' }` sem header ou token inválido · `500 { error: <mensagem> }` se a limpeza do Storage ou `deleteUser` falhar, ou se qualquer exceção não tratada ocorrer (capturada pelo `try/catch` externo, que responde com mensagem genérica em português). |
 | **Segredos usados** | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. |
 | **Pós-chamada no frontend** | Em caso de sucesso, `accountView.js` chama `signOut()` (wrapper oficial de `auth.js`, A1.7 — nunca `supabase.auth.signOut()` diretamente) e exibe um toast de confirmação; em caso de erro, passa por `errorService.handleError()` e exibe a mensagem amigável resultante em um toast de erro (nunca `err.message` bruto). |
 

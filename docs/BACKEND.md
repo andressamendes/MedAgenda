@@ -82,14 +82,14 @@ supabase/
 - **`supabase/functions/_shared/recurrence-core.js`** — módulo ES puro, sem dependências externas, que implementa o algoritmo canônico de expansão de eventos recorrentes. É importado tanto pelo frontend (`recurrence.js`) quanto pela Edge Function `send-push-notifications`, garantindo que a mesma lógica de "este evento ocorre nesta data?" seja usada em ambos os lados — evitando divergência entre o que o usuário vê no calendário e o que dispara a notificação.
 - **`supabase/functions/ai-chat/`** — única função que fala com um serviço externo (Gemini). Roda sob o JWT do próprio usuário (não usa `service_role`).
 - **`supabase/functions/send-push-notifications/`** — única função agendada (cron). Roda sob `service_role` porque precisa ler dados de todos os usuários, não apenas do chamador.
-- **`supabase/functions/delete-account/`** — função crítica de exclusão de conta. Valida o JWT do usuário para identificar quem está sendo excluído, mas usa `service_role` para de fato apagar registros e o usuário de `auth.users`.
+- **`supabase/functions/delete-account/`** — função crítica de exclusão de conta. Valida o JWT do usuário para identificar quem está sendo excluído, mas usa `service_role` para limpar o Storage e apagar o usuário de `auth.users` (os dados relacionais caem via `ON DELETE CASCADE`).
 - **`/sql`** (raiz do projeto) — migrations numeradas (`01_events.sql` a `20_monthly_goal_minutes_integer.sql`), cada uma autocontida e documentando suas dependências no cabeçalho. Não fazem parte da pasta `supabase/` porque o projeto não usa `supabase db push`/CLI de migrations — são aplicadas manualmente. Ver seção "Banco de Dados" e `DATABASE.md`.
 
 ---
 
 ## Edge Functions
 
-O projeto possui **3 Edge Functions**, todas em Deno, todas com resposta em JSON. `delete-account` e `send-push-notifications` têm CORS liberado (`Access-Control-Allow-Origin: *`); `ai-chat` restringe a origem a uma allowlist (produção + localhost/127.0.0.1 para desenvolvimento local) — ver `SECURITY.md`.
+O projeto possui **3 Edge Functions**, todas em Deno, todas com resposta em JSON. `ai-chat` e `delete-account` restringem a origem a uma allowlist (produção + localhost/127.0.0.1 para desenvolvimento local); `send-push-notifications` tem CORS liberado (`Access-Control-Allow-Origin: *`), inócuo por não ser invocada por navegador — ver `SECURITY.md`.
 
 ### ai-chat
 
@@ -177,7 +177,7 @@ Resposta JSON { text, ms } para o Frontend
 
 **Objetivo:** excluir permanentemente a conta do usuário autenticado e todos os dados associados, de forma atômica do ponto de vista do usuário (uma única chamada).
 
-**Responsabilidade:** apagar, na ordem correta (respeitando FKs), os dados do usuário nas tabelas de domínio, remover os arquivos de avatar do Storage e por fim excluir o usuário em `auth.users`.
+**Responsabilidade:** remover os arquivos de avatar do Storage e excluir o usuário em `auth.users` — as linhas de dados nas tabelas de domínio caem todas via `ON DELETE CASCADE` das FKs para `auth.users(id)`, o mecanismo oficial de limpeza relacional (ver `SECURITY.md`).
 
 **Fluxo:**
 
@@ -190,10 +190,9 @@ Edge Function delete-account
    │  1. valida Authorization header
    │  2. cria client com o JWT do usuário → auth.getUser() identifica quem chama
    │  3. cria client admin (service_role)
-   │  4. deleta: notification_logs, push_subscriptions, events, categories (por user_id)
-   │  5. lista e remove arquivos em storage "avatars/{user_id}/*"
-   │  6. admin.auth.admin.deleteUser(userId)
-   │     → cascade FK remove profiles automaticamente
+   │  4. lista e remove arquivos em storage "avatars/{user_id}/*" (erro → 500, aborta)
+   │  5. admin.auth.admin.deleteUser(userId)
+   │     → cascade FK remove todas as tabelas de dados do usuário automaticamente
    ▼
 Resposta { success: true } para o Frontend
    ▼
@@ -203,10 +202,10 @@ Frontend chama signOut() e redireciona
 - **Entradas:** nenhum corpo — apenas o header `Authorization`.
 - **Saídas:** `{ success: true }` ou `{ error: string }`.
 - **Autenticação:** dupla identidade de client — um client com o JWT do usuário (`userClient`) apenas para descobrir *quem* está pedindo a exclusão via `auth.getUser()`, e um client `admin` com `service_role` para de fato executar as exclusões privilegiadas (incluindo `auth.admin.deleteUser`, que não pode ser feito com uma chave anônima).
-- **Dependências:** tabelas `notification_logs`, `push_subscriptions`, `events`, `categories`; bucket `avatars`; `auth.users`. Não deleta `academic_calendars`/`academic_events` explicitamente — eles são removidos via `ON DELETE CASCADE` a partir de `auth.users` (ver observação na "Auditoria Arquitetural").
-- **Tratamento de erros:** ausência/invalidade do JWT → `401`; falha ao deletar o usuário em `auth.admin.deleteUser` → `500` com a mensagem de erro; qualquer exceção não tratada → `500` com `String(err)`.
+- **Dependências:** bucket `avatars`; `auth.users`. Nenhuma tabela é apagada manualmente — todas as tabelas de dados de usuário (`events`, `categories`, `push_subscriptions`, `notification_logs`, `profiles`, `academic_calendars`, `ai_metrics`, `activity_sessions`, `reviews`, `questions`, `reflections`, `client_errors`) têm FK `user_id → auth.users(id) ON DELETE CASCADE`.
+- **Tratamento de erros:** ausência/invalidade do JWT → `401`; falha ao listar/remover arquivos do Storage → `500` explícito (a exclusão não prossegue — evita arquivos órfãos inacessíveis depois que a conta some); falha em `auth.admin.deleteUser` → `500` com a mensagem de erro; qualquer exceção não tratada → `500` com mensagem genérica em português.
 - **Integrações externas:** nenhuma — apenas Supabase (Auth, Postgres, Storage).
-- **Observação:** diferente das outras duas funções, importa o SDK via `esm.sh` e usa `serve` de `deno.land/std` em vez de `Deno.serve` nativo — inconsistência estilística menor entre as três funções (ver "Auditoria Arquitetural").
+- **Estilo:** mesmo padrão das outras duas funções — `Deno.serve` nativo, import via `npm:@supabase/supabase-js@2.110.0` e a mesma allowlist de CORS do `ai-chat`.
 
 ---
 
@@ -456,7 +455,7 @@ As migrations SQL (`/sql/*.sql`) **não** fazem parte de nenhum pipeline de depl
 - **Região:** não versionada no repositório (definida na criação do projeto pelo Supabase Dashboard); não documentada em nenhum arquivo do projeto.
 - **Banco:** PostgreSQL gerenciado pelo Supabase, versão determinada pelo plano/projeto Supabase (não fixada no código).
 - **Storage:** bucket único `avatars`, público, sem CDN customizado além do que o Supabase Storage já fornece.
-- **Edge Runtime:** Deno, hospedado pelo Supabase (Supabase Edge Functions), com dependências carregadas via `npm:` specifiers (`@supabase/supabase-js`, `web-push`) ou `esm.sh`/`deno.land/std` (no caso de `delete-account`).
+- **Edge Runtime:** Deno, hospedado pelo Supabase (Supabase Edge Functions), com dependências carregadas via `npm:` specifiers (`@supabase/supabase-js`, `web-push`).
 - **Versionamento:** o código das Edge Functions e das migrations SQL está versionado neste repositório Git; não há um sistema de versionamento de schema (tipo `supabase migration list`) — a ordem é garantida pela numeração dos arquivos em `/sql`.
 
 ---
@@ -552,13 +551,12 @@ Revisão documental da arquitetura atual, sem alteração de código:
 
 - **Edge Functions existentes:** exatamente 3 (`ai-chat`, `send-push-notifications`, `delete-account`), cada uma com responsabilidade única e bem definida — não há sobreposição de propósito entre elas.
 - **Responsabilidades bem definidas:** confirmado. `ai-chat` só fala com Gemini; `send-push-notifications` só lida com o ciclo de notificações; `delete-account` só lida com exclusão de conta. Nenhuma mistura lógica de domínios diferentes.
-- **Integração com Supabase:** consistente — todas as três funções usam `@supabase/supabase-js`, na mesma versão fixa `2.110.0` (sem range flutuante), ainda que importado de fontes diferentes (`npm:@supabase/supabase-js@2.110.0` em `ai-chat`/`send-push-notifications`, `https://esm.sh/@supabase/supabase-js@2.110.0` em `delete-account`). Essa divergência de fonte de import não é um erro funcional, mas é uma inconsistência de estilo/manutenção entre as funções que vale padronizar.
-- **Estilo de servidor divergente:** `ai-chat` e `send-push-notifications` usam `Deno.serve` nativo; `delete-account` usa `serve` de `https://deno.land/std@0.177.0/http/server.ts`. Funcionalmente equivalente, mas inconsistente.
+- **Integração com Supabase:** consistente — todas as três funções usam `@supabase/supabase-js`, na mesma versão fixa `2.110.0` (sem range flutuante), importada via `npm:` e servida com `Deno.serve` nativo (padronizado no F15.9).
 - **Integração com Gemini:** correta e isolada — a chave nunca é exposta ao frontend, e apenas `ai-chat` a utiliza. O modelo (`gemini-2.5-flash`) é definido no frontend (`config/ai.js`) e enviado como parâmetro, o que significa que a Edge Function confia no valor de `model` vindo do cliente sem validá-lo contra uma lista permitida — um cliente malicioso poderia, em tese, solicitar um modelo Gemini diferente do pretendido (não um risco de segurança de dados, mas uma falta de validação de allowlist no servidor).
 - **Uso dos Secrets:** adequado — segredos sensíveis (`GEMINI_API_KEY`, chaves VAPID, `SUPABASE_SERVICE_ROLE_KEY`) só existem como secrets de Edge Function, nunca no frontend ou no repositório.
 - **Isolamento frontend/backend:** bem mantido para a maior parte dos fluxos (CRUD via RLS, IA e exclusão de conta via Edge Function). Uma exceção notável: `pushService.js` grava diretamente em `push_subscriptions` via `supabase.from(...)` a partir do frontend (com RLS `auth.uid() = user_id`), enquanto o *consumo* dessa tabela é feito com `service_role` na Edge Function — um desenho consistente (o usuário só pode gerenciar a própria assinatura; só o servidor agendado pode ler todas), mas que mistura os dois padrões de acesso (direto ao Postgres vs. via Edge Function) dentro do mesmo domínio funcional (push).
 - **Tabela `ai_metrics` gravada pela Edge Function (Auditoria A2.2):** a migration `sql/08_ai_metrics.sql` criou a tabela e sua política de leitura ("Etapa 19 — AI Gateway"); `sql/10_ai_metrics_observability.sql` adicionou as colunas `model`, `http_status` e `error_message`. A Edge Function `ai-chat` agora insere uma linha por chamada (sucesso ou falha) via `service_role`, em background (`EdgeRuntime.waitUntil`), além do `console.log` já existente.
-- **`delete-account` não limpa `academic_calendars`/`academic_events` explicitamente:** essas tabelas têm FK `ON DELETE CASCADE` a partir de `auth.users`/`academic_calendars`, então são removidas corretamente quando `auth.admin.deleteUser` executa — mas isso depende inteiramente do cascade do banco, diferente das outras quatro tabelas (`notification_logs`, `push_subscriptions`, `events`, `categories`), que são deletadas explicitamente pela função antes de excluir o usuário. Funciona, mas não é auditável só de ler a Edge Function — é preciso conhecer o schema para saber que essas tabelas também são limpas.
+- **`delete-account` delega toda a limpeza relacional ao cascade (F15.9):** nenhuma tabela é apagada manualmente — todas as tabelas de dados de usuário têm FK `user_id → auth.users(id) ON DELETE CASCADE`, então `auth.admin.deleteUser` remove tudo atomicamente. O cascade é o mecanismo oficial de limpeza, documentado em `SECURITY.md`; a função só limpa explicitamente o Storage (`avatars/{userId}`), que não participa das FKs.
 - **Deploy automatizado cobre apenas 1 de 3 funções:** o workflow `deploy-functions.yml` só executa `supabase functions deploy ai-chat`. As funções `send-push-notifications` e `delete-account` não têm deploy automatizado via CI/CD — dependem de deploy manual via CLI. Isso é uma lacuna real de consistência entre o pipeline documentado e a superfície completa de Edge Functions do projeto.
 - ~~Documentação duplicada: já existem `docs/ARCHITECTURE.md` e `docs/ARQUITETURA.md`~~ — **resolvido** (PR6, consolidação de documentação técnica): `docs/ARQUITETURA.md` agora é um redirecionamento para `docs/ARCHITECTURE.md`, que é a referência única de arquitetura geral. Este documento (`BACKEND.md`) continua sendo a referência específica de backend.
 - **Consistência geral da arquitetura:** apesar dos pontos acima, a arquitetura é coerente: RLS como mecanismo primário de autorização, Edge Functions como exceção pontual e bem justificada, segredos nunca expostos ao cliente, e um único ponto de verdade para autenticação (Supabase Auth). Os itens listados são lacunas de acabamento/consistência, não falhas estruturais.

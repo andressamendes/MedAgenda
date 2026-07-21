@@ -629,7 +629,7 @@ Avaliação do fluxo de desenvolvimento atual, sem alteração de código — ap
 - **`FRONTEND.md` referencia Jest indevidamente.** O documento descreve a pasta `tests/` como testes "Jest", mas o projeto não depende de Jest — os testes usam exclusivamente o módulo `assert` nativo do Node.js com `--experimental-vm-modules`, conforme os próprios scripts em `package.json`.
 - **Versão divergente entre `package.json` e `README.md`.** `package.json` declara `"version": "1.0.0-rc1"`, enquanto `README.md` anuncia "**v1.1.0** — Calendário Acadêmico (Etapa 17)". Não há um processo único de bump de versão sincronizando os dois arquivos.
 - ~~**Tabela `ai_metrics` criada mas não alimentada.**~~ Resolvido (Auditoria A2.2): a Edge Function `ai-chat` agora insere uma linha por chamada em `ai_metrics` (`10_ai_metrics_observability.sql` adiciona `model`, `http_status`, `error_message`), além do `console.log` existente.
-- **Inconsistência de estilo entre Edge Functions.** `ai-chat` e `send-push-notifications` usam `Deno.serve` nativo e importam o SDK via `npm:@supabase/supabase-js@2`; `delete-account` usa `serve` de `deno.land/std` e importa via `esm.sh`. Funcionalmente equivalente, mas sem padronização.
+- ~~**Inconsistência de estilo entre Edge Functions.**~~ Resolvido (F15.9): as três funções usam `Deno.serve` nativo e importam o SDK via `npm:@supabase/supabase-js@2.110.0`.
 - **Sem testes automatizados para Edge Functions.** A cobertura de `tests/` é inteiramente do frontend; validação de `ai-chat`, `send-push-notifications` e `delete-account` é manual.
 - **Sem ambientes separados (dev/staging/prod).** Um único projeto Supabase é referenciado nos workflows via `SUPABASE_PROJECT_REF`; não há evidência de projetos distintos por ambiente.
 
