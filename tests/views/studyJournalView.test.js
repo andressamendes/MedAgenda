@@ -934,15 +934,15 @@ test("re-initializing does not register duplicate listeners", async (t) => {
 
 // ── Linha do Tempo da Evolução (F8.5) ───────────────────────────────────
 
-function dailySummaries() {
-  return Array.from(document.querySelectorAll("#sj-list .sj-daily-summary"));
+function dayComparisons() {
+  return Array.from(document.querySelectorAll("#sj-list .sj-day-header-comparison"));
 }
 
 function weekSummaries() {
   return Array.from(document.querySelectorAll("#sj-list .sj-week-summary"));
 }
 
-test("a day group ends with an automatic daily summary: tempo líquido, sessões, questões, revisões e matérias", async (t) => {
+test("Etapa 4 (auditoria UX radical) — a day group no longer carries a separate stats card; totals live only in the header and on each session card", async (t) => {
   const sessions = [
     { id: "sess-2", event_id: "ev-1", status: "finished", started_at: "2026-03-10T14:00:00.000Z", ended_at: "2026-03-10T14:45:00.000Z", duration_minutes: 45 },
     { id: "sess-1", event_id: "ev-2", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
@@ -959,38 +959,11 @@ test("a day group ends with an automatic daily summary: tempo líquido, sessões
 
   await mod.initStudyJournalView();
 
-  const summaries = dailySummaries();
-  assert.strictEqual(summaries.length, 1, "um único grupo de dia deve gerar um único resumo diário");
-  const text = summaries[0].textContent;
-  assert.match(text, /1h 15min estudados/);
-  assert.match(text, /2 sessão\(ões\)/);
-  assert.match(text, /3 questão\(ões\) resolvida\(s\)/);
-  assert.match(text, /1 revisão\(ões\)/);
-  assert.match(text, /Cardiologia, Farmacologia/);
-});
-
-test("a session with no matéria shows a placeholder instead of an empty list in the daily summary", async (t) => {
-  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
-  });
-
-  await mod.initStudyJournalView();
-
-  assert.match(dailySummaries()[0].textContent, /Sem matéria/);
-});
-
-test("the daily summary sits inside its own day group, never replacing the session entries", async (t) => {
-  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
-  });
-
-  await mod.initStudyJournalView();
-
+  assert.strictEqual(document.querySelectorAll("#sj-list .sj-daily-summary").length, 0, "o cartão de resumo diário foi removido");
   const group = document.querySelector(".sj-day-group");
-  assert.strictEqual(group.querySelectorAll(".sj-entry").length, 1, "a sessão continua renderizada normalmente");
-  assert.strictEqual(group.querySelectorAll(".sj-daily-summary").length, 1, "o resumo é um elemento adicional dentro do mesmo grupo");
+  const header = group.querySelector(".sj-day-header");
+  assert.match(header.textContent, /1h 15min em 2 sessão\(ões\)/);
+  assert.strictEqual(group.querySelectorAll(".sj-entry").length, 2, "as sessões continuam renderizadas normalmente");
 });
 
 test("a day's summary shows evolution indicators compared to the previous day: sessions, minutes and questions delta", async (t) => {
@@ -1012,16 +985,17 @@ test("a day's summary shows evolution indicators compared to the previous day: s
 
   await mod.initStudyJournalView();
 
-  const summaries = dailySummaries();
-  assert.strictEqual(summaries.length, 2);
+  const comparisons = dayComparisons();
+  assert.strictEqual(comparisons.length, 2);
 
-  const [todaySummary, prevSummary] = summaries;
-  assert.match(todaySummary.textContent, /Em relação ao dia anterior/);
-  assert.match(todaySummary.textContent, /↓ −1 sessão/);
-  assert.match(todaySummary.textContent, /↓ −35 minutos/);
-  assert.match(todaySummary.textContent, /↓ −2 questões/);
+  const [todayComparison, prevComparison] = comparisons;
+  assert.strictEqual(todayComparison.hidden, false);
+  assert.match(todayComparison.textContent, /Em relação ao dia anterior/);
+  assert.match(todayComparison.textContent, /↓ −1 sessão/);
+  assert.match(todayComparison.textContent, /↓ −35 minutos/);
+  assert.match(todayComparison.textContent, /↓ −2 questões/);
 
-  assert.doesNotMatch(prevSummary.textContent, /Em relação ao dia anterior/, "o dia mais antigo da linha do tempo não tem dia anterior para comparar");
+  assert.strictEqual(prevComparison.hidden, true, "o dia mais antigo da linha do tempo não tem dia anterior para comparar");
 });
 
 test("a lone visible day shows no comparison indicators", async (t) => {
@@ -1032,7 +1006,7 @@ test("a lone visible day shows no comparison indicators", async (t) => {
 
   await mod.initStudyJournalView();
 
-  assert.doesNotMatch(dailySummaries()[0].textContent, /Em relação ao dia anterior/);
+  assert.strictEqual(dayComparisons()[0].hidden, true);
 });
 
 test("a weekly summary card appears when a new week starts, summarizing the week just finished in the timeline", async (t) => {
@@ -1103,19 +1077,19 @@ test("summaries recompute over only the currently filtered/visible sessions, wit
   });
 
   await mod.initStudyJournalView();
-  assert.match(dailySummaries()[0].textContent, /2 sessão\(ões\)/);
-  assert.match(dailySummaries()[0].textContent, /1h 0min estudados/);
+  const dayHeader = () => document.querySelector(".sj-day-header");
+  assert.match(dayHeader().textContent, /1h 0min em 2 sessão\(ões\)/);
   calls.length = 0;
 
   document.getElementById("sj-filter-category").value = "SOI II";
   document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
 
   assert.strictEqual(calls.length, 0, "trocar o filtro não deve chamar listSessions() novamente");
-  assert.strictEqual(dailySummaries().length, 1);
-  assert.match(dailySummaries()[0].textContent, /1 sessão\(ões\)/);
-  assert.match(dailySummaries()[0].textContent, /30min estudados/);
-  assert.match(dailySummaries()[0].textContent, /SOI II/);
-  assert.doesNotMatch(dailySummaries()[0].textContent, /Anatomia/);
+  assert.match(dayHeader().textContent, /30min em 1 sessão\(ões\)/);
+  const entries = Array.from(document.querySelectorAll(".sj-entry"));
+  assert.strictEqual(entries.length, 1, "só a sessão filtrada continua visível");
+  assert.match(entries[0].textContent, /SOI II/);
+  assert.doesNotMatch(entries[0].textContent, /Anatomia/);
 });
 
 // ── Síntese Periódica de Aprendizado (F8.6) ─────────────────────────────

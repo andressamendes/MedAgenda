@@ -478,6 +478,7 @@ function _createDayGroup(iso) {
       <span class="sj-day-header-date">${escapeHtml(_dayLabel(iso))}</span>
       <span class="sj-day-header-summary"></span>
     </div>
+    <p class="sj-day-header-comparison" hidden></p>
     <ul class="sj-day-sessions"></ul>
   `;
   listEl.appendChild(li);
@@ -487,6 +488,7 @@ function _createDayGroup(iso) {
     sessions: [],
     li,
     summaryEl: li.querySelector(".sj-day-header-summary"),
+    comparisonEl: li.querySelector(".sj-day-header-comparison"),
     sessionsEl: li.querySelector(".sj-day-sessions"),
   };
 }
@@ -531,10 +533,14 @@ function _renderMilestonesPanel(filteredEntries) {
   `).join("");
 }
 
-// ── Resumo diário e indicadores de evolução (F8.5) ──────────────────────
-// Cartão anexado ao final do próprio grupo de dia (dentro do mesmo <li
-// class="sj-day-group">, depois de .sj-day-sessions) — nunca substitui as
-// sessões já renderizadas, só acrescenta uma camada narrativa sobre elas.
+// ── Comparação com o dia anterior (F8.5, reduzido na Etapa 4) ───────────
+// F8.5 anexava um cartão de resumo diário (tempo, sessões, questões,
+// revisões, matérias) ao final de cada grupo — mas tempo/sessões já viram o
+// cabeçalho do dia (Etapa 3) e questões/revisões já viram indicadores no
+// próprio cartão da sessão (Etapa 2). O cartão só sobrevivia por causa da
+// comparação com o dia anterior, que não tinha outro lugar para morar; ela
+// vira uma linha opcional dentro do próprio cabeçalho do dia — some quando
+// não há dia anterior para comparar (mesmo critério de antes).
 function _comparisonBadge(delta, unitSingular, unitPlural) {
   const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "•";
   const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
@@ -543,27 +549,15 @@ function _comparisonBadge(delta, unitSingular, unitPlural) {
   return `<span class="sj-summary-badge">${arrow} ${sign}${abs} ${unit}</span>`;
 }
 
-function _appendDailySummary(dayGroup, summary, comparison) {
-  const div = document.createElement("div");
-  div.className = "sj-daily-summary";
-  div.innerHTML = `
-    <div class="sj-daily-summary-stats">
-      <span>${_formatDuration(summary.totalMinutes)} estudados</span>
-      <span>${summary.sessionsCount} sessão(ões)</span>
-      <span>${summary.questionsCount} questão(ões) resolvida(s)</span>
-      <span>${summary.reviewsCount} revisão(ões)</span>
-      <span>${summary.subjects.length ? escapeHtml(summary.subjects.join(", ")) : "Sem matéria"}</span>
-    </div>
-    ${comparison ? `
-      <div class="sj-daily-summary-comparison">
-        <span class="sj-summary-comparison-label">Em relação ao dia anterior:</span>
-        ${_comparisonBadge(comparison.sessionsDelta, "sessão", "sessões")}
-        ${_comparisonBadge(comparison.minutesDelta, "minuto", "minutos")}
-        ${_comparisonBadge(comparison.questionsDelta, "questão", "questões")}
-      </div>
-    ` : ""}
+function _renderDayComparison(dayGroup, comparison) {
+  if (!comparison) return;
+  dayGroup.comparisonEl.hidden = false;
+  dayGroup.comparisonEl.innerHTML = `
+    <span class="sj-summary-comparison-label">Em relação ao dia anterior:</span>
+    ${_comparisonBadge(comparison.sessionsDelta, "sessão", "sessões")}
+    ${_comparisonBadge(comparison.minutesDelta, "minuto", "minutos")}
+    ${_comparisonBadge(comparison.questionsDelta, "questão", "questões")}
   `;
-  dayGroup.li.appendChild(div);
 }
 
 // ── Resumo semanal (F8.5) ────────────────────────────────────────────────
@@ -906,8 +900,9 @@ function _render() {
   const daySummaries = dayBuckets.map(bucket => summarizeDayEntries(bucket.entries));
 
   // Segundo passo: renderiza os grupos de dia (F8.3, inalterado) e intercala
-  // os cartões novos do F8.5 — resumo semanal ao trocar de semana, resumo
-  // diário + comparação com o dia anterior ao final de cada grupo.
+  // o cartão de resumo semanal (F8.5) ao trocar de semana; a comparação com
+  // o dia anterior (Etapa 4) entra como linha opcional no próprio cabeçalho
+  // do dia, não como cartão à parte.
   let currentWeekKey = null;
   let weekBuckets = [];
   let weekEntries = [];
@@ -931,7 +926,7 @@ function _render() {
     _updateGroupHeader(dayGroup);
 
     const previousSummary = index + 1 < dayBuckets.length ? daySummaries[index + 1] : null;
-    _appendDailySummary(dayGroup, daySummaries[index], compareDailySummaries(daySummaries[index], previousSummary));
+    _renderDayComparison(dayGroup, compareDailySummaries(daySummaries[index], previousSummary));
   });
 
   // Auditoria UX #32: o laço acima só fecha o resumo de uma semana quando a
