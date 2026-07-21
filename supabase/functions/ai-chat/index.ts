@@ -2,6 +2,23 @@ import { createClient } from "npm:@supabase/supabase-js@2.110.0";
 
 const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
 
+// ── Limites decididos pelo servidor ──────────────────────────────────────────
+// O cliente nunca decide modelo, teto de tokens ou frequência: `model` é
+// interpolado na URL da API Gemini e `maxOutputTokens` define o custo da
+// chamada, então qualquer valor fora destes limites é rejeitado com 400.
+const ALLOWED_MODELS   = ["gemini-2.5-flash"];
+const DEFAULT_MODEL    = "gemini-2.5-flash";
+const TEMPERATURE_MIN  = 0;
+const TEMPERATURE_MAX  = 1;
+const MAX_TOKENS_MIN   = 1;
+const MAX_TOKENS_MAX   = 2048;
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS  = 1024;
+
+// Rate limit por usuário: contagem de linhas em ai_metrics na última hora.
+const RATE_LIMIT_MAX_CALLS = 20;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // Only the official production origin (GitHub Pages) and local dev servers
 // (any port on localhost/127.0.0.1) may call this function from a browser.
@@ -228,15 +245,48 @@ Deno.serve(async (req) => {
 
     promptType = payload.type;
 
+    if (payload.model !== undefined && !ALLOWED_MODELS.includes(payload.model)) {
+      return finish({ error: `Modelo inválido. Use: ${ALLOWED_MODELS.join(', ')}.` }, 400, "invalid_model", "Modelo fora da allowlist.");
+    }
+    if (payload.temperature !== undefined &&
+        (typeof payload.temperature !== 'number' || !Number.isFinite(payload.temperature) ||
+         payload.temperature < TEMPERATURE_MIN || payload.temperature > TEMPERATURE_MAX)) {
+      return finish({ error: `Campo 'temperature' deve ser um número entre ${TEMPERATURE_MIN} e ${TEMPERATURE_MAX}.` }, 400, "invalid_temperature", "Temperatura fora do intervalo permitido.");
+    }
+    if (payload.maxTokens !== undefined &&
+        (typeof payload.maxTokens !== 'number' || !Number.isInteger(payload.maxTokens) ||
+         payload.maxTokens < MAX_TOKENS_MIN || payload.maxTokens > MAX_TOKENS_MAX)) {
+      return finish({ error: `Campo 'maxTokens' deve ser um inteiro entre ${MAX_TOKENS_MIN} e ${MAX_TOKENS_MAX}.` }, 400, "invalid_max_tokens", "maxTokens fora do intervalo permitido.");
+    }
+
+    model = payload.model ?? DEFAULT_MODEL;
+    const temperature = payload.temperature ?? DEFAULT_TEMPERATURE;
+    const maxTokens   = payload.maxTokens   ?? DEFAULT_MAX_TOKENS;
+
+    // ── Rate limit por usuário ──────────────────────────────────────────────
+    // Consulta ai_metrics (toda chamada autenticada gera uma linha via finish())
+    // antes de contatar o Gemini. Falha na consulta não bloqueia o usuário
+    // legítimo (fail-open com log) — o teto de custo por chamada já está
+    // garantido pela validação acima.
+    if (adminClient) {
+      const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+      const { count, error: rateError } = await adminClient
+        .from("ai_metrics")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", since);
+      if (rateError) {
+        console.error("[ai-chat] Rate limit check failed:", rateError.message);
+      } else if ((count ?? 0) >= RATE_LIMIT_MAX_CALLS) {
+        return finish({ error: "Você atingiu o limite de uso da IA por agora. Tente novamente em uma hora." }, 429, "rate_limited", "Limite de chamadas por usuário/hora atingido.");
+      }
+    }
+
     // ── Build prompt ────────────────────────────────────────────────────────
     let prompt: string;
     if (payload.type === 'weekly_summary')    prompt = buildWeeklySummaryPrompt(payload);
     else if (payload.type === 'study_suggestion') prompt = buildStudySuggestionPrompt(payload);
     else                                      prompt = buildScheduleAnalysisPrompt(payload);
-
-    model = payload.model ?? 'gemini-2.5-flash';
-    const temperature = typeof payload.temperature === 'number' ? payload.temperature : 0.7;
-    const maxTokens   = typeof payload.maxTokens   === 'number' ? payload.maxTokens   : 1024;
 
     // ── Call Gemini ─────────────────────────────────────────────────────────
     const geminiRes = await fetch(
