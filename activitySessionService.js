@@ -53,14 +53,16 @@ export async function hasAnySession() {
   return (data ?? []).length > 0;
 }
 
-// Toda atualização estrutural da sessão passa por aqui — por isso é o único
-// ponto que publica SessionUpdated (evento genérico, "algo nesta sessão
-// mudou"). As transições de ciclo de vida (pausar/continuar/finalizar/
-// cancelar, abaixo) chamam esta função e, além do SessionUpdated que ela já
-// publica, publicam também seu evento específico — um assinante interessado
-// só na semântica ("a sessão foi pausada") usa o evento específico; um
-// assinante que só quer saber "a sessão mudou, releia o que precisar" usa
-// SessionUpdated sem precisar conhecer cada transição possível.
+// Atualização estrutural genérica da sessão. Publica SessionUpdated (evento
+// genérico, "algo nesta sessão mudou"). As transições de ciclo de vida
+// (pausar/continuar/finalizar/cancelar, abaixo) NÃO passam mais por aqui:
+// desde o F15.8 elas usam _transition(), que faz o mesmo UPDATE porém
+// condicionado ao status de origem (guarda de concorrência) e publica o
+// mesmo SessionUpdated em caso de sucesso — além do evento específico que
+// cada transição publica. Um assinante interessado só na semântica ("a
+// sessão foi pausada") usa o evento específico; um assinante que só quer
+// saber "a sessão mudou, releia o que precisar" usa SessionUpdated sem
+// precisar conhecer cada transição possível.
 export async function updateActivitySession(id, fields) {
   const user_id = await currentUserId();
   const { data, error } = await supabase
@@ -118,6 +120,37 @@ function _sessionAlreadyRunningError(action) {
     `Já existe uma sessão de atividade em andamento. Finalize ou cancele-a antes de ${action}.`,
     "SESSION_ALREADY_RUNNING"
   );
+}
+
+// F15.8 — guarda de estado nas transições de ciclo de vida. As checagens de
+// status feitas em memória por finishSession()/cancelSession()/pauseSession()/
+// resumeSession() (ler a sessão, validar, escrever) deixam uma janela entre
+// leitura e escrita em que outra aba/dispositivo pode encerrar a mesma sessão
+// — e o UPDATE incondicional de updateActivitySession() sobrescreveria
+// silenciosamente ended_at/duration_minutes já calculados. Mesmo princípio do
+// AUD-001 (o início de sessão é defendido no banco pelo índice único parcial):
+// aqui o UPDATE só se aplica se o status atual ainda for um dos `fromStatuses`
+// (.in("status", ...) avaliado atomicamente no banco). Zero linhas retornadas
+// significa que a transição perdeu a corrida — vira erro de domínio
+// SESSION_STATE_CONFLICT com a mensagem amigável de cada transição, e nenhum
+// evento é publicado (SessionUpdated e o evento específico só saem quando a
+// escrita de fato aconteceu).
+async function _transition(id, fields, fromStatuses, conflictMessage) {
+  const user_id = await currentUserId();
+  const { data, error } = await supabase
+    .from("activity_sessions")
+    .update(fields)
+    .eq("id", id)
+    .eq("user_id", user_id)
+    .in("status", fromStatuses)
+    .select();
+  if (error) throw error;
+  const updated = data?.[0];
+  if (!updated) {
+    throw _domainError(conflictMessage, "SESSION_STATE_CONFLICT");
+  }
+  publish(SESSION_EVENTS.UPDATED, updated);
+  return updated;
 }
 
 // Sessão em andamento do usuário atual, ou null se nenhuma.
@@ -214,13 +247,18 @@ export async function finishSession(id, endedAt = new Date(), notes) {
   const durationMinutes = Math.max(0, Math.round((rawMs - totalPausedMs) / 60000));
 
   const trimmedNotes = notes?.trim();
-  const finished = await updateActivitySession(id, {
-    status: "finished",
-    ended_at: endedAtDate.toISOString(),
-    duration_minutes: durationMinutes,
-    paused_at: null,
-    ...(trimmedNotes ? { notes: trimmedNotes } : {}),
-  });
+  const finished = await _transition(
+    id,
+    {
+      status: "finished",
+      ended_at: endedAtDate.toISOString(),
+      duration_minutes: durationMinutes,
+      paused_at: null,
+      ...(trimmedNotes ? { notes: trimmedNotes } : {}),
+    },
+    ["running", "paused"],
+    "Esta sessão já foi encerrada em outra aba ou dispositivo e não pode ser finalizada novamente."
+  );
   publish(SESSION_EVENTS.FINISHED, finished);
   return finished;
 }
@@ -251,7 +289,12 @@ export async function cancelSession(id) {
       "SESSION_ALREADY_ENDED"
     );
   }
-  const cancelled = await updateActivitySession(id, { status: "cancelled" });
+  const cancelled = await _transition(
+    id,
+    { status: "cancelled" },
+    ["running", "paused"],
+    "Esta sessão já foi encerrada em outra aba ou dispositivo e não pode ser cancelada."
+  );
   publish(SESSION_EVENTS.CANCELLED, cancelled);
   return cancelled;
 }
@@ -271,10 +314,15 @@ export async function pauseSession(id) {
   if (session.status !== "running") {
     throw _domainError("Somente sessões em andamento podem ser pausadas.", "INVALID_STATE");
   }
-  const paused = await updateActivitySession(id, {
-    status: "paused",
-    paused_at: new Date().toISOString(),
-  });
+  const paused = await _transition(
+    id,
+    {
+      status: "paused",
+      paused_at: new Date().toISOString(),
+    },
+    ["running"],
+    "Esta sessão mudou de estado em outra aba ou dispositivo e não pode mais ser pausada."
+  );
   publish(SESSION_EVENTS.PAUSED, paused);
   return paused;
 }
@@ -296,11 +344,16 @@ export async function resumeSession(id) {
     : 0;
   let resumed;
   try {
-    resumed = await updateActivitySession(id, {
-      status: "running",
-      paused_at: null,
-      paused_ms: (session.paused_ms || 0) + currentPauseMs,
-    });
+    resumed = await _transition(
+      id,
+      {
+        status: "running",
+        paused_at: null,
+        paused_ms: (session.paused_ms || 0) + currentPauseMs,
+      },
+      ["paused"],
+      "Esta sessão mudou de estado em outra aba ou dispositivo e não pode mais ser retomada."
+    );
   } catch (error) {
     if (_isRunningConstraintViolation(error)) {
       throw _sessionAlreadyRunningError("retomar esta");

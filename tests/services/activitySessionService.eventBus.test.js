@@ -67,7 +67,7 @@ test("pauseSession() publishes SessionPaused (and the generic SessionUpdated) wi
   const session = { id: "sess-1", status: "running" };
   const paused = { ...session, status: "paused" };
   const { mod } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: paused, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [paused], error: null }],
   });
 
   const pausedEvents = [];
@@ -91,7 +91,7 @@ test("resumeSession() publishes SessionResumed with the updated session", async 
     activity_sessions: [
       { data: session, error: null },
       { data: null, error: null },
-      { data: resumed, error: null },
+      { data: [resumed], error: null },
     ],
   });
 
@@ -108,7 +108,7 @@ test("finishSession() publishes SessionFinished with the finished session as pay
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30 };
   const { mod } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   const events = [];
@@ -138,7 +138,7 @@ test("cancelSession() publishes SessionCancelled with the cancelled session as p
   const session = { id: "sess-1", status: "running" };
   const cancelled = { ...session, status: "cancelled" };
   const { mod } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: cancelled, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [cancelled], error: null }],
   });
 
   const events = [];
@@ -187,7 +187,7 @@ test("onSessionFinished() still fires on finishSession(), receiving the bare ses
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30 };
   const { mod } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   let received = null;
@@ -204,8 +204,8 @@ test("onSessionFinished() returns an unsubscribe function that stops further not
   const updated = { ...session, status: "finished", duration_minutes: 10 };
   const { mod } = await loadActivitySessionService(t, {
     activity_sessions: [
-      { data: session, error: null }, { data: updated, error: null },
-      { data: { ...session, status: "running" }, error: null }, { data: updated, error: null },
+      { data: session, error: null }, { data: [updated], error: null },
+      { data: { ...session, status: "running" }, error: null }, { data: [updated], error: null },
     ],
   });
 
