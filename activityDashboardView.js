@@ -24,7 +24,7 @@ import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { skeletonCardsMarkup } from "./skeletonView.js";
-import { pad } from "./utils.js";
+import { pad, escapeHtml } from "./utils.js";
 import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
@@ -254,7 +254,10 @@ function _narrativeSentences(data) {
 
     if (dominantCategory) {
       const pct = _formatCategoryPercentage(dominantCategory, weekMinutes);
-      sentences.push(`${dominantCategory.name} concentrou ${pct}% do tempo.`);
+      // F15.1 — dominantCategory.name é texto livre de events.category (também
+      // gravável via importação .ics de terceiros) e o resultado entra em
+      // narrativeEl.innerHTML: escape obrigatório (XSS armazenado, M1).
+      sentences.push(`${escapeHtml(dominantCategory.name)} concentrou ${pct}% do tempo.`);
     }
   }
 
