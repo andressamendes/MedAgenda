@@ -8,6 +8,13 @@ import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
 const SERVICE_SPECIFIER = new URL("../../academicCalendarService.js", import.meta.url).href;
+// academicCalendarEventsView.js (real, imported by academicCalendarView.js)
+// pulls in recurrenceService.js (F16), which unconditionally imports
+// eventService.js and recurrenceExceptionsService.js at the top level — both
+// need a mock too, or their own (unmocked) static import of supabase.js
+// blows up even though nothing in this test file exercises recurrence.
+const EVENT_SERVICE_SPECIFIER = new URL("../../eventService.js", import.meta.url).href;
+const RECURRENCE_EXCEPTIONS_SPECIFIER = new URL("../../recurrenceExceptionsService.js", import.meta.url).href;
 
 let view, serviceCalls;
 
@@ -29,10 +36,28 @@ function mockService(t, { calendars = [], createResult } = {}) {
       // Also imported by academicCalendarEventsView.js / academicCalendarICSView.js,
       // which resolve to the same specifier and therefore the same mock.
       getAcademicEvents: async () => [],
+      getAcademicEventById: async () => null,
       createAcademicEvent: async () => { throw new Error("not used in this test"); },
       updateAcademicEvent: async () => { throw new Error("not used in this test"); },
       deleteAcademicEvent: async () => { throw new Error("not used in this test"); },
       bulkInsertAcademicEvents: async () => [],
+    },
+  });
+
+  t.mock.module(EVENT_SERVICE_SPECIFIER, {
+    namedExports: {
+      createEvent: async () => { throw new Error("not used in this test"); },
+      updateEvent: async () => { throw new Error("not used in this test"); },
+      deleteEvent: async () => { throw new Error("not used in this test"); },
+      getEventById: async () => null,
+    },
+  });
+  t.mock.module(RECURRENCE_EXCEPTIONS_SPECIFIER, {
+    namedExports: {
+      getExceptionsMap:        async () => new Map(),
+      cancelOccurrence:        async () => ({}),
+      overrideOccurrence:      async () => ({}),
+      deleteExceptionsForBase: async () => {},
     },
   });
 }

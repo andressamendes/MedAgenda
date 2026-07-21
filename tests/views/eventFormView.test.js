@@ -10,11 +10,24 @@ import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
 const EVENT_SERVICE_SPECIFIER          = new URL("../../eventService.js", import.meta.url).href;
 const CONFIRM_DIALOG_SPECIFIER         = new URL("../../confirmDialog.js", import.meta.url).href;
+const RECURRENCE_SCOPE_DIALOG_SPECIFIER = new URL("../../recurrenceScopeDialog.js", import.meta.url).href;
 const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../studySessionView.js", import.meta.url).href;
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
 const CATEGORY_VIEW_SPECIFIER          = new URL("../../categoryView.js", import.meta.url).href;
 const QUICKADD_SPECIFIER               = new URL("../../quickAdd.js", import.meta.url).href;
+// recurrenceService.js (F16) é mockado por inteiro, não só suas dependências
+// (academicCalendarService.js/recurrenceExceptionsService.js, que puxam
+// supabase.js real): módulos "passe-through" como este mantêm o binding do
+// eventService.js real da PRIMEIRA vez que são carregados no processo — um
+// t.mock.module(EVENT_SERVICE_SPECIFIER) de um teste posterior não invalida
+// esse binding já resolvido (limitação conhecida do module mocking do Node
+// com módulos intermediários de URL estável). A fake abaixo reimplementa só
+// o suficiente do contrato real (SCOPE/isRecurring/isExpandedOccurrence
+// idênticos; applyEditScope/applyDeleteScope delegando em updateEvent/
+// deleteEvent para o caminho "toda a série", o único exercitado aqui).
+const RECURRENCE_SERVICE_SPECIFIER = new URL("../../recurrenceService.js", import.meta.url).href;
+const SCOPE = { THIS: "this", FUTURE: "future", SERIES: "series" };
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 const EMPTY_AI_CONTEXT = {
@@ -32,8 +45,43 @@ let serviceCalls;
 let startSessionForEventCalls;
 let openQuickAddCalls;
 
+/**
+ * Mocks recurrenceService.js delegating straight to the given updateEvent/
+ * deleteEvent implementations — every eventFormView test only exercises the
+ * "toda a série" scope (updateEvent(id, fields) / deleteEvent(id)), so this
+ * fake reproduces just that path instead of the full split/exception logic.
+ * Every test importing eventFormView.js must call this (directly or via
+ * mockEventService()) — see the module-passthrough note above.
+ */
+function mockRecurrenceServicePassthrough(t, { updateEvent, deleteEvent }) {
+  t.mock.module(RECURRENCE_SERVICE_SPECIFIER, {
+    namedExports: {
+      SCOPE,
+      isRecurring:          (ev) => !!ev && !!ev.recurrence_type && ev.recurrence_type !== "none",
+      isExpandedOccurrence: (ev) => !!ev?._isOccurrence,
+      applyEditScope: async ({ occurrence, fields }) => {
+        const baseId = occurrence?._isOccurrence ? occurrence._baseEventId : occurrence?.id;
+        return updateEvent(baseId, fields);
+      },
+      applyDeleteScope: async ({ occurrence }) => {
+        const baseId = occurrence?._isOccurrence ? occurrence._baseEventId : occurrence?.id;
+        return deleteEvent(baseId);
+      },
+    },
+  });
+}
+
 function mockEventService(t, { createResult, createError, updateResult, updateError, deleteError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
   serviceCalls = [];
+  const updateEvent = async (id, fields) => {
+    serviceCalls.push({ fn: "updateEvent", id, fields });
+    if (updateError) throw updateError;
+    return updateResult ?? { id, ...fields };
+  };
+  const deleteEvent = async (id) => {
+    serviceCalls.push({ fn: "deleteEvent", id });
+    if (deleteError) throw deleteError;
+  };
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
       createEvent: async (fields) => {
@@ -41,17 +89,12 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
         if (createError) throw createError;
         return createResult ?? { id: "evt-new", ...fields };
       },
-      updateEvent: async (id, fields) => {
-        serviceCalls.push({ fn: "updateEvent", id, fields });
-        if (updateError) throw updateError;
-        return updateResult ?? { id, ...fields };
-      },
-      deleteEvent: async (id) => {
-        serviceCalls.push({ fn: "deleteEvent", id });
-        if (deleteError) throw deleteError;
-      },
+      updateEvent,
+      deleteEvent,
     },
   });
+
+  mockRecurrenceServicePassthrough(t, { updateEvent, deleteEvent });
 
   // studySessionView.js (F1.4's "Iniciar Sessão" button, now F7.2's dedicated
   // page) pulls in categoryService/eventService transitively, which need
@@ -100,6 +143,7 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
   t.mock.module(QUICKADD_SPECIFIER, {
     namedExports: { openQuickAdd: (...args) => { openQuickAddCalls.push(args); } },
   });
+
 }
 
 // confirmDialog.js keeps its overlay in module-level state and only builds
@@ -111,6 +155,19 @@ function mockConfirmDialog(t, resolveTo) {
   t.mock.module(CONFIRM_DIALOG_SPECIFIER, {
     namedExports: {
       confirmDialog: async (opts) => { calls.push(opts); return resolveTo; },
+    },
+  });
+  return calls;
+}
+
+// F16 — recurrenceScopeDialog.js substitui confirmDialog.js sempre que a
+// edição/exclusão parte de uma ocorrência expandida de uma série
+// (ev._isOccurrence — ver recurrenceService.js/isExpandedOccurrence).
+function mockRecurrenceScopeDialog(t, resolveTo) {
+  const calls = [];
+  t.mock.module(RECURRENCE_SCOPE_DIALOG_SPECIFIER, {
+    namedExports: {
+      recurrenceScopeDialog: async (opts) => { calls.push(opts); return resolveTo; },
     },
   });
   return calls;
@@ -769,32 +826,34 @@ test("cancelling the form closes the modal without calling the service", async (
   assert.deepStrictEqual(serviceCalls, []);
 });
 
-test("handleEventClick on a recurring event asks for confirmation, and confirming opens the form", async (t) => {
+test("handleEventClick on an expanded occurrence of a recurring series asks for the edit scope, and choosing one opens the form", async (t) => {
   mockEventService(t);
-  const confirmCalls = mockConfirmDialog(t, true);
+  const scopeCalls = mockRecurrenceScopeDialog(t, "series");
   const { initEventForm, handleEventClick } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
   const recurring = {
     id: "evt-recur", title: "Aula semanal", event_date: "2026-08-10",
     start_time: "10:00:00", recurrence_type: "weekly",
+    _isOccurrence: true, _baseEventId: "evt-recur", _baseEventDate: "2026-08-03",
   };
   await handleEventClick(recurring);
 
-  assert.strictEqual(confirmCalls.length, 1);
+  assert.strictEqual(scopeCalls.length, 1);
   assert.strictEqual(document.getElementById("event-modal").hidden, false);
   assert.strictEqual(document.getElementById("f-title").value, "Aula semanal");
 });
 
-test("cancelling the recurring-event confirmation leaves the form closed", async (t) => {
+test("cancelling the recurrence-scope dialog leaves the form closed", async (t) => {
   mockEventService(t);
-  mockConfirmDialog(t, false);
+  mockRecurrenceScopeDialog(t, null);
   const { initEventForm, handleEventClick } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
   const recurring = {
     id: "evt-recur", title: "Aula semanal", event_date: "2026-08-10",
     start_time: "10:00:00", recurrence_type: "weekly",
+    _isOccurrence: true, _baseEventId: "evt-recur", _baseEventDate: "2026-08-03",
   };
   await handleEventClick(recurring);
 
@@ -918,16 +977,19 @@ test("editing the Data field repeatedly, then reopening the same event, always r
 test("a save still in flight when the user cancels and opens a different event does not clear/close that new edit when it resolves (BUG 02)", async (t) => {
   let resolveUpdate;
   serviceCalls = [];
+  const updateEvent = (id, fields) => {
+    serviceCalls.push({ fn: "updateEvent", id, fields });
+    return new Promise((resolve) => { resolveUpdate = () => resolve({ id, ...fields }); });
+  };
+  const deleteEvent = async (id) => { serviceCalls.push({ fn: "deleteEvent", id }); };
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: {
       createEvent: async (fields) => { serviceCalls.push({ fn: "createEvent", fields }); return { id: "evt-new", ...fields }; },
-      updateEvent: (id, fields) => {
-        serviceCalls.push({ fn: "updateEvent", id, fields });
-        return new Promise((resolve) => { resolveUpdate = () => resolve({ id, ...fields }); });
-      },
-      deleteEvent: async (id) => { serviceCalls.push({ fn: "deleteEvent", id }); },
+      updateEvent,
+      deleteEvent,
     },
   });
+  mockRecurrenceServicePassthrough(t, { updateEvent, deleteEvent });
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
   t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, { namedExports: { listByEvent: async () => [] } });
   t.mock.module(AICONTEXT_SPECIFIER, { namedExports: { getAIContext: async () => EMPTY_AI_CONTEXT } });
@@ -1037,6 +1099,7 @@ test("resetEventForm() invalidates any in-flight session-history/insights reques
   let resolveHistory;
   serviceCalls = [];
   t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { createEvent: async () => {}, updateEvent: async () => {}, deleteEvent: async () => {} } });
+  mockRecurrenceServicePassthrough(t, { updateEvent: async () => {}, deleteEvent: async () => {} });
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
   t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
     namedExports: {

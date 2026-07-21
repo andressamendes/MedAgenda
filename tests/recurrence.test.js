@@ -227,6 +227,109 @@ assert(
   ["2024-01-01", "2024-01-08", "2024-01-15", "2024-01-22"]
 );
 
+// ── F16 — COUNT (fim por número de ocorrências) ────────────────────────────
+console.log("\nCOUNT — fim por número de ocorrências");
+
+const countDaily = makeEvent({
+  event_date:      "2024-01-01",
+  recurrence_type: "daily",
+  recurrence_count: 3,
+});
+assert(
+  "daily stops after N occurrences, independent of range end",
+  dates(expandEvent(countDaily, "2024-01-01", "2024-01-31")),
+  ["2024-01-01", "2024-01-02", "2024-01-03"]
+);
+
+const countWeeklyNarrowRange = makeEvent({
+  event_date:      "2024-01-01",
+  recurrence_type: "weekly",
+  recurrence_count: 4,
+});
+assert(
+  "COUNT is computed from the base date, not the query range — a later, narrower window still sees only the remaining occurrences",
+  dates(expandEvent(countWeeklyNarrowRange, "2024-01-15", "2024-01-31")),
+  ["2024-01-15", "2024-01-22"]
+);
+
+const countCustom = makeEvent({
+  event_date:              "2024-01-01", // Monday
+  recurrence_type:         "custom",
+  recurrence_interval:     1,
+  recurrence_days_of_week: "1,3", // Mon, Wed
+  recurrence_count:        3,
+});
+assert(
+  "custom (weekly BYDAY) stops after N occurrences across multiple days per week",
+  dates(expandEvent(countCustom, "2024-01-01", "2024-02-01")),
+  ["2024-01-01", "2024-01-03", "2024-01-08"]
+);
+
+// ── F16 — dateField (academic_events usa start_date, não event_date) ───────
+console.log("\ndateField — expansão sobre uma coluna de data diferente");
+
+const academicWeekly = {
+  id: "acad-1",
+  title: "Aula de Anatomia",
+  start_date: "2024-01-01", // Monday
+  recurrence_type: "weekly",
+  recurrence_interval: 1,
+  recurrence_until: "2024-01-22",
+};
+const academicResult = expandEvent(academicWeekly, "2024-01-01", "2024-01-31", { dateField: "start_date" });
+assert(
+  "expands using start_date instead of event_date",
+  academicResult.map(o => o.start_date),
+  ["2024-01-01", "2024-01-08", "2024-01-15", "2024-01-22"]
+);
+assert("_baseEventDate reads from the custom dateField too", academicResult[1]._baseEventDate, "2024-01-01");
+
+// ── F16 — Exceções (recurrence_exceptions: cancelamento e sobrescrita) ─────
+console.log("\nExceções — cancelamento e sobrescrita de uma ocorrência pontual");
+
+const exceptionBase = makeEvent({
+  id:               "evt-exc",
+  event_date:       "2024-01-01",
+  recurrence_type:  "weekly",
+  recurrence_until: "2024-01-22",
+});
+
+const cancelledMap = new Map([
+  ["evt-exc", new Map([["2024-01-08", { is_cancelled: true, override: null }]])],
+]);
+assert(
+  "a cancelled occurrence is dropped from the expansion (EXDATE-equivalent)",
+  dates(expandEvent(exceptionBase, "2024-01-01", "2024-01-31", { exceptionsByEventId: cancelledMap })),
+  ["2024-01-01", "2024-01-15", "2024-01-22"]
+);
+
+const overriddenMap = new Map([
+  ["evt-exc", new Map([["2024-01-08", { is_cancelled: false, override: { title: "Aula remarcada" } }]])],
+]);
+const overriddenResult = expandEvent(exceptionBase, "2024-01-01", "2024-01-31", { exceptionsByEventId: overriddenMap });
+assert(
+  "an overridden occurrence keeps its place in the series but with the overridden fields",
+  overriddenResult.map(o => o.title),
+  ["Test Event", "Aula remarcada", "Test Event", "Test Event"]
+);
+assert(
+  "the override never changes which date the occurrence lands on",
+  overriddenResult[1].event_date,
+  "2024-01-08"
+);
+
+// Exceção sobre a PRÓPRIA data-base da série (primeira ocorrência) — mesmo
+// tratamento de qualquer outra ocorrência, já que occurrence() é aplicado
+// uniformemente a todas as datas geradas (inclusive a primeira).
+const cancelledFirstMap = new Map([
+  ["evt-exc", new Map([["2024-01-01", { is_cancelled: true, override: null }]])],
+]);
+assert(
+  "cancelling the series' own base date removes just that occurrence, the rest of the series survives",
+  dates(expandEvent(exceptionBase, "2024-01-01", "2024-01-31", { exceptionsByEventId: cancelledFirstMap })),
+  ["2024-01-08", "2024-01-15", "2024-01-22"]
+);
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(40)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
