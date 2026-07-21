@@ -2407,6 +2407,16 @@ textarea { resize: vertical; }
   color: var(--gray-700);
 }
 
+/* Etapa 7 (auditoria UX radical) — o aviso de paginação parcial usava
+   .insights-block-notice (caixa cinza destacada, mesma classe de alerta de
+   Insights) acima da lista. Vira uma nota discreta de rodapé, sem caixa,
+   ao lado de "Carregar mais" — a ação que resolve a parcialidade. */
+.sj-partial-notice {
+  margin: .4rem 0 0;
+  font-size: .75rem;
+  color: var(--gray-500);
+}
+
 .sj-entry-matches {
   margin-top: .3rem;
   font-size: .75rem;
