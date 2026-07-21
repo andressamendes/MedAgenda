@@ -33,6 +33,27 @@ export function isoToday() {
   return isoDate(new Date());
 }
 
+/**
+ * Formats a duration in minutes as "Xh Ymin" (or just "Ymin" under an hour).
+ * `null`/`undefined` (duration unknown) render as "—"; negative values clamp
+ * to 0. Minutes are never omitted next to hours (e.g. "1h 0min", not "1h") —
+ * this was the majority behavior across the app's ≥6 prior copies (F15.16).
+ */
+export function formatDuration(minutes) {
+  if (minutes === null || minutes === undefined) return "—";
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+/** Formats an ISO timestamp as a 24h clock time ("HH:MM"). */
+export function formatClockTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** Returns the Monday of the week containing the given date (time set to 00:00:00). */
 export function mondayOf(date) {
   const d = new Date(date);

@@ -23,7 +23,7 @@ import { getCategories } from "./categoryService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { skeletonRowsMarkup } from "./skeletonView.js";
-import { pad, escapeHtml } from "./utils.js";
+import { pad, escapeHtml, formatDuration, formatClockTime } from "./utils.js";
 import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
@@ -149,19 +149,6 @@ function _formatDate(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-function _formatTime(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function _formatDuration(minutes) {
-  if (minutes === null || minutes === undefined) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
-}
-
 function _renderSessions(sessions) {
   for (const s of sessions) {
     const meta = _resolveMeta(s);
@@ -176,8 +163,8 @@ function _renderSessions(sessions) {
       </div>
       <div class="session-history-row session-history-meta">
         <span>${_formatDate(s.started_at)}</span>
-        <span>${_formatTime(s.started_at)} – ${_formatTime(s.ended_at)}</span>
-        <span>${_formatDuration(s.duration_minutes)}</span>
+        <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
+        <span>${formatDuration(s.duration_minutes)}</span>
         <span>${SESSION_SOURCE_LABELS[s.source] || s.source}</span>
       </div>
       ${s.notes ? `<p class="session-history-notes">${escapeHtml(s.notes)}</p>` : ""}

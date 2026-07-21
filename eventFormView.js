@@ -14,7 +14,7 @@ import { getAIContext } from "./aiContextService.js";
 import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
 import { categoryColor } from "./categoryView.js";
 import { revealWithAnimation } from "./transitionUtils.js";
-import { pad, escapeHtml, isoToday } from "./utils.js";
+import { pad, escapeHtml, isoToday, formatDuration, formatClockTime } from "./utils.js";
 import { openQuickAdd } from "./quickAdd.js";
 
 // Categoria "com poucas sessões": mesmo piso de recommendationEngine.js/
@@ -589,11 +589,11 @@ function _renderSessionStats(sessions) {
   }
 
   statsSection.hidden = false;
-  statTotal.textContent   = _formatSessionDuration(stats.totalMinutes);
+  statTotal.textContent   = formatDuration(stats.totalMinutes);
   statCount.textContent   = String(stats.sessionCount);
   statLast.textContent    = _formatRelativeMoment(stats.lastSession.started_at);
-  statLongest.textContent = _formatSessionDuration(stats.longestSession.duration_minutes);
-  statAverage.textContent = _formatSessionDuration(stats.averageMinutes);
+  statLongest.textContent = formatDuration(stats.longestSession.duration_minutes);
+  statAverage.textContent = formatDuration(stats.averageMinutes);
 }
 
 function _renderSessionHistory(sessions) {
@@ -615,8 +615,8 @@ function _renderSessionHistory(sessions) {
         <span class="session-history-status session-history-status--${s.status}">${SESSION_STATUS_LABELS[s.status] || s.status}</span>
       </div>
       <div class="session-history-row session-history-meta">
-        <span>${_formatSessionTime(s.started_at)} – ${_formatSessionTime(s.ended_at)}</span>
-        <span>${_formatSessionDuration(s.duration_minutes)}</span>
+        <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
+        <span>${formatDuration(s.duration_minutes)}</span>
         <span>${SESSION_SOURCE_LABELS[s.source] || s.source}</span>
       </div>
       ${s.notes ? `<p class="session-history-notes">${escapeHtml(s.notes)}</p>` : ""}
@@ -630,19 +630,6 @@ function _formatSessionDate(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-function _formatSessionTime(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function _formatSessionDuration(minutes) {
-  if (minutes === null || minutes === undefined) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
-}
-
 function _isSameLocalDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -654,7 +641,7 @@ function _formatRelativeMoment(iso) {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const time = _formatSessionTime(iso);
+  const time = formatClockTime(iso);
   if (_isSameLocalDay(d, today))     return `Hoje às ${time}`;
   if (_isSameLocalDay(d, yesterday)) return `Ontem às ${time}`;
   return `${_formatSessionDate(iso)} às ${time}`;

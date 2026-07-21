@@ -110,7 +110,7 @@ import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { skeletonRowsMarkup } from "./skeletonView.js";
 import { toast } from "./toastService.js";
-import { pad, localDate, escapeHtml } from "./utils.js";
+import { pad, localDate, escapeHtml, formatDuration, formatClockTime } from "./utils.js";
 import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import {
@@ -281,18 +281,6 @@ function _formatDate(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-function _formatTime(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function _formatDuration(minutes) {
-  if (minutes === null || minutes === undefined) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
-}
 
 function _formatReviewDate(dateStr) {
   if (!dateStr) return "—";
@@ -437,7 +425,7 @@ function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
   detailEl.innerHTML = `
     <div class="session-history-row session-history-meta">
       <span class="session-history-date">${_formatDate(s.started_at)}</span>
-      <span>${_formatTime(s.started_at)} – ${_formatTime(s.ended_at)}</span>
+      <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
     </div>
     <div class="session-history-row session-history-meta">
       <span>Conteúdo: ${meta.content ? highlightMatches(meta.content, query) : "—"}</span>
@@ -480,7 +468,7 @@ function _toggleEntry(toggleBtn, detailEl) {
 // próprio no cabeçalho.
 function _updateGroupHeader(group) {
   const totalMinutes = group.sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-  group.summaryEl.textContent = `${_formatDuration(totalMinutes)} em ${group.sessions.length} sessão(ões)`;
+  group.summaryEl.textContent = `${formatDuration(totalMinutes)} em ${group.sessions.length} sessão(ões)`;
 }
 
 function _createDayGroup(iso) {
@@ -602,7 +590,7 @@ function _weekSummaryItemHtml(weekKey, weekDayGroups, weekEntries) {
     <li class="sj-week-summary">
       <div class="sj-week-summary-title">${escapeHtml(weekLabel(weekKey))}</div>
       <div class="sj-week-summary-stats">
-        <span>${_formatDuration(summary.totalMinutes)} estudadas</span>
+        <span>${formatDuration(summary.totalMinutes)} estudadas</span>
         <span>${summary.sessionsCount} sessão(ões)</span>
         <span>${summary.questionsCount} questão(ões)</span>
         <span>${summary.subjectsCount} matéria(s)</span>
@@ -670,7 +658,7 @@ function _buildEntryEl(entry) {
       <button type="button" class="btn btn-ghost btn-sm sj-toggle disclosure-toggle" aria-expanded="false"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
     </div>
     <div class="sj-entry-summary">
-      <span class="sj-entry-duration">${_formatDuration(s.duration_minutes)}</span>
+      <span class="sj-entry-duration">${formatDuration(s.duration_minutes)}</span>
       ${questions.length ? `<span class="sj-entry-indicator">${questions.length} questão(ões)</span>` : ""}
       ${reviews.length ? `<span class="sj-entry-indicator">${reviews.length} revisão(ões)</span>` : ""}
       ${reflection ? `<span class="sj-entry-reflection-signal" title="Reflexão registrada" aria-label="Reflexão registrada">${iconBookOpen}</span>` : ""}
@@ -864,7 +852,7 @@ function _renderSearchStats(filteredEntries) {
   if (!statsEl) return;
   const stats = searchStats(filteredEntries);
   statsEl.hidden = false;
-  statsEl.textContent = `${stats.sessionsCount} sessão(ões) encontrada(s) · ${_formatDuration(stats.totalMinutes)} estudados`;
+  statsEl.textContent = `${stats.sessionsCount} sessão(ões) encontrada(s) · ${formatDuration(stats.totalMinutes)} estudados`;
 }
 
 // ── Carga do histórico completo para filtros (F15.15) ────────────────────
