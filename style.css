@@ -784,6 +784,37 @@ body {
   display: none;
 }
 
+/* F17 — filtros rápidos (Hoje/Semana/Todas), o caminho primário de período
+   no toolbar do Diário; substitui visualmente o <select> #sj-filter-period
+   (que continua existindo, agora dentro do painel "Analisar", para quem
+   precisa de 7/30 dias). */
+.sj-quick-filters {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+
+.sj-quick-filter {
+  padding: .35rem .8rem;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.sj-quick-filter:hover { background: var(--gray-200); color: var(--gray-800); }
+.sj-quick-filter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.sj-quick-filter--active {
+  background: var(--color-primary);
+  color: #fff;
+}
+.sj-quick-filter--active:hover { background: var(--color-primary-hover); color: #fff; }
+
 .sj-toolbar-filter-btn {
   position: relative;
 }
@@ -2098,50 +2129,44 @@ textarea { resize: vertical; }
 
 .sj-entry-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: .6rem;
 }
 
-.sj-entry-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: .4rem;
-  flex-wrap: wrap;
+/* Mobile-first (360/390/430px) — título longo quebra linha em vez de
+   espremer contra o chevron, que nunca encolhe. */
+.sj-entry-header .ah-item-title {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-/* Etapa 2 (auditoria UX radical) — o cartão fechado responde só a "o que
-   estudei" (título, acima) e "quanto tempo" (duração, aqui, com peso maior
-   que o resto do cartão); questões/revisões viram indicadores leves em vez
-   de linha de texto própria, e a reflexão vira um sinal (ícone), nunca o
-   texto em si — que só aparece ao expandir. */
+.sj-entry-header .sj-toggle {
+  flex-shrink: 0;
+}
+
+/* F17 (redesenho radical) — regra dos 3 segundos: horário logo abaixo do
+   título, tempo líquido + questões numa linha só com peso visual, conteúdo
+   (quando existir) por último, discreto. Nada mais no fechado — categoria,
+   contagem de revisões e sinal de reflexão saíram (só no detalhe
+   expandido). */
+.sj-entry-time {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+  margin-top: .2rem;
+}
+
 .sj-entry-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: .5rem .7rem;
-  margin-top: .35rem;
-}
-
-.sj-entry-duration {
-  font-size: 1rem;
+  font-size: .95rem;
   font-weight: 700;
   color: var(--gray-800);
+  margin-top: .3rem;
 }
 
-.sj-entry-indicator {
-  font-size: var(--font-size-xs);
+.sj-entry-content {
+  font-size: var(--font-size-sm);
   color: var(--gray-600);
-}
-
-.sj-entry-reflection-signal {
-  display: inline-flex;
-  color: var(--color-primary);
-}
-
-.sj-entry-reflection-signal svg {
-  width: 15px;
-  height: 15px;
+  margin-top: .3rem;
 }
 
 .sj-entry-detail {
