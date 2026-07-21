@@ -671,7 +671,9 @@ async function _loadStartSuggestions() {
   }
 
   try {
-    const { sessions } = await listSessions({ status: "all", limit: 15 });
+    // F15.7 — só sessões concluídas viram sugestão: o título de uma sessão
+    // cancelada é, por definição, um estudo que não aconteceu.
+    const { sessions } = await listSessions({ status: "finished", limit: 15 });
     const seen = new Set();
     for (const s of sessions) {
       if (!s.title || s.event_id || seen.has(s.title)) continue;
