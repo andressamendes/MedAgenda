@@ -184,6 +184,18 @@ let _offset  = 0;
 let _loading = false;
 let _hasMore = false; // ainda existem sessões no servidor além das carregadas (auditoria UX #02)
 
+// F15.15 — promessa em voo do carregamento do histórico restante (ver
+// _ensureFullHistoryForFilters), para que buscas/filtros disparados em
+// sequência (cada tecla do campo de busca) aguardem a mesma carga em vez de
+// disparar consultas duplicadas.
+let _remainingHistoryPromise = null;
+
+// F15.15 — incrementado em resetStudyJournalView() (logout/troca de conta);
+// o laço de carregamento em segundo plano confere este valor a cada volta e
+// aborta se ele mudou, para nunca escrever em _allEntries/DOM de um usuário
+// que já saiu (mesmo risco documentado em resetStudyJournalView()).
+let _resetToken = 0;
+
 // Resolvido uma única vez por página carregada (não por cartão) — mesma
 // otimização N+1 de activityHistoryView.js/_loadLookups().
 let _eventsById = new Map();
@@ -747,7 +759,18 @@ function _onFilterChange() {
     onlyShort: durationSelect?.value === "short",
   };
   _updateAdvancedFiltersCount();
-  _render();
+  // F15.15 — busca/filtro nunca opera sobre histórico parcial: se ainda há
+  // páginas no servidor, carrega o restante antes de filtrar em memória. No
+  // caso comum (sem páginas pendentes), _ensureFullHistoryForFilters()
+  // resolve com uma promise já concluída e nada disto adia _render() além
+  // do necessário — mas encadear .then() em vez de usar await mantém o
+  // caminho síncrono de sempre quando não há nada a carregar (ver o retorno
+  // antecipado dentro de _ensureFullHistoryForFilters).
+  if (!_hasActiveFilters() || !_hasMore) {
+    _render();
+    return;
+  }
+  _ensureFullHistoryForFilters().then(_render);
 }
 
 // Contador em "Filtros avançados" (auditoria UX #21) — quantos dos filtros
@@ -844,20 +867,67 @@ function _renderSearchStats(filteredEntries) {
   statsEl.textContent = `${stats.sessionsCount} sessão(ões) encontrada(s) · ${_formatDuration(stats.totalMinutes)} estudados`;
 }
 
-// ── Aviso de filtragem parcial (auditoria UX #02, rebaixado na Etapa 7) ──
-// Os filtros (F8.4/F8.8) operam exclusivamente sobre `_allEntries` — as
-// sessões já carregadas via "Carregar mais". Com filtro ativo e páginas
-// ainda não carregadas no servidor (_hasMore), as contagens exibidas (card
-// de estatísticas, grupos, resumos) são parciais sem que nada indique isso.
-// Este aviso torna a parcialidade explícita; nenhuma consulta nova é feita.
-//
-// Etapa 7 (auditoria UX radical) — era um bloco destacado (.insights-block-
-// notice, mesmo alerta de Insights) acima da lista, competindo por atenção
-// com o conteúdo real logo na entrada da tela. Vira uma nota discreta de
-// rodapé (.sj-partial-notice), ao lado do próprio "Carregar mais" — a ação
-// que resolve a parcialidade já está ali, não precisa ser repetida no texto.
+// ── Carga do histórico completo para filtros (F15.15) ────────────────────
+// Antes (auditoria UX #02/M16): os filtros (F8.4/F8.8) operavam
+// exclusivamente sobre `_allEntries` — as sessões já carregadas via
+// "Carregar mais" — e um aviso de rodapé admitia a parcialidade. Um estudante
+// de 1 ano nunca deveria receber resultado parcial de uma busca no Diário:
+// ao ativar qualquer busca/filtro com páginas ainda não carregadas
+// (`_hasMore`), o restante do histórico é buscado em lotes de
+// `_REMAINING_PAGE_SIZE` (mesma `listSessions`) antes de qualquer filtragem
+// em memória. O aviso de parcialidade permanece só como rede de segurança —
+// nunca deveria aparecer com filtro ativo, já que o carregamento acontece
+// antes do `_render()`.
+const _REMAINING_PAGE_SIZE = 50;
+
 function _hasActiveFilters() {
   return Object.keys(_DEFAULT_FILTERS).some(key => _filters[key] !== _DEFAULT_FILTERS[key]);
+}
+
+function _setLoadingRemainingNotice() {
+  if (!partialNoticeEl) return;
+  partialNoticeEl.hidden = false;
+  partialNoticeEl.textContent = `Carregando histórico completo para a busca… (${_allEntries.length} sessão(ões) carregada(s))`;
+}
+
+// Garante que todo o histórico esteja em `_allEntries` antes de um filtro
+// ser aplicado. Reentrante: chamadas concorrentes (cada tecla do campo de
+// busca) aguardam a mesma carga em vez de disparar consultas duplicadas.
+function _ensureFullHistoryForFilters() {
+  if (!_hasActiveFilters() || !_hasMore) return Promise.resolve();
+  if (_remainingHistoryPromise) return _remainingHistoryPromise;
+
+  const token = _resetToken;
+  _loading = true;
+  loadMoreBtn.hidden = true;
+  _setLoadingRemainingNotice();
+
+  _remainingHistoryPromise = (async () => {
+    try {
+      while (_hasMore) {
+        const { sessions, hasMore } = await listSessions({
+          status: "finished", limit: _REMAINING_PAGE_SIZE, offset: _offset,
+        });
+        if (token !== _resetToken) return; // usuário trocou/saiu durante a carga
+        if (sessions.length === 0) { _hasMore = false; break; }
+        _offset += sessions.length;
+        _hasMore = hasMore;
+        await _loadEntriesData(sessions);
+        if (token !== _resetToken) return;
+        _refreshFilterOptions();
+        _setLoadingRemainingNotice();
+      }
+    } catch (err) {
+      if (token === _resetToken) handleError(err, { context: "studyJournalView.loadRemainingHistory", silent: true });
+    } finally {
+      if (token === _resetToken) {
+        _loading = false;
+        loadMoreBtn.hidden = !_hasMore;
+      }
+      _remainingHistoryPromise = null;
+    }
+  })();
+  return _remainingHistoryPromise;
 }
 
 function _updatePartialNotice() {
@@ -1139,6 +1209,9 @@ export function resetStudyJournalView() {
   _allEntries = [];
   _searchIndex = [];
   _hasMore = false;
+  _loading = false;
+  _remainingHistoryPromise = null;
+  _resetToken += 1; // invalida qualquer carga de histórico em segundo plano ainda em voo
   _eventsById = new Map();
 
   if (listEl) listEl.innerHTML = "";

@@ -74,6 +74,13 @@ fase.
   padrão do disclosure "Ver números" do Progresso, F14.5), em vez de
   competir com o CTA "Começar a estudar" no primeiro olhar do dia. Nenhum
   cálculo ou id muda (`dash-cards-today` intacto).
+- **F15.15 — Busca do Diário sobre o histórico completo:** ativar qualquer
+  busca ou filtro com páginas ainda não carregadas no servidor carrega o
+  restante do histórico em lotes de 50 (mesma `listSessions`, com aviso de
+  progresso) antes de filtrar em memória — a busca deixa de operar só sobre
+  as sessões já paginadas. O antigo aviso de parcialidade
+  (`#sj-filter-partial-notice`) permanece só como rede de segurança e nunca
+  aparece com um filtro já resolvido.
 
 ## [Unreleased] — Auditoria UX do Diário (Etapas 1–7)
 
