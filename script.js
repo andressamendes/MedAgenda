@@ -538,6 +538,7 @@ function _closeAllCardMenus() {
   eventList.querySelectorAll(".event-card-menu-dropdown:not([hidden])").forEach(dropdown => {
     dropdown.hidden = true;
     dropdown.previousElementSibling?.setAttribute("aria-expanded", "false");
+    dropdown.closest(".event-card")?.classList.remove("menu-open");
   });
 }
 
@@ -551,6 +552,12 @@ eventList.addEventListener("click", (e) => {
   if (dropdown && wasHidden) {
     dropdown.hidden = false;
     btn.setAttribute("aria-expanded", "true");
+    // .event-card:hover cria transform (translateY), que gera um stacking
+    // context próprio e prende o dropdown (z-index local) dentro dos limites
+    // do card — o card seguinte, sem hover, pinta por cima dele. .menu-open
+    // dá ao card ativo um z-index explícito no contexto da lista inteira,
+    // então o card (e o dropdown dentro dele) fica acima dos demais.
+    dropdown.closest(".event-card")?.classList.add("menu-open");
   }
 });
 document.addEventListener("click", _closeAllCardMenus);
