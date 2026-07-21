@@ -27,6 +27,79 @@ const MAX_LOGS = 100;
 let _devMode = false;
 let _installed = false;
 
+// ── F15.3 — Observabilidade mínima de produção ─────────────────────────────
+// Erros relevantes são enviados (fire-and-forget) para a tabela
+// public.client_errors (sql/23_client_errors.sql), no mesmo padrão sem PII
+// de ai_metrics: categoria, contexto curto, mensagem truncada, código/status
+// e user agent — nunca payloads de dados, stack traces ou dado pessoal.
+//
+// Categorias que não são bug do produto ficam de fora: auth (sessão expirada
+// é fluxo normal), network (o próprio insert falharia offline), rate_limit e
+// server_unavailable (indisponibilidade do próprio Supabase — o insert
+// falharia e só geraria ruído quando voltasse).
+const NON_REPORTABLE_CATEGORIES = new Set([
+  CATEGORIES.AUTH,
+  CATEGORIES.NETWORK,
+  CATEGORIES.RATE_LIMIT,
+  CATEGORIES.SERVER_UNAVAILABLE,
+]);
+
+const REPORT_MAX_PER_MINUTE = 5;      // rate limit local: nunca tempestade de inserts
+const REPORT_WINDOW_MS      = 60_000;
+const REPORT_MESSAGE_MAX    = 500;    // truncamento defensivo da mensagem
+const REPORT_CONTEXT_MAX    = 120;
+
+const _reportedSignatures = new Set(); // dedup por assinatura, por carregamento de página
+let _reportTimestamps = [];
+let _reportQueue = Promise.resolve();
+
+function _shouldReport(category, signature, now = Date.now()) {
+  if (NON_REPORTABLE_CATEGORIES.has(category)) return false;
+  if (_reportedSignatures.has(signature)) return false;
+  _reportTimestamps = _reportTimestamps.filter(ts => now - ts < REPORT_WINDOW_MS);
+  if (_reportTimestamps.length >= REPORT_MAX_PER_MINUTE) return false;
+  _reportedSignatures.add(signature);
+  _reportTimestamps.push(now);
+  return true;
+}
+
+/**
+ * Insere o erro em client_errors. Nunca lança e nunca repassa a própria
+ * falha a handleError() (um erro do canal de observabilidade jamais pode
+ * gerar novo erro visível nem recursão) — se o insert falhar, o app segue
+ * exatamente como antes do F15.3. Import dinâmico de supabase.js: o envio só
+ * resolve o SDK quando um erro reportável de fato acontece.
+ */
+async function _sendReport(entry) {
+  try {
+    const { supabase, currentUserId } = await import('./supabase.js');
+    const userId = await currentUserId();
+    const { error } = await supabase.from('client_errors').insert({
+      user_id:     userId,
+      category:    entry.category,
+      context:     String(entry.context?.context ?? '').slice(0, REPORT_CONTEXT_MAX) || null,
+      message:     String(entry.message ?? '').slice(0, REPORT_MESSAGE_MAX) || null,
+      code:        entry.code != null ? String(entry.code) : null,
+      http_status: typeof entry.status === 'number' ? entry.status : null,
+      user_agent:  typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    });
+    if (error && _devMode) console.warn('[client_errors] insert falhou:', error.message);
+  } catch (err) {
+    if (_devMode) console.warn('[client_errors] envio descartado:', err?.message);
+  }
+}
+
+function _enqueueReport(entry) {
+  const signature = `${entry.category}|${entry.context?.context ?? ''}|${String(entry.message ?? '').slice(0, 200)}`;
+  if (!_shouldReport(entry.category, signature)) return;
+  _reportQueue = _reportQueue.then(() => _sendReport(entry));
+}
+
+/** Hook de teste/diagnóstico: resolve quando todos os envios pendentes terminarem. */
+export function _errorReportsSettled() {
+  return _reportQueue;
+}
+
 export function initErrorService(devMode = false) {
   if (_installed) return;
   _installed = true;
@@ -326,6 +399,10 @@ export function handleError(err, context = {}) {
   if (category !== CATEGORIES.UI) {
     track(EVENTS.ERROR, { category, message: entry.message, ctx: context.context });
   }
+
+  // F15.3 — fire-and-forget: nunca bloqueia o fluxo do erro original e nunca
+  // falha de forma visível (ver _sendReport).
+  _enqueueReport(entry);
 
   const shouldToast = context.showToast === true ||
     (context.silent !== true && category !== CATEGORIES.AUTH);

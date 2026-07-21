@@ -96,9 +96,12 @@ Existem quatro superfícies de deploy no projeto, com automação e frequência 
 18_reflections.sql
 19_activity_sessions_running_unique.sql
 20_monthly_goal_minutes_integer.sql
+21_activity_sessions_standalone_fields.sql
+22_next_study_plan.sql
+23_client_errors.sql
 ```
 
-`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql`, `08_ai_metrics.sql` e `14_schema_version.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. `15` a `20` seguem a mesma convenção — cada uma declara suas dependências no cabeçalho e faz bump de `schema_version` apenas quando o frontend passa a depender dela nesse mesmo commit (`17`, `18`, `19`, `20`; `15` e `16` não fazem bump). Ver detalhamento completo de cada migration em [`DATABASE.md`](DATABASE.md).
+`01_events.sql` não tem dependências e deve ser a primeira. As demais (exceto `06_storage.sql`, `08_ai_metrics.sql` e `14_schema_version.sql`, que são independentes) dependem da função `update_updated_at()` definida em `01_events.sql`. `09_notification_logs_integrity.sql` depende de `01_events.sql` e `04_push_notifications.sql`; `10_ai_metrics_observability.sql` depende de `08_ai_metrics.sql` e deve ser aplicada antes do deploy da Edge Function `ai-chat` que a utiliza. `15` a `23` seguem a mesma convenção — cada uma declara suas dependências no cabeçalho e faz bump de `schema_version` apenas quando o frontend passa a depender dela nesse mesmo commit (`17`, `18`, `19`, `20`, `21`, `22`, `23`; `15` e `16` não fazem bump). Ver detalhamento completo de cada migration em [`DATABASE.md`](DATABASE.md).
 
 **Quando deve ser aplicado:** sempre **antes** de mesclar/publicar código (frontend ou Edge Function) que dependa das novas tabelas/colunas — caso contrário, o código em produção pode referenciar schema inexistente.
 
@@ -421,6 +424,7 @@ Desde a Auditoria A2.6, é o ponto central por onde praticamente todo catch de e
 - Categoriza o erro em `auth`, `network`, `database`, `ai`, `push`, `service_worker`, `ui` ou `unknown` (erros de `AIError` — ver `services/ai/providers/geminiProvider.js` — são reconhecidos pelo nome, não por texto, e preservam sua mensagem específica por código: `RATE_LIMIT`, `UNAVAILABLE`, `TIMEOUT`, `AUTH`, `NETWORK`, `API_ERROR`, `EMPTY_RESPONSE`).
 - Grava no buffer em memória (máx. 100 entradas) — cada entrada inclui categoria, código (`err.code`, quando existe), mensagem e contexto (`{ context: '<módulo>.<ação>' }`).
 - Dispara `track(EVENTS.ERROR, ...)` em `telemetryService.js` (exceto categoria `ui`).
+- **Envia o erro para a tabela `public.client_errors` (F15.3 — ver seção própria abaixo):** fire-and-forget, com rate limit local (máx. 5 envios/minuto) e deduplicação por assinatura (categoria + contexto + mensagem) por carregamento de página. Categorias que não são bug do produto não são enviadas (`auth`, `network`, `rate_limit`, `server_unavailable`). Uma falha do envio nunca afeta o fluxo do erro original — o app se comporta exatamente como antes.
 - Mostra um toast amigável, a menos que a própria view já mostre seu próprio texto de erro inline (passando `{ silent: true }` — a maioria dos casos, para não duplicar feedback).
 
 A mensagem exibida ao usuário em cada view **não mudou** com essa mudança — o que mudou é que agora todo erro relevante fica categorizado e registrado num único lugar, em vez de invisível em `console.error`/`console.warn` espalhados.
@@ -463,13 +467,39 @@ As três Edge Functions usam `console.log`/`console.error`/`console.warn` como m
 
 Tabela populada pela Edge Function `ai-chat` a cada chamada (ver Auditoria A2.2): tipo de prompt, modelo, duração, status HTTP, sucesso/falha e um código + resumo curto de erro — sem prompt, resposta da IA, JWT ou dado pessoal. Consultável via SQL/dashboard do Supabase; não há relatório ou dashboard próprio no projeto.
 
+### `client_errors` (frontend → banco — F15.3, Observabilidade mínima de produção)
+
+Tabela populada por `errorService.handleError()` a cada erro reportável de frontend (migration `23_client_errors.sql`): categoria, contexto curto (`módulo.ação`), mensagem truncada em 500 caracteres, código/status estruturados e user agent — **nunca** payloads de dados, títulos de compromissos, stack traces, e-mails ou qualquer outro dado pessoal. Insert-only via RLS (o usuário insere as próprias linhas; nenhuma política de leitura para `anon`/`authenticated`) — a leitura é exclusiva da desenvolvedora, via **SQL Editor do Supabase Dashboard**.
+
+Consulta operacional de leitura (erros mais recentes primeiro):
+
+```sql
+SELECT created_at, category, context, code, http_status, message, user_agent
+FROM public.client_errors
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+Agregação por recorrência (o que está quebrando mais, nos últimos 7 dias):
+
+```sql
+SELECT category, context, left(message, 120) AS message,
+       count(*) AS ocorrencias, max(created_at) AS ultima_ocorrencia
+FROM public.client_errors
+WHERE created_at > now() - interval '7 days'
+GROUP BY category, context, left(message, 120)
+ORDER BY ocorrencias DESC;
+```
+
+Proteções contra ruído/abuso, todas no cliente (`errorService.js`): rate limit local de 5 envios/minuto, deduplicação por assinatura por carregamento de página, e exclusão das categorias que não indicam bug do produto (`auth`, `network`, `rate_limit`, `server_unavailable`). Não há alerta automatizado sobre esta tabela — a consulta é manual (ou via qualquer ferramenta SQL apontada ao projeto).
+
 ### GitHub Actions
 
 Cada execução de `ci.yml`, `deploy.yml` e `deploy-functions.yml` fica registrada em **GitHub → Actions**, com logs completos por step e status (sucesso/falha) por execução. É o único ponto de monitoramento do próprio pipeline de deploy; não há notificação automática configurada (e-mail, Slack, etc.) além do que o GitHub oferece nativamente por padrão.
 
 ### O que não existe
 
-Não há dashboard de métricas de produção, alerta automatizado de indisponibilidade, health-check agendado externo, agregador central entre frontend/backend, ou qualquer ferramenta de APM (Sentry, Datadog, etc.) integrada ao projeto.
+Não há dashboard de métricas de produção, alerta automatizado de indisponibilidade, health-check agendado externo, agregador central entre frontend/backend, ou qualquer ferramenta de APM (Sentry, Datadog, etc.) integrada ao projeto. Desde o F15.3, erros de frontend chegam à tabela `client_errors` (ver acima) — mas a consulta continua manual, sem alerta automático.
 
 ---
 

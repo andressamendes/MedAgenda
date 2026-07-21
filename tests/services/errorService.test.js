@@ -34,10 +34,15 @@ import { AuthError, AUTH_REASONS } from "../../authError.js";
 
 const TOAST_SPECIFIER     = new URL("../../toastService.js", import.meta.url).href;
 const TELEMETRY_SPECIFIER = new URL("../../telemetryService.js", import.meta.url).href;
+const SUPABASE_SPECIFIER  = new URL("../../supabase.js", import.meta.url).href;
 
-function loadErrorService(t) {
+// F15.3 — supabase.js é sempre mockado: errorService.handleError() dispara um
+// insert fire-and-forget em client_errors (via import dinâmico), e o módulo
+// real importa o SDK da CDN + config.js, inexistentes em Node/CI.
+function loadErrorService(t, { insertResponse = { error: null }, currentUserId } = {}) {
   const toasts = [];
   const tracked = [];
+  const inserts = [];
   t.mock.module(TOAST_SPECIFIER, {
     namedExports: { showToast: (msg, kind) => toasts.push({ msg, kind }) },
   });
@@ -47,7 +52,26 @@ function loadErrorService(t) {
       EVENTS: { ERROR: "error" },
     },
   });
-  return import(`../../errorService.js?t=${Math.random()}`).then(mod => ({ mod, toasts, tracked }));
+  t.mock.module(SUPABASE_SPECIFIER, {
+    namedExports: {
+      supabase: {
+        from: (table) => ({
+          insert: async (row) => {
+            inserts.push({ table, row });
+            return insertResponse;
+          },
+        }),
+      },
+      currentUserId: currentUserId ?? (async () => "user-123"),
+    },
+  });
+  return import(`../../errorService.js?t=${Math.random()}`).then(mod => {
+    // Drena os envios fire-and-forget desta instância antes de o mock deste
+    // teste ser restaurado — sem isso, um report pendente de um teste
+    // anterior resolveria sob o mock do teste seguinte.
+    t.after(() => mod._errorReportsSettled());
+    return { mod, toasts, tracked, inserts };
+  });
 }
 
 // Formato real de um AuthApiError do auth-js (Supabase) — sempre com
@@ -414,4 +438,102 @@ test("handleError()'s fallbackMessage option only replaces the true catch-all (u
     fallbackMessage: "tela X: algo falhou.",
   });
   assert.match(network.friendly, /Sem conexão/);
+});
+
+// ── F15.3 — Observabilidade mínima de produção ─────────────────────────────
+// handleError() envia (fire-and-forget) erros reportáveis para a tabela
+// client_errors (sql/23_client_errors.sql): categoria, contexto curto,
+// mensagem truncada, código/status e user agent — nunca payloads de dados ou
+// stack trace. Rate limit local + dedup por assinatura impedem tempestade de
+// inserts; falha do insert nunca afeta o fluxo do erro original.
+
+test("F15.3 — a reportable error (database) is inserted into client_errors with category, context, message, code and status — and never the stack trace", async (t) => {
+  const { mod, inserts } = await loadErrorService(t);
+  const err = Object.assign(new Error("permission denied for table reviews"), { code: "42501", status: 403 });
+
+  mod.handleError(err, { silent: true, context: "reviewService.listPending" });
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(inserts[0].table, "client_errors");
+  const row = inserts[0].row;
+  assert.strictEqual(row.user_id, "user-123");
+  assert.strictEqual(row.category, "database");
+  assert.strictEqual(row.context, "reviewService.listPending");
+  assert.strictEqual(row.message, "permission denied for table reviews");
+  assert.strictEqual(row.code, "42501");
+  assert.strictEqual(row.http_status, 403);
+  assert.strictEqual("stack" in row, false);
+  assert.strictEqual("payload" in row, false);
+});
+
+test("F15.3 — the message is truncated to 500 chars before insert (defensive: no unbounded rows)", async (t) => {
+  const { mod, inserts } = await loadErrorService(t);
+
+  mod.handleError(new Error("x".repeat(2000)), { silent: true, context: "test.long" });
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(inserts[0].row.message.length, 500);
+});
+
+test("F15.3 — non-bug categories (auth, network, rate_limit, server_unavailable) are never reported", async (t) => {
+  const { mod, inserts } = await loadErrorService(t);
+
+  mod.handleError(authApiError("Invalid Refresh Token: Refresh Token Not Found"), { silent: true });
+  mod.handleError(new Error("Failed to fetch"), { silent: true });
+  mod.handleError(Object.assign(new Error("rate limited"), { status: 429 }), { silent: true });
+  mod.handleError(Object.assign(new Error("Bad Gateway"), { status: 502 }), { silent: true });
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 0);
+});
+
+test("F15.3 — the same error signature is deduplicated: repeated identical errors produce a single insert", async (t) => {
+  const { mod, inserts } = await loadErrorService(t);
+  for (let i = 0; i < 4; i++) {
+    mod.handleError(Object.assign(new Error("db down"), { code: "57P03" }), { silent: true, context: "todayView.load" });
+  }
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 1);
+});
+
+test("F15.3 — local rate limit: at most 5 distinct reports per minute, the rest are dropped silently", async (t) => {
+  const { mod, inserts } = await loadErrorService(t);
+  for (let i = 0; i < 10; i++) {
+    mod.handleError(new Error(`boom distinct ${i}`), { silent: true, context: "test.storm" });
+  }
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 5);
+});
+
+test("F15.3 — a failing insert never breaks handleError(): the friendly result and log entry are produced exactly as before", async (t) => {
+  const { mod, inserts } = await loadErrorService(t, {
+    insertResponse: { error: { message: "relation client_errors does not exist" } },
+  });
+
+  const { category, friendly } = mod.handleError(
+    Object.assign(new Error("could not connect to database"), { code: "57P03" }),
+    { silent: true, context: "test.insertFail" }
+  );
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(category, "database");
+  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+  assert.strictEqual(mod.getRecentErrors(1).length, 1);
+});
+
+test("F15.3 — no session (currentUserId throws) drops the report silently: no insert, no secondary error", async (t) => {
+  const { mod, inserts } = await loadErrorService(t, {
+    currentUserId: async () => { throw new Error("Usuário não autenticado."); },
+  });
+
+  const { category } = mod.handleError(new Error("boom"), { silent: true, context: "test.noSession" });
+  await mod._errorReportsSettled();
+
+  assert.strictEqual(inserts.length, 0);
+  assert.strictEqual(category, "unknown");
 });
