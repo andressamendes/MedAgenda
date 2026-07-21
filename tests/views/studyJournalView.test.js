@@ -484,6 +484,23 @@ test("a day header shows date, session count and net duration derived from the s
   assert.strictEqual(groups[0].querySelectorAll(".sj-entry").length, 2);
 });
 
+test("Etapa 3 (auditoria UX radical) — duration and session count share a single summary line, not two competing spans", async (t) => {
+  const sessions = [
+    { id: "sess-2", status: "finished", started_at: "2026-03-10T14:00:00.000Z", ended_at: "2026-03-10T14:45:00.000Z", duration_minutes: 45 },
+    { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  const header = document.querySelector(".sj-day-header");
+  assert.strictEqual(header.querySelectorAll(":scope > span").length, 2, "data + uma única frase de resumo, nunca 3 spans concorrendo");
+  const summary = header.querySelector(".sj-day-header-summary");
+  assert.strictEqual(summary.textContent, "1h 15min em 2 sessão(ões)");
+});
+
 test("multiple days render as separate groups ordered most-recent-first, each keeping its own sessions", async (t) => {
   const sessions = [
     { id: "sess-3", status: "finished", started_at: "2026-03-12T08:00:00.000Z", ended_at: "2026-03-12T08:30:00.000Z", duration_minutes: 30 },

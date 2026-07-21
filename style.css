@@ -2037,8 +2037,7 @@ textarea { resize: vertical; }
   color: var(--gray-800);
 }
 
-.sj-day-header-count,
-.sj-day-header-duration {
+.sj-day-header-summary {
   font-weight: 400;
   color: var(--gray-500);
 }
