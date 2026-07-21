@@ -131,6 +131,9 @@ function loadStudySessionView(t, overrides = {}) {
     namedExports: {
       getEventById: overrides.getEventById ?? (async () => null),
       getEvents:    overrides.getEvents ?? (async () => []),
+      // F15.5 — o chip "Hoje:" nasce de getEventsByRange + expandEvents (mesmo
+      // caminho da tela Hoje), não mais da lista crua usada pelo select.
+      getEventsByRange: overrides.getEventsByRange ?? (async () => []),
     },
   });
   t.mock.module(CATEGORY_SERVICE_SPECIFIER, {
@@ -387,6 +390,9 @@ test("F14.2 — a chip for today's appointment switches to the event tab and pre
       { id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-19" },
       { id: "evt-2", title: "Aula de amanhã", category: null, description: null, duration_minutes: null, event_date: "2026-07-20" },
     ],
+    getEventsByRange: async () => [
+      { id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-19" },
+    ],
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-19" }),
     startSession: async (fields) => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }),
   });
@@ -410,6 +416,112 @@ test("F14.2 — a chip for today's appointment switches to the event tab and pre
   assert.strictEqual(document.getElementById("ss-event-title").textContent, "Plantão UTI");
 });
 
+// F15.5 — o chip "Hoje:" enxerga recorrência: a busca passa por
+// getEventsByRange + expandEvents (mesmo caminho de todayView), então a aula
+// fixa semanal cujo event_date base é de semanas atrás também vira sugestão.
+test("F15.5 — a weekly recurring appointment falling today becomes the 'Hoje:' chip and starts a linked session", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-21T12:00:00Z").getTime()); // terça-feira
+
+  const weeklyClass = {
+    id: "evt-rec", title: "Aula de Cardiologia", category: null, description: null,
+    duration_minutes: 90, event_date: "2026-06-30", recurrence_type: "weekly",
+  };
+  const startSessionCalls = [];
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [weeklyClass],
+    getEventsByRange: async () => [weeklyClass],
+    startSession: async (fields) => { startSessionCalls.push(fields); return { id: "sess-1", status: "running", started_at: new Date().toISOString(), ...fields }; },
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const chip = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")]
+    .find(c => c.textContent === "Hoje: Aula de Cardiologia");
+  assert.ok(chip, "the recurring appointment occurring today must be suggested");
+
+  chip.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-start-tab-event").classList.contains("tab--active"), true);
+  assert.strictEqual(document.getElementById("ss-start-event").value, "evt-rec");
+
+  document.getElementById("ss-start-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(startSessionCalls.length, 1);
+  assert.strictEqual(startSessionCalls[0].event_id, "evt-rec", "the session must stay linked to the base event");
+  assert.strictEqual(startSessionCalls[0].source, "event");
+});
+
+test("F15.5 — a recurring appointment NOT falling today produces no 'Hoje:' chip", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-20T12:00:00Z").getTime()); // segunda-feira
+
+  const weeklyClass = {
+    id: "evt-rec", title: "Aula de Cardiologia", category: null, description: null,
+    duration_minutes: 90, event_date: "2026-06-30", recurrence_type: "weekly", // só às terças
+  };
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [weeklyClass],
+    getEventsByRange: async () => [weeklyClass],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const labels = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")].map(c => c.textContent);
+  assert.ok(!labels.some(l => l.startsWith("Hoje:")), "no chip when today has no occurrence");
+});
+
+test("F15.5 — with more than one appointment today, the 'Estudo' category wins the chip", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-21T12:00:00Z").getTime());
+
+  const events = [
+    { id: "evt-1", title: "Plantão UTI", category: "Plantão", event_date: "2026-07-21" },
+    { id: "evt-2", title: "Revisão de arritmias", category: "Estudo", event_date: "2026-07-21" },
+  ];
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => events,
+    getEventsByRange: async () => events,
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const labels = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")].map(c => c.textContent);
+  assert.ok(labels.includes("Hoje: Revisão de arritmias"), "the 'Estudo' appointment must be the suggested one");
+  assert.ok(!labels.includes("Hoje: Plantão UTI"), "only one 'Hoje:' chip is rendered");
+});
+
+test("F15.5 — a due review on the recurring appointment happening today is not duplicated as a 'Revisar:' chip", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-21T12:00:00Z").getTime());
+
+  const weeklyClass = {
+    id: "evt-rec", title: "Aula de Cardiologia", category: null, description: null,
+    duration_minutes: 90, event_date: "2026-06-30", recurrence_type: "weekly",
+  };
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [weeklyClass],
+    getEventsByRange: async () => [weeklyClass],
+    listPendingReviews: async () => [
+      { id: "rev-1", event_id: "evt-rec", scheduled_date: "2026-07-21" },
+    ],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const labels = [...document.querySelectorAll("#ss-start-suggestions .ss-suggestion-chip")].map(c => c.textContent);
+  assert.deepStrictEqual(labels, ["Hoje: Aula de Cardiologia"], "the same event must not appear as both 'Hoje:' and 'Revisar:'");
+});
+
 test("F14.2 — a chip for the nearest due review preselects its linked event, skipping today's own appointment", async (t) => {
   t.mock.timers.enable({ apis: ["Date"] });
   t.mock.timers.setTime(new Date("2026-07-19T12:00:00Z").getTime());
@@ -418,6 +530,9 @@ test("F14.2 — a chip for the nearest due review preselects its linked event, s
     getEvents: async () => [
       { id: "evt-1", title: "Plantão UTI", category: "Plantão", event_date: "2026-07-19" },
       { id: "evt-2", title: "Farmacologia: antiarrítmicos", category: null, event_date: "2026-07-10" },
+    ],
+    getEventsByRange: async () => [
+      { id: "evt-1", title: "Plantão UTI", category: "Plantão", event_date: "2026-07-19" },
     ],
     listPendingReviews: async () => [
       { id: "rev-2", event_id: "evt-2", scheduled_date: "2026-07-15" }, // due, oldest
