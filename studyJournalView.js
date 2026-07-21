@@ -460,10 +460,14 @@ function _toggleEntry(toggleBtn, detailEl) {
 // Cabeçalho do grupo diário: data, quantidade de sessões e tempo líquido —
 // tudo somado a partir das sessões já anexadas ao grupo (nenhuma consulta
 // extra; duration_minutes já vem de listSessions/ver F7.7 desconto de pausas).
+//
+// Etapa 3 (auditoria UX radical) — duração e contagem de sessões eram dois
+// `<span>` lado a lado disputando espaço com a data. Viram uma frase só
+// ("Xh em N sessão(ões)"), deixando a data como o único elemento com peso
+// próprio no cabeçalho.
 function _updateGroupHeader(group) {
   const totalMinutes = group.sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-  group.countEl.textContent = `${group.sessions.length} sessão(ões)`;
-  group.durationEl.textContent = _formatDuration(totalMinutes);
+  group.summaryEl.textContent = `${_formatDuration(totalMinutes)} em ${group.sessions.length} sessão(ões)`;
 }
 
 function _createDayGroup(iso) {
@@ -472,8 +476,7 @@ function _createDayGroup(iso) {
   li.innerHTML = `
     <div class="sj-day-header">
       <span class="sj-day-header-date">${escapeHtml(_dayLabel(iso))}</span>
-      <span class="sj-day-header-count"></span>
-      <span class="sj-day-header-duration"></span>
+      <span class="sj-day-header-summary"></span>
     </div>
     <ul class="sj-day-sessions"></ul>
   `;
@@ -483,8 +486,7 @@ function _createDayGroup(iso) {
     key: _dayKey(iso),
     sessions: [],
     li,
-    countEl: li.querySelector(".sj-day-header-count"),
-    durationEl: li.querySelector(".sj-day-header-duration"),
+    summaryEl: li.querySelector(".sj-day-header-summary"),
     sessionsEl: li.querySelector(".sj-day-sessions"),
   };
 }
