@@ -122,7 +122,7 @@ import {
 } from "./studyTimelineService.js";
 import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown, iconBookOpen } from "./icons.js";
+import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -186,6 +186,7 @@ let _sjPanelPrevFocus = null;
 // duas — ver _setStatusTab().
 let statusTabsEl, finishedViewEl, otherViewEl, otherOnlyCancelledCheck;
 let periodSelect, categorySelect, searchInput;
+let quickFilterButtons = [];
 let searchToggleBtn, searchWrapEl;
 let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
 let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
@@ -273,17 +274,34 @@ async function _loadEventsLookup() {
 // serviços puros de resumo/busca (studySummaryService/studySearchService)
 // continuam lendo meta.subject — o campo permanece no meta para preservar
 // esses contratos.
+//
+// F17 — auditoria: o nome da sessão só era resolvido a partir de um
+// compromisso vinculado; toda sessão avulsa (event_id NULL) caía direto no
+// fallback "Sessão sem compromisso", mesmo quando o usuário digitou um nome
+// no modal "Novo estudo" (studySessionView.js). Esse nome já existe —
+// activity_sessions.title/content (sql/21_activity_sessions_standalone_
+// fields.sql), já devolvidos por listSessions() (select("*")), nenhuma
+// consulta nova — e já é lido nessa mesma ordem de prioridade por
+// studySessionView.js/_resolveEventMeta(). Aqui passa a seguir o mesmo
+// contrato: compromisso vinculado → nome digitado na sessão → "Sessão
+// livre" (nunca mais "Sessão sem compromisso").
 function _resolveMeta(session) {
   const event = session.event_id ? _eventsById.get(session.event_id) : null;
   if (session.event_id && !event) {
     return { title: "Compromisso removido", category: null, subject: null, content: null };
   }
-  return {
-    title:   event?.title || "Sessão sem compromisso",
-    category: event?.category || null,
-    subject:  event?.category || null,
-    content:  event?.description || null,
-  };
+  if (event) {
+    return {
+      title:   event.title,
+      category: event.category || null,
+      subject:  event.category || null,
+      content:  event.description || null,
+    };
+  }
+  if (session.title) {
+    return { title: session.title, category: null, subject: null, content: session.content || null };
+  }
+  return { title: "Sessão livre", category: null, subject: null, content: null };
 }
 
 function _formatDate(iso) {
@@ -404,81 +422,88 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
   });
 }
 
-// Etapa 2 (auditoria UX radical) — data completa, intervalo de horário e
-// "Conteúdo:" saíram do cartão fechado (a data completa já está no
-// cabeçalho do grupo do dia, uma linha acima; o horário raramente é o que o
-// estudante quer saber de cara). Viram a primeira seção do detalhe
-// expandido, antes de Questões/Revisões/Observações/Reflexão — mesmo
-// conteúdo e classes de antes, só de lugar.
+// F17 — redesenho do card: regra dos 3 segundos. O cartão fechado
+// (_buildEntryEl) já mostra título, horário, tempo líquido, questões e
+// conteúdo — data completa é o cabeçalho do grupo do dia, uma linha acima.
+// O detalhe expandido só acrescenta o que o fechado deliberadamente omite
+// (Questões detalhadas/Revisões/Observações/Reflexão), e um bloco sem
+// nenhum dado não é renderizado — nem título, nem placeholder ("Nenhuma
+// questão registrada." etc. saíram). A única exceção é Reflexão: continua
+// sempre visível mesmo vazia, porque é a única escrita desta tela (F8.2) —
+// escondê-la tiraria a possibilidade de adicionar uma reflexão, regressão
+// de funcionalidade existente.
 function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
   // F17 — resumo (questões/acertos/erros/índice) acima da lista de
   // lançamentos, mesma função pura usada pelas Estatísticas globais
   // (studyStatisticsService.summarizeSessionQuestions), sem consulta nova —
   // `questions` já veio carregado em lote por _fetchPageExtras().
-  const summary = summarizeSessionQuestions(questions);
-  const summaryHtml = summary.total > 0
-    ? `<p class="sj-detail-summary">
+  const sections = [];
+
+  if (questions.length) {
+    const summary = summarizeSessionQuestions(questions);
+    const summaryHtml = summary.total > 0
+      ? `<p class="sj-detail-summary">
         ${summary.total} ${summary.total === 1 ? "questão" : "questões"} ·
         ${summary.correct} ${summary.correct === 1 ? "acerto" : "acertos"} ·
         ${summary.incorrect} ${summary.incorrect === 1 ? "erro" : "erros"} ·
         ${accuracyIndicator(summary.accuracyPercent).emoji} ${summary.accuracyPercent}%
       </p>`
-    : "";
-
-  const questionsHtml = questions.length
-    ? summaryHtml + `<ul class="sj-detail-items">${questions.map(q => `
+      : "";
+    const itemsHtml = `<ul class="sj-detail-items">${questions.map(q => `
         <li class="sj-detail-item">
           <span>${highlightMatches(QUESTION_TYPE_LABELS[q.question_type] || q.question_type, query)}</span>
           <span>${highlightMatches(QUESTION_STATUS_LABELS[q.status] || q.status, query)}</span>
           ${[q.subject, q.topic].filter(Boolean).map(t => highlightMatches(t, query)).join(" — ")}
-        </li>`).join("")}</ul>`
-    : `<p class="sj-detail-empty">Nenhuma questão registrada.</p>`;
+        </li>`).join("")}</ul>`;
+    sections.push(`
+      <div class="sj-detail-section">
+        <h3 class="sj-detail-title">Questões</h3>
+        ${summaryHtml}${itemsHtml}
+      </div>
+    `);
+  }
 
-  const reviewsHtml = reviews.length
-    ? `<ul class="sj-detail-items">${reviews.map(r => `
+  if (reviews.length) {
+    const reviewsHtml = `<ul class="sj-detail-items">${reviews.map(r => `
         <li class="sj-detail-item">
           <span>${_formatReviewDate(r.scheduled_date)}</span>
           <span class="review-status review-status--${r.status}">${REVIEW_STATUS_LABELS[r.status] || r.status}</span>
-        </li>`).join("")}</ul>`
-    : `<p class="sj-detail-empty">Nenhuma revisão vinculada.</p>`;
+        </li>`).join("")}</ul>`;
+    sections.push(`
+      <div class="sj-detail-section">
+        <h3 class="sj-detail-title">Revisões</h3>
+        ${reviewsHtml}
+      </div>
+    `);
+  }
 
-  const notesHtml = s.notes
-    ? `<p class="sj-detail-notes">${highlightMatches(s.notes, query)}</p>`
-    : `<p class="sj-detail-empty">Nenhuma observação registrada.</p>`;
+  if (s.notes) {
+    sections.push(`
+      <div class="sj-detail-section">
+        <h3 class="sj-detail-title">Observações</h3>
+        <p class="sj-detail-notes">${highlightMatches(s.notes, query)}</p>
+      </div>
+    `);
+  }
 
-  detailEl.innerHTML = `
-    <div class="session-history-row session-history-meta">
-      <span class="session-history-date">${_formatDate(s.started_at)}</span>
-      <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
-    </div>
-    <div class="session-history-row session-history-meta">
-      <span>Conteúdo: ${meta.content ? highlightMatches(meta.content, query) : "—"}</span>
-    </div>
-    <div class="sj-detail-section">
-      <h3 class="sj-detail-title">Questões</h3>
-      ${questionsHtml}
-    </div>
-    <div class="sj-detail-section">
-      <h3 class="sj-detail-title">Revisões</h3>
-      ${reviewsHtml}
-    </div>
-    <div class="sj-detail-section">
-      <h3 class="sj-detail-title">Observações</h3>
-      ${notesHtml}
-    </div>
+  sections.push(`
     <div class="sj-detail-section">
       <h3 class="sj-detail-title">Reflexão</h3>
       <div class="sj-reflection"></div>
     </div>
-  `;
+  `);
+
+  detailEl.innerHTML = sections.join("");
 }
 
+// F17 — o botão de expansão perdeu o rótulo textual ("Mostrar"/"Ocultar"):
+// o chevron já gira ao expandir (mesmo CSS de .disclosure-toggle), rótulo
+// extra era redundante com esse giro.
 function _toggleEntry(toggleBtn, detailEl) {
   const expand = detailEl.hidden;
   detailEl.hidden = !expand;
   toggleBtn.setAttribute("aria-expanded", String(expand));
-  const label = toggleBtn.querySelector(".disclosure-label");
-  if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
+  toggleBtn.setAttribute("aria-label", expand ? "Ocultar detalhes" : "Mostrar detalhes");
   if (expand) revealWithAnimation(detailEl);
 }
 
@@ -659,34 +684,30 @@ function _matchedFieldsBadge(matches) {
   return `<div class="sj-entry-matches">Encontrado em: ${escapeHtml(labels.join(", "))}</div>`;
 }
 
-// Etapa 2 (auditoria UX radical) — o cartão fechado mostrava 7 unidades
-// visuais (título, categoria, botão, data, horário, duração, conteúdo,
-// 2 contagens) antes de qualquer expansão. Fica só com o que responde às
-// duas primeiras perguntas do estudante ("o que estudei" / "quanto tempo")
-// mais um sinal — não o texto — de que há reflexão a lembrar: título,
-// duração e indicadores leves de questões/revisões/reflexão. Data, horário
-// e "Conteúdo:" mudam de lugar (não somem) para dentro de _renderDetail.
+// F17 (redesenho radical do card, "regra dos 3 segundos") — o cartão
+// fechado responde só a "o que estudei" (título), "quando" (horário),
+// "quanto tempo" e "quantas questões" — mais o conteúdo, quando existir.
+// Categoria, contagem de revisões e sinal de reflexão saíram do fechado
+// (só aparecem dentro do detalhe expandido); o botão de expansão é só o
+// chevron, sem rótulo textual (ver _toggleEntry).
 function _buildEntryEl(entry) {
   const { session: s, meta, extras, matches = [] } = entry;
   const { questions, reviews, reflection } = extras;
   const query = _filters.search;
 
+  const summaryParts = [formatDuration(s.duration_minutes)];
+  if (questions.length) summaryParts.push(`${questions.length} questão(ões)`);
+
   const li = document.createElement("li");
   li.className = "sj-entry";
   li.innerHTML = `
     <div class="sj-entry-header">
-      <div class="sj-entry-title-row">
-        <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
-        ${meta.category ? `<span class="ah-item-category">· ${highlightMatches(meta.category, query)}</span>` : ""}
-      </div>
-      <button type="button" class="btn btn-ghost btn-sm sj-toggle disclosure-toggle" aria-expanded="false"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
+      <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
+      <button type="button" class="btn-icon sj-toggle disclosure-toggle" aria-expanded="false" aria-label="Mostrar detalhes"><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
     </div>
-    <div class="sj-entry-summary">
-      <span class="sj-entry-duration">${formatDuration(s.duration_minutes)}</span>
-      ${questions.length ? `<span class="sj-entry-indicator">${questions.length} questão(ões)</span>` : ""}
-      ${reviews.length ? `<span class="sj-entry-indicator">${reviews.length} revisão(ões)</span>` : ""}
-      ${reflection ? `<span class="sj-entry-reflection-signal" title="Reflexão registrada" aria-label="Reflexão registrada">${iconBookOpen}</span>` : ""}
-    </div>
+    <div class="sj-entry-time">${formatClockTime(s.started_at)}–${formatClockTime(s.ended_at)}</div>
+    <div class="sj-entry-summary">${escapeHtml(summaryParts.join(" • "))}</div>
+    ${meta.content ? `<div class="sj-entry-content">${highlightMatches(meta.content, query)}</div>` : ""}
     ${_matchedFieldsBadge(matches)}
     <div class="sj-entry-detail" hidden></div>
   `;
@@ -822,6 +843,7 @@ function _onFilterChange() {
     onlyLong: durationSelect?.value === "long",
     onlyShort: durationSelect?.value === "short",
   };
+  _updateQuickFilterActive();
   _updateAdvancedFiltersCount();
   // F17 — Estatísticas reage ao mesmo Período/Categoria da lista, mas é uma
   // RPC independente (não depende de _render()/_allEntries) — dispara em
@@ -907,6 +929,26 @@ function _toggleAdvancedFilters() {
   if (expand) revealWithAnimation(advancedFiltersEl);
 }
 
+// F17 — chips "Hoje"/"Semana"/"Todas" (.sj-quick-filters) são só uma face
+// mais rápida do mesmo #sj-filter-period de sempre: clicar num chip ajusta
+// o <select> e reusa _onFilterChange, nenhuma regra de período nova. Fica
+// destacado o chip cujo período bate com o valor atual do <select> —
+// nenhum chip fica ativo quando o usuário escolhe um período mais granular
+// (7/30 dias) só disponível no <select>, dentro do painel "Analisar".
+function _updateQuickFilterActive() {
+  quickFilterButtons.forEach(btn => {
+    const active = btn.dataset.period === periodSelect?.value;
+    btn.classList.toggle("sj-quick-filter--active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function _setQuickPeriod(period) {
+  if (!periodSelect || periodSelect.value === period) return;
+  periodSelect.value = period;
+  _onFilterChange();
+}
+
 function _bindFilters() {
   periodSelect?.addEventListener("change", _onFilterChange);
   categorySelect?.addEventListener("change", _onFilterChange);
@@ -916,6 +958,9 @@ function _bindFilters() {
   [reflectionCheck, notesCheck, reviewsCheck]
     .forEach(el => el?.addEventListener("change", _onFilterChange));
   advancedToggleBtn?.addEventListener("click", _toggleAdvancedFilters);
+  quickFilterButtons.forEach(btn => {
+    btn.addEventListener("click", () => _setQuickPeriod(btn.dataset.period));
+  });
 }
 
 // ── Estatísticas da busca (F8.8, reduzida na Etapa 6) ────────────────────
@@ -1228,6 +1273,7 @@ export async function initStudyJournalView() {
     otherOnlyCancelledCheck?.addEventListener("change", _onOtherOnlyCancelledChange);
 
     periodSelect   = document.getElementById("sj-filter-period");
+    quickFilterButtons = Array.from(document.querySelectorAll(".sj-quick-filter"));
     categorySelect = document.getElementById("sj-filter-category");
     searchInput    = document.getElementById("sj-filter-search");
     searchToggleBtn = document.getElementById("sj-search-toggle");
@@ -1256,6 +1302,7 @@ export async function initStudyJournalView() {
 
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
     _bindFilters();
+    _updateQuickFilterActive();
   }
 
   let savedStatusTab;
@@ -1319,6 +1366,7 @@ export function resetStudyJournalView() {
   // entre usuários diferentes na mesma sessão do navegador.
   _filters = { ..._DEFAULT_FILTERS };
   if (periodSelect)   periodSelect.value = "all";
+  _updateQuickFilterActive();
   if (categorySelect) categorySelect.value = "";
   if (searchInput)    searchInput.value = "";
   if (searchWrapEl && searchToggleBtn) _toggleSearch(false);

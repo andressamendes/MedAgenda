@@ -896,32 +896,6 @@
             <h1 class="page-title">Diário</h1>
           </div>
 
-          <!-- F17 — Estatísticas: seção fixa acima da lista de sessões,
-               agregada no banco (studyStatisticsService.getUserQuestionStatistics(),
-               RPC get_question_statistics) e reagindo aos mesmos filtros de
-               Período/Categoria já usados pela lista (sj-filter-period/
-               sj-filter-category) — nenhum controle novo. Reaproveita
-               .stat-cards/.stat-card (mesmo componente do Dashboard/
-               Insights/Progresso), nenhum estilo novo. -->
-          <div class="stat-cards sj-stats" id="sj-stats" aria-label="Estatísticas de questões">
-            <div class="stat-card">
-              <span class="stat-card-title">Questões respondidas</span>
-              <span class="stat-card-value" id="sj-stats-total">0</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-card-title">Acertos</span>
-              <span class="stat-card-value" id="sj-stats-correct">0</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-card-title">Erros</span>
-              <span class="stat-card-value" id="sj-stats-incorrect">0</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-card-title">Índice de acerto</span>
-              <span class="stat-card-value"><span id="sj-stats-accuracy-icon" aria-hidden="true"></span> <span id="sj-stats-accuracy">0%</span></span>
-            </div>
-          </div>
-
           <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
             <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
             <button type="button" class="tab" data-status="all" role="tab" aria-selected="false">Todas</button>
@@ -950,6 +924,19 @@
                e marcos continuam consolidados no painel sob demanda, mesmo
                padrão de #ai-panel. -->
           <div class="appointments-toolbar sj-toolbar">
+            <!-- F17 — filtros rápidos: Hoje/Semana/Todas viram o caminho
+                 principal de período, sempre visíveis (antes só existia o
+                 <select> #sj-filter-period, escondido no painel "Analisar").
+                 Clicar num chip só ajusta o mesmo #sj-filter-period e reusa
+                 o fluxo de filtro já existente (_onFilterChange) — nenhuma
+                 consulta nova, nenhuma regra de período nova. O <select>
+                 continua no painel "Analisar" para quem precisa dos
+                 períodos mais granulares (7/30 dias). -->
+            <div class="sj-quick-filters" role="group" aria-label="Período">
+              <button type="button" class="sj-quick-filter" data-period="today">Hoje</button>
+              <button type="button" class="sj-quick-filter" data-period="7d">Semana</button>
+              <button type="button" class="sj-quick-filter sj-quick-filter--active" data-period="all" aria-pressed="true">Todas</button>
+            </div>
             <button type="button" class="btn-icon" id="sj-search-toggle" aria-expanded="false" aria-controls="sj-search-wrap" aria-label="Buscar no diário" title="Buscar (atalho: /)" aria-keyshortcuts="/">
               <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
             </button>
@@ -993,6 +980,34 @@
 
           <div class="ai-panel-actions">
 
+          <!-- F17 — Estatísticas: movida do topo do Diário (competia com a
+               timeline como um dashboard) para dentro do painel "Analisar",
+               reagindo aos mesmos filtros de Período/Categoria de sempre
+               (sj-filter-period/sj-filter-category) — nenhum controle novo,
+               mesmo componente .stat-cards/.stat-card, só de lugar. -->
+          <div class="stat-cards sj-stats" id="sj-stats" aria-label="Estatísticas de questões">
+            <div class="stat-card stat-card--sm">
+              <span class="stat-card-title">Questões respondidas</span>
+              <span class="stat-card-value" id="sj-stats-total">0</span>
+            </div>
+            <div class="stat-card stat-card--sm">
+              <span class="stat-card-title">Acertos</span>
+              <span class="stat-card-value" id="sj-stats-correct">0</span>
+            </div>
+            <div class="stat-card stat-card--sm">
+              <span class="stat-card-title">Erros</span>
+              <span class="stat-card-value" id="sj-stats-incorrect">0</span>
+            </div>
+            <div class="stat-card stat-card--sm">
+              <span class="stat-card-title">Índice de acerto</span>
+              <span class="stat-card-value"><span id="sj-stats-accuracy-icon" aria-hidden="true"></span> <span id="sj-stats-accuracy">0%</span></span>
+            </div>
+          </div>
+
+          <!-- #sj-filter-period continua existindo (mesmo <select>/mesmos
+               valores de sempre) para os períodos mais granulares (7/30
+               dias) — os chips "Hoje"/"Semana"/"Todas" do toolbar principal
+               (.sj-quick-filters) só ajustam este mesmo controle. -->
           <div class="toolbar-filters">
             <select id="sj-filter-period" class="toolbar-select">
               <option value="all">Todo o período</option>

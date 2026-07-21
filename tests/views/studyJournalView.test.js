@@ -181,7 +181,7 @@ test("empty journal shows the empty-state message and no entries", async (t) => 
   assert.strictEqual(document.getElementById("sj-load-more").hidden, true);
 });
 
-test("a single session renders compromisso, categoria, conteúdo, data, horário, tempo líquido e contagens", async (t) => {
+test("a single session renders compromisso, conteúdo, horário, tempo líquido e contagem de questões", async (t) => {
   const session = {
     id: "sess-1", event_id: "event-1", status: "finished",
     started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:30:00.000Z",
@@ -199,19 +199,20 @@ test("a single session renders compromisso, categoria, conteúdo, data, horário
   assert.strictEqual(entries().length, 1);
   const item = firstEntry();
   assert.match(item.textContent, /Plantão UPA/);
-  assert.match(item.textContent, /Estágio/);
-  assert.match(item.textContent, /Rotina de emergência/);
+  assert.match(item.textContent, /Rotina de emergência/, "conteúdo do compromisso aparece no fechado");
   assert.match(item.textContent, /1h 30min/);
   assert.match(item.textContent, /1 questão\(ões\)/);
-  assert.match(item.textContent, /1 revisão\(ões\)/);
-  // A linha "Matéria:" duplicava a categoria já exibida no título (auditoria UX #05).
+  // F17 (redesenho radical) — categoria e contagem de revisões saíram do
+  // cartão fechado (regra dos 3 segundos); revisões continuam disponíveis
+  // dentro do detalhe expandido.
+  assert.doesNotMatch(item.querySelector(".sj-entry-summary").textContent, /revisão/);
   assert.doesNotMatch(item.textContent, /Matéria:/);
   assert.strictEqual(document.getElementById("sj-list-empty").hidden, true);
 });
 
 // ── Etapa 2 (auditoria UX radical): cartão fechado enxuto ───────────────────
 
-test("Etapa 2 — closed card shows only title, duration and light indicators; date/time/conteúdo only exist inside the hidden detail", async (t) => {
+test("F17 (redesenho radical) — closed card shows title, horário, tempo líquido, questões and conteúdo — nothing else", async (t) => {
   const session = {
     id: "sess-1", event_id: "event-1", status: "finished",
     started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:30:00.000Z",
@@ -228,24 +229,26 @@ test("Etapa 2 — closed card shows only title, duration and light indicators; d
   await mod.initStudyJournalView();
 
   const item     = firstEntry();
+  const time     = item.querySelector(".sj-entry-time");
   const summary  = item.querySelector(".sj-entry-summary");
   const detailEl = item.querySelector(".sj-entry-detail");
 
-  assert.match(summary.textContent, /1h 30min/, "duração continua visível de cara");
-  assert.match(summary.textContent, /1 questão\(ões\)/, "indicador leve de questões continua visível");
-  assert.match(summary.textContent, /1 revisão\(ões\)/, "indicador leve de revisões continua visível");
-  assert.ok(item.querySelector(".sj-entry-reflection-signal"), "sinal de reflexão aparece sem mostrar o texto");
-  assert.doesNotMatch(summary.textContent, /Entendi bem a fisiopatologia/, "o texto da reflexão não aparece no cartão fechado");
+  assert.match(item.querySelector(".ah-item-title").textContent, /Plantão UPA/);
+  assert.match(time.textContent, /08:00.*09:30/, "horário aparece direto no fechado");
+  assert.match(summary.textContent, /1h 30min/, "tempo líquido continua visível de cara");
+  assert.match(summary.textContent, /1 questão\(ões\)/, "quantidade de questões continua visível");
+  assert.match(item.querySelector(".sj-entry-content").textContent, /Rotina de emergência/, "conteúdo aparece no fechado");
 
-  // Data, horário e "Conteúdo:" não são mais linhas do cartão fechado —
-  // só existem dentro do detalhe (ainda escondido neste ponto).
-  assert.doesNotMatch(summary.textContent, /Rotina de emergência/);
+  // Revisões/reflexão não competem mais pela atenção no fechado — só
+  // aparecem dentro do detalhe expandido.
+  assert.strictEqual(item.querySelector(".sj-entry-reflection-signal"), null);
+  assert.doesNotMatch(summary.textContent, /revisão/);
+  assert.doesNotMatch(item.querySelector(".sj-entry-content").textContent, /Entendi bem a fisiopatologia/, "o texto da reflexão não aparece no cartão fechado");
   assert.strictEqual(detailEl.hidden, true);
-  assert.match(detailEl.textContent, /Rotina de emergência/, "conteúdo mudou de lugar, não sumiu");
-  assert.match(detailEl.textContent, /10\/03\/2026/, "data completa mudou para o detalhe (já está no cabeçalho do dia)");
+  assert.match(detailEl.textContent, /Entendi bem a fisiopatologia/, "a reflexão continua acessível dentro do detalhe");
 });
 
-test("Etapa 2 — a session without a reflection shows no reflection signal on the closed card", async (t) => {
+test("F17 — a session without questions shows the summary without a questões count", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -256,10 +259,32 @@ test("Etapa 2 — a session without a reflection shows no reflection signal on t
 
   const item = firstEntry();
   assert.strictEqual(item.querySelector(".sj-entry-reflection-signal"), null);
-  assert.strictEqual(item.querySelector(".sj-entry-summary").querySelector(".sj-entry-indicator"), null, "sem questões/revisões, nenhum indicador extra aparece");
+  assert.match(item.querySelector(".sj-entry-summary").textContent, /^30min$/);
 });
 
-test("a manual session with no linked event shows a generic label", async (t) => {
+// F17 — auditoria: toda sessão sem compromisso vinculado caía no mesmo texto
+// fixo "Sessão sem compromisso", mesmo quando o usuário digitou um nome no
+// modal "Novo estudo" (activity_sessions.title, sql/21_activity_sessions_
+// standalone_fields.sql — o mesmo campo já lido por studySessionView.js).
+// Agora: nome digitado → mostra o nome; nenhum nome → "Sessão livre" (nunca
+// mais "Sessão sem compromisso").
+test("F17 — a standalone session with a typed title shows that title, not a generic label", async (t) => {
+  const session = {
+    id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z",
+    duration_minutes: 30, title: "Revisão de farmacologia", content: "Antibióticos",
+  };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  const item = firstEntry();
+  assert.match(item.querySelector(".ah-item-title").textContent, /Revisão de farmacologia/);
+  assert.doesNotMatch(document.getElementById("sj-list").textContent, /Sessão sem compromisso/);
+});
+
+test("F17 — a truly free session (no event, no typed title) shows 'Sessão livre', never 'Sessão sem compromisso'", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -267,7 +292,9 @@ test("a manual session with no linked event shows a generic label", async (t) =>
 
   await mod.initStudyJournalView();
 
-  assert.match(document.getElementById("sj-list").textContent, /Sessão sem compromisso/);
+  const item = firstEntry();
+  assert.match(item.querySelector(".ah-item-title").textContent, /Sessão livre/);
+  assert.doesNotMatch(document.getElementById("sj-list").textContent, /Sessão sem compromisso/);
 });
 
 test("detail region starts hidden and toggling reveals Questões, Revisões e Observações", async (t) => {
@@ -309,7 +336,12 @@ test("detail region starts hidden and toggling reveals Questões, Revisões e Ob
   assert.strictEqual(toggleBtn.getAttribute("aria-expanded"), "false");
 });
 
-test("a session with no questions/reviews/notes shows the empty placeholders in the detail", async (t) => {
+// F17 (redesenho radical) — "não mostrar por padrão... campos vazios": um
+// bloco sem nenhum dado não é mais renderizado (nem título, nem
+// placeholder). Reflexão é a única exceção — continua sempre visível
+// porque é a única escrita desta tela (F8.2); esconder o bloco tiraria a
+// possibilidade de adicionar uma reflexão.
+test("F17 — a session with no questions/reviews/notes renders no empty blocks in the detail (only Reflexão, always present)", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -321,9 +353,10 @@ test("a session with no questions/reviews/notes shows the empty placeholders in 
   item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   const detailEl = item.querySelector(".sj-entry-detail");
-  assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
-  assert.match(detailEl.textContent, /Nenhuma revisão vinculada\./);
-  assert.match(detailEl.textContent, /Nenhuma observação registrada\./);
+  assert.doesNotMatch(detailEl.textContent, /Questões/);
+  assert.doesNotMatch(detailEl.textContent, /Revisões/);
+  assert.doesNotMatch(detailEl.textContent, /Observações/);
+  assert.match(detailEl.textContent, /Reflexão/);
   assert.match(detailEl.textContent, /Sem reflexão\./);
   assert.match(detailEl.textContent, /Adicionar reflexão/);
 });
@@ -385,7 +418,7 @@ test("F17 — a session with both correct and wrong answers shows the combined s
   assert.match(detailEl.textContent, /75%/);
 });
 
-test("F17 — a session with no questions shows only 'Nenhuma questão registrada.', no summary line", async (t) => {
+test("F17 — a session with no questions renders no Questões block at all", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -397,7 +430,7 @@ test("F17 — a session with no questions shows only 'Nenhuma questão registrad
   item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   const detailEl = item.querySelector(".sj-entry-detail");
 
-  assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
+  assert.doesNotMatch(detailEl.textContent, /Questões/);
   assert.strictEqual(detailEl.querySelector(".sj-detail-summary"), null);
 });
 
@@ -1606,8 +1639,12 @@ test("AUD-002 — a page of 10 sessions still renders all of them with correct q
   assert.strictEqual(entries().length, 10);
   const sess1Entry = entries().find(li => li.textContent.includes("2 questão(ões)"));
   assert.ok(sess1Entry, "a sessão com questões batched continua mostrando a contagem correta");
-  const sess5Entry = entries().find(li => li.textContent.includes("1 revisão(ões)"));
-  assert.ok(sess5Entry, "a sessão com revisão batched continua mostrando a contagem correta");
+
+  // F17 (redesenho radical) — revisões saíram do cartão fechado; a
+  // contagem batched continua correta dentro do detalhe expandido.
+  entries().forEach(li => li.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true })));
+  const sess5Entry = entries().find(li => li.querySelector(".sj-entry-detail").textContent.includes("Revisões"));
+  assert.ok(sess5Entry, "a sessão com revisão batched continua mostrando a revisão no detalhe");
 });
 
 test("AUD-002 — loading a second page only fetches extras for the newly loaded sessions, never re-fetching the first page", async (t) => {
@@ -1652,7 +1689,7 @@ test("AUD-002 — a load error for the batched extras falls back to empty quest�
   const item = firstEntry();
   item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   const detailEl = item.querySelector(".sj-entry-detail");
-  assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
+  assert.doesNotMatch(detailEl.textContent, /Questões/, "sem questões (falha ou vazio), o bloco não é renderizado");
 });
 
 // ── Busca/filtro sobre o histórico completo (F15.15) ─────────────────────
