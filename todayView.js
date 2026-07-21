@@ -25,7 +25,7 @@ import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
-import { escapeHtml, isoToday } from "./utils.js";
+import { escapeHtml, isoToday, formatDuration } from "./utils.js";
 
 let tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
@@ -248,14 +248,6 @@ async function _refreshTip() {
 // próximo início de sessão (studySessionView.js/_loadStartSuggestions lê o
 // mesmo closeDayService.getNextStudyPlan()).
 
-function _formatMinutes(minutes) {
-  const total = Math.max(0, Math.round(minutes || 0));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h <= 0) return `${m}min`;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
-
 async function _openCloseDayModal() {
   if (_closingDay) return;
 
@@ -270,7 +262,7 @@ async function _openCloseDayModal() {
 
   try {
     const recap = await getDayRecap();
-    cdMinutesEl.textContent   = _formatMinutes(recap.minutes);
+    cdMinutesEl.textContent   = formatDuration(recap.minutes);
     cdSessionsEl.textContent  = String(recap.sessionsCount);
     cdQuestionsEl.textContent = String(recap.questionsCount);
     cdStreakEl.textContent    = recap.currentStreak === 1 ? "1 dia" : `${recap.currentStreak} dias`;

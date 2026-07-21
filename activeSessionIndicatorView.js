@@ -13,6 +13,7 @@
 
 import { getActiveSession } from "./activitySessionService.js";
 import { handleError } from "./errorService.js";
+import { formatDuration } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { showPage } from "./navigationView.js";
 
@@ -32,12 +33,6 @@ function _minutesElapsed(session, now = new Date()) {
     : 0;
   const totalPausedMs = (session.paused_ms || 0) + currentPauseMs;
   return Math.max(0, Math.floor((now - new Date(session.started_at) - totalPausedMs) / 60000));
-}
-
-function _formatElapsed(minutes) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
 
 function _stopTicking() {
@@ -65,7 +60,7 @@ function _render() {
   }
   chipEl.hidden = false;
   const paused = _session.status === "paused";
-  timeEl.textContent = `${_formatElapsed(_minutesElapsed(_session))}${paused ? " · Pausada" : ""}`;
+  timeEl.textContent = `${formatDuration(_minutesElapsed(_session))}${paused ? " · Pausada" : ""}`;
   _startTicking();
 }
 

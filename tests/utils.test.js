@@ -4,7 +4,7 @@
  * Or open tests/index.html in a browser.
  */
 
-import { pad, isoDate, localDate, escapeHtml, isoToday, mondayOf, readableTextColor } from "../utils.js";
+import { pad, isoDate, localDate, escapeHtml, isoToday, mondayOf, readableTextColor, formatDuration, formatClockTime } from "../utils.js";
 
 let passed = 0;
 let failed = 0;
@@ -93,6 +93,24 @@ assert("without leading #", readableTextColor("fef9c3"), "#1f2937");
 assert("missing color falls back to white", readableTextColor(null), "#fff");
 assert("empty string falls back to white", readableTextColor(""), "#fff");
 assert("malformed hex falls back to white", readableTextColor("not-a-color"), "#fff");
+
+// ── formatDuration (F15.16) ─────────────────────────────────────────────────
+console.log("\nformatDuration()");
+assert("under an hour", formatDuration(42), "42min");
+assert("zero minutes", formatDuration(0), "0min");
+assert("exact hour keeps the minutes", formatDuration(60), "1h 0min");
+assert("hours and minutes", formatDuration(125), "2h 5min");
+assert("null → unknown", formatDuration(null), "—");
+assert("undefined → unknown", formatDuration(undefined), "—");
+assert("negative clamps to zero", formatDuration(-10), "0min");
+assert("rounds fractional minutes", formatDuration(90.6), "1h 31min");
+
+// ── formatClockTime (F15.16) ────────────────────────────────────────────────
+console.log("\nformatClockTime()");
+assert("formats HH:MM", formatClockTime("2026-07-21T09:05:00"), "09:05");
+assert("pads single-digit hour and minute", formatClockTime("2026-07-21T01:02:00"), "01:02");
+assert("missing iso → unknown", formatClockTime(null), "—");
+assert("empty string → unknown", formatClockTime(""), "—");
 
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(40)}`);

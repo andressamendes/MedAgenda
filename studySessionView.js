@@ -35,7 +35,7 @@ import { initModal, bindModalBehavior, captureFocus, restoreFocus } from "./moda
 import { showPage } from "./navigationView.js";
 import { handleError } from "./errorService.js";
 import { toast } from "./toastService.js";
-import { pad, escapeHtml, localDate } from "./utils.js";
+import { pad, escapeHtml, localDate, formatDuration, formatClockTime } from "./utils.js";
 import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 
@@ -390,19 +390,6 @@ function _formatElapsed(ms) {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
-function _formatClockTime(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function _formatExpectedDuration(minutes) {
-  if (!minutes) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
-}
-
 // event_date é uma DATE pura ("YYYY-MM-DD") — localDate() (utils.js) evita o
 // desvio de fuso de `new Date("YYYY-MM-DD")`, mesmo padrão do restante do app
 // (ver reviewService.js/_formatReviewDate abaixo).
@@ -446,7 +433,7 @@ function _renderProgress(elapsedMs) {
   const expectedMs = expectedMinutes * 60000;
   const pct = Math.min(100, Math.max(0, (elapsedMs / expectedMs) * 100));
   progressBarEl.style.width = `${pct}%`;
-  progressTextEl.textContent = `${_formatElapsed(elapsedMs)} / ${_formatExpectedDuration(expectedMinutes)}`;
+  progressTextEl.textContent = `${_formatElapsed(elapsedMs)} / ${formatDuration(expectedMinutes)}`;
 }
 
 function _stopTicking() {
@@ -510,10 +497,10 @@ function _render() {
   dateRowEl.hidden = !_eventMeta?.event_date;
   dateEl.textContent = _formatEventDate(_eventMeta?.event_date) || "";
 
-  startedAtEl.textContent = _formatClockTime(_session.started_at);
+  startedAtEl.textContent = formatClockTime(_session.started_at);
 
   expectedDurationRowEl.hidden = !_eventMeta?.duration_minutes;
-  expectedDurationEl.textContent = _eventMeta?.duration_minutes ? _formatExpectedDuration(_eventMeta.duration_minutes) : "";
+  expectedDurationEl.textContent = _eventMeta?.duration_minutes ? formatDuration(_eventMeta.duration_minutes) : "";
 
   if (status === "running") {
     _startTicking();
@@ -1330,9 +1317,9 @@ function _openFinishModal() {
   ssfTitleEl.textContent    = _eventMeta?.title || "Sessão sem compromisso";
   ssfCategoryEl.textContent = _eventMeta?.category || "—";
   ssfContentEl.textContent  = _eventMeta?.description || "—";
-  ssfStartedAtEl.textContent     = _formatClockTime(_session.started_at);
-  ssfEndedAtEl.textContent       = _formatClockTime(_pendingEndedAt.toISOString());
-  ssfNetTimeEl.textContent = _formatExpectedDuration(netMinutes);
+  ssfStartedAtEl.textContent     = formatClockTime(_session.started_at);
+  ssfEndedAtEl.textContent       = formatClockTime(_pendingEndedAt.toISOString());
+  ssfNetTimeEl.textContent = formatDuration(netMinutes);
   ssfReflectionEl.value = "";
   ssfBtnConfirm.disabled = false;
   ssfBtnBack.disabled = false;

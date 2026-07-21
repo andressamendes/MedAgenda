@@ -24,17 +24,9 @@ import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { skeletonCardsMarkup } from "./skeletonView.js";
-import { pad, escapeHtml } from "./utils.js";
+import { pad, escapeHtml, formatDuration } from "./utils.js";
 import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
-
-function _formatDuration(minutes) {
-  const total = Math.max(0, Math.round(minutes || 0));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h <= 0) return `${m}min`;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
 
 function _formatDate(iso) {
   const d = new Date(iso);
@@ -58,8 +50,8 @@ function _formatGoalValue(progress) {
 
 function _formatGoalDesc(progress) {
   if (!progress.configured) return GOAL_STATE_LABEL.no_goal;
-  const meta      = _formatDuration(progress.goalMinutes);
-  const realizado = _formatDuration(progress.actualMinutes);
+  const meta      = formatDuration(progress.goalMinutes);
+  const realizado = formatDuration(progress.actualMinutes);
   return `Meta: ${meta} · Realizado: ${realizado}. ${GOAL_STATE_LABEL[progress.state]}`;
 }
 
@@ -146,7 +138,7 @@ const TODAY_CARD_DEFS = [
   GOAL_CARD_DEFS[0], // Meta diária
   {
     title: "Tempo estudado hoje",
-    value: d => _formatDuration(d.todayMinutes),
+    value: d => formatDuration(d.todayMinutes),
   },
   {
     title: "Sessões hoje",
@@ -159,13 +151,13 @@ const WEEK_MONTH_CARD_DEFS = [
   GOAL_CARD_DEFS[2], // Meta mensal
   {
     title: "Tempo estudado esta semana",
-    value: d => _formatDuration(d.weekMinutes),
+    value: d => formatDuration(d.weekMinutes),
     desc:  () => "Soma das sessões finalizadas desde segunda-feira.",
     extra: d => _sparklineMarkup(d.weekSparkline),
   },
   {
     title: "Tempo estudado este mês",
-    value: d => _formatDuration(d.monthMinutes),
+    value: d => formatDuration(d.monthMinutes),
   },
   {
     title: "Sessões na semana",
@@ -177,7 +169,7 @@ const WEEK_MONTH_CARD_DEFS = [
   },
   {
     title: "Tempo médio por sessão",
-    value: d => _formatDuration(d.averageMinutes),
+    value: d => formatDuration(d.averageMinutes),
     desc:  () => "Média de duração das sessões finalizadas neste mês.",
   },
 ];
@@ -185,7 +177,7 @@ const WEEK_MONTH_CARD_DEFS = [
 const RECORDS_CARD_DEFS = [
   {
     title: "Maior sessão",
-    value: d => d.longestSession ? _formatDuration(d.longestSession.duration_minutes) : "—",
+    value: d => d.longestSession ? formatDuration(d.longestSession.duration_minutes) : "—",
     desc:  d => d.longestSession
       ? `Sessão finalizada em ${_formatDate(d.longestSession.started_at)}.`
       : "Nenhuma sessão finalizada neste mês.",
@@ -239,13 +231,13 @@ function _narrativeSentences(data) {
   if (weekMinutes <= 0) {
     sentences.push("Você ainda não estudou esta semana.");
   } else {
-    const duration = _formatDuration(weekMinutes);
+    const duration = formatDuration(weekMinutes);
     if (previousWeekMinutes > 0) {
       const diff = weekMinutes - previousWeekMinutes;
       if (Math.abs(diff) < 5) {
         sentences.push(`Você estudou ${duration} esta semana — praticamente o mesmo tempo que a semana anterior.`);
       } else {
-        const diffDuration = _formatDuration(Math.abs(diff));
+        const diffDuration = formatDuration(Math.abs(diff));
         const comparison = diff > 0 ? "a mais" : "a menos";
         sentences.push(`Você estudou ${duration} esta semana — ${diffDuration} ${comparison} que a semana anterior.`);
       }
