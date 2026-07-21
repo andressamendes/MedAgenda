@@ -2395,26 +2395,16 @@ textarea { resize: vertical; }
 }
 
 /* ── Busca Avançada e Linha do Tempo Inteligente (F8.8) ── */
+/* Etapa 6 (auditoria UX radical) — de 5 chips lado a lado (flex-wrap) para
+   uma única linha de texto; sessões e revisões, que estavam aqui, já
+   aparecem em cada cartão de sessão (Etapa 2). */
 .sj-search-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem .9rem;
   padding: .55rem .8rem;
   background: var(--gray-50);
   border-radius: var(--radius);
   font-size: .8rem;
   font-weight: 600;
   color: var(--gray-700);
-}
-
-/* F11 E6 — mesmo bug de especificidade de .state-block[hidden] (ver F10
-   #1.6): `.sj-search-stats` fixa `display: flex` e empata em especificidade
-   com `[hidden] { display: none }`, então vence por vir depois no CSS de
-   origem — sem isto, o bloco aparecia como uma caixa vazia (padding + borda,
-   zero conteúdo) sempre que `hidden` era ligado via JS. Esta classe tinha
-   ficado de fora quando as outras foram corrigidas. */
-.sj-search-stats[hidden] {
-  display: none;
 }
 
 .sj-entry-matches {
