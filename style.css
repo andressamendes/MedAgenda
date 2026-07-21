@@ -2042,6 +2042,23 @@ textarea { resize: vertical; }
   color: var(--gray-500);
 }
 
+/* Etapa 4 (auditoria UX radical) — comparação com o dia anterior, antes um
+   cartão à parte no fim do grupo (.sj-daily-summary), agora uma linha
+   opcional dentro do próprio cabeçalho do dia. */
+.sj-day-header-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  font-size: .78rem;
+  color: var(--gray-600);
+  padding: 0 .1rem;
+}
+
+.sj-day-header-comparison[hidden] {
+  display: none;
+}
+
 .sj-day-sessions {
   list-style: none;
   margin: 0;
@@ -2182,30 +2199,6 @@ textarea { resize: vertical; }
 }
 
 /* ── Linha do Tempo da Evolução (F8.5) ── */
-.sj-daily-summary {
-  margin-top: var(--space-2);
-  padding: .55rem .7rem;
-  border-top: 1px dashed var(--gray-200);
-  display: flex;
-  flex-direction: column;
-  gap: .35rem;
-  font-size: .78rem;
-  color: var(--gray-600);
-}
-
-.sj-daily-summary-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem .8rem;
-}
-
-.sj-daily-summary-comparison {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .4rem;
-}
-
 .sj-summary-comparison-label {
   color: var(--gray-500);
 }
