@@ -432,6 +432,42 @@ UPDATE public.schema_version SET version = 21, applied_at = now() WHERE id = 1;
 
 ---
 
+### 22_next_study_plan.sql
+
+**Objetivo:** F14.8 ("Fechar o dia") — grava, opcionalmente, o que o estudante pretende estudar amanhã, para virar o chip "Amanhã: {título}" no modal de início de sessão.
+
+**Tabelas alteradas:** `profiles` — adiciona `next_study_title TEXT` e `next_study_category_id UUID REFERENCES categories(id) ON DELETE SET NULL` (ambas nullable). Reaproveita a relação 1:1 com o usuário que `daily_goal_minutes` já tem, em vez de criar tabela nova para um dado tão pequeno.
+
+**Schema version:** com bump.
+
+```sql
+UPDATE public.schema_version SET version = 22, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `02_categories.sql`, `05_profiles.sql`, `14_schema_version.sql`.
+
+---
+
+### 23_client_errors.sql
+
+**Objetivo:** F15.3 (Observabilidade mínima de produção) — erros de campo do frontend passam a chegar à desenvolvedora sem depender de relato de usuário. `errorService.handleError()` envia (fire-and-forget, com rate limit local e deduplicação por assinatura) os erros reportáveis para esta tabela, no mesmo padrão sem PII de `ai_metrics`.
+
+**Tabelas criadas:** `client_errors` — categoria, contexto curto (`módulo.ação`), mensagem truncada, código/status estruturados e user agent. Nunca payloads de dados, stack traces ou dado pessoal.
+
+**RLS:** insert-only — o usuário autenticado insere apenas as próprias linhas (`auth.uid() = user_id`); **nenhuma** política de SELECT/UPDATE/DELETE para `anon`/`authenticated`. A leitura é exclusiva do SQL Editor (owner, fora de RLS) — ver consulta operacional em `OPERATIONS.md`.
+
+**Índices:** `client_errors_created_at_idx` em `(created_at DESC)`.
+
+**Schema version:** com bump.
+
+```sql
+UPDATE public.schema_version SET version = 23, applied_at = now() WHERE id = 1;
+```
+
+**Dependências:** `14_schema_version.sql`.
+
+---
+
 ## Modelo de Dados
 
 Diagrama lógico das tabelas e seus relacionamentos:
@@ -878,7 +914,31 @@ reviews (Revisão — event_id obrigatório, ON DELETE CASCADE; session_id opcio
 
 **Relacionamentos:** Nenhum — tabela independente, sem FK.
 
-**Observações:** Versão atual: `20` (última migration que fez bump). Consumida por `schemaService.js` (frontend, bootstrap) e pelo passo "Validate database schema version" de `deploy.yml`. Ver `OPERATIONS.md` para o mecanismo completo.
+**Observações:** Versão atual: `23` (última migration que fez bump). Consumida por `schemaService.js` (frontend, bootstrap) e pelo passo "Validate database schema version" de `deploy.yml`. Ver `OPERATIONS.md` para o mecanismo completo.
+
+---
+
+### `client_errors`
+
+**Objetivo:** Observabilidade mínima de produção (F15.3) — erros de frontend categorizados por `errorService.js`, sem PII, para leitura operacional via SQL Editor.
+
+| Coluna        | Tipo        | Nullable | Padrão              |
+|---------------|-------------|----------|---------------------|
+| `id`          | UUID        | NÃO (PK) | `gen_random_uuid()` |
+| `user_id`     | UUID        | NÃO (FK) | —                   |
+| `category`    | TEXT        | NÃO      | —                   |
+| `context`     | TEXT        | Sim      | —                   |
+| `message`     | TEXT        | Sim      | —                   |
+| `code`        | TEXT        | Sim      | —                   |
+| `http_status` | INT         | Sim      | —                   |
+| `user_agent`  | TEXT        | Sim      | —                   |
+| `created_at`  | TIMESTAMPTZ | NÃO      | `now()`             |
+
+**RLS:** insert-only (`auth.uid() = user_id`); sem política de SELECT/UPDATE/DELETE — com RLS habilitado, qualquer leitura com a anon key retorna zero linhas. Leitura exclusiva do SQL Editor.
+
+**Relacionamentos:** `user_id → auth.users(id) ON DELETE CASCADE` (exclusão de conta remove os erros do usuário).
+
+**Observações:** `message` é truncada no cliente (500 caracteres) e `context` é sempre um rótulo curto `módulo.ação` — nunca payloads de dados ou stack trace. Escrita apenas por `errorService._sendReport()`, fire-and-forget, com rate limit local e deduplicação por assinatura.
 
 ---
 
@@ -909,8 +969,9 @@ reviews (Revisão — event_id obrigatório, ON DELETE CASCADE; session_id opcio
 | `questions_session_id_idx`                  | `questions`             | `(session_id)`                        | B-tree           | Questões de uma Sessão (`listBySession`) |
 | `questions_user_status_idx`                 | `questions`             | `(user_id, status)`                   | B-tree composto  | Questões pendentes/respondidas do usuário |
 | `reflections_user_id_idx`                    | `reflections`           | `(user_id)`                           | B-tree           | Listagem de reflexões do usuário |
+| `client_errors_created_at_idx`               | `client_errors`         | `(created_at DESC)`                   | B-tree           | Consulta operacional de erros por período (SQL Editor) |
 
-23 índices explícitos, além do índice implícito de cada chave primária. `ai_metrics` e `schema_version` são as únicas tabelas sem índice explícito além da PK.
+24 índices explícitos, além do índice implícito de cada chave primária. `ai_metrics` e `schema_version` são as únicas tabelas sem índice explícito além da PK.
 
 ---
 
@@ -981,6 +1042,7 @@ Isolamento completo por usuário via RLS, com `auth.uid()` como mecanismo centra
 | `questions`           | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
 | `reflections`         | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   | `user_id = uid()`   |
 | `schema_version`      | `anon, authenticated` (true) | —          | —                   | —                   |
+| `client_errors`       | — (SQL Editor apenas) | `user_id = uid()` | —                   | —                   |
 | `storage.objects`     | público (avatars)   | `uid()` = pasta     | `uid()` = pasta     | `uid()` = pasta     |
 
 ---
@@ -1002,6 +1064,7 @@ Isolamento completo por usuário via RLS, com `auth.uid()` como mecanismo centra
 | `reviews.user_id`                 | `auth.users(id)`         | CASCADE           |
 | `questions.user_id`               | `auth.users(id)`         | CASCADE           |
 | `reflections.user_id`             | `auth.users(id)`         | CASCADE           |
+| `client_errors.user_id`           | `auth.users(id)`         | CASCADE           |
 | `academic_events.calendar_id`    | `academic_calendars(id)` | CASCADE           |
 | `notification_logs.event_id`     | `events(id)`              | CASCADE           |
 | `reviews.event_id`                | `events(id)`              | CASCADE           |
@@ -1061,8 +1124,11 @@ Isolamento completo por usuário via RLS, com `auth.uid()` como mecanismo centra
 | `18_reflections.sql` | `18` | Tabela `reflections` (Diário de Estudos) |
 | `19_activity_sessions_running_unique.sql` | `19` | Índice único parcial (erro `SESSION_ALREADY_RUNNING`) |
 | `20_monthly_goal_minutes_integer.sql` | `20` | Tipo `INTEGER` em `monthly_goal_minutes` |
+| `21_activity_sessions_standalone_fields.sql` | `21` | Campos de sessão avulsa (`title`/`content`/`session_date`/`planned_duration_minutes`) |
+| `22_next_study_plan.sql` | `22` | `profiles.next_study_title`/`next_study_category_id` (Fechar o dia) |
+| `23_client_errors.sql` | `23` | Tabela `client_errors` (observabilidade de erros de frontend) |
 
-**Versão atual do schema: 20.**
+**Versão atual do schema: 23.**
 
 ---
 
@@ -1151,13 +1217,13 @@ Tabela: reflections  (ON DELETE CASCADE se a Sessão for excluída)
 
 | Métrica                    | Quantidade |
 |-----------------------------|------------|
-| Migrations                  | 20 (`01` a `20`) |
-| Tabelas no schema `public`  | 13 |
+| Migrations                  | 23 (`01` a `23`) |
+| Tabelas no schema `public`  | 14 |
 | Triggers                    | 11 (10× `update_updated_at()` + `on_auth_user_created`) |
 | Funções SQL                 | 3 |
-| Índices explícitos          | 23 |
-| Políticas RLS (tabelas)     | 43 |
+| Índices explícitos          | 24 |
+| Políticas RLS (tabelas)     | 44 |
 | Políticas RLS (Storage)     | 4 |
-| Versão de schema atual      | 20 |
+| Versão de schema atual      | 23 |
 
 **Avaliação geral:** O banco cresceu de 8 para 13 tabelas entre as migrations `10` e `20`, introduzindo o domínio de Execução de Estudo (`activity_sessions`, `questions`, `reflections`) e o de Revisão Espaçada (`reviews`) sem alterar nenhuma das 8 tabelas originais de Planejamento — a única exceção é a extensão não-destrutiva de `profiles` com metas de tempo (`12`). O padrão de RLS, triggers e `ON DELETE CASCADE` para `auth.users` permanece idêntico ao das primeiras 10 migrations; a novidade estrutural é o uso deliberado de `ON DELETE SET NULL` (`activity_sessions.event_id`, `activity_sessions.category_id`, `reviews.session_id`) para modelar relações entre ciclos de vida independentes — algo que não existia até a migration `11`. A tabela `schema_version` (`14`) fechou a lacuna que havia permitido o incidente de deploy com schema desatualizado (migrations `11`–`13`), e o índice único parcial de `19` moveu para o banco uma invariante de negócio (uma sessão `running` por usuário) que antes só era garantida na aplicação.
