@@ -198,7 +198,7 @@ Apesar da RLS já garantir o isolamento no banco, os serviços do frontend (`eve
 
 # Edge Functions
 
-O projeto possui **3 Edge Functions**, todas em Deno, hospedadas pelo Supabase, todas respondendo em JSON. `delete-account` e `send-push-notifications` mantêm CORS liberado (`Access-Control-Allow-Origin: *`); `ai-chat` restringe `Access-Control-Allow-Origin` a uma allowlist (origem oficial de produção `https://andressamendes.github.io` + `http://localhost`/`http://127.0.0.1` em qualquer porta, para desenvolvimento local). Todas usam `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type`.
+O projeto possui **3 Edge Functions**, todas em Deno, hospedadas pelo Supabase, todas respondendo em JSON. `ai-chat` e `delete-account` restringem `Access-Control-Allow-Origin` a uma allowlist (origem oficial de produção `https://andressamendes.github.io` + `http://localhost`/`http://127.0.0.1` em qualquer porta, para desenvolvimento local); `send-push-notifications` mantém CORS liberado (`Access-Control-Allow-Origin: *`), o que é inócuo — ela não é invocada por navegador. Todas usam `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type`.
 
 | Função | Autenticação | Chave usada | Invocada por |
 |---|---|---|---|
@@ -215,7 +215,7 @@ O projeto possui **3 Edge Functions**, todas em Deno, hospedadas pelo Supabase, 
 
 O `service_role` (chave administrativa que ignora RLS) é usado em exatamente dois pontos:
 
-- **`delete-account`** — usa um client `admin` separado do client de identificação do usuário, para de fato apagar registros em `notification_logs`, `push_subscriptions`, `events`, `categories`, arquivos no Storage e o próprio usuário em `auth.users` via `admin.auth.admin.deleteUser(userId)` (operação que a `anon key` não tem permissão de executar).
+- **`delete-account`** — usa um client `admin` separado do client de identificação do usuário, para remover os arquivos do usuário no Storage (bucket `avatars/{userId}`) e apagar o próprio usuário em `auth.users` via `admin.auth.admin.deleteUser(userId)` (operação que a `anon key` não tem permissão de executar). **O mecanismo oficial de limpeza dos dados relacionais é o `ON DELETE CASCADE`**: toda tabela de dados de usuário (`events`, `categories`, `push_subscriptions`, `notification_logs`, `profiles`, `academic_calendars`, `ai_metrics`, `activity_sessions`, `reviews`, `questions`, `reflections`, `client_errors`) tem FK `user_id → auth.users(id) ON DELETE CASCADE`, então o `deleteUser` remove todas as linhas atomicamente no banco. A função não faz deletes manuais por tabela — apenas o Storage, que não participa das FKs, é limpo explicitamente (com erro checado, antes do `deleteUser`, para nunca deixar arquivos órfãos inacessíveis).
 - **`send-push-notifications`** — usa `service_role` para ler `events` e `push_subscriptions` de todos os usuários e para gravar/atualizar `notification_logs`, cruzando o limite normal de RLS de forma intencional e documentada.
 
 `ai-chat` **não** usa `service_role` — opera inteiramente sob a identidade (JWT) do próprio usuário que fez a requisição.
@@ -241,7 +241,7 @@ Cada Edge Function tem responsabilidade única, sem sobreposição de propósito
 | Gemini retorna outro erro HTTP, ou corpo sem texto | 502 |
 | Exceção não tratada | 500, com log de tipo de prompt e tempo decorrido |
 
-**`delete-account`:** ausência/invalidez do JWT → `401`; falha em `auth.admin.deleteUser` → `500` com a mensagem de erro do Supabase; qualquer exceção não tratada → `500` com `String(err)`.
+**`delete-account`:** ausência/invalidez do JWT → `401`; falha ao listar ou remover arquivos do Storage → `500` explícito (a exclusão não prossegue, evitando arquivos órfãos); falha em `auth.admin.deleteUser` → `500` com a mensagem de erro do Supabase; qualquer exceção não tratada → `500` com mensagem genérica em português (sem vazar detalhes internos).
 
 **`send-push-notifications`:** erro ao consultar `events` é propagado (`throw`) e interrompe a execução com `500`; falhas de envio por assinatura individual (ex.: `410 Gone`/`404 Not Found`) são tratadas internamente — a assinatura revogada é removida de `push_subscriptions` — sem interromper o processamento das demais; qualquer exceção não tratada no laço externo resulta em `500` com `{ error: err.message }`.
 
@@ -567,11 +567,10 @@ Revisão da consistência entre autenticação, RLS, Edge Functions e secrets, s
 
 | Item | Categoria | Observação |
 |---|---|---|
-| CORS `Access-Control-Allow-Origin: *` em `delete-account` e `send-push-notifications` | Configuração permissiva | Essas duas Edge Functions aceitam requisições de qualquer origem. Isso não é, por si, uma falha de autorização — a barreira real é o JWT (`delete-account`) ou a ausência total de exposição a clientes externos (`send-push-notifications`, que só é chamada pelo scheduler) — mas é uma configuração mais permissiva do que restringir a origem ao domínio de produção do GitHub Pages. **Corrigido em `ai-chat`**: agora restringe `Access-Control-Allow-Origin` a uma allowlist (produção + localhost/127.0.0.1 para dev). |
+| CORS `Access-Control-Allow-Origin: *` em `send-push-notifications` | Configuração permissiva | Aceita requisições de qualquer origem, mas não é chamada por navegador (só pelo scheduler interno do Supabase), então a configuração é inócua. **Corrigido em `ai-chat` e `delete-account` (F15.9)**: ambas restringem `Access-Control-Allow-Origin` à mesma allowlist (produção + localhost/127.0.0.1 para dev). |
 | `model` do payload de `ai-chat` não validado contra allowlist | Validação de entrada | O parâmetro `model` enviado pelo cliente é repassado diretamente à URL do Gemini (`{model}:generateContent`) sem checagem contra uma lista de modelos permitidos. Não é um risco de vazamento de dados de outro usuário, mas permite que um cliente altere qual modelo Gemini é chamado usando a chave do servidor. |
 | Deploy automatizado cobre apenas `ai-chat` | CI/CD | `deploy-functions.yml` só executa `supabase functions deploy ai-chat`. `send-push-notifications` e `delete-account` dependem de deploy manual — o código pode divergir do que está publicado se o deploy manual for esquecido após uma alteração. |
-| Estilo de importação divergente entre Edge Functions | Consistência de manutenção | `ai-chat` e `send-push-notifications` importam `@supabase/supabase-js` via `npm:`; `delete-account` importa via `https://esm.sh/`. Funcionalmente equivalente, mas inconsistente — dificulta auditoria rápida do código das três funções. |
-| Estilo de servidor divergente | Consistência de manutenção | `ai-chat`/`send-push-notifications` usam `Deno.serve` nativo; `delete-account` usa `serve` de `deno.land/std`. Sem impacto de segurança, mas é uma superfície extra a revisar em auditorias futuras. |
+| Estilo de importação/servidor divergente entre Edge Functions | Resolvido (F15.9) | As três funções agora usam `Deno.serve` nativo e importam `@supabase/supabase-js` via `npm:` na mesma versão fixa `2.110.0`. |
 | Tabela `ai_metrics` provisionada mas não populada | Resolvido (`10_ai_metrics_observability.sql`, Auditoria A2.2) | A Edge Function `ai-chat` agora insere uma linha por chamada (sucesso ou falha) via `service_role`, além de `console.log`, sem armazenar prompt, resposta ou dados pessoais. |
 | Validação de tipo/tamanho de avatar apenas no frontend | Validação de entrada | `avatarService.js` valida MIME e tamanho antes do upload, mas não há constraint/trigger no Postgres/Storage revalidando isso no servidor além do comportamento padrão do Supabase Storage. |
 | `profiles.created_at`/`updated_at` nullable | Consistência de schema | Diferente das demais tabelas (`NOT NULL`), não gera problema funcional pois ambos têm `DEFAULT now()`, mas quebra a convenção do restante do schema. |
