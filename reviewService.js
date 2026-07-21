@@ -212,15 +212,35 @@ export async function generateForEvent(eventId, baseDate, offsetsDays = DEFAULT_
     throw _domainError("Data base é obrigatória para gerar revisões.", "BASE_DATE_REQUIRED");
   }
 
-  const created = [];
-  for (const days of offsetsDays) {
-    const review = await create({
-      event_id:       eventId,
-      scheduled_date: _addDays(baseDate, days),
-      review_type:    "manual",
-      origin:         "event",
-    });
-    created.push(review);
+  // F15.11: o evento é validado uma única vez e as revisões entram num único
+  // INSERT em lote (1 SELECT + 1 INSERT), em vez de N chamadas a create() —
+  // cada uma revalidando o evento com um SELECT próprio.
+  const user_id = await currentUserId();
+
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("id", eventId)
+    .eq("user_id", user_id)
+    .maybeSingle();
+  if (eventError) throw eventError;
+  if (!event) {
+    throw _domainError("Compromisso não encontrado.", "EVENT_NOT_FOUND");
   }
-  return created;
+
+  const rows = offsetsDays.map(days => ({
+    event_id:       eventId,
+    scheduled_date: _addDays(baseDate, days),
+    review_type:    "manual",
+    origin:         "event",
+    status:         "pending",
+    user_id,
+  }));
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .insert(rows)
+    .select();
+  if (error) throw error;
+  return data;
 }
