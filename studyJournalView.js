@@ -162,6 +162,7 @@ const REVIEW_STATUS_LABELS = {
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
 let milestonesPanelEl, milestonesListEl;
+let weekSummariesPanelEl, weekSummariesListEl;
 
 // Painel "Analisar" (F13.4) — período, filtros avançados e marcos da
 // evolução saíram da coluna principal para este painel lateral sob demanda,
@@ -560,10 +561,13 @@ function _renderDayComparison(dayGroup, comparison) {
   `;
 }
 
-// ── Resumo semanal (F8.5) ────────────────────────────────────────────────
-// Inserido como um <li> próprio na lista, entre o último grupo de dia da
-// semana concluída e o primeiro grupo da semana seguinte (mais antiga) —
-// "quando um novo bloco semanal começa, mostra o resumo da semana anterior".
+// ── Resumo semanal (F8.5, movido para o painel "Analisar" na Etapa 4) ────
+// Etapa 5 (auditoria UX radical) — cada resumo semanal era um <li>
+// intercalado na própria linha do tempo, quebrando a leitura cronológica
+// das sessões com um bloco de estatísticas + texto corrido entre um dia e
+// outro. Sai da lista e vira uma entrada no painel recolhível "Resumos
+// Semanais", dentro do painel "Analisar" — mesmo padrão de painel separado
+// já usado por Marcos da Evolução (F10 #3.2, logo acima).
 //
 // F8.6 — Síntese Periódica: além dos números do cartão (já existentes desde
 // F8.5), acrescenta o texto narrativo de buildWeeklySummary()
@@ -579,26 +583,36 @@ function _renderDayComparison(dayGroup, comparison) {
 // #1.1/#1.3) por ser puramente apresentacional — sem estado para persistir
 // entre buscas/filtros — e por manter o texto no DOM (querySelector nos
 // testes continua funcionando independente de aberto/fechado).
-function _appendWeekSummary(weekKey, weekDayGroups, weekEntries) {
+function _weekSummaryItemHtml(weekKey, weekDayGroups, weekEntries) {
   const summary = summarizeWeekGroups(weekDayGroups);
   const narrative = buildWeeklySummary(weekEntries);
-  const li = document.createElement("li");
-  li.className = "sj-week-summary";
-  li.innerHTML = `
-    <div class="sj-week-summary-title">${escapeHtml(weekLabel(weekKey))}</div>
-    <div class="sj-week-summary-stats">
-      <span>${_formatDuration(summary.totalMinutes)} estudadas</span>
-      <span>${summary.sessionsCount} sessão(ões)</span>
-      <span>${summary.questionsCount} questão(ões)</span>
-      <span>${summary.subjectsCount} matéria(s)</span>
-      <span>Maior sequência nesta semana: ${summary.longestStreak} dia(s)</span>
-    </div>
-    <details class="sj-week-narrative">
-      <summary class="sj-week-narrative-title">Resumo da Semana</summary>
-      <p class="sj-week-narrative-text">${escapeHtml(narrative.text).replace(/\n\n/g, "</p><p class=\"sj-week-narrative-text\">")}</p>
-    </details>
+  return `
+    <li class="sj-week-summary">
+      <div class="sj-week-summary-title">${escapeHtml(weekLabel(weekKey))}</div>
+      <div class="sj-week-summary-stats">
+        <span>${_formatDuration(summary.totalMinutes)} estudadas</span>
+        <span>${summary.sessionsCount} sessão(ões)</span>
+        <span>${summary.questionsCount} questão(ões)</span>
+        <span>${summary.subjectsCount} matéria(s)</span>
+        <span>Maior sequência nesta semana: ${summary.longestStreak} dia(s)</span>
+      </div>
+      <details class="sj-week-narrative">
+        <summary class="sj-week-narrative-title">Resumo da Semana</summary>
+        <p class="sj-week-narrative-text">${escapeHtml(narrative.text).replace(/\n\n/g, "</p><p class=\"sj-week-narrative-text\">")}</p>
+      </details>
+    </li>
   `;
-  listEl.appendChild(li);
+}
+
+function _renderWeekSummariesPanel(items) {
+  if (!weekSummariesPanelEl || !weekSummariesListEl) return;
+  if (items.length === 0) {
+    weekSummariesPanelEl.hidden = true;
+    weekSummariesListEl.innerHTML = "";
+    return;
+  }
+  weekSummariesPanelEl.hidden = false;
+  weekSummariesListEl.innerHTML = items.join("");
 }
 
 // F8.8 — Linha do Tempo Inteligente: quando há busca textual ativa, marca
@@ -868,6 +882,7 @@ function _render() {
   if (filtered.length === 0) {
     if (statsEl) statsEl.hidden = true;
     _renderMilestonesPanel([]);
+    _renderWeekSummariesPanel([]);
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
@@ -899,18 +914,21 @@ function _render() {
   });
   const daySummaries = dayBuckets.map(bucket => summarizeDayEntries(bucket.entries));
 
-  // Segundo passo: renderiza os grupos de dia (F8.3, inalterado) e intercala
-  // o cartão de resumo semanal (F8.5) ao trocar de semana; a comparação com
-  // o dia anterior (Etapa 4) entra como linha opcional no próprio cabeçalho
-  // do dia, não como cartão à parte.
+  // Segundo passo: renderiza os grupos de dia (F8.3, inalterado); a
+  // comparação com o dia anterior (Etapa 4) entra como linha opcional no
+  // próprio cabeçalho do dia. Os resumos semanais (Etapa 5) não são mais
+  // intercalados na lista — são acumulados aqui e renderizados de uma vez
+  // no painel "Resumos Semanais" (ver _renderWeekSummariesPanel), na mesma
+  // ordem (semana mais recente primeiro).
   let currentWeekKey = null;
   let weekBuckets = [];
   let weekEntries = [];
+  const weekSummaryItems = [];
 
   dayBuckets.forEach((bucket, index) => {
     const weekKey = weekKeyOf(bucket.iso);
     if (currentWeekKey !== null && weekKey !== currentWeekKey) {
-      _appendWeekSummary(currentWeekKey, weekBuckets, weekEntries);
+      weekSummaryItems.push(_weekSummaryItemHtml(currentWeekKey, weekBuckets, weekEntries));
       weekBuckets = [];
       weekEntries = [];
     }
@@ -935,8 +953,9 @@ function _render() {
   // semana anterior. Fecha aqui também, fora do laço, para a última semana
   // visível sempre ganhar seu resumo.
   if (currentWeekKey !== null) {
-    _appendWeekSummary(currentWeekKey, weekBuckets, weekEntries);
+    weekSummaryItems.push(_weekSummaryItemHtml(currentWeekKey, weekBuckets, weekEntries));
   }
+  _renderWeekSummariesPanel(weekSummaryItems);
 }
 
 async function _loadEntriesData(sessions) {
@@ -969,6 +988,7 @@ async function _loadPage(reset) {
     loadMoreBtn.hidden = true;
     if (partialNoticeEl) partialNoticeEl.hidden = true;
     if (milestonesPanelEl) milestonesPanelEl.hidden = true;
+    if (weekSummariesPanelEl) weekSummariesPanelEl.hidden = true;
   }
 
   try {
@@ -1037,6 +1057,8 @@ export async function initStudyJournalView() {
     partialNoticeEl = document.getElementById("sj-filter-partial-notice");
     milestonesPanelEl = document.getElementById("sj-milestones-panel");
     milestonesListEl  = document.getElementById("sj-milestones-list");
+    weekSummariesPanelEl = document.getElementById("sj-week-summaries-panel");
+    weekSummariesListEl  = document.getElementById("sj-week-summaries-list");
 
     statusTabsEl   = document.getElementById("sj-status-tabs");
     finishedViewEl = document.getElementById("sj-finished-view");
@@ -1124,6 +1146,8 @@ export function resetStudyJournalView() {
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
   if (milestonesPanelEl) milestonesPanelEl.hidden = true;
   if (milestonesListEl) milestonesListEl.innerHTML = "";
+  if (weekSummariesPanelEl) weekSummariesPanelEl.hidden = true;
+  if (weekSummariesListEl) weekSummariesListEl.innerHTML = "";
   if (otherOnlyCancelledCheck) otherOnlyCancelledCheck.checked = false;
   if (statusTabsEl) _setStatusTab("finished");
 
