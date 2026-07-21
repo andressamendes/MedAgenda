@@ -216,6 +216,7 @@ let cardsElByGroup = [];
 let errorEls = [];
 let narrativeEl;
 let numbersToggleEl, numbersBodyEl;
+let todayStatsToggleEl, todayStatsBodyEl;
 let _unsubscribeProfile = null;
 let _loading = false;
 
@@ -285,6 +286,19 @@ function _toggleNumbers() {
   numbersToggleEl.setAttribute("aria-expanded", String(next));
   numbersToggleEl.querySelector(".disclosure-label").textContent = next ? "Ocultar números" : "Ver números";
   if (next) revealWithAnimation(numbersBodyEl);
+}
+
+// F15.13 — mesmo padrão de disclosure acima ("Ver números"), agora também na
+// grade "Hoje em números" da tela Hoje (auditoria final M13): a tela de
+// chegada nasce sem grade visível, 1 clique revela os mesmos cards de sempre.
+function _toggleTodayStats() {
+  if (!todayStatsToggleEl || !todayStatsBodyEl) return;
+  const expanded = todayStatsToggleEl.getAttribute("aria-expanded") === "true";
+  const next = !expanded;
+  todayStatsBodyEl.hidden = !next;
+  todayStatsToggleEl.setAttribute("aria-expanded", String(next));
+  todayStatsToggleEl.querySelector(".disclosure-label").textContent = next ? "Ocultar números de hoje" : "Ver números de hoje";
+  if (next) revealWithAnimation(todayStatsBodyEl);
 }
 
 // ── Sincronização com o barramento de eventos (F6.4) ────────────────────────
@@ -432,6 +446,9 @@ export async function initActivityDashboardView() {
     numbersToggleEl = document.getElementById("progress-numbers-toggle");
     numbersBodyEl   = document.getElementById("progress-numbers-body");
     numbersToggleEl?.addEventListener("click", _toggleNumbers);
+    todayStatsToggleEl = document.getElementById("today-stats-toggle");
+    todayStatsBodyEl   = document.getElementById("today-stats-body");
+    todayStatsToggleEl?.addEventListener("click", _toggleTodayStats);
 
     cardsElByGroup = CARD_GROUPS.map(({ defs, containerId }) => {
       const el = document.getElementById(containerId);
@@ -475,6 +492,12 @@ export function resetActivityDashboardView() {
     numbersToggleEl.setAttribute("aria-expanded", "false");
     const label = numbersToggleEl.querySelector(".disclosure-label");
     if (label) label.textContent = "Ver números";
+  }
+  if (todayStatsBodyEl) todayStatsBodyEl.hidden = true;
+  if (todayStatsToggleEl) {
+    todayStatsToggleEl.setAttribute("aria-expanded", "false");
+    const label = todayStatsToggleEl.querySelector(".disclosure-label");
+    if (label) label.textContent = "Ver números de hoje";
   }
   _loading = false;
 }

@@ -719,7 +719,7 @@ test("UX #23 — a failure fetching achievements never breaks the other executio
 // reduzindo os dados exibidos, nem mudando como/quando são buscados (os três
 // níveis continuam chegando juntos em uma única _load()).
 
-test("F10 #3.1/F14.5 — 'Hoje' shows exactly the three today-scoped cards, always visible", async (t) => {
+test("F10 #3.1/F14.5 — 'Hoje' has exactly the three today-scoped cards, rendered but behind the disclosure", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
@@ -731,6 +731,45 @@ test("F10 #3.1/F14.5 — 'Hoje' shows exactly the three today-scoped cards, alwa
   assert.match(today.textContent, /Tempo estudado hoje/);
   assert.match(today.textContent, /Sessões hoje/);
   assert.ok(document.getElementById("page-today").contains(today), "expected #dash-cards-today inside #page-today");
+});
+
+// F15.13 — a grade "Hoje em números" reintroduzia uma grade de stats no
+// primeiro olhar do dia, em tensão com "mede em silêncio, fala em frases"
+// (mesmo princípio do disclosure "Ver números" do Progresso, F14.5). Mesmo
+// padrão aplicado aqui: a tela Hoje abre sem grade visível; os cards em si
+// não mudam (mesmos ids, mesmos dados, mesma _load()).
+
+test("F15.13 — the Hoje page opens with the number grid collapsed behind a disclosure", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+
+  await mod.initActivityDashboardView();
+
+  assert.strictEqual(document.getElementById("today-stats-body").hidden, true, "the number grid must start collapsed");
+  const toggle = document.getElementById("today-stats-toggle");
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ver números de hoje");
+});
+
+test("F15.13 — clicking 'Ver números de hoje' reveals the same three cards as before", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+  await mod.initActivityDashboardView();
+
+  const toggle = document.getElementById("today-stats-toggle");
+  const body   = document.getElementById("today-stats-body");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(body.hidden, false);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar números de hoje");
+  const today = document.getElementById("dash-cards-today");
+  assert.strictEqual(today.children.length, 3);
+  assert.match(today.textContent, /Meta diária/);
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(body.hidden, true);
+  assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
 });
 
 test("F13.4/F14.5 — 'Períodos' and 'Progresso e Conquistas' cards render on the Progresso page without any tab click", async (t) => {

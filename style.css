@@ -1883,6 +1883,17 @@ textarea { resize: vertical; }
   margin-top: 1.6rem;
 }
 
+/* F15.13 — mesmo padrão de disclosure do Progresso (.progress-numbers-*):
+   a linha do botão fica sempre visível, o corpo (título + cards) nasce
+   colapsado a cada carregamento. */
+.today-stats-toggle-row {
+  margin: 0;
+}
+
+.today-stats-body {
+  margin-top: var(--space-4);
+}
+
 /* ── Fechar o dia (F14.8) ──
    Ação de saída discreta — não compete com "Começar a estudar" nem com os
    compromissos/números acima; fica ao final da página, centralizada, como o
