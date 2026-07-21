@@ -939,7 +939,7 @@ function dayComparisons() {
 }
 
 function weekSummaries() {
-  return Array.from(document.querySelectorAll("#sj-list .sj-week-summary"));
+  return Array.from(document.querySelectorAll("#sj-week-summaries-list .sj-week-summary"));
 }
 
 test("Etapa 4 (auditoria UX radical) — a day group no longer carries a separate stats card; totals live only in the header and on each session card", async (t) => {
@@ -1009,7 +1009,7 @@ test("a lone visible day shows no comparison indicators", async (t) => {
   assert.strictEqual(dayComparisons()[0].hidden, true);
 });
 
-test("a weekly summary card appears when a new week starts, summarizing the week just finished in the timeline", async (t) => {
+test("Etapa 5 (auditoria UX radical) — weekly summaries move out of the timeline into the collapsible 'Resumos Semanais' panel", async (t) => {
   const sessions = [
     // semana de 2026-03-16 (segunda) — a mais recente na linha do tempo,
     // com dois dias consecutivos estudados.
@@ -1031,6 +1031,9 @@ test("a weekly summary card appears when a new week starts, summarizing the week
 
   await mod.initStudyJournalView();
 
+  assert.strictEqual(document.getElementById("sj-week-summaries-panel").hidden, false, "o painel aparece quando há semana(s) para resumir");
+  assert.strictEqual(document.querySelectorAll("#sj-list .sj-week-summary").length, 0, "o resumo semanal não é mais intercalado na timeline");
+
   const weeks = weekSummaries();
   assert.strictEqual(weeks.length, 2, "a semana concluída e a última semana visível (mesmo sem semana seguinte) ganham cartão");
   const text = weeks[0].textContent;
@@ -1045,21 +1048,28 @@ test("a weekly summary card appears when a new week starts, summarizing the week
   assert.match(lastWeekText, /Semana de 09\/03 a 15\/03/);
   assert.match(lastWeekText, /1 sessão\(ões\)/);
 
-  // o primeiro cartão semanal aparece entre os grupos de dia, antes do grupo
-  // mais antigo da semana seguinte; o segundo (última semana visível) fecha
-  // a lista, depois do último grupo de dia.
+  // a timeline propriamente dita fica só com os grupos de dia.
   const listChildren = Array.from(document.getElementById("sj-list").children);
-  const weekIndexes = listChildren
-    .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.classList.contains("sj-week-summary"))
-    .map(({ i }) => i);
-  const groupIndexes = listChildren
-    .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.classList.contains("sj-day-group"))
-    .map(({ i }) => i);
-  assert.strictEqual(groupIndexes.length, 3);
-  assert.ok(weekIndexes[0] > groupIndexes[1] && weekIndexes[0] < groupIndexes[2], "o primeiro card semanal fica entre o último dia da semana concluída e o primeiro dia da semana seguinte");
-  assert.strictEqual(weekIndexes[1], listChildren.length - 1, "o card da última semana visível fecha a lista");
+  assert.strictEqual(listChildren.length, 3, "só os 3 grupos de dia continuam na timeline");
+  assert.ok(listChildren.every(el => el.classList.contains("sj-day-group")));
+});
+
+test("Etapa 5 (auditoria UX radical) — the week summaries panel hides when no session is visible", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+  assert.strictEqual(document.getElementById("sj-week-summaries-panel").hidden, false);
+
+  document.getElementById("sj-filter-search").value = "termo-que-nao-existe-em-nenhum-campo";
+  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
+
+  assert.strictEqual(
+    document.getElementById("sj-week-summaries-panel").hidden, true,
+    "sem sessões visíveis após o filtro, o painel de resumos semanais fica oculto"
+  );
 });
 
 test("summaries recompute over only the currently filtered/visible sessions, without a new listSessions() call", async (t) => {
