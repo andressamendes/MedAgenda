@@ -2185,6 +2185,14 @@ textarea { resize: vertical; }
   color: var(--gray-600);
 }
 
+/* F17 — resumo (questões/acertos/erros/índice) de uma sessão, acima da
+   lista de lançamentos no bloco "Questões" do detalhe. */
+.sj-detail-summary {
+  margin: 0 0 .5rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
 .sj-detail-notes {
   margin: 0;
   color: var(--gray-600);
@@ -3558,8 +3566,15 @@ textarea { resize: vertical; }
   width: 100%;
 }
 
-/* F14.4 — "+1 questão" e o gatilho do painel lado a lado na superfície
-   principal da sessão ativa, mesmo padrão de largura/gap de .ss-actions. */
+/* F17 — Estatísticas do Diário: mesmo componente .stat-cards já usado no
+   Dashboard/Insights, só com espaçamento até a lista de sessões abaixo. */
+.sj-stats {
+  margin-bottom: var(--space-4);
+}
+
+/* F17 — gatilho do painel "Questões e revisões" na superfície principal da
+   sessão ativa (antes dividia espaço com "+1 questão", removido: único
+   ponto de entrada para registrar questões). */
 .ss-quick-actions-row {
   display: flex;
   flex-wrap: wrap;
@@ -3567,12 +3582,6 @@ textarea { resize: vertical; }
   gap: .6rem;
   width: 100%;
   margin-top: .8rem;
-}
-
-.ss-quick-question-main-btn {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
 }
 
 /* ── Resumo/encerramento da sessão (F7.3) ── */

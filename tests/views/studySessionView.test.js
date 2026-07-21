@@ -975,6 +975,8 @@ test("F11 E15 — the quick-add button registers an answered question in a singl
     difficulty:    "medium",
     subject:       null,
     topic:         null,
+    correct_count:   1,
+    incorrect_count: 0,
   });
   assert.strictEqual(document.getElementById("ss-question-form").hidden, true, "the quick path never opens the detailed form");
   assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
@@ -1026,6 +1028,107 @@ test("F11 E15 — a failed quick-add degrades without rendering a not-really-per
 
   assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0);
   assert.strictEqual(document.getElementById("ss-btn-quick-question").disabled, false, "the button must re-enable after a failure");
+});
+
+// ── F17 — Correta/Incorreta (quantidade + erros) obrigatório em todo
+// lançamento, rápido e detalhado.
+
+test("F17 — quick-add sends correct_count/incorrect_count computed from quantity and errors", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-q-quick-total").value = "8";
+  document.getElementById("ss-q-quick-errors").value = "2";
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 1);
+  assert.strictEqual(addQuestionCalls[0].data.correct_count, 6);
+  assert.strictEqual(addQuestionCalls[0].data.incorrect_count, 2);
+  // Auditoria UX #25 aplicada ao novo registro rápido: volta a "1 questão, 0 erros"
+  // para o próximo lançamento em sequência, em vez de repetir 8/2.
+  assert.strictEqual(document.getElementById("ss-q-quick-total").value, "1");
+  assert.strictEqual(document.getElementById("ss-q-quick-errors").value, "0");
+});
+
+test("F17 — quick-add rejects 0 questões and never calls addQuestion", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-q-quick-total").value = "0";
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-quick-question-error").hidden, false);
+});
+
+test("F17 — quick-add rejects errors greater than the number of questões and never calls addQuestion", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-q-quick-total").value = "3";
+  document.getElementById("ss-q-quick-errors").value = "5";
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-quick-question-error").hidden, false);
+});
+
+test("F17 — the detailed form sends correct_count/incorrect_count computed from quantity and errors", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-total").value = "5";
+  document.getElementById("ss-q-errors").value = "1";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 1);
+  assert.strictEqual(addQuestionCalls[0].data.correct_count, 4);
+  assert.strictEqual(addQuestionCalls[0].data.incorrect_count, 1);
+});
+
+test("F17 — the detailed form rejects an invalid quantity/errors combination and never calls addQuestion", async (t) => {
+  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-q-total").value = "2";
+  document.getElementById("ss-q-errors").value = "9";
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(addQuestionCalls.length, 0);
+  assert.strictEqual(document.getElementById("ss-question-form-error").hidden, false);
+});
+
+test("F17 — editing an old question with correct_count/incorrect_count both 0 (legacy row) defaults the form to 1/0", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    listQuestions: async () => ([
+      { id: "q-1", session_id: "sess-1", question_type: "multiple_choice", status: "answered", difficulty: "medium", subject: null, topic: null },
+    ]),
+  });
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  document.querySelector("[data-question-edit]").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-q-total").value, "1");
+  assert.strictEqual(document.getElementById("ss-q-errors").value, "0");
 });
 
 // ── Auditoria UX #25: cadastro de questões campo a campo — defaults
@@ -2168,62 +2271,18 @@ test("F14.4 — Questões e Revisões aparecem sempre expandidas dentro do paine
   assert.strictEqual(document.getElementById("ss-reviews-toggle"), null, "the internal disclosure toggle must be gone");
 });
 
-// ── F14.4 — "+1 questão" na superfície principal do card ss-active, ao lado
-// do gatilho do painel: mesmo caminho de escrita do botão rápido de dentro
-// do painel (sqBtnQuick/_quickAddQuestion), sem exigir abrir nada.
+// ── F17 — "+1 questão" removido: "Questões e revisões" é o único ponto de
+// entrada para registrar questões.
 
-test("F14.4 — the '+1 questão' button on the main card registers an answered question in a single click", async (t) => {
-  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
-    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-quick-question-main").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(addQuestionCalls.length, 1);
-  assert.strictEqual(addQuestionCalls[0].sessionId, "sess-1");
-  assert.deepStrictEqual(addQuestionCalls[0].data, {
-    question_type: "multiple_choice",
-    status:        "answered",
-    difficulty:    "medium",
-    subject:       null,
-    topic:         null,
-  });
-  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
-  assert.match(document.getElementById("ss-quick-question-main-count").textContent, /1/);
-});
-
-test("F14.4 — the '+1 questão' button does nothing without an active session", async (t) => {
-  const { mod, addQuestionCalls } = await loadStudySessionView(t, {
-    getRunningSession: async () => null,
-  });
-  await mod.initStudySessionView();
-
-  document.getElementById("ss-btn-quick-question-main").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(addQuestionCalls.length, 0);
-});
-
-test("F14.4 — a double click on the '+1 questão' button never persists the question twice", async (t) => {
-  let resolveFirst;
-  const localAddQuestionCalls = [];
+test("F17 — the '+1 questão' button no longer exists on the main card", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
-    addQuestion: async (sessionId, data) => new Promise(resolve => {
-      resolveFirst = () => { localAddQuestionCalls.push({ sessionId, data }); resolve({ id: "q-1", session_id: sessionId, ...data }); };
-    }),
   });
   await mod.initStudySessionView();
 
-  const btnQuickMain = document.getElementById("ss-btn-quick-question-main");
-  btnQuickMain.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  btnQuickMain.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  resolveFirst();
-  await new Promise(r => setTimeout(r, 0));
-
-  assert.strictEqual(localAddQuestionCalls.length, 1, "a double click must not persist the same question twice");
+  assert.strictEqual(document.getElementById("ss-btn-quick-question-main"), null);
+  assert.strictEqual(document.getElementById("ss-quick-question-main-count"), null);
+  assert.strictEqual(document.getElementById("ss-btn-open-panel").hidden, false, "the panel trigger remains the sole entry point");
 });
 
 test("F13.1 — 'Mais detalhes' nasce colapsado e revela Conteúdo/Data/Horário/Tempo previsto ao expandir", async (t) => {

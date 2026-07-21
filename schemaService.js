@@ -18,7 +18,7 @@ import { supabase } from "./supabase.js";
 // Bump obrigatório sempre que uma nova migration numerada crie schema do
 // qual o frontend passe a depender — no mesmo commit que introduz esse uso.
 // Ver convenção documentada no cabeçalho de sql/14_schema_version.sql.
-export const EXPECTED_SCHEMA_VERSION = 24;
+export const EXPECTED_SCHEMA_VERSION = 25;
 
 /**
  * Erro estruturado para qualquer forma de incompatibilidade de schema —

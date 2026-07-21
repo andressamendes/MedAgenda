@@ -2,6 +2,31 @@
 
 ---
 
+## [Unreleased] — F17: Refatoração do Registro de Questões + Estatísticas do Diário
+
+- **Registro de questões unificado:** o botão "+1 questão" (registro fora do
+  painel, sem resultado) foi removido — "Questões e revisões" passa a ser o
+  único ponto de entrada. Todo lançamento (registro rápido ou "+ Adicionar
+  com detalhes") agora exige quantidade de questões resolvidas e número de
+  erros; acertos são derivados (`questões - erros`), com validação (mínimo 1
+  questão, erros nunca maiores que a quantidade).
+- **Persistência:** `sql/25_question_results.sql` adiciona `correct_count`/
+  `incorrect_count` a `public.questions` (`DEFAULT 0`, sem backfill manual —
+  linhas antigas contam como zero, nenhuma perda de dado) e a função
+  `get_question_statistics()`, que agrega total/acertos/erros no próprio
+  Postgres (filtros opcionais de período, categoria e matéria) em vez de
+  trazer todas as questões para o cliente. `EXPECTED_SCHEMA_VERSION` 24 → 25.
+- **`studyStatisticsService.js` (novo):** único responsável por agregação de
+  desempenho — `getUserQuestionStatistics(filters)` (RPC) para estatísticas
+  globais e `summarizeSessionQuestions(questions)` (função pura) para o
+  resumo por sessão, ambos evitando divisão por zero.
+- **Diário de Estudos:** nova seção fixa "Estatísticas" acima da lista de
+  sessões (questões respondidas/acertos/erros/índice de acerto, com indicador
+  🟢/🟡/🔴), reagindo aos filtros de Período/Categoria já existentes na
+  toolbar — nenhum controle novo. Cada sessão mostra um resumo no bloco
+  "Questões" (`8 questões · 6 acertos · 2 erros · 🟢 75%`), ou "Nenhuma
+  questão registrada." quando vazio.
+
 ## [Unreleased] — F15: pós-Auditoria Final 360° (confiança, rotina real, robustez)
 
 Fases executadas a partir de `docs/02_IMPLEMENTATION_ROADMAP.md` (achados

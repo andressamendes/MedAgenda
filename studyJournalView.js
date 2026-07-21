@@ -126,6 +126,8 @@ import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconCh
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
+import { getUserQuestionStatistics, summarizeSessionQuestions, accuracyIndicator } from "./studyStatisticsService.js";
+import { getCategories } from "./categoryService.js";
 
 const PAGE_SIZE = 10;
 
@@ -161,6 +163,14 @@ const REVIEW_STATUS_LABELS = {
 };
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
+// F17 — Estatísticas de questões (seção fixa, distinta de statsEl/
+// sj-search-stats acima, que é a contagem de sessões filtradas).
+let questionStatsTotalEl, questionStatsCorrectEl, questionStatsIncorrectEl,
+    questionStatsAccuracyEl, questionStatsAccuracyIconEl;
+// Cache de categorias (nome → id) para resolver o filtro de categoria da
+// toolbar (valores em nome, ver _collectFieldValues) para o category_id que
+// a RPC de estatísticas espera (activity_sessions.category_id).
+let _categoriesByName = null;
 let milestonesPanelEl, milestonesListEl;
 let weekSummariesPanelEl, weekSummariesListEl;
 
@@ -401,8 +411,22 @@ function _renderReflectionForm(sectionEl, entry, reflection) {
 // expandido, antes de Questões/Revisões/Observações/Reflexão — mesmo
 // conteúdo e classes de antes, só de lugar.
 function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
+  // F17 — resumo (questões/acertos/erros/índice) acima da lista de
+  // lançamentos, mesma função pura usada pelas Estatísticas globais
+  // (studyStatisticsService.summarizeSessionQuestions), sem consulta nova —
+  // `questions` já veio carregado em lote por _fetchPageExtras().
+  const summary = summarizeSessionQuestions(questions);
+  const summaryHtml = summary.total > 0
+    ? `<p class="sj-detail-summary">
+        ${summary.total} ${summary.total === 1 ? "questão" : "questões"} ·
+        ${summary.correct} ${summary.correct === 1 ? "acerto" : "acertos"} ·
+        ${summary.incorrect} ${summary.incorrect === 1 ? "erro" : "erros"} ·
+        ${accuracyIndicator(summary.accuracyPercent).emoji} ${summary.accuracyPercent}%
+      </p>`
+    : "";
+
   const questionsHtml = questions.length
-    ? `<ul class="sj-detail-items">${questions.map(q => `
+    ? summaryHtml + `<ul class="sj-detail-items">${questions.map(q => `
         <li class="sj-detail-item">
           <span>${highlightMatches(QUESTION_TYPE_LABELS[q.question_type] || q.question_type, query)}</span>
           <span>${highlightMatches(QUESTION_STATUS_LABELS[q.status] || q.status, query)}</span>
@@ -686,6 +710,58 @@ function _renderLoadError({ state, message }) {
 // Tudo abaixo opera exclusivamente sobre `_allEntries` (já em memória) —
 // trocar um filtro nunca chama nenhum dos services novamente.
 
+// F17 — resolve o nome de categoria já usado pelo filtro da toolbar
+// (_collectFieldValues extrai nomes, não ids) para o category_id que a RPC
+// de estatísticas espera (activity_sessions.category_id, a FK real —
+// diferente de events.category, que é só texto livre). Cache simples: as
+// categorias do usuário não mudam com frequência dentro de uma mesma sessão
+// de uso, e getCategories() já tem seu próprio cache (categoryService.js).
+async function _resolveCategoryId(categoryName) {
+  if (!categoryName) return null;
+  if (!_categoriesByName) {
+    try {
+      const categories = await getCategories();
+      _categoriesByName = new Map(categories.map(c => [c.name, c.id]));
+    } catch {
+      _categoriesByName = new Map();
+    }
+  }
+  return _categoriesByName.get(categoryName) || null;
+}
+
+// Período da toolbar ("all"/"today"/"7d"/"30d", ver #sj-filter-period em
+// index.html) para as chaves aceitas por studyStatisticsService — nenhum
+// controle novo na tela, a seção de Estatísticas reage ao mesmo filtro já
+// usado pela lista de sessões.
+function _statsPeriodFromFilter(period) {
+  if (period === "today") return "today";
+  if (period === "7d") return "week";
+  if (period === "30d") return "month";
+  return "all";
+}
+
+// Estatísticas globais (F17) — agregadas no banco via RPC, independente da
+// paginação da lista de sessões (nunca soma _allEntries/_sessionQuestions
+// no cliente). Falha silenciosamente (mesmo padrão de _loadEventsLookup):
+// um erro aqui não deve impedir o resto do Diário de carregar.
+async function _loadQuestionStatistics() {
+  if (!questionStatsTotalEl) return;
+  try {
+    const categoryId = await _resolveCategoryId(_filters.category);
+    const stats = await getUserQuestionStatistics({
+      period: _statsPeriodFromFilter(_filters.period),
+      categoryId,
+    });
+    questionStatsTotalEl.textContent = String(stats.total);
+    questionStatsCorrectEl.textContent = String(stats.correct);
+    questionStatsIncorrectEl.textContent = String(stats.incorrect);
+    questionStatsAccuracyEl.textContent = `${stats.accuracyPercent}%`;
+    questionStatsAccuracyIconEl.textContent = accuracyIndicator(stats.accuracyPercent).emoji;
+  } catch (err) {
+    handleError(err, { context: "studyJournalView.loadQuestionStatistics", silent: true });
+  }
+}
+
 function _periodStart(period) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -747,6 +823,10 @@ function _onFilterChange() {
     onlyShort: durationSelect?.value === "short",
   };
   _updateAdvancedFiltersCount();
+  // F17 — Estatísticas reage ao mesmo Período/Categoria da lista, mas é uma
+  // RPC independente (não depende de _render()/_allEntries) — dispara em
+  // paralelo, sem bloquear a filtragem em memória abaixo.
+  _loadQuestionStatistics();
   // F15.15 — busca/filtro nunca opera sobre histórico parcial: se ainda há
   // páginas no servidor, carrega o restante antes de filtrar em memória. No
   // caso comum (sem páginas pendentes), _ensureFullHistoryForFilters()
@@ -1055,6 +1135,12 @@ async function _loadPage(reset) {
     if (weekSummariesPanelEl) weekSummariesPanelEl.hidden = true;
   }
 
+  // F17 — recarrega as Estatísticas junto de toda recarga completa: cobre
+  // tanto a carga inicial quanto o reload disparado por SESSION_EVENTS
+  // (_scheduleReload) ao finalizar/cancelar/atualizar uma sessão — a mesma
+  // forma como o resto do Diário já se atualiza sozinho (F6.2).
+  if (reset) _loadQuestionStatistics();
+
   try {
     const { sessions, hasMore } = await listSessions({ status: "finished", limit: PAGE_SIZE, offset: _offset });
     _offset += sessions.length;
@@ -1118,6 +1204,11 @@ export async function initStudyJournalView() {
     emptyEl     = document.getElementById("sj-list-empty");
     loadMoreBtn = document.getElementById("sj-load-more");
     statsEl     = document.getElementById("sj-search-stats");
+    questionStatsTotalEl      = document.getElementById("sj-stats-total");
+    questionStatsCorrectEl    = document.getElementById("sj-stats-correct");
+    questionStatsIncorrectEl  = document.getElementById("sj-stats-incorrect");
+    questionStatsAccuracyEl   = document.getElementById("sj-stats-accuracy");
+    questionStatsAccuracyIconEl = document.getElementById("sj-stats-accuracy-icon");
     partialNoticeEl = document.getElementById("sj-filter-partial-notice");
     milestonesPanelEl = document.getElementById("sj-milestones-panel");
     milestonesListEl  = document.getElementById("sj-milestones-list");
@@ -1209,6 +1300,12 @@ export function resetStudyJournalView() {
     clearStateBlock(emptyEl);
   }
   if (statsEl) statsEl.hidden = true;
+  _categoriesByName = null;
+  [questionStatsTotalEl, questionStatsCorrectEl, questionStatsIncorrectEl].forEach(el => {
+    if (el) el.textContent = "0";
+  });
+  if (questionStatsAccuracyEl) questionStatsAccuracyEl.textContent = "0%";
+  if (questionStatsAccuracyIconEl) questionStatsAccuracyIconEl.textContent = "";
   if (loadMoreBtn) loadMoreBtn.hidden = true;
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
   if (milestonesPanelEl) milestonesPanelEl.hidden = true;

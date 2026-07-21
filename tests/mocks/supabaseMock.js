@@ -46,9 +46,10 @@ function createQueryBuilder(table, result, calls) {
  *   authResponses:  { signInWithPassword: async () => ({ data: {...}, error: null }) },
  * })
  */
-export function createSupabaseMock({ tableResponses = {}, authResponses = {}, functionResponses = {} } = {}) {
+export function createSupabaseMock({ tableResponses = {}, authResponses = {}, functionResponses = {}, rpcResponses = {} } = {}) {
   const calls = [];
   const queues = {};
+  const rpcQueues = {};
 
   const supabase = {
     _calls: calls,
@@ -57,6 +58,15 @@ export function createSupabaseMock({ tableResponses = {}, authResponses = {}, fu
       const queue = queues[table];
       const result = queue.length > 1 ? queue.shift() : queue[0];
       return createQueryBuilder(table, result, calls);
+    },
+    // Mirrors `.rpc(name, args)` — thenable, same shape as a query builder,
+    // resolved directly (no chained filters are used by this project's RPCs).
+    rpc(name, args) {
+      calls.push({ table: null, method: `rpc:${name}`, args: [args] });
+      if (!rpcQueues[name]) rpcQueues[name] = toQueue(rpcResponses[name] ?? { data: null, error: null });
+      const queue = rpcQueues[name];
+      const result = queue.length > 1 ? queue.shift() : queue[0];
+      return Promise.resolve(result);
     },
     functions: {
       invoke: (name, ...args) => {
