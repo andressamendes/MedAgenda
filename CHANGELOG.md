@@ -2,6 +2,119 @@
 
 ---
 
+## [Unreleased] — F15: pós-Auditoria Final 360° (confiança, rotina real, robustez)
+
+Fases executadas a partir de `docs/02_IMPLEMENTATION_ROADMAP.md` (achados
+M1–M20 da Auditoria Final 360°, `docs/01_FINAL_AUDIT_REPORT.md`). Uma PR por
+fase.
+
+### Onda 1 — Confiança (bloqueadores de lançamento)
+
+- **F15.1 — XSS armazenado corrigido na narrativa do Progresso:**
+  `escapeHtml(dominantCategory.name)` no único sink de `innerHTML` sem escape
+  (`activityDashboardView.js`) — o nome da categoria é texto livre e gravável
+  via importação `.ics` de terceiros. Teste de regressão com payload
+  `<img onerror>` renderizando como texto literal.
+- **F15.2 — Edge Function `ai-chat` endurecida:** allowlist de `model`
+  (`gemini-2.5-flash`, 400 fora dela), `temperature` restrita a [0, 1] e
+  `maxTokens` a [1, 2048], e rate limit de 20 chamadas/usuário/hora contadas
+  em `ai_metrics` antes de chamar o Gemini (429 no excesso). O servidor decide
+  modelo, limites e frequência — nunca o cliente.
+- **F15.3 — Observabilidade mínima de produção:** nova tabela `client_errors`
+  (`sql/23_client_errors.sql`, insert-only, RLS sem política de leitura, sem
+  PII — mesmo padrão de `ai_metrics`); `errorService.handleError()` envia
+  fire-and-forget categoria, contexto, mensagem truncada e user agent, com
+  rate limit local (5/min) e deduplicação por assinatura.
+  `EXPECTED_SCHEMA_VERSION` 22 → 23.
+
+### Onda 2 — Rotina real
+
+- **F15.4 — Plano de amanhã consumido no início real da sessão:** o chip
+  "Amanhã: X" deixa de chamar `clearNextStudyPlan()` no clique; o plano só é
+  consumido após `startSession()` bem-sucedido. Fechar o modal sem iniciar
+  preserva a intenção registrada no "Fechar o dia".
+- **F15.5 — Sugestões de início enxergam recorrência:** o chip
+  "Hoje: {compromisso}" nasce de `getEventsByRange` + `expandEvents` (mesmo
+  caminho da tela Hoje) — a aula fixa semanal vira sugestão de um toque, com
+  prioridade para a categoria "Estudo" e deduplicação com o chip "Revisar:".
+- **F15.6 — QuickAdd como caminho padrão do "+ Novo compromisso":** o botão
+  mais visível de criação (e o atalho `N`) abre o QuickAdd (título + hora +
+  Enter) com data de hoje editável; "Mais opções" leva ao formulário completo
+  pré-preenchido. Criação típica cai de ~8 interações para 3.
+- **F15.7 — "Continuar" preserva vínculo e ignora canceladas:** a retomada de
+  1 clique usa `startSessionForEvent(event)` quando o compromisso ainda
+  existe (mantendo `event_id`, categoria herdada e barra de progresso);
+  títulos sugeridos vêm só de sessões `finished`.
+
+### Onda 3 — Robustez
+
+- **F15.8 — Guarda de estado nas transições de sessão:**
+  finish/cancel/pause/resume passam pelo helper `_transition()` com UPDATE
+  condicional (`.in("status", fromStatuses)`) avaliado atomicamente no banco;
+  0 linhas afetadas vira erro de domínio `SESSION_STATE_CONFLICT` — fecha a
+  corrida finalizar×cancelar entre abas, com o mesmo rigor do início de
+  sessão (AUD-001).
+- **F15.9 — `delete-account` mínima e consistente:** removidos os deletes
+  manuais redundantes (todas as FKs de dados de usuário são
+  `ON DELETE CASCADE`); resta autenticação → limpeza do bucket `avatars`
+  (erro checado) → `deleteUser`. Padronizada com as demais functions
+  (`Deno.serve`, import `npm:`, mesma allowlist de CORS do `ai-chat`).
+- **F15.10 — Cache de leitura por carregamento:** `getEvents()` e
+  `getCategories()` memoizam a promessa da consulta por usuário, com
+  invalidação em toda escrita do próprio service e no logout — elimina as
+  consultas redundantes de abertura do app (6+ call sites de `getEvents`).
+- **F15.11 — Batch insert em `generateForEvent`:** as revisões padrão de um
+  compromisso são criadas com 1 SELECT + 1 INSERT em lote, em vez de 3
+  INSERTs sequenciais revalidando o evento a cada um.
+
+## [Unreleased] — Auditoria UX do Diário (Etapas 1–7)
+
+Sete etapas de poda visual sobre `studyJournalView.js`, sem mudança de dado
+ou regra de negócio:
+
+1. Busca e "Analisar" viram botões de ícone.
+2. Cartão de sessão fechado enxuto.
+3. Cabeçalho do grupo do dia em uma linha só.
+4. Remoção do cartão de resumo diário duplicado.
+5. Resumo semanal movido para o painel Analisar.
+6. Barra de estatísticas de busca reduzida a uma linha.
+7. Aviso de paginação parcial rebaixado a nota de rodapé.
+
+## [Unreleased] — F14: da agenda ao ambiente diário de estudo
+
+Roadmap completo da auditoria PX (`docs/F14-AUDITORIA-PX.md`): o app passa a
+abrir no estudo, sugerir em vez de perguntar e fechar o dia.
+
+- **F14.1 — Tela "Hoje" como porta de entrada** (`todayView.js`): novo
+  destino inicial com os compromissos do dia, "Começar a estudar" e
+  "Continuar: {último estudo}" — a Agenda vira segunda tela. Atalho `G H`.
+- **F14.2 — Início de sessão sem digitação:** o modal de pré-início ganha
+  chips de um toque (estudos recentes, compromisso de hoje, revisão pendente
+  mais próxima) que preenchem ou selecionam sem teclado.
+- **F14.3 — Reflexão no encerramento:** campo único opcional ("O que ficou
+  desta sessão?") no modal de resumo, gravando direto em
+  `studyReflectionService` — a reflexão deixa de exigir uma visita separada
+  ao Diário.
+- **F14.4 — "+1 questão" na superfície:** botão com contador direto no card
+  da sessão ativa, sem abrir o painel lateral.
+- **F14.5 — Progresso narrativo** (`progressNarrativeService.js`): a página
+  Progresso troca a grade de 12+ stat-cards por um resumo de 2–3 frases;
+  os números continuam atrás do disclosure "Ver números". A antiga página
+  "Dashboard" é absorvida pela tela Hoje.
+- **F14.6 — Silenciar o software:** cards espontâneos limitados a decisões
+  acionáveis (`filterSpontaneousDecisions()`); o painel de IA consolida 6
+  ações em 2 ("Planejar minha semana" / "Como estou indo").
+- **F14.7 — Menos superfícies:** "Compromissos" vira a aba "Lista" da Agenda;
+  o Diário passa a 2 abas; bottom nav Hoje/Agenda/Sessão/Diário/Mais.
+- **F14.8 — Fechar o dia** (`closeDayService.js` +
+  `sql/22_next_study_plan.sql`): recap de 15 segundos ao fim do dia e campo
+  opcional para o primeiro estudo de amanhã, que reaparece como chip
+  "Amanhã: {título}" no próximo início de sessão.
+  `EXPECTED_SCHEMA_VERSION` 21 → 22.
+- **F14.9 — Modo foco:** botão "Foco" oculta header/sidebar/bottom-nav
+  durante a sessão ativa (puro CSS); Esc restaura, e finalizar/cancelar
+  desliga automaticamente.
+
 ## [Unreleased] — F13.6: microinterações
 
 Penúltima etapa do roadmap F13 (docs/F12-AUDITORIA-RADICAL-UX-UI.md): dá

@@ -4,9 +4,9 @@
 
 ## Visão Geral
 
-O **Anoti** é uma Progressive Web App (PWA) de gerenciamento de agenda projetada especificamente para estudantes de medicina. A aplicação permite organizar um calendário acadêmico e pessoal intenso, cobrindo aulas, plantões, ambulatórios, laboratórios, ligas, estudos, provas, congressos e compromissos pessoais.
+O **Anoti** é uma Progressive Web App (PWA) que funciona como ambiente diário de estudo para estudantes de medicina: uma agenda enxuta (aulas, plantões, ambulatórios, provas, compromissos pessoais) integrada a um ciclo de execução — sessão de estudo cronometrada, registro de questões, revisão espaçada, reflexão no encerramento e fechamento do dia. A tela "Hoje" é a porta de entrada; a Agenda é consulta. Ver [`VISAO_DO_PRODUTO.md`](VISAO_DO_PRODUTO.md).
 
-**Problema que resolve:** a rotina de estudantes de medicina é fragmentada entre múltiplos calendários institucionais, turnos irregulares e períodos de estudo, sem uma ferramenta centralizada que entenda essa realidade. Agendas genéricas não diferenciam categorias médicas nem oferecem análise de carga de trabalho adaptada ao contexto acadêmico.
+**Problema que resolve:** a rotina de estudantes de medicina é fragmentada entre múltiplos calendários institucionais, turnos irregulares e períodos de estudo, sem uma ferramenta centralizada que entenda essa realidade e transforme os intervalos entre compromissos em hábito de estudo. Agendas genéricas não diferenciam categorias médicas, não cronometram o estudo real nem sabem o que precisa ser revisado e quando.
 
 **Público-alvo:** estudantes de medicina, residentes médicos e profissionais de saúde em formação que precisam gerenciar agendas de alta complexidade e densidade.
 
@@ -237,7 +237,7 @@ MedAgenda/
 
 **`/services/ai/`:** camada de integração com IA. Segue o padrão gateway + provider + prompt + parser: `aiService.js` é o único ponto de acesso, `providers/` abstrai qual API é chamada, `prompts/` constrói os contextos enviados ao modelo, `parsers/` normaliza as respostas.
 
-**`/sql/`:** scripts de migração numerados e ordenados (01 a 20). Cada arquivo corresponde a uma funcionalidade — as dez primeiras cobrem Planejamento (eventos, categorias, recorrência, push, perfis, storage, calendário acadêmico, métricas de IA); as dez seguintes (11 a 20) cobrem Execução (sessões de atividade, metas de tempo, revisões, versionamento de schema, questões, vínculo revisão↔sessão, tempo líquido de pausas, reflexões, integridade de sessão única, correção de tipo de meta mensal). Devem ser executados em ordem no banco Supabase. Detalhamento completo em [`DATABASE.md`](DATABASE.md).
+**`/sql/`:** scripts de migração numerados e ordenados (01 a 23). Cada arquivo corresponde a uma funcionalidade — as dez primeiras cobrem Planejamento (eventos, categorias, recorrência, push, perfis, storage, calendário acadêmico, métricas de IA); as seguintes (11 a 23) cobrem Execução e operação (sessões de atividade, metas de tempo, revisões, versionamento de schema, questões, vínculo revisão↔sessão, tempo líquido de pausas, reflexões, integridade de sessão única, correção de tipo de meta mensal, campos de sessão avulsa, plano de amanhã, erros de cliente). Devem ser executados em ordem no banco Supabase. Detalhamento completo em [`DATABASE.md`](DATABASE.md).
 
 **`/supabase/functions/`:** Edge Functions escritas em TypeScript/Deno. Executam no ambiente Supabase — têm acesso a secrets de servidor (chave Gemini, chaves VAPID). O subdiretório `_shared/` contém código compartilhado entre as funções (atualmente `recurrence-core.js`).
 
@@ -265,8 +265,8 @@ MedAgenda/
 
 | Módulo | Responsabilidade |
 |--------|-----------------|
-| `eventService.js` | CRUD completo de eventos pessoais; consultas por intervalo de datas |
-| `categoryService.js` | CRUD de categorias; criação das categorias padrão no primeiro acesso |
+| `eventService.js` | CRUD completo de eventos pessoais; consultas por intervalo de datas; `getEvents()` memoizado por carregamento, invalidado em toda escrita e no logout (F15.10) |
+| `categoryService.js` | CRUD de categorias; criação das categorias padrão no primeiro acesso; `getCategories()` memoizado com a mesma política de invalidação (F15.10) |
 | `academicCalendarService.js` | CRUD de calendários acadêmicos e seus eventos; expansão de eventos multi-dia |
 | `profileService.js` | Leitura e escrita do perfil (nome, universidade, semestre, timezone, tema) |
 | `avatarService.js` | Upload e remoção de avatares via Supabase Storage |
@@ -285,7 +285,7 @@ MedAgenda/
 | Módulo | Responsabilidade |
 |--------|-----------------|
 | `sessionEventBus.js` | Barramento de eventos em memória dos 6 eventos oficiais da Sessão — ver seção "Session Event Bus" |
-| `activitySessionService.js` | Único publicador do Session Event Bus; CRUD e máquina de estados da Sessão (`running`/`paused`/`finished`/`cancelled`), cálculo de duração líquida |
+| `activitySessionService.js` | Único publicador do Session Event Bus; CRUD e máquina de estados da Sessão (`running`/`paused`/`finished`/`cancelled`), cálculo de duração líquida; transições de encerramento com UPDATE condicional ao status de origem — conflito de concorrência vira erro `SESSION_STATE_CONFLICT` (F15.8) |
 | `activitySessionStats.js` | Estatísticas puras sobre um conjunto de sessões (sem acesso ao banco) |
 | `questionService.js` | CRUD puro de Questões (`questions`), sem regras de negócio |
 | `sessionQuestionsService.js` | Orquestra Sessão + Questão: só permite adicionar questão a sessão ativa (`running`/`paused`) |
@@ -302,6 +302,8 @@ MedAgenda/
 | `studyTimelineService.js` | Timeline/evolução do Diário de Estudos, agregação em memória sobre entradas já filtradas |
 | `studySearchService.js` | Busca e filtros do Diário de Estudos, módulo stateless |
 | `planningService.js` | Sugestão de plano semanal de estudo (`computeWeeklyPlan`) — função pura, nunca cria evento/sessão nem grava no banco |
+| `closeDayService.js` | Ritual "Fechar o dia" (F14.8): agrega o recap do dia (tempo, sessões, questões, sequência) de serviços já existentes e persiste o plano de amanhã em `profiles` (`next_study_title`/`next_study_category_id`) |
+| `progressNarrativeService.js` | Narrativa da página Progresso (F14.5): comparação semana atual × anterior e matéria dominante da semana, derivadas dos mesmos fatos do Dashboard — nunca persistidas |
 | `decisionEngine.js` / `recommendationEngine.js` | Regras de decisão e recomendação usadas pelo Assistente/Coach |
 | `userMemoryService.js` | Memória de preferências do usuário consumida pela camada de IA/recomendação |
 | `aiContextService.js` | Consolida o contexto usado pela IA a partir de Sessões/Questões/Revisões; invalidado via Session Event Bus |
@@ -317,8 +319,8 @@ MedAgenda/
 
 | Módulo | Responsabilidade |
 |--------|-----------------|
-| `errorService.js` | Captura, categorização e exibição de erros; modo dev ativa logging detalhado |
-| `telemetryService.js` | Rastreamento de eventos para observabilidade (sem PII) |
+| `errorService.js` | Captura, categorização e exibição de erros; erros de bug são enviados (fire-and-forget, com rate limit local e deduplicação) à tabela `client_errors` — sem PII (F15.3); modo dev ativa logging detalhado |
+| `telemetryService.js` | Rastreamento de eventos em buffer de memória (sem PII, não enviado a nenhum backend) |
 | `diagnosticService.js` | Verificações de saúde: Service Worker, storage, rede, banco |
 | `toastService.js` | Exibição de mensagens toast (sucesso, erro, informação) |
 | `utils.js` | Funções puras: `pad()`, `isoDate()`, `localDate()`, `escapeHtml()`, `truncate()`, `mondayOf()` |
@@ -329,7 +331,8 @@ MedAgenda/
 | Módulo | Responsabilidade |
 |--------|-----------------|
 | `authView.js` | Telas públicas: login, cadastro, confirmação de e-mail, recuperação de senha |
-| `navigationView.js` | Sidebar, bottom-nav mobile, roteamento de páginas, drawer toggle |
+| `navigationView.js` | Sidebar, bottom-nav mobile, roteamento entre as 5 páginas (`today`/`agenda`/`study-session`/`journal`/`progress`), drawer toggle; "Hoje" é o destino inicial e o fallback padrão (F14.1) |
+| `todayView.js` | Tela "Hoje" (F14.1) — porta de entrada do app: compromissos do dia, "Continuar: {último estudo}" (preservando o vínculo com o compromisso, F15.7), "Começar a estudar", no máximo 1 card acionável do Decision Engine e o botão "Fechar o dia" (F14.8) |
 | `eventFormView.js` | Modal de criação e edição de compromissos, incluindo seletor de recorrência |
 | `categoryView.js` | Modal de gerenciamento de categorias (criar, editar, excluir) |
 | `accountView.js` | Modal "Minha Conta": perfil, upload de avatar, troca de senha |
@@ -337,13 +340,13 @@ MedAgenda/
 | `academicCalendarEventsView.js` | Gerenciamento de eventos dentro de um calendário acadêmico |
 | `academicCalendarICSView.js` | UI de importação e exportação ICS para calendários acadêmicos |
 | `academicCalendarFilter.js` | Barra de filtros para visibilidade dos calendários |
-| `aiPanelView.js` | Drawer do chat com Gemini: resumo semanal, sugestões de estudo, análise de conflitos |
+| `aiPanelView.js` | Drawer da IA com 2 ações (F14.6): "Planejar minha semana" e "Como estou indo" — os motores das ações antigas seguem em `services/ai/aiService.js`, sem botão próprio |
 | `calendar.js` | Renderização do calendário mensal com sobreposição de calendários acadêmicos; renderiza dentro da aba "Mês" da página Agenda (F10 #4.1 — não é mais uma página própria) |
 | `weekView.js` | Grade semanal com slots de tempo (7h–23h), 7 dias; renderiza dentro da aba "Semana" da página Agenda, aba padrão (F10 #4.1) |
-| `quickAdd.js` | Criação rápida de evento via clique em slot de tempo |
+| `quickAdd.js` | Criação rápida de evento (título + hora + Enter) — caminho padrão do "+ Novo compromisso" e do atalho `N`, com data editável quando aberto sem slot (F15.6); também disparado pelo clique em slot da grade; "Mais opções" leva ao formulário completo pré-preenchido |
 | `confirmDialog.js` | Modal de confirmação reutilizável |
 | `studySessionView.js` | Tela de sessão em andamento: cronômetro, pausa/retomada, registro de Questões/Revisões (persistidas imediatamente ao adicionar, durante running/paused — F10 #4.3, não mais só no encerramento); ao finalizar, o resumo mostra um recap somente-leitura + Observações, confirma com um toast e navega direto ao Diário (F10 #3.4 — sem tela de resumo intermediária); assina todos os 6 eventos do Session Event Bus |
-| `activityDashboardView.js` | Renderiza o Dashboard de Atividade; assina `SessionStarted/Finished/Cancelled/Updated` |
+| `activityDashboardView.js` | Renderiza a página **Progresso** (F14.5): narrativa de 2–3 frases no topo (`progressNarrativeService.js`) e as grades numéricas atrás do disclosure "Ver números"; assina `SessionStarted/Finished/Cancelled/Updated` |
 | `activityHistoryView.js` | Lista paginada de sessões por status (todas/canceladas); embutida na aba "Canceladas"/"Todas" do Diário de Estudos (F10 #4.2 — não é mais uma página própria); assina `SessionStarted/Finished/Cancelled/Updated` |
 | `insightsView.js` | Central de Insights (execução, metas, revisões, produtividade); assina `SessionFinished/Cancelled/Updated` |
 | `studyJournalView.js` | Diário de Estudos — aba "Concluídas": agrupamento por dia, filtros, busca, resumos, marcos, narrativa, timeline e Reflexão; abas "Canceladas"/"Todas" delegadas a `activityHistoryView.js`; assina `SessionFinished/Cancelled/Updated` |
@@ -404,9 +407,9 @@ MedAgenda/
 
 ### Criação de Compromisso
 
-1. Usuário clica no botão "+" ou em um slot da agenda semanal
-2. Modal `#event-modal` abre com campos pré-preenchidos (data/hora se via slot)
-3. Usuário preenche título, data, hora, categoria, recorrência, lembrete
+1. Usuário clica em "+ Novo compromisso" (ou atalho `N`) → abre o **QuickAdd** com a data de hoje editável (F15.6); clicar em um slot da agenda abre o QuickAdd com data/hora do slot
+2. Caminho rápido: título + hora + Enter salva direto; "Mais opções" abre o formulário completo `#event-modal` pré-preenchido
+3. No formulário completo, usuário preenche título, data, hora, categoria, recorrência, lembrete
 4. `eventService.createEvent()` envia para Supabase
 5. RLS valida que `user_id = auth.uid()`
 6. Evento salvo → views de calendário e agenda são atualizadas
@@ -450,15 +453,13 @@ MedAgenda/
 
 ### Assistente IA
 
-1. Usuário clica em "Assistente IA" na sidebar (ícone de rascunho)
-2. Drawer `#ai-panel` abre
-3. Usuário escolhe o tipo de análise:
-   - **Resumo da semana:** eventos da semana atual enviados ao Gemini; retorna análise narrativa em português
-   - **Sugestões de estudo:** eventos dos próximos 14 dias; retorna 3–5 slots livres recomendados
-   - **Análise de agenda:** eventos dos próximos 30 dias; identifica conflitos e riscos de sobrecarga
-4. `aiPanelView` → `aiService` → `geminiProvider` → Edge Function `ai-chat` → Gemini API
-5. Edge Function valida JWT, constrói prompt, chama Gemini, retorna resposta
-6. Resposta exibida no drawer em português
+1. Usuário clica em "Assistente IA" na sidebar
+2. Drawer `#ai-panel` abre com 2 ações (F14.6):
+   - **Planejar minha semana:** sugestões estruturadas por prioridade (Planning Engine + Gemini)
+   - **Como estou indo:** reflexão narrativa sobre a execução recente
+3. `aiPanelView` → `aiService` → `geminiProvider` → Edge Function `ai-chat` → Gemini API
+4. Edge Function valida JWT, aplica allowlist de modelo, clamps de `temperature`/`maxTokens` e rate limit por usuário (20 chamadas/hora via `ai_metrics`, F15.2), constrói o prompt, chama o Gemini e retorna a resposta
+5. Resposta exibida no drawer em português
 
 ### Push Notifications
 
@@ -530,7 +531,9 @@ providers/geminiProvider.js
         ↓
 supabase/functions/ai-chat/index.ts
   — valida JWT (auth.getUser)
-  — valida e sanitiza payload
+  — valida e sanitiza payload: allowlist de model (gemini-2.5-flash),
+    temperature ∈ [0, 1], maxTokens ∈ [1, 2048] (F15.2)
+  — rate limit por usuário: 20 chamadas/hora contadas em ai_metrics (429 no excesso)
   — constrói prompt final com contexto dos eventos
   — chama Gemini API com chave do ambiente (secret)
   — loga métricas (tipo, duração, sucesso)
@@ -675,28 +678,32 @@ Supabase Cloud
 
 ## Estado Atual
 
-**Versão:** inclui Calendário Acadêmico (v1.1.0), Assistente IA, e o domínio completo de Execução de Estudo (Sessão, Questões, Revisões, Reflexão) introduzido nas fases F6–F8. Schema de banco na versão 20 (`public.schema_version`).
+**Versão:** inclui Calendário Acadêmico, Assistente IA (2 ações), o domínio completo de Execução de Estudo (Sessão, Questões, Revisões, Reflexão — F6–F8), a jornada diária de estudo do ciclo F14 (tela Hoje, início sem digitação, reflexão no encerramento, progresso narrativo, fechar o dia, modo foco) e o endurecimento pós-Auditoria Final 360° do ciclo F15 (hardening da `ai-chat`, observabilidade de erros de cliente, guarda de estado nas transições, caches de leitura). Schema de banco na versão 23 (`public.schema_version`).
 
 **Funcionalidades implementadas:**
 
 - Autenticação completa: login, cadastro, recuperação de senha, confirmação de e-mail, exclusão de conta com cascade de dados
+- Tela "Hoje" como porta de entrada: compromissos do dia, continuar/começar estudo em 1–2 cliques, "Fechar o dia" com recap e plano de amanhã
 - CRUD de eventos pessoais com 8 tipos de recorrência
-- Visualização mensal (calendário) e semanal (grade com slots de tempo)
-- Criação rápida via clique em slot de tempo
+- Visualização mensal (calendário), semanal (grade com slots de tempo) e em lista (aba "Lista" da Agenda)
+- Criação rápida (QuickAdd) como caminho padrão do "+ Novo compromisso" e do clique em slot de tempo
 - 8 categorias padrão + categorias customizadas com cores
 - Calendários acadêmicos: múltiplos por usuário, sobreposição no calendário, filtros de visibilidade
 - Importação e exportação de eventos via iCalendar (.ics)
 - Notificações locais (app aberto) com janela de agendamento de 7 dias
 - Notificações push Web Push com VAPID (app fechado), enviadas via Edge Function agendada
-- Assistente IA com Google Gemini: resumo semanal, sugestões de estudo, análise de conflitos e sobrecarga
+- Assistente IA com Google Gemini, 2 ações ("Planejar minha semana" / "Como estou indo"), com allowlist de modelo, clamps e rate limit por usuário no servidor
 - Assistente inteligente local baseado em regras (fallback e uso independente)
-- Perfil de usuário: nome, universidade, semestre, timezone, avatar, tema, Metas de Tempo (diária/semanal/mensal)
-- Sessão de Estudo: cronômetro com pausa/retomada, duração líquida, recuperação de sessão abandonada, vínculo opcional a um compromisso
+- Perfil de usuário: nome, universidade, semestre, timezone, avatar, tema, Metas de Tempo (diária/semanal/mensal), plano do próximo estudo
+- Sessão de Estudo: cronômetro com pausa/retomada, duração líquida, recuperação de sessão abandonada, vínculo opcional a um compromisso, início por chips de sugestão (sem digitação, com recorrência expandida), "+1 questão" em um toque, modo foco e reflexão no encerramento
+- Transições de sessão com guarda de estado no banco (UPDATE condicional) — concorrência entre abas vira erro de domínio, nunca sobrescrita silenciosa
 - Questões resolvidas durante a Sessão (tipo, dificuldade, matéria, status)
 - Revisões com repetição espaçada, vinculáveis à Sessão que as executou
 - Reflexão da Sessão (1:1) e Diário de Estudos: agrupamento por dia, filtros, busca, resumos narrativos, marcos e timeline — todos projeções em memória
-- Dashboard de Atividade, Histórico de Sessões e Central de Insights, reativos ao Session Event Bus
+- Página Progresso narrativa (frases primeiro, números atrás de disclosure), Histórico de Sessões e Central de Insights, reativos ao Session Event Bus
 - Subject Progress, Study Streak e Achievements como projeções derivadas de Sessões/Questões
+- Observabilidade de produção: erros de bug do cliente gravados em `client_errors` (insert-only, sem PII, rate-limited)
+- Cache de leitura por carregamento para eventos e categorias, invalidado por escrita e logout
 - Proteção contra divergência de schema (`schema_version` + validação no deploy)
 - PWA instalável com suporte offline para dados em cache
 - Modo desenvolvedor com logging detalhado

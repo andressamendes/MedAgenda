@@ -2,26 +2,34 @@
 
 ## Missão
 
-Organizar a rotina de compromissos do estudante de Medicina de forma simples, rápida e visual.
+Ser o ambiente diário de estudo do estudante de Medicina: uma agenda enxuta que sabe o que você tem hoje, um cronômetro que registra o que você de fato estudou, uma reflexão no momento certo e uma revisão espaçada que lembra por você.
+
+## Tese
+
+> **"Planeje pouco, estude muito, feche o dia."**
+
+O Anoti não é uma agenda que por acaso tem um cronômetro — é um ciclo diário completo:
+
+1. **Chegar** — a tela Hoje mostra os compromissos do dia e um convite único: continuar o último estudo (1 clique) ou começar um novo (2 cliques, sem digitação no caso comum).
+2. **Executar** — a Sessão de Estudo cronometra com pausa líquida, registra questões em um toque ("+1 questão") e associa revisões, tudo sem sair da tela. O modo foco esconde o resto do app.
+3. **Refletir** — ao encerrar, um único campo opcional ("O que ficou desta sessão?") grava a reflexão com a memória ainda quente.
+4. **Fechar** — "Fechar o dia" mostra um recap de 15 segundos e registra a intenção do primeiro estudo de amanhã, que reaparece como sugestão de um toque na manhã seguinte.
+
+A memória de longo prazo vive no **Diário** (o que estudei, com busca e filtros) e no **Progresso** (uma narrativa de 2–3 frases que interpreta a semana; números atrás de um disclosure — "mede em silêncio, fala em frases").
 
 ## Público-Alvo
 
-Estudantes de Medicina em qualquer fase do curso — desde o ciclo básico até o internato — que precisam gerenciar uma rotina intensa e variada de compromissos acadêmicos e clínicos.
-
-## Filosofia
-
-> **"Menos gestão, mais marcação rápida."**
-
-O Anoti existe para eliminar a fricção entre ter um compromisso e registrá-lo. A ferramenta deve sair do caminho e deixar o estudante focar no que importa: a sua rotina.
+Estudantes de Medicina em qualquer fase do curso — do ciclo básico ao internato — cuja semana é a mais repetitiva das personas de produtividade: mesma aula às terças, mesmo plantão às sextas, e uma necessidade constante de estudar e revisar entre um compromisso e outro.
 
 ## Princípios de Design
 
-- **Interface limpa** — Sem distrações visuais. Só o que é necessário aparece em tela.
-- **Poucos cliques** — Qualquer compromisso deve ser registrado em no máximo 3 interações.
-- **Cadastro rápido** — Formulários curtos, valores padrão inteligentes, sem campos desnecessários.
-- **Organização visual** — A agenda deve comunicar a semana de forma imediata, sem necessidade de leitura detalhada.
-- **Recorrência simples** — Compromissos que se repetem (plantões semanais, aulas fixas) devem ser configurados com um único gesto.
-- **Lembretes eficientes** — Notificações no momento certo, sem spam e sem silêncio.
+- **O app abre no estudo, não na administração** — Hoje é a porta de entrada; a Agenda é consulta.
+- **Poucos cliques, zero digitação no caso comum** — continuar o último estudo é 1 clique; começar pela aula recorrente de hoje é 2; criar um compromisso típico é título + hora + Enter (QuickAdd).
+- **Sugere em vez de perguntar** — chips de sugestão (último estudo, compromisso de hoje, revisão pendente, plano de amanhã) substituem formulários sempre que houver dado para isso.
+- **Silêncio como política** — no máximo 1 card espontâneo, e só de decisões acionáveis; crítica passiva ("baixa execução") só aparece sob demanda.
+- **Narrativa antes de grade** — toda superfície analítica fala primeiro em frases; grades numéricas ficam atrás de disclosures.
+- **Fatos gravados, indicadores derivados** — sessões, questões, revisões e reflexões são persistidas; streaks, conquistas, resumos e marcos são sempre recalculados, nunca gravados.
+- **Recorrência simples** — compromissos que se repetem (plantões, aulas fixas) configurados com um único gesto e reconhecidos em todas as superfícies.
 
 ## Categorias de Compromissos
 
@@ -40,13 +48,11 @@ As categorias foram definidas a partir da rotina real do estudante de Medicina:
 
 ## Fora do Escopo
 
-O Anoti é uma agenda de compromissos. Ele não é, e não pretende ser:
+O Anoti é um ambiente diário de estudo. Ele não é, e não pretende ser:
 
-- Checklist de tarefas
-- To-do list
-- Rastreador de hábitos
-- Planner de produtividade
-- Diário ou journal
-- Sistema de gestão de estudos (flashcards, cronogramas de revisão, etc.)
+- **BI pessoal** — dashboards de métricas pela métrica; todo número exibido serve a uma decisão de estudo, e nunca fica na frente do convite de estudar
+- **Gamificação** — sem XP, níveis, ranking ou pressão artificial; conquistas e sequências existem como constatação, não como cobrança
+- **Colaboração** — sem compartilhamento de agendas, grupos de estudo ou feed social; os dados são de um único usuário
+- **Ferramenta configurável estilo Notion** — sem campos customizados, templates ou automações; o produto acerta por decidir, não por delegar a decisão
 
-Essas funcionalidades existem em outras ferramentas. O Anoti resolve um problema específico: saber o que você tem, quando você tem, de forma rápida e visual.
+Essas funcionalidades existem em outras ferramentas. O Anoti resolve um problema específico: transformar a rotina acadêmica em hábito diário de estudo — saber o que você tem, estudar com foco, registrar o que ficou e rever na hora certa.
