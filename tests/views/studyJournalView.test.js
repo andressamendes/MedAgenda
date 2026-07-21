@@ -26,6 +26,14 @@ const QUESTIONS_SPECIFIER = new URL("../../sessionQuestionsService.js", import.m
 const REVIEWS_SPECIFIER  = new URL("../../reviewSessionService.js", import.meta.url).href;
 const REFLECTION_SPECIFIER = new URL("../../studyReflectionService.js", import.meta.url).href;
 const ERROR_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
+// F17 — studyJournalView.js agora importa studyStatisticsService.js (seção
+// "Estatísticas") e categoryService.js (resolve nome → category_id para o
+// filtro da RPC); mockados como qualquer outra dependência — sem isto, o
+// import real de categoryService.js arrastaria supabase.js (CDN de verdade)
+// para dentro deste teste, mesmo motivo do comentário acima sobre
+// activityHistoryView.js.
+const STATISTICS_SPECIFIER = new URL("../../studyStatisticsService.js", import.meta.url).href;
+const CATEGORY_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
 
 // Constrói uma versão em lote { [sessionId]: value } a partir de uma função
 // por sessão (o estilo antigo, ainda usado pela maioria dos testes abaixo) —
@@ -106,8 +114,38 @@ function loadView(t, overrides = {}) {
     },
   });
 
+  const statisticsCalls = [];
+  t.mock.module(STATISTICS_SPECIFIER, {
+    namedExports: {
+      getUserQuestionStatistics: overrides.getUserQuestionStatistics ?? (async (filters) => {
+        statisticsCalls.push(filters);
+        return { total: 0, correct: 0, incorrect: 0, accuracyPercent: 0 };
+      }),
+      summarizeSessionQuestions: overrides.summarizeSessionQuestions ?? ((questions) => {
+        const correct = (questions || []).reduce((sum, q) => sum + (q.correct_count || 0), 0);
+        const incorrect = (questions || []).reduce((sum, q) => sum + (q.incorrect_count || 0), 0);
+        const total = correct + incorrect;
+        return { total, correct, incorrect, accuracyPercent: total ? Math.round((correct / total) * 100) : 0 };
+      }),
+      accuracyIndicator: overrides.accuracyIndicator ?? ((percent) => {
+        if (percent >= 70) return { emoji: "🟢", level: "high" };
+        if (percent >= 50) return { emoji: "🟡", level: "medium" };
+        return { emoji: "🔴", level: "low" };
+      }),
+    },
+  });
+
+  t.mock.module(CATEGORY_SPECIFIER, {
+    namedExports: {
+      getCategories: overrides.getCategories ?? (async () => []),
+    },
+  });
+
   return import(`../../studyJournalView.js?t=${Math.random()}`)
-    .then(mod => ({ mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls, setHistoryStatusCalls }));
+    .then(mod => ({
+      mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls,
+      setHistoryStatusCalls, statisticsCalls,
+    }));
 }
 
 beforeEach(() => {
@@ -288,6 +326,202 @@ test("a session with no questions/reviews/notes shows the empty placeholders in 
   assert.match(detailEl.textContent, /Nenhuma observação registrada\./);
   assert.match(detailEl.textContent, /Sem reflexão\./);
   assert.match(detailEl.textContent, /Adicionar reflexão/);
+});
+
+// ── F17 — resumo (questões/acertos/erros/índice) no bloco "Questões" do
+// detalhe de cada sessão.
+
+test("F17 — a session with only correct answers shows the summary with 0 erros", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    listQuestions: async () => [{ id: "q1", question_type: "multiple_choice", status: "answered", correct_count: 8, incorrect_count: 0 }],
+  });
+
+  await mod.initStudyJournalView();
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  assert.match(detailEl.textContent, /8 questões/);
+  assert.match(detailEl.textContent, /8 acertos/);
+  assert.match(detailEl.textContent, /0 erros/);
+  assert.match(detailEl.textContent, /100%/);
+});
+
+test("F17 — a session with only wrong answers shows the summary with 0 acertos", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    listQuestions: async () => [{ id: "q1", question_type: "multiple_choice", status: "answered", correct_count: 0, incorrect_count: 4 }],
+  });
+
+  await mod.initStudyJournalView();
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  assert.match(detailEl.textContent, /4 questões/);
+  assert.match(detailEl.textContent, /0 acertos/);
+  assert.match(detailEl.textContent, /4 erros/);
+  assert.match(detailEl.textContent, /0%/);
+});
+
+test("F17 — a session with both correct and wrong answers shows the combined summary (8 questões, 6 acertos, 2 erros, 75%)", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    listQuestions: async () => [{ id: "q1", question_type: "multiple_choice", status: "answered", correct_count: 6, incorrect_count: 2 }],
+  });
+
+  await mod.initStudyJournalView();
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  assert.match(detailEl.textContent, /8 questões/);
+  assert.match(detailEl.textContent, /6 acertos/);
+  assert.match(detailEl.textContent, /2 erros/);
+  assert.match(detailEl.textContent, /75%/);
+});
+
+test("F17 — a session with no questions shows only 'Nenhuma questão registrada.', no summary line", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    listQuestions: async () => [],
+  });
+
+  await mod.initStudyJournalView();
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  assert.match(detailEl.textContent, /Nenhuma questão registrada\./);
+  assert.strictEqual(detailEl.querySelector(".sj-detail-summary"), null);
+});
+
+test("F17 — a legacy question (no correct_count/incorrect_count) counts as zero, not as a pending unknown", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    listQuestions: async () => [{ id: "q1", question_type: "multiple_choice", status: "answered" }],
+  });
+
+  await mod.initStudyJournalView();
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  // A questão em si continua listada (histórico preservado); só o resumo
+  // agregado some, já que 0 acertos + 0 erros = nenhum dado de resultado.
+  assert.strictEqual(detailEl.querySelector(".sj-detail-summary"), null);
+  assert.match(detailEl.textContent, /Múltipla escolha/);
+});
+
+// ── F17 — seção fixa "Estatísticas" acima da lista de sessões ──────────────
+
+test("F17 — Estatísticas: renders total/acertos/erros/índice from getUserQuestionStatistics() on initial load", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+    getUserQuestionStatistics: async () => ({ total: 20, correct: 15, incorrect: 5, accuracyPercent: 75 }),
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-stats-total").textContent, "20");
+  assert.strictEqual(document.getElementById("sj-stats-correct").textContent, "15");
+  assert.strictEqual(document.getElementById("sj-stats-incorrect").textContent, "5");
+  assert.strictEqual(document.getElementById("sj-stats-accuracy").textContent, "75%");
+  assert.strictEqual(document.getElementById("sj-stats-accuracy-icon").textContent, "🟢");
+});
+
+test("F17 — Estatísticas: shows 🔴 below 50%, 🟡 between 50-69%, 🟢 at 70%+", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+    getUserQuestionStatistics: async () => ({ total: 10, correct: 4, incorrect: 6, accuracyPercent: 40 }),
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-stats-accuracy-icon").textContent, "🔴");
+});
+
+test("F17 — Estatísticas: with no questions at all, shows zeros without dividing by zero", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+    getUserQuestionStatistics: async () => ({ total: 0, correct: 0, incorrect: 0, accuracyPercent: 0 }),
+  });
+
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-stats-total").textContent, "0");
+  assert.strictEqual(document.getElementById("sj-stats-accuracy").textContent, "0%");
+  assert.strictEqual(document.getElementById("sj-stats-accuracy-icon").textContent, "🔴");
+});
+
+test("F17 — Estatísticas: changing the period filter re-fetches with the mapped period", async (t) => {
+  const { mod, statisticsCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-period").value = "7d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change", { bubbles: true }));
+  await tick();
+
+  const lastCall = statisticsCalls[statisticsCalls.length - 1];
+  assert.strictEqual(lastCall.period, "week");
+});
+
+test("F17 — Estatísticas: changing the category filter resolves the category name to its id via getCategories()", async (t) => {
+  const session = {
+    id: "sess-1", event_id: "event-1", status: "finished",
+    started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30,
+  };
+  const { mod, statisticsCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "event-1", title: "Plantão UPA", category: "Estágio" }],
+    getCategories: async () => [{ id: "cat-1", name: "Estágio" }],
+  });
+  await mod.initStudyJournalView();
+
+  document.getElementById("sj-filter-category").value = "Estágio";
+  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change", { bubbles: true }));
+  await tick();
+
+  const lastCall = statisticsCalls[statisticsCalls.length - 1];
+  assert.strictEqual(lastCall.categoryId, "cat-1");
+});
+
+test("F17 — Estatísticas: finishing a session (SessionFinished) reloads the global stats too", async (t) => {
+  const { mod, statisticsCalls } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+  const callsBefore = statisticsCalls.length;
+
+  publish(SESSION_EVENTS.FINISHED, {});
+  await tick();
+
+  assert.ok(statisticsCalls.length > callsBefore, "a full reload must also refresh the Estatísticas section");
+});
+
+test("F17 — Estatísticas: resetStudyJournalView() clears the displayed numbers back to zero", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+    getUserQuestionStatistics: async () => ({ total: 20, correct: 15, incorrect: 5, accuracyPercent: 75 }),
+  });
+  await mod.initStudyJournalView();
+  assert.strictEqual(document.getElementById("sj-stats-total").textContent, "20");
+
+  mod.resetStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-stats-total").textContent, "0");
+  assert.strictEqual(document.getElementById("sj-stats-correct").textContent, "0");
+  assert.strictEqual(document.getElementById("sj-stats-incorrect").textContent, "0");
+  assert.strictEqual(document.getElementById("sj-stats-accuracy").textContent, "0%");
+  assert.strictEqual(document.getElementById("sj-stats-accuracy-icon").textContent, "");
 });
 
 // ── Reflexão da Sessão (F8.2) ────────────────────────────────────────────

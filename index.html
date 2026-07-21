@@ -614,23 +614,14 @@
               <button type="button" class="btn btn-primary"   id="ss-btn-finish" hidden>Finalizar</button>
             </div>
 
-            <!-- F14.4 — registrar uma questão respondida sem sair da sessão
-                 ativa nem abrir o painel: mesmo defaults/escrita de
-                 _quickAddQuestion() (múltipla escolha, média, já respondida),
-                 só que a um toque de distância na superfície principal. O
-                 contador espelha ss-questions-count. -->
+            <!-- F17 — "+1 questão" (registro fora do painel, sem
+                 correta/incorreta) foi removido: "Questões e revisões" é o
+                 único ponto de entrada para registrar questões. O badge
+                 combina as duas contagens (ss-questions-count/
+                 ss-reviews-count nunca pararam de ser atualizados por
+                 studySessionView.js — só ganharam este espelho visível mesmo
+                 com o painel fechado). -->
             <div class="ss-quick-actions-row">
-              <button type="button" class="btn btn-primary ss-quick-question-main-btn" id="ss-btn-quick-question-main">
-                <span class="ss-quick-question-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="4 12.5 9.5 18 20 6"/></svg></span>
-                +1 questão<span id="ss-quick-question-main-count" class="ss-section-count"></span>
-              </button>
-
-              <!-- F13.4 — Questões/Revisões saíram da coluna principal (empilhadas
-                   sob disclosure) para um painel lateral sob demanda, mesmo padrão
-                   de #ai-panel. Este botão é o único gatilho; o badge combina as
-                   duas contagens (ss-questions-count/ss-reviews-count nunca
-                   pararam de ser atualizados por studySessionView.js — só ganharam
-                   este espelho visível mesmo com o painel fechado). -->
               <button type="button" class="btn btn-secondary ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
                 Questões e revisões<span id="ss-panel-badge" class="ss-section-count"></span>
               </button>
@@ -669,10 +660,23 @@
               <ul id="ss-questions-list" class="ss-questions-list"></ul>
               <p id="ss-questions-empty" class="ss-questions-empty">Nenhuma questão adicionada ainda.</p>
 
-              <button type="button" class="btn btn-secondary btn-sm ss-quick-question-btn" id="ss-btn-quick-question">
-                <span class="ss-quick-question-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="4 12.5 9.5 18 20 6"/></svg></span>
-                Registrar questão respondida
-              </button>
+              <!-- F17 — registro rápido: quantidade + erros, obrigatórios em
+                   todo lançamento (simples ou detalhado). Um lançamento pode
+                   cobrir várias questões resolvidas de uma vez (ex.: "8
+                   questões, 2 erros"), não só uma. -->
+              <div class="ss-question-form-row">
+                <label for="ss-q-quick-total">Questões resolvidas</label>
+                <input type="number" id="ss-q-quick-total" min="1" step="1" value="1" inputmode="numeric">
+
+                <label for="ss-q-quick-errors">Erros</label>
+                <input type="number" id="ss-q-quick-errors" min="0" step="1" value="0" inputmode="numeric">
+
+                <button type="button" class="btn btn-secondary btn-sm ss-quick-question-btn" id="ss-btn-quick-question">
+                  <span class="ss-quick-question-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="4 12.5 9.5 18 20 6"/></svg></span>
+                  Registrar
+                </button>
+              </div>
+              <p id="ss-quick-question-error" class="error" hidden></p>
               <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-toggle-question-form" aria-expanded="false" aria-controls="ss-question-form">+ Adicionar com detalhes</button>
 
               <div id="ss-question-form" class="ss-question-form" hidden>
@@ -706,6 +710,14 @@
                   <label for="ss-q-topic">Tópico</label>
                   <input type="text" id="ss-q-topic" placeholder="Ex.: Insuficiência cardíaca">
                 </div>
+                <div class="ss-question-form-row">
+                  <label for="ss-q-total">Questões resolvidas</label>
+                  <input type="number" id="ss-q-total" min="1" step="1" value="1" inputmode="numeric">
+
+                  <label for="ss-q-errors">Erros</label>
+                  <input type="number" id="ss-q-errors" min="0" step="1" value="0" inputmode="numeric">
+                </div>
+                <p id="ss-question-form-error" class="error" hidden></p>
                 <div class="ss-question-form-actions">
                   <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-add-question">Adicionar questão</button>
                   <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-cancel-question">Cancelar</button>
@@ -883,6 +895,33 @@
           <div class="page-header">
             <h1 class="page-title">Diário</h1>
           </div>
+
+          <!-- F17 — Estatísticas: seção fixa acima da lista de sessões,
+               agregada no banco (studyStatisticsService.getUserQuestionStatistics(),
+               RPC get_question_statistics) e reagindo aos mesmos filtros de
+               Período/Categoria já usados pela lista (sj-filter-period/
+               sj-filter-category) — nenhum controle novo. Reaproveita
+               .stat-cards/.stat-card (mesmo componente do Dashboard/
+               Insights/Progresso), nenhum estilo novo. -->
+          <div class="stat-cards sj-stats" id="sj-stats" aria-label="Estatísticas de questões">
+            <div class="stat-card">
+              <span class="stat-card-title">Questões respondidas</span>
+              <span class="stat-card-value" id="sj-stats-total">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-title">Acertos</span>
+              <span class="stat-card-value" id="sj-stats-correct">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-title">Erros</span>
+              <span class="stat-card-value" id="sj-stats-incorrect">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-title">Índice de acerto</span>
+              <span class="stat-card-value"><span id="sj-stats-accuracy-icon" aria-hidden="true"></span> <span id="sj-stats-accuracy">0%</span></span>
+            </div>
+          </div>
+
           <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
             <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
             <button type="button" class="tab" data-status="all" role="tab" aria-selected="false">Todas</button>

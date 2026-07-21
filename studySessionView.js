@@ -55,11 +55,6 @@ const QUESTION_TYPE_LABELS = {
   open:             "Dissertativa",
   flashcard:        "Flashcard",
 };
-const QUESTION_STATUS_LABELS = {
-  pending:  "Pendente",
-  answered: "Respondida",
-  skipped:  "Pulada",
-};
 const QUESTION_DIFFICULTY_LABELS = {
   easy:   "Fácil",
   medium: "Média",
@@ -130,9 +125,11 @@ let ssfReflectionEl, ssfBtnBack, ssfBtnConfirm;
 // aguardando a confirmação do encerramento.
 let sqListEl, sqEmptyEl;
 let sqTypeEl, sqStatusEl, sqDifficultyEl, sqSubjectEl, sqTopicEl, sqBtnAdd, sqBtnQuick;
-// F14.4 — "+1 questão": mesmo caminho de escrita de sqBtnQuick, só que na
-// superfície principal do card ss-active, sem exigir abrir o painel.
-let sqBtnQuickMain, sqQuickMainCountEl;
+// F17 — quantidade + erros, obrigatórios em todo lançamento (rápido e
+// detalhado): substituem o antigo default fixo (sempre "1 questão
+// respondida") por um resultado real (correct_count/incorrect_count).
+let sqQuickTotalEl, sqQuickErrorsEl, sqQuickErrorEl;
+let sqTotalEl, sqErrorsEl, sqFormErrorEl;
 // F10 #3.3 — o formulário de adicionar/editar questão nasce oculto atrás de
 // "+ Adicionar questão"; só aparece ao abrir (sqBtnToggleForm), ao editar um
 // item da lista (_editQuestion) ou permanece aberto entre adições
@@ -258,8 +255,12 @@ function _queryElements() {
   sqTopicEl      = document.getElementById("ss-q-topic");
   sqBtnAdd       = document.getElementById("ss-btn-add-question");
   sqBtnQuick     = document.getElementById("ss-btn-quick-question");
-  sqBtnQuickMain    = document.getElementById("ss-btn-quick-question-main");
-  sqQuickMainCountEl = document.getElementById("ss-quick-question-main-count");
+  sqQuickTotalEl  = document.getElementById("ss-q-quick-total");
+  sqQuickErrorsEl = document.getElementById("ss-q-quick-errors");
+  sqQuickErrorEl  = document.getElementById("ss-quick-question-error");
+  sqTotalEl       = document.getElementById("ss-q-total");
+  sqErrorsEl      = document.getElementById("ss-q-errors");
+  sqFormErrorEl   = document.getElementById("ss-question-form-error");
   sqFormEl        = document.getElementById("ss-question-form");
   sqBtnToggleForm = document.getElementById("ss-btn-toggle-question-form");
   sqBtnCancel     = document.getElementById("ss-btn-cancel-question");
@@ -359,7 +360,6 @@ function _bindEvents() {
   bindModalBehavior(ssPanelOverlayEl, () => !ssPanelEl.hidden, _closeSsPanel, ssPanelEl);
   sqBtnAdd.addEventListener("click", () => _submitQuestionForm());
   sqBtnQuick.addEventListener("click", () => _quickAddQuestion());
-  sqBtnQuickMain.addEventListener("click", () => _quickAddQuestion());
   srBtnAssociate.addEventListener("click", () => _associateExistingReview());
   srBtnCreate.addEventListener("click", () => _createAndAssociateReview());
 
@@ -1007,12 +1007,37 @@ function _resetQuestionForm({ keepSubjectTopic = false } = {}) {
   sqTypeEl.value       = "multiple_choice";
   sqStatusEl.value     = "pending";
   sqDifficultyEl.value = "medium";
+  sqTotalEl.value      = "1";
+  sqErrorsEl.value     = "0";
+  if (sqFormErrorEl) sqFormErrorEl.hidden = true;
   if (!keepSubjectTopic) {
     sqSubjectEl.value = "";
     sqTopicEl.value   = "";
   }
   _editingQuestionId = null;
   sqBtnAdd.textContent = "Adicionar questão";
+}
+
+// F17 — valida quantidade/erros de um lançamento (rápido ou detalhado):
+// quantidade precisa ser um inteiro ≥ 1 e erros um inteiro entre 0 e a
+// quantidade — nunca mais erros do que questões resolvidas no mesmo
+// lançamento. Retorna { correct_count, incorrect_count } ou null (+ mensagem
+// no elemento de erro passado) quando inválido.
+function _readQuestionCounts(totalEl, errorsEl, errorEl) {
+  const total  = parseInt(totalEl.value, 10);
+  const errors = parseInt(errorsEl.value, 10);
+  let message = null;
+  if (!Number.isInteger(total) || total < 1) {
+    message = "Informe ao menos 1 questão resolvida.";
+  } else if (!Number.isInteger(errors) || errors < 0 || errors > total) {
+    message = "O número de erros não pode ser maior que o de questões resolvidas.";
+  }
+  if (errorEl) errorEl.hidden = !message;
+  if (message) {
+    if (errorEl) errorEl.textContent = message;
+    return null;
+  }
+  return { correct_count: total - errors, incorrect_count: errors };
 }
 
 function _renderQuestionsList() {
@@ -1023,19 +1048,18 @@ function _renderQuestionsList() {
     if (_sessionQuestions.length !== _sqLastCount) pulseUpdate(sqCountEl);
     _sqLastCount = _sessionQuestions.length;
   }
-  if (sqQuickMainCountEl) {
-    sqQuickMainCountEl.textContent = _sessionQuestions.length ? ` (${_sessionQuestions.length})` : "";
-  }
   _updateSsPanelBadge();
 
   _sessionQuestions.forEach(q => {
     const li = document.createElement("li");
     li.className = "ss-question-item";
     const subjectTopic = [q.subject, q.topic].filter(Boolean).map(escapeHtml).join(" — ");
+    const correct = q.correct_count || 0;
+    const incorrect = q.incorrect_count || 0;
     li.innerHTML = `
       <div class="ss-question-item-info">
         <span>${QUESTION_TYPE_LABELS[q.question_type] || q.question_type}</span>
-        <span>${QUESTION_STATUS_LABELS[q.status] || q.status}</span>
+        <span>${correct} ${correct === 1 ? "acerto" : "acertos"}, ${incorrect} ${incorrect === 1 ? "erro" : "erros"}</span>
         <span>${QUESTION_DIFFICULTY_LABELS[q.difficulty] || q.difficulty}</span>
         ${subjectTopic ? `<span>${subjectTopic}</span>` : ""}
       </div>
@@ -1060,11 +1084,15 @@ function _renderQuestionsList() {
 // sessionQuestionsService.addQuestion() — o mesmo usado por
 // _submitQuestionForm(). Quem precisar de matéria/tópico/outro tipo usa
 // "+ Adicionar com detalhes" ou edita o item recém-criado na lista.
+// F17 — quantidade/erros (obrigatórios) substituem o antigo default fixo de
+// "1 questão respondida"; um único lançamento pode cobrir várias questões.
 async function _quickAddQuestion() {
   if (_qrBusy || !_session) return;
+  const counts = _readQuestionCounts(sqQuickTotalEl, sqQuickErrorsEl, sqQuickErrorEl);
+  if (!counts) return;
+
   _qrBusy = true;
   sqBtnQuick.disabled = true;
-  sqBtnQuickMain.disabled = true;
   let created;
   try {
     created = await addQuestion(_session.id, {
@@ -1073,6 +1101,7 @@ async function _quickAddQuestion() {
       difficulty:    "medium",
       subject:       null,
       topic:         null,
+      ...counts,
     });
   } catch (err) {
     handleError(err, { context: "studySessionView.quickAddQuestion" });
@@ -1080,22 +1109,26 @@ async function _quickAddQuestion() {
   } finally {
     _qrBusy = false;
     sqBtnQuick.disabled = false;
-    sqBtnQuickMain.disabled = false;
   }
   _sessionQuestions.push(created);
   _lastAddedQuestionId = created.id;
   _renderQuestionsList();
+  sqQuickTotalEl.value = "1";
+  sqQuickErrorsEl.value = "0";
   toast.info("Questão registrada.", 2000);
 }
 
 async function _submitQuestionForm() {
   if (_qrBusy || !_session) return;
+  const counts = _readQuestionCounts(sqTotalEl, sqErrorsEl, sqFormErrorEl);
+  if (!counts) return;
   const fields = {
     question_type: sqTypeEl.value,
     status:        sqStatusEl.value,
     difficulty:    sqDifficultyEl.value,
     subject:       sqSubjectEl.value.trim() || null,
     topic:         sqTopicEl.value.trim() || null,
+    ...counts,
   };
 
   const editingId = _editingQuestionId;
@@ -1140,6 +1173,16 @@ function _editQuestion(questionId) {
   sqDifficultyEl.value = q.difficulty;
   sqSubjectEl.value    = q.subject || "";
   sqTopicEl.value      = q.topic || "";
+  // F17 — lançamentos anteriores a esta etapa (campo inexistente, ver
+  // sql/25_question_results.sql) chegam como 0/0; como o formulário agora
+  // exige quantidade ≥ 1, editá-los parte de "1 questão, 0 erros" em vez de
+  // reproduzir o zero bruto do banco.
+  const correct = q.correct_count || 0;
+  const incorrect = q.incorrect_count || 0;
+  const total = correct + incorrect;
+  sqTotalEl.value  = String(total > 0 ? total : 1);
+  sqErrorsEl.value = String(total > 0 ? incorrect : 0);
+  if (sqFormErrorEl) sqFormErrorEl.hidden = true;
   _editingQuestionId = questionId;
   sqBtnAdd.textContent = "Salvar alteração";
   _setInlineFormVisible(sqFormEl, sqBtnToggleForm, true);
