@@ -1232,9 +1232,11 @@
             </div>
           </div>
 
-          <!-- Opções de recorrência -->
-          <div id="recurrence-extra" hidden>
-            <div id="recurrence-custom" hidden>
+          <!-- Opções de recorrência — mesmo bloco de academicCalendarEventsView.js/
+               renderRecurrenceFieldsHTML("acev"); lógica centralizada em
+               recurrenceFieldView.js (F16), nada aqui é lido/escrito diretamente. -->
+          <div id="recurrence-extra" class="recurrence-extra-block" hidden>
+            <div id="recurrence-custom" class="recurrence-custom-block" hidden>
               <div class="field">
                 <label>Intervalo</label>
                 <div class="recurrence-interval-row">
@@ -1257,8 +1259,27 @@
               </div>
             </div>
             <div class="field">
-              <label for="f-recurrence-until">Repetir até (opcional)</label>
-              <input type="date" id="f-recurrence-until" />
+              <label>Fim da recorrência</label>
+              <div class="recurrence-end-row">
+                <label class="recurrence-end-option">
+                  <input type="radio" name="f-recurrence-end" id="f-recurrence-end-never" value="never" checked>
+                  Nunca
+                </label>
+                <label class="recurrence-end-option">
+                  <input type="radio" name="f-recurrence-end" id="f-recurrence-end-until" value="until">
+                  Em uma data
+                </label>
+                <label class="recurrence-end-option">
+                  <input type="radio" name="f-recurrence-end" id="f-recurrence-end-count" value="count">
+                  Após N ocorrências
+                </label>
+              </div>
+              <div id="f-recurrence-until-wrap" hidden>
+                <input type="date" id="f-recurrence-until" />
+              </div>
+              <div id="f-recurrence-count-wrap" hidden>
+                <input type="number" id="f-recurrence-count" min="1" max="730" placeholder="Número de ocorrências" />
+              </div>
             </div>
           </div>
 

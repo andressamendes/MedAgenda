@@ -2971,8 +2971,11 @@ textarea { resize: vertical; }
    bastava não sobrescrever isso: a grade volta a ter fonte legível e rola
    horizontalmente por gesto, como qualquer tabela larga do app. */
 
-/* ── Recorrência — campos extras no formulário ── */
-#recurrence-extra {
+/* ── Recorrência — campos extras no formulário ──────────────────────────────
+   Reaproveitado por dois formulários (Compromissos e Eventos Acadêmicos —
+   ver recurrenceFieldView.js/F16): seletor por classe, não por id, já que
+   cada formulário tem seu próprio prefixo de ids. */
+.recurrence-extra-block {
   margin-top: -.2rem;
   margin-bottom: .9rem;
   display: flex;
@@ -2980,14 +2983,40 @@ textarea { resize: vertical; }
   gap: .65rem;
 }
 
-#recurrence-extra[hidden] { display: none; }
-#recurrence-custom[hidden] { display: none; }
+.recurrence-extra-block[hidden] { display: none; }
+.recurrence-custom-block[hidden] { display: none; }
 
-#recurrence-custom {
+.recurrence-custom-block {
   display: flex;
   flex-direction: column;
   gap: .65rem;
 }
+
+.recurrence-end-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: .5rem;
+}
+
+.recurrence-end-option {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .85rem;
+  font-weight: 400;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+/* ── Escolha de escopo de edição/exclusão de série (recurrenceScopeDialog.js) ── */
+.recurrence-scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.recurrence-scope-btn { width: 100%; text-align: left; }
 
 .recurrence-interval-row {
   display: flex;

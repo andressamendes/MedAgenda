@@ -34,7 +34,7 @@ export const REQUIRED_TABLES = [
   'events', 'categories', 'profiles', 'push_subscriptions', 'notification_logs',
   'academic_calendars', 'academic_events', 'ai_metrics',
   'activity_sessions', 'reviews', 'reflections', 'schema_version',
-  'client_errors',
+  'client_errors', 'recurrence_exceptions',
 ];
 
 // tabela -> colunas cuja ausência não é detectável apenas checando se a
@@ -44,6 +44,10 @@ export const REQUIRED_COLUMNS = {
   profiles: [
     'daily_goal_minutes', 'weekly_goal_minutes', 'monthly_goal_minutes',
     'next_study_title', 'next_study_category_id',
+  ],
+  academic_events: [
+    'recurrence_type', 'recurrence_interval', 'recurrence_until',
+    'recurrence_count', 'recurrence_days_of_week',
   ],
 };
 

@@ -1,11 +1,16 @@
-import {
-  getAcademicEvents, createAcademicEvent, updateAcademicEvent, deleteAcademicEvent,
-} from "./academicCalendarService.js";
+import { getAcademicEvents, createAcademicEvent } from "./academicCalendarService.js";
 import { toast } from "./toastService.js";
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { handleError } from "./errorService.js";
 import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
+import {
+  renderRecurrenceFieldsHTML, bindRecurrenceFields, readRecurrenceFields,
+  populateRecurrenceFields, resetRecurrenceFields,
+} from "./recurrenceFieldView.js";
+import { SCOPE, isRecurring, applyEditScope, applyDeleteScope } from "./recurrenceService.js";
+
+const SOURCE_TABLE = "academic_events";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -64,6 +69,7 @@ export async function showEventList(calId) {
           <div class="acal-ev-info">
             <span class="acal-ev-title">${escapeHtml(ev.title)}</span>
             <span class="acal-ev-dates">${formatEventDates(ev)}</span>
+            ${isRecurring(ev) ? `<span class="badge badge-recur">Recorrente</span>` : ""}
             ${ev.category ? `<span class="badge">${escapeHtml(ev.category)}</span>` : ""}
             ${ev.location ? `<span class="acal-ev-loc">${escapeHtml(ev.location)}</span>` : ""}
           </div>
@@ -104,12 +110,14 @@ export async function showEventList(calId) {
       if (!ev) return;
       const ok = await confirmDialog({
         title:   'Excluir evento',
-        message: `Excluir "${ev.title}"?`,
+        message: isRecurring(ev)
+          ? `"${ev.title}" é um evento recorrente. Isso excluirá toda a série. Deseja continuar?`
+          : `Excluir "${ev.title}"?`,
         danger:  true,
       });
       if (!ok) return;
       try {
-        await deleteAcademicEvent(ev.id);
+        await applyDeleteScope({ sourceTable: SOURCE_TABLE, occurrence: ev, scope: SCOPE.SERIES });
         toast.success("Evento excluído.");
         _getOnChange()?.();
         await showEventList(calId);
@@ -123,6 +131,9 @@ export async function showEventList(calId) {
   document.getElementById("acev-add")?.addEventListener("click", () => handleEventCreate(calId));
   document.getElementById("acev-back")?.addEventListener("click", _onBack);
   wireStateBlock(modalBody, () => showEventList(calId));
+
+  bindRecurrenceFields("acev");
+  resetRecurrenceFields("acev");
 }
 
 // ── Event form helpers ─────────────────────────────────────────────────────
@@ -166,6 +177,7 @@ function renderEventFormHTML(ev = null) {
         <textarea id="acev-description" rows="2" maxlength="1000">${escapeHtml(ev?.description || "")}</textarea>
       </div>
     </div>
+    ${renderRecurrenceFieldsHTML("acev")}
   `;
 }
 
@@ -186,6 +198,7 @@ function readEventForm() {
     color:       document.getElementById("acev-color")?.value       || null,
     location:    document.getElementById("acev-location")?.value.trim()    || null,
     description: document.getElementById("acev-description")?.value.trim() || null,
+    ...readRecurrenceFields("acev"),
   };
 }
 
@@ -221,6 +234,8 @@ function showEventEditForm(ev) {
       </div>
     </div>
   `);
+  bindRecurrenceFields("acev");
+  populateRecurrenceFields("acev", ev);
 
   document.getElementById("acev-save").addEventListener("click", async () => {
     const errEl = document.getElementById("acev-error");
@@ -228,7 +243,7 @@ function showEventEditForm(ev) {
     const fields = readEventForm();
     if (!fields) return;
     try {
-      await updateAcademicEvent(ev.id, fields);
+      await applyEditScope({ sourceTable: SOURCE_TABLE, occurrence: ev, fields, scope: SCOPE.SERIES });
       toast.success("Evento atualizado.");
       _getOnChange()?.();
       await showEventList(calId);

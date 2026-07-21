@@ -1,9 +1,16 @@
 // ── eventFormView.js — Modal de criação e edição de compromissos ─────────────
 
-import { createEvent, updateEvent, deleteEvent } from "./eventService.js";
+import { createEvent } from "./eventService.js";
 import { listByEvent } from "./activitySessionService.js";
 import { computeSessionStats } from "./activitySessionStats.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { recurrenceScopeDialog } from "./recurrenceScopeDialog.js";
+import {
+  bindRecurrenceFields, readRecurrenceFields, populateRecurrenceFields, resetRecurrenceFields,
+} from "./recurrenceFieldView.js";
+import {
+  SCOPE, isRecurring, isExpandedOccurrence, applyEditScope, applyDeleteScope,
+} from "./recurrenceService.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
 import { initModal, bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -41,6 +48,12 @@ const SESSION_SOURCE_LABELS = {
 
 let editingId    = null;
 let _editingEvent = null;
+// Contexto de recorrência da edição/exclusão em curso — sempre o objeto
+// exatamente como recebido (ocorrência expandida OU linha-base) mais o
+// escopo escolhido pelo usuário (recurrenceScopeDialog), consumido por
+// recurrenceService.applyEditScope()/applyDeleteScope() (F16). Distinto de
+// _editingEvent, que pode ser reescrito para exibição (ver handleEventClick).
+let _editScopeCtx = { occurrence: null, scope: SCOPE.SERIES };
 let _onSave   = null;
 let _historyRequestId = 0; // descarta respostas obsoletas se o evento editado mudar antes da resposta chegar
 let _insightsRequestId = 0; // mesmo padrão, para os cards inteligentes (F3.5)
@@ -87,13 +100,6 @@ let fDesc              = null;
 let fReminder          = null;
 let fReminderCustom    = null;
 let reminderCustomWrap = null;
-let fRecurrence        = null;
-let fRecurrenceUntil   = null;
-let fRecurrenceInterval = null;
-let recurrenceExtra    = null;
-let recurrenceCustom   = null;
-let recurrenceToggleBtn = null;
-let recurrenceWrap     = null;
 let modal              = null;
 
 // Painel "Histórico e estatísticas" (F13.4) — event-insights/session-history
@@ -142,13 +148,7 @@ export function initEventForm(onSave) {
   fReminder           = document.getElementById("f-reminder");
   fReminderCustom     = document.getElementById("f-reminder-custom");
   reminderCustomWrap  = document.getElementById("reminder-custom-wrap");
-  fRecurrence         = document.getElementById("f-recurrence");
-  fRecurrenceUntil    = document.getElementById("f-recurrence-until");
-  fRecurrenceInterval = document.getElementById("f-recurrence-interval");
-  recurrenceExtra     = document.getElementById("recurrence-extra");
-  recurrenceCustom    = document.getElementById("recurrence-custom");
-  recurrenceToggleBtn = document.getElementById("btn-recurrence-toggle");
-  recurrenceWrap      = document.getElementById("f-recurrence-wrap");
+  bindRecurrenceFields("f");
 
   eventDetailOverlay  = document.getElementById("event-detail-overlay");
   eventDetailPanel    = document.getElementById("event-detail-panel");
@@ -176,17 +176,12 @@ export function initEventForm(onSave) {
     reminderCustomWrap.hidden = fReminder.value !== "custom";
   });
 
-  fRecurrence?.addEventListener("change", () => {
-    const v = fRecurrence.value;
-    recurrenceExtra.hidden  = v === "none";
-    recurrenceCustom.hidden = v !== "custom";
-  });
-
   // Auditoria UX F10 #1.1: repetição nasce escondida atrás de um toggle —
   // a maioria dos compromissos não é recorrente, então o select não precisa
   // ocupar espaço/atenção por padrão (mesmo princípio de progressive
-  // disclosure já aplicado ao histórico de sessões abaixo).
-  recurrenceToggleBtn?.addEventListener("click", () => _showRecurrenceField({ focus: true }));
+  // disclosure já aplicado ao histórico de sessões abaixo). Disclosure,
+  // troca de tipo e seleção de dias da semana são ligados por
+  // bindRecurrenceFields("f") acima (recurrenceFieldView.js, F16).
 
   // F11 E10 — a cor segue a categoria por padrão (ver categoryView.js/
   // fCategory "change"); perguntar a cor em todo cadastro era uma decisão a
@@ -199,10 +194,6 @@ export function initEventForm(onSave) {
     const label = fColorToggle.querySelector(".disclosure-label");
     if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
     if (expand) revealWithAnimation(fColorWrap);
-  });
-
-  document.querySelectorAll(".day-btn").forEach(btn => {
-    btn.addEventListener("click", () => btn.classList.toggle("day-btn-active"));
   });
 
   cancelBtn?.addEventListener("click", _handleModalClose);
@@ -225,20 +216,36 @@ export function initEventForm(onSave) {
   // handleDelete).
   deleteBtn?.addEventListener("click", async () => {
     if (!editingId) return;
-    const isRecurring = _editingEvent?.recurrence_type && _editingEvent.recurrence_type !== "none";
-    const ok = await confirmDialog({
-      title:   "Excluir compromisso",
-      message: isRecurring
-        ? "Este é um evento recorrente. Isso excluirá toda a série. Deseja continuar?"
-        : "Tem certeza que deseja excluir este compromisso?",
-      danger:  true,
-    });
-    if (!ok) return;
+
+    // F16 — série recorrente clicada a partir de uma ocorrência expandida
+    // (semana/mês/lista): pergunta o escopo (apenas esta / esta e as
+    // próximas / toda a série) antes de excluir. Série recorrente aberta sem
+    // uma ocorrência de referência (ex.: já editando quando a lista foi
+    // atualizada) cai no confirm simples de sempre, sempre como série
+    // inteira — mesmo comportamento anterior a esta mudança.
+    let scope = SCOPE.SERIES;
+    if (isRecurring(_editingEvent) && isExpandedOccurrence(_editScopeCtx.occurrence)) {
+      const chosen = await recurrenceScopeDialog({
+        title:   `Excluir "${_editingEvent.title}"`,
+        message: "Este compromisso faz parte de uma série recorrente. O que você deseja excluir?",
+      });
+      if (!chosen) return;
+      scope = chosen;
+    } else {
+      const ok = await confirmDialog({
+        title:   "Excluir compromisso",
+        message: isRecurring(_editingEvent)
+          ? "Este é um evento recorrente. Isso excluirá toda a série. Deseja continuar?"
+          : "Tem certeza que deseja excluir este compromisso?",
+        danger:  true,
+      });
+      if (!ok) return;
+    }
 
     const generation = _formGeneration;
     deleteBtn.disabled = true;
     try {
-      await deleteEvent(editingId);
+      await applyDeleteScope({ sourceTable: "events", occurrence: _editScopeCtx.occurrence, scope });
       track(EVENTS.APPOINTMENT_DELETED);
       toast.success("Compromisso excluído.");
       if (generation === _formGeneration) {
@@ -283,7 +290,6 @@ export function initEventForm(onSave) {
     const generation   = _formGeneration;
     const wasEditingId = editingId;
 
-    const recType = fRecurrence.value || "none";
     const fields = {
       title:                   fTitle.value.trim(),
       event_date:              fDate.value,
@@ -294,18 +300,16 @@ export function initEventForm(onSave) {
       location:                fLocation.value.trim()  || null,
       description:             fDesc.value.trim()      || null,
       reminder_minutes:        _reminderMinutes(),
-      recurrence_type:         recType,
-      recurrence_interval:     recType === "custom" ? (parseInt(fRecurrenceInterval.value) || 1) : null,
-      recurrence_until:        recType !== "none"   ? (fRecurrenceUntil.value || null)            : null,
-      recurrence_days_of_week: recType === "custom" ? (_getSelectedDays() || null)                : null,
+      ...readRecurrenceFields("f"),
     };
+    const scopeCtx = _editScopeCtx;
 
     saveBtn.disabled    = true;
     saveBtn.textContent = wasEditingId ? "Atualizando…" : "Salvando…";
 
     try {
       if (wasEditingId) {
-        await updateEvent(wasEditingId, fields);
+        await applyEditScope({ sourceTable: "events", occurrence: scopeCtx.occurrence, fields, scope: scopeCtx.scope });
         track(EVENTS.APPOINTMENT_EDITED, { title: fields.title });
         toast.success("Compromisso atualizado com sucesso.");
       } else {
@@ -332,27 +336,36 @@ export function initEventForm(onSave) {
   });
 }
 
+// F16 — clicar numa ocorrência expandida de uma série (semana/mês/lista)
+// pergunta o escopo (apenas esta / esta e as próximas / toda a série) antes
+// de abrir o formulário. "Toda a série" reabre com a data/hora da linha-base
+// (mesmo comportamento anterior a esta mudança); "apenas esta"/"esta e as
+// próximas" reabrem com a data/hora da PRÓPRIA ocorrência clicada, já que é
+// a partir dela que a exceção/divisão de série é calculada
+// (recurrenceService.js). O objeto original (ocorrência ou linha-base,
+// nunca reescrito) fica em _editScopeCtx.occurrence para o submit/exclusão.
 export async function handleEventClick(ev) {
-  const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
+  let scope = SCOPE.SERIES;
 
-  if (isRecurring) {
-    const ok = await confirmDialog({
-      title:       `"${ev.title}" é um evento recorrente.`,
-      message:     'Isso editará toda a série. Deseja continuar?',
-      confirmText: 'Continuar',
+  if (isExpandedOccurrence(ev)) {
+    const chosen = await recurrenceScopeDialog({
+      title:   `"${ev.title}" é um evento recorrente.`,
+      message: "O que você deseja editar?",
     });
-    if (!ok) return;
+    if (!chosen) return;
+    scope = chosen;
   }
 
-  const formEv = ev._isOccurrence
+  const formEv = scope === SCOPE.SERIES && isExpandedOccurrence(ev)
     ? { ...ev, id: ev._baseEventId, event_date: ev._baseEventDate }
     : ev;
 
-  openEventForm(formEv);
+  openEventForm(formEv, { occurrence: ev, scope });
 }
 
-export function openEventForm(ev) {
+export function openEventForm(ev, { occurrence = ev, scope = SCOPE.SERIES } = {}) {
   if (ev) {
+    _editScopeCtx = { occurrence, scope };
     _populateForm(ev);
   } else {
     _clearForm();
@@ -454,14 +467,8 @@ function _clearForm() {
   fReminder.value           = "";
   reminderCustomWrap.hidden = true;
   fReminderCustom.value     = "";
-  fRecurrence.value         = "none";
-  fRecurrenceInterval.value = 1;
-  fRecurrenceUntil.value    = "";
-  recurrenceExtra.hidden    = true;
-  recurrenceCustom.hidden   = true;
-  recurrenceWrap.hidden       = true;
-  recurrenceToggleBtn.hidden  = false;
-  _setSelectedDays("");
+  resetRecurrenceFields("f");
+  _editScopeCtx = { occurrence: null, scope: SCOPE.SERIES };
   formTitle.textContent = "Novo compromisso";
   saveBtn.disabled       = false;
   saveBtn.textContent   = "Salvar compromisso";
@@ -494,23 +501,12 @@ function _populateForm(ev) {
   fLocation.value       = ev.location         || "";
   fDesc.value           = ev.description      || "";
   _populateReminder(ev.reminder_minutes);
-  fRecurrence.value         = ev.recurrence_type           || "none";
-  fRecurrenceInterval.value = ev.recurrence_interval       || 1;
-  fRecurrenceUntil.value    = ev.recurrence_until          || "";
-  _setSelectedDays(ev.recurrence_days_of_week || "");
-  if (fRecurrence.value !== "none") _showRecurrenceField();
-  fRecurrence.dispatchEvent(new Event("change"));
+  populateRecurrenceFields("f", ev);
   formTitle.textContent = "Editar compromisso";
   saveBtn.disabled       = false;
   saveBtn.textContent   = "Atualizar compromisso";
   cancelBtn.hidden      = false;
   formError.textContent = "";
-}
-
-function _showRecurrenceField({ focus = false } = {}) {
-  recurrenceWrap.hidden      = false;
-  recurrenceToggleBtn.hidden = true;
-  if (focus) fRecurrence.focus();
 }
 
 function _populateReminder(minutes) {
@@ -534,19 +530,6 @@ function _reminderMinutes() {
   if (v === "")       return null;
   if (v === "custom") return parseInt(fReminderCustom.value) || null;
   return parseInt(v);
-}
-
-function _getSelectedDays() {
-  return Array.from(document.querySelectorAll(".day-btn.day-btn-active"))
-    .map(b => b.dataset.day)
-    .join(",");
-}
-
-function _setSelectedDays(str) {
-  const days = str ? str.split(",") : [];
-  document.querySelectorAll(".day-btn").forEach(btn => {
-    btn.classList.toggle("day-btn-active", days.includes(btn.dataset.day));
-  });
 }
 
 // ── Histórico de sessões do compromisso (F1.5) ──────────────────────────────
