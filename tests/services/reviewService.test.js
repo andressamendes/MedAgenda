@@ -287,34 +287,65 @@ test("a função retornada por onReviewStatusChanged() cancela a assinatura", as
 });
 
 test("generateForEvent() cria revisões em +1, +7 e +30 dias por padrão", async (t) => {
+  const createdRows = [{ id: "rev-1" }, { id: "rev-2" }, { id: "rev-3" }];
   const { mod, supabase } = await loadReviewService(t, {
     events:  { data: EXISTING_EVENT, error: null },
-    reviews: { data: { id: "rev-x" }, error: null },
+    reviews: { data: createdRows, error: null },
   });
 
   const result = await mod.generateForEvent("event-1", "2026-07-05");
 
-  assert.strictEqual(result.length, 3);
+  assert.deepStrictEqual(result, createdRows);
   const insertCalls = supabase._calls.filter(c => c.table === "reviews" && c.method === "insert");
-  const dates = insertCalls.map(c => c.args[0].scheduled_date);
-  assert.deepStrictEqual(dates, ["2026-07-06", "2026-07-12", "2026-08-04"]);
-  insertCalls.forEach(c => {
-    assert.strictEqual(c.args[0].origin, "event");
-    assert.strictEqual(c.args[0].review_type, "manual");
+  assert.strictEqual(insertCalls.length, 1);
+  const rows = insertCalls[0].args[0];
+  assert.deepStrictEqual(rows.map(r => r.scheduled_date), ["2026-07-06", "2026-07-12", "2026-08-04"]);
+  rows.forEach(r => {
+    assert.strictEqual(r.origin, "event");
+    assert.strictEqual(r.review_type, "manual");
+    assert.strictEqual(r.status, "pending");
+    assert.strictEqual(r.user_id, "user-123");
   });
+});
+
+test("generateForEvent() valida o evento uma única vez (1 SELECT + 1 INSERT)", async (t) => {
+  const { mod, supabase } = await loadReviewService(t, {
+    events:  { data: EXISTING_EVENT, error: null },
+    reviews: { data: [{ id: "rev-1" }, { id: "rev-2" }, { id: "rev-3" }], error: null },
+  });
+
+  await mod.generateForEvent("event-1", "2026-07-05");
+
+  const eventSelects = supabase._calls.filter(c => c.table === "events" && c.method === "select");
+  assert.strictEqual(eventSelects.length, 1);
+  const reviewInserts = supabase._calls.filter(c => c.table === "reviews" && c.method === "insert");
+  assert.strictEqual(reviewInserts.length, 1);
+});
+
+test("generateForEvent() rejeita quando o compromisso não existe, sem inserir nada", async (t) => {
+  const { mod, supabase } = await loadReviewService(t, {
+    events: { data: null, error: null },
+  });
+
+  await assert.rejects(
+    () => mod.generateForEvent("event-missing", "2026-07-05"),
+    (err) => err.code === "EVENT_NOT_FOUND"
+  );
+  const reviewInserts = supabase._calls.filter(c => c.table === "reviews" && c.method === "insert");
+  assert.strictEqual(reviewInserts.length, 0);
 });
 
 test("generateForEvent() aceita deslocamentos customizados", async (t) => {
   const { mod, supabase } = await loadReviewService(t, {
     events:  { data: EXISTING_EVENT, error: null },
-    reviews: { data: { id: "rev-x" }, error: null },
+    reviews: { data: [{ id: "rev-1" }], error: null },
   });
 
   const result = await mod.generateForEvent("event-1", "2026-07-05", [3]);
 
   assert.strictEqual(result.length, 1);
   const insertCall = supabase._calls.find(c => c.table === "reviews" && c.method === "insert");
-  assert.strictEqual(insertCall.args[0].scheduled_date, "2026-07-08");
+  assert.deepStrictEqual(insertCall.args[0].map(r => r.scheduled_date), ["2026-07-08"]);
 });
 
 test("generateForEvent() exige eventId e baseDate", async (t) => {
