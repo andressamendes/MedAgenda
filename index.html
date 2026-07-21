@@ -351,11 +351,22 @@
                hoje) é absorvida aqui, abaixo do convite principal, para não
                competir com ele. Mesmos ids de sempre (dash-cards-today) —
                activityDashboardView.js continua renderizando exatamente como
-               antes, sem nenhum cálculo novo; só o destino no DOM mudou. -->
-          <section class="today-stats" aria-labelledby="today-stats-title">
-            <h2 id="today-stats-title" class="today-section-title">Hoje em números</h2>
-            <p id="dash-error-today" class="list-empty list-error" hidden></p>
-            <div id="dash-cards-today" class="stat-cards" hidden></div>
+               antes, sem nenhum cálculo novo; só o destino no DOM mudou.
+
+               F15.13 — a grade nascia visível no primeiro olhar do dia, em
+               tensão com "mede em silêncio, fala em frases" (mesmo princípio
+               que levou o Progresso a esconder seus números atrás de um
+               disclosure em F14.5). Mesmo padrão aqui: nasce colapsada, 1
+               clique revela os mesmos cards de sempre. -->
+          <section class="today-stats" aria-labelledby="today-stats-toggle">
+            <div class="today-stats-toggle-row">
+              <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="today-stats-toggle" aria-expanded="false" aria-controls="today-stats-body"><span class="disclosure-label">Ver números de hoje</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+            </div>
+            <div id="today-stats-body" class="today-stats-body" hidden>
+              <h2 id="today-stats-title" class="today-section-title">Hoje em números</h2>
+              <p id="dash-error-today" class="list-empty list-error" hidden></p>
+              <div id="dash-cards-today" class="stat-cards" hidden></div>
+            </div>
           </section>
 
           <!-- F14.8 — desfecho do dia: só faz sentido sem uma sessão em

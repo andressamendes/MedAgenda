@@ -67,6 +67,14 @@ fase.
   compromisso são criadas com 1 SELECT + 1 INSERT em lote, em vez de 3
   INSERTs sequenciais revalidando o evento a cada um.
 
+### Onda 4 — Coerência
+
+- **F15.13 — "Hoje em números" atrás de disclosure:** a grade de stat-cards da
+  tela Hoje nasce colapsada atrás do botão "Ver números de hoje" (mesmo
+  padrão do disclosure "Ver números" do Progresso, F14.5), em vez de
+  competir com o CTA "Começar a estudar" no primeiro olhar do dia. Nenhum
+  cálculo ou id muda (`dash-cards-today` intacto).
+
 ## [Unreleased] — Auditoria UX do Diário (Etapas 1–7)
 
 Sete etapas de poda visual sobre `studyJournalView.js`, sem mudança de dado
