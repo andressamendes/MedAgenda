@@ -7,7 +7,6 @@
 // (input/textarea/select/contenteditable) — digitar "n" ou "/" num campo
 // precisa continuar sendo só um caractere digitado, nunca um atalho.
 
-import { openEventForm } from "./eventFormView.js";
 import { showPage } from "./navigationView.js";
 
 // Mesmas páginas de navigationView.js/APP_PAGES — "G" seguido da inicial de
@@ -92,7 +91,10 @@ function _handleKeydown(e) {
 
   if (e.key === "n" || e.key === "N") {
     e.preventDefault();
-    openEventForm();
+    // F15.6 — "N" é o atalho anunciado no próprio "+ Novo compromisso"
+    // (title="Atalho: N"); delegar ao clique garante que teclado e botão
+    // abram sempre a mesma coisa (hoje, o QuickAdd).
+    document.getElementById("btn-new-event")?.click();
     return;
   }
 

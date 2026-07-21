@@ -14,6 +14,7 @@ const ACTIVITY_SESSION_VIEW_SPECIFIER  = new URL("../../studySessionView.js", im
 const ACTIVITY_SESSION_SERVICE_SPECIFIER = new URL("../../activitySessionService.js", import.meta.url).href;
 const AICONTEXT_SPECIFIER              = new URL("../../aiContextService.js", import.meta.url).href;
 const CATEGORY_VIEW_SPECIFIER          = new URL("../../categoryView.js", import.meta.url).href;
+const QUICKADD_SPECIFIER               = new URL("../../quickAdd.js", import.meta.url).href;
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 const EMPTY_AI_CONTEXT = {
@@ -29,6 +30,7 @@ const EMPTY_AI_CONTEXT = {
 
 let serviceCalls;
 let startSessionForEventCalls;
+let openQuickAddCalls;
 
 function mockEventService(t, { createResult, createError, updateResult, updateError, deleteError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
   serviceCalls = [];
@@ -90,6 +92,14 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
   t.mock.module(CATEGORY_VIEW_SPECIFIER, {
     namedExports: { categoryColor: () => "#6b7280" },
   });
+
+  // F15.6 — "+ Novo compromisso" passou a abrir o QuickAdd; mockado aqui
+  // para espionar a chamada sem arrastar o overlay real do QuickAdd (e sua
+  // cadeia de imports) para dentro destes testes.
+  openQuickAddCalls = [];
+  t.mock.module(QUICKADD_SPECIFIER, {
+    namedExports: { openQuickAdd: (...args) => { openQuickAddCalls.push(args); } },
+  });
 }
 
 // confirmDialog.js keeps its overlay in module-level state and only builds
@@ -124,12 +134,35 @@ afterEach(() => {
   uninstallDom();
 });
 
-test("clicking 'Novo compromisso' opens the modal, resets the form and focuses the title field", async (t) => {
+// F15.6 (auditoria M7) — o botão mais visível de criação abre o QuickAdd
+// (título + hora + Enter), com a data de hoje editável; o formulário completo
+// continua alcançável por "Mais opções" (openEventFormPrefilled).
+test("F15.6 — clicking '+ Novo compromisso' opens the QuickAdd for today with an editable date, not the full form", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
-  initEventForm();
+  const { initEventForm, openEventFormPrefilled } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const onSave = async () => {};
+  initEventForm(onSave);
 
   document.getElementById("btn-new-event").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("event-modal").hidden, true, "full form must not open");
+  assert.strictEqual(openQuickAddCalls.length, 1);
+  const [date, onSaveArg, time, onMoreOptions, opts] = openQuickAddCalls[0];
+  const now = new Date();
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  assert.strictEqual(date, todayISO);
+  assert.strictEqual(onSaveArg, onSave, "QuickAdd saves must trigger the same refresh as the form");
+  assert.strictEqual(time, "");
+  assert.strictEqual(onMoreOptions, openEventFormPrefilled, "'Mais opções' must hand off to the pre-filled full form");
+  assert.deepStrictEqual(opts, { editableDate: true });
+});
+
+test("openEventForm() opens the modal, resets the form and focuses the title field", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm();
 
   assert.strictEqual(document.getElementById("event-modal").hidden, false);
   assert.strictEqual(document.getElementById("form-title").textContent, "Novo compromisso");
@@ -177,10 +210,10 @@ test("F11 E16 — openEventFormPrefilled() with no time typed yet leaves the tim
 // (categoryView.js). O picker de cor nasce escondido atrás de "Mais opções".
 test("F11 E10 — a new event starts with the color field collapsed behind 'Mais opções'", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
   assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "false");
@@ -188,9 +221,9 @@ test("F11 E10 — a new event starts with the color field collapsed behind 'Mais
 
 test("F11 E10 — clicking the color toggle reveals the color field and flips the label to Ocultar", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   const toggle = document.getElementById("f-color-toggle");
   toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -239,9 +272,9 @@ test("F11 E10 — editing an event with a custom color (different from its categ
 
 test("submitting without a title shows a validation error and does not call createEvent", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   document.getElementById("f-date").value  = "2026-08-10";
   document.getElementById("f-start").value = "14:00";
@@ -254,9 +287,9 @@ test("submitting without a title shows a validation error and does not call crea
 
 test("submitting without a date shows a validation error and does not call createEvent", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   document.getElementById("f-title").value = "Prova de Anatomia";
   document.getElementById("f-start").value = "14:00";
@@ -269,10 +302,10 @@ test("submitting without a date shows a validation error and does not call creat
 
 test("creating an event calls createEvent with the form fields, closes the modal and triggers onSave", async (t) => {
   mockEventService(t, { createResult: { id: "evt-new" } });
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   let onSaveCalled = false;
   initEventForm(async () => { onSaveCalled = true; });
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   fillRequiredFields();
   document.getElementById("f-location").value = "Hospital das Clínicas";
@@ -291,9 +324,9 @@ test("creating an event calls createEvent with the form fields, closes the modal
 
 test("a save error from the service is shown in the form and the modal stays open", async (t) => {
   mockEventService(t, { createError: new Error("Não foi possível salvar. Tente novamente.") });
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   fillRequiredFields();
   document.getElementById("btn-save").click();
@@ -344,7 +377,7 @@ test("UX #12 — the delete button is hidden for a new event and shown when edit
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
   assert.strictEqual(document.getElementById("btn-delete-event").hidden, true);
 
   openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", start_time: "08:00:00" });
@@ -433,10 +466,10 @@ test("UX #14 — deleting a non-recurring event keeps the plain confirmation mes
 
 test("a new event never shows the session history section", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   assert.strictEqual(document.getElementById("session-history").hidden, true);
 });
@@ -685,7 +718,7 @@ test("'Iniciar Sessão' is hidden for a new event and shown when editing an exis
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
   assert.strictEqual(document.getElementById("btn-start-session").hidden, true);
 
   openEventForm({ id: "evt-1", title: "Plantão UPA", event_date: "2026-08-12", category: "Plantão" });
@@ -725,9 +758,9 @@ test("if a session conflict isn't resolved, the form stays open so the user can 
 
 test("cancelling the form closes the modal without calling the service", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
-  document.getElementById("btn-new-event").click();
+  openEventForm();
 
   fillRequiredFields();
   document.getElementById("btn-cancel").click();
@@ -775,10 +808,10 @@ test("cancelling the recurring-event confirmation leaves the form closed", async
 
 test("a new event never loads or shows insight cards", async (t) => {
   mockEventService(t);
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
   await flush();
 
   assert.strictEqual(document.getElementById("event-insights").hidden, true);
@@ -957,18 +990,18 @@ test("opening a different event after properly closing the previous one never in
 
 test("repeated open/cancel and open/save cycles never trigger more than one service call per save", async (t) => {
   mockEventService(t, { createResult: { id: "evt-new" } });
-  const { initEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
   fillRequiredFields({ date: "2026-08-01" });
   document.getElementById("btn-cancel").click();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
   fillRequiredFields({ date: "2026-08-02" });
   document.getElementById("btn-cancel").click();
 
-  document.getElementById("btn-new-event").click();
+  openEventForm();
   fillRequiredFields({ date: "2026-08-03" });
   document.getElementById("btn-save").click();
   await flush();

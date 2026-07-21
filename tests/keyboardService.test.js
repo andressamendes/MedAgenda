@@ -1,25 +1,24 @@
 /**
  * Tests for keyboardService.js — atalhos de teclado essenciais (F11 E20,
- * auditoria #26). eventFormView.js and navigationView.js are mocked; the
- * shortcut logic itself (typing-target guard, chord timing, active-page
- * search lookup) is exercised through the real DOM (index.html).
+ * auditoria #26). navigationView.js is mocked; the shortcut logic itself
+ * (typing-target guard, chord timing, active-page search lookup) is
+ * exercised through the real DOM (index.html). F15.6 — "N" passou a
+ * delegar ao clique de #btn-new-event (que abre o QuickAdd), então os
+ * testes espionam esse clique em vez de mockar eventFormView.js.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "./mocks/domFixture.js";
 
-const EVENT_FORM_SPECIFIER  = new URL("../eventFormView.js", import.meta.url).href;
 const NAVIGATION_SPECIFIER  = new URL("../navigationView.js", import.meta.url).href;
 
-let openEventFormCalls;
+let newEventClicks;
 let showPageCalls;
 
 function loadService(t) {
-  openEventFormCalls = [];
+  newEventClicks = [];
   showPageCalls = [];
-  t.mock.module(EVENT_FORM_SPECIFIER, {
-    namedExports: { openEventForm: () => { openEventFormCalls.push(true); } },
-  });
+  document.getElementById("btn-new-event").addEventListener("click", () => { newEventClicks.push(true); });
   t.mock.module(NAVIGATION_SPECIFIER, {
     namedExports: { showPage: (name) => { showPageCalls.push(name); } },
   });
@@ -43,22 +42,22 @@ function switchToPageWithSearch() {
 beforeEach(() => installDom());
 afterEach(() => uninstallDom());
 
-test("'N' opens the new-event form from any page", async (t) => {
+test("'N' clicks '+ Novo compromisso' (the button it is advertised on) from any page", async (t) => {
   const { initKeyboardShortcuts } = await loadService(t);
   initKeyboardShortcuts();
 
   press("n");
 
-  assert.strictEqual(openEventFormCalls.length, 1);
+  assert.strictEqual(newEventClicks.length, 1);
 });
 
-test("uppercase 'N' (Shift+N) also opens the new-event form", async (t) => {
+test("uppercase 'N' (Shift+N) also triggers '+ Novo compromisso'", async (t) => {
   const { initKeyboardShortcuts } = await loadService(t);
   initKeyboardShortcuts();
 
   press("N");
 
-  assert.strictEqual(openEventFormCalls.length, 1);
+  assert.strictEqual(newEventClicks.length, 1);
 });
 
 test("'/' focuses the search input when the current page has one", async (t) => {
@@ -137,8 +136,8 @@ test("'G' alone (no second key) never triggers 'N' or '/' as a leftover chord", 
   initKeyboardShortcuts();
 
   press("g");
-  // A própria tecla "g" não deve, sozinha, abrir o formulário nem focar busca.
-  assert.strictEqual(openEventFormCalls.length, 0);
+  // A própria tecla "g" não deve, sozinha, acionar "+ Novo" nem focar busca.
+  assert.strictEqual(newEventClicks.length, 0);
   assert.deepStrictEqual(showPageCalls, []);
 });
 
@@ -151,7 +150,7 @@ test("no shortcut fires while typing in a text input", async (t) => {
   input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "n", bubbles: true, cancelable: true }));
   input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "/", bubbles: true, cancelable: true }));
 
-  assert.strictEqual(openEventFormCalls.length, 0);
+  assert.strictEqual(newEventClicks.length, 0);
 });
 
 test("no shortcut fires while typing in a search input itself", async (t) => {
@@ -163,7 +162,7 @@ test("no shortcut fires while typing in a search input itself", async (t) => {
   search.focus();
   search.dispatchEvent(new window.KeyboardEvent("keydown", { key: "n", bubbles: true, cancelable: true }));
 
-  assert.strictEqual(openEventFormCalls.length, 0);
+  assert.strictEqual(newEventClicks.length, 0);
 });
 
 test("Ctrl/Cmd/Alt+key combinations are never intercepted (browser shortcuts stay untouched)", async (t) => {
@@ -174,7 +173,7 @@ test("Ctrl/Cmd/Alt+key combinations are never intercepted (browser shortcuts sta
   press("n", { metaKey: true });
   press("n", { altKey: true });
 
-  assert.strictEqual(openEventFormCalls.length, 0);
+  assert.strictEqual(newEventClicks.length, 0);
 });
 
 test("resetKeyboardShortcuts() stops all shortcuts from firing", async (t) => {
@@ -184,7 +183,7 @@ test("resetKeyboardShortcuts() stops all shortcuts from firing", async (t) => {
 
   press("n");
 
-  assert.strictEqual(openEventFormCalls.length, 0);
+  assert.strictEqual(newEventClicks.length, 0);
 });
 
 test("calling initKeyboardShortcuts() twice never registers a duplicate listener", async (t) => {
@@ -197,5 +196,5 @@ test("calling initKeyboardShortcuts() twice never registers a duplicate listener
   resetKeyboardShortcuts();
   press("n");
 
-  assert.strictEqual(openEventFormCalls.length, 0);
+  assert.strictEqual(newEventClicks.length, 0);
 });

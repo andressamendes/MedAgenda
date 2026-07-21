@@ -14,7 +14,8 @@ import { getAIContext } from "./aiContextService.js";
 import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
 import { categoryColor } from "./categoryView.js";
 import { revealWithAnimation } from "./transitionUtils.js";
-import { pad, escapeHtml } from "./utils.js";
+import { pad, escapeHtml, isoToday } from "./utils.js";
+import { openQuickAdd } from "./quickAdd.js";
 
 // Categoria "com poucas sessões": mesmo piso de recommendationEngine.js/
 // planningService.js (categoria sem sessão finalizada há muito tempo, ou
@@ -164,7 +165,12 @@ export function initEventForm(onSave) {
     bindModalBehavior(eventDetailOverlay, () => !eventDetailPanel.hidden, _closeEventDetailPanel, eventDetailPanel);
   }
 
-  document.getElementById("btn-new-event")?.addEventListener("click", () => openEventForm());
+  // F15.6 (auditoria M7) — a ação de criação mais visível abre o QuickAdd
+  // (título + hora + Enter), não o formulário completo de 10+ campos. A data
+  // nasce em hoje e é editável dentro do próprio QuickAdd; "Mais opções"
+  // continua levando ao formulário completo pré-preenchido.
+  document.getElementById("btn-new-event")?.addEventListener("click", () =>
+    openQuickAdd(isoToday(), _onSave, "", openEventFormPrefilled, { editableDate: true }));
 
   fReminder?.addEventListener("change", () => {
     reminderCustomWrap.hidden = fReminder.value !== "custom";

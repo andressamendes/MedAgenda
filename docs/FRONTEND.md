@@ -336,20 +336,20 @@ restoreSidebarState()
 
 ### quickAdd.js
 
-**Objetivo:** modal de adição rápida de compromissos diretamente do calendário.
+**Objetivo:** modal de adição rápida de compromissos — o caminho padrão de criação.
 
-**Responsabilidade:** modal leve com apenas título e hora, acionado ao clicar em um dia (calendar.js) ou em um slot de horário (weekView.js). Cria o evento e chama o callback de refresh. O modal é criado dinamicamente no DOM na primeira vez que é usado (lazy init).
+**Responsabilidade:** modal leve com apenas título e hora, acionado ao clicar em um dia (calendar.js), em um slot de horário (weekView.js) ou no botão "+ Novo compromisso" (F15.6, com data de hoje editável no próprio modal). Cria o evento e chama o callback de refresh. "Mais opções" fecha o QuickAdd e abre o formulário completo pré-preenchido com o que já foi digitado. O modal é criado dinamicamente no DOM na primeira vez que é usado (lazy init).
 
-**Quem utiliza:** `script.js` (passa `openQuickAdd` como `onDayClick`/`onSlotClick` para calendar e weekView).
+**Quem utiliza:** `script.js` (passa `openQuickAdd` como `onDayClick`/`onSlotClick` para calendar e weekView); `eventFormView.js` (liga `#btn-new-event` ao QuickAdd com `editableDate: true` — F15.6).
 
 **Quem ele utiliza:** eventService (createEvent).
 
 **Estado interno:**
-- `selectedDate`, `onSaveCallback` — persistem entre o momento de abertura e o salvamento.
+- `selectedDate`, `onSaveCallback`, `onMoreOptionsCallback` — persistem entre o momento de abertura e o salvamento.
 - Elementos do modal criados dinamicamente e reutilizados.
 
 **Principais funções exportadas:**
-- `openQuickAdd(date, onSave, time?)` — abre o modal para a data especificada; `time` é opcional (preenchido quando acionado pelo weekView).
+- `openQuickAdd(date, onSave, time?, onMoreOptions?, { editableDate }?)` — abre o modal para a data especificada; `time` é opcional (preenchido quando acionado pelo weekView); `editableDate: true` exibe um campo de data editável (usado quando aberto sem slot, ex.: "+ Novo compromisso").
 
 ---
 
@@ -1018,11 +1018,14 @@ authView.js: usuário clica "Sair"
 ### Criar compromisso
 
 ```
-Opção A — Botão "+ Novo compromisso":
-  eventFormView.js: openEventForm()
-  → modal vazio, usuário preenche e submete
-  → eventService.js: createEvent(fields)
-  → script.js: refreshAll() → loadEvents() + refreshWeekView() + refreshCalendar()
+Opção A — Botão "+ Novo compromisso" (ou atalho "N") — F15.6:
+  eventFormView.js: listener de #btn-new-event
+  → quickAdd.js: openQuickAdd(hoje, refreshAll, "", openEventFormPrefilled, { editableDate: true })
+  → título + hora + Enter → eventService.js: createEvent(...)  → refreshAll()
+  → ou "Mais opções" → eventFormView.js: openEventFormPrefilled(prefill)
+    → formulário completo, usuário preenche e submete
+    → eventService.js: createEvent(fields)
+    → script.js: refreshAll() → loadEvents() + refreshWeekView() + refreshCalendar()
 
 Opção B — Clique em dia no calendário mensal:
   calendar.js: onDayClick(date)
