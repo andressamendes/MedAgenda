@@ -790,6 +790,21 @@ test("F14.5 — clicking 'Ver números' reveals the number grid behind the discl
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
 });
 
+test("F15.1 — a category name containing HTML renders as literal text in the narrative (stored XSS, M1)", async (t) => {
+  const payload = `<img src=x onerror="window.__xss = true">`;
+  const { mod } = await loadView(t, {
+    getProgressNarrativeData: async () => ({ weekMinutes: 90, previousWeekMinutes: 0, dominantCategory: { name: payload, minutes: 60 }, currentStreak: 0 }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const narrative = document.getElementById("progress-narrative");
+  assert.strictEqual(narrative.querySelector("img"), null, "the payload must never become a DOM element");
+  assert.ok(narrative.textContent.includes(payload), "the payload must appear escaped, as literal text");
+  assert.match(narrative.textContent, /concentrou 67% do tempo\./);
+  assert.strictEqual(window.__xss, undefined);
+});
+
 test("F14.5 — with no sessions this week, the narrative says so instead of comparing to zero", async (t) => {
   const { mod } = await loadView(t, { getProgressNarrativeData: async () => EMPTY_NARRATIVE });
 
