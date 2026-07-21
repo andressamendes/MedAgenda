@@ -25,7 +25,7 @@
  * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
  */
 
-import { getEvents, getEventById, deleteEvent } from "./eventService.js";
+import { getEvents, getEventById, deleteEvent, invalidateEventsCache } from "./eventService.js";
 import { initCalendar, refreshCalendar, resetCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
@@ -653,6 +653,7 @@ initAuthView({
     resetEventForm();
     resetCalendar();
     _resetEventList();
+    invalidateEventsCache();
   },
 });
 

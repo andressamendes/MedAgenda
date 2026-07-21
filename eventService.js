@@ -1,5 +1,19 @@
 import { supabase, currentUserId } from "./supabase.js";
 
+// F15.10 — cache de leitura por carregamento: getEvents() (tabela integral) é
+// disparado por 6+ módulos a cada abertura do app; a promessa da consulta é
+// memoizada por usuário e invalidada em toda escrita deste service, no rename
+// de categoria (categoryService propaga o novo nome em events.category) e no
+// logout (script.js). Sem TTL: todas as escritas do app passam por aqui, e
+// mudanças vindas de outra aba já são cobertas pelos fluxos de refresh
+// existentes. getEventById/getEventsByRange seguem sem cache — são consultas
+// recortadas, não a leitura integral repetida que motivou o cache.
+let _eventsCache = null; // { userId, promise }
+
+export function invalidateEventsCache() {
+  _eventsCache = null;
+}
+
 export async function createEvent(fields) {
   const user_id = await currentUserId();
   const { data, error } = await supabase
@@ -8,11 +22,26 @@ export async function createEvent(fields) {
     .select()
     .single();
   if (error) throw error;
+  invalidateEventsCache();
   return data;
 }
 
 export async function getEvents() {
   const user_id = await currentUserId();
+  if (_eventsCache?.userId !== user_id) {
+    const entry = { userId: user_id, promise: _fetchEvents(user_id) };
+    _eventsCache = entry;
+    // Falha não pode ficar memoizada: a próxima chamada deve reconsultar.
+    entry.promise.catch(() => {
+      if (_eventsCache === entry) _eventsCache = null;
+    });
+  }
+  // Cópia rasa por chamada: consumidores ordenam/filtram o array in place
+  // (ex.: a lista de compromissos) e não podem corromper o cache compartilhado.
+  return (await _eventsCache.promise).slice();
+}
+
+async function _fetchEvents(user_id) {
   const { data, error } = await supabase
     .from("events")
     .select("*")
@@ -45,6 +74,7 @@ export async function updateEvent(id, fields) {
     .select()
     .single();
   if (error) throw error;
+  invalidateEventsCache();
   return data;
 }
 
@@ -56,6 +86,7 @@ export async function deleteEvent(id) {
     .eq("id", id)
     .eq("user_id", user_id);
   if (error) throw error;
+  invalidateEventsCache();
 }
 
 export async function getEventsByRange(start, end) {

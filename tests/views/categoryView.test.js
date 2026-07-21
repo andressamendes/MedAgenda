@@ -38,6 +38,7 @@ function mockCategoryService(t, {
         currentCategories = currentCategories.filter(c => c.id !== id);
       },
       ensureDefaultCategories: async () => currentCategories,
+      invalidateCategoriesCache: () => {},
     },
   });
 }

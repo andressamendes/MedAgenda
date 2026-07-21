@@ -80,6 +80,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
     namedExports: {
       getEvents: getEventsImpl || (async () => events), getEventById: async () => null,
       deleteEvent: async (id) => { deleteEventCalls.push(id); },
+      invalidateEventsCache: () => {},
     },
   });
   t.mock.module(SPECIFIERS.calendar, {
