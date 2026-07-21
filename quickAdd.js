@@ -6,7 +6,7 @@ import { iconX } from "./icons.js";
 const WEEKDAYS_LONG = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const MONTHS_LONG   = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
-let overlay, titleInput, timeInput, errorEl, saveBtn, moreOptionsBtn, modal;
+let overlay, titleInput, dateInput, timeInput, errorEl, saveBtn, moreOptionsBtn, modal;
 let selectedDate, onSaveCallback, onMoreOptionsCallback;
 
 function init() {
@@ -24,6 +24,7 @@ function init() {
       </div>
       <div class="modal-body">
         <input type="text"  id="qa-title" placeholder="Título do compromisso" autocomplete="off" aria-label="Título do compromisso" maxlength="120" />
+        <input type="date"  id="qa-date" aria-label="Data do compromisso" hidden />
         <input type="time"  id="qa-time" aria-label="Hora do compromisso" />
         <p class="error" id="qa-error"></p>
         <button type="button" class="link-btn" id="qa-more-options">Mais opções</button>
@@ -37,6 +38,7 @@ function init() {
   document.body.appendChild(overlay);
 
   titleInput     = overlay.querySelector("#qa-title");
+  dateInput      = overlay.querySelector("#qa-date");
   timeInput      = overlay.querySelector("#qa-time");
   errorEl        = overlay.querySelector("#qa-error");
   saveBtn        = overlay.querySelector("#qa-save");
@@ -46,6 +48,14 @@ function init() {
   overlay.querySelector("#qa-cancel").addEventListener("click", close);
   saveBtn.addEventListener("click", handleSave);
   moreOptionsBtn.addEventListener("click", handleMoreOptions);
+
+  // F15.6 — quando aberto sem slot (ex.: "+ Novo compromisso"), a data é
+  // editável dentro do próprio QuickAdd; o cabeçalho acompanha a escolha.
+  dateInput.addEventListener("change", () => {
+    if (!dateInput.value) return;
+    selectedDate = dateInput.value;
+    overlay.querySelector("#qa-date-label").textContent = _dateLabel(selectedDate);
+  });
 
   modal = initModal(overlay, close);
 
@@ -57,19 +67,24 @@ function init() {
   });
 }
 
-export function openQuickAdd(date, onSave, time = "", onMoreOptions) {
+function _dateLabel(date) {
+  const [y, m, d] = date.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return `${WEEKDAYS_LONG[dow]}, ${d} de ${MONTHS_LONG[m - 1]}`;
+}
+
+export function openQuickAdd(date, onSave, time = "", onMoreOptions, { editableDate = false } = {}) {
   if (!overlay) init();
 
   selectedDate           = date;
   onSaveCallback         = onSave;
   onMoreOptionsCallback  = onMoreOptions;
 
-  const [y, m, d] = date.split("-").map(Number);
-  const dow = new Date(y, m - 1, d).getDay();
-  overlay.querySelector("#qa-date-label").textContent =
-    `${WEEKDAYS_LONG[dow]}, ${d} de ${MONTHS_LONG[m - 1]}`;
+  overlay.querySelector("#qa-date-label").textContent = _dateLabel(date);
 
   titleInput.value    = "";
+  dateInput.value     = date;
+  dateInput.hidden    = !editableDate;
   timeInput.value     = time;
   errorEl.textContent = "";
   saveBtn.disabled    = false;
@@ -101,6 +116,7 @@ async function handleSave() {
   const time  = timeInput.value;
 
   if (!title) { errorEl.textContent = "Título é obrigatório."; titleInput.focus(); return; }
+  if (!dateInput.hidden && !dateInput.value) { errorEl.textContent = "Data é obrigatória."; dateInput.focus(); return; }
   if (!time)  { errorEl.textContent = "Hora é obrigatória.";   timeInput.focus();  return; }
 
   saveBtn.disabled    = true;
