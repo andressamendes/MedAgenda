@@ -134,14 +134,14 @@ test("fluxo completo: Compromisso → Sessão → Questões → Revisões → Se
       // 2) startSession → createActivitySession() → sessão criada (running)
       // 3) addQuestion  → getActivitySessionById() → sessão ainda ativa
       // 4) finishSession→ getActivitySessionById() → sessão antes de encerrar
-      // 5) finishSession→ updateActivitySession()  → sessão finalizada
+      // 5) finishSession→ _transition() (UPDATE condicional, F15.8) → sessão finalizada
       // 6) associateReview → getActivitySessionById() → sessão já finalizada
       activity_sessions: [
         { data: null, error: null },
         { data: RUNNING_SESSION, error: null },
         { data: RUNNING_SESSION, error: null },
         { data: RUNNING_SESSION, error: null },
-        { data: FINISHED_SESSION, error: null },
+        { data: [FINISHED_SESSION], error: null },
         { data: FINISHED_SESSION, error: null },
       ],
       questions: { data: CREATED_QUESTION, error: null },

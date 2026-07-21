@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { createSupabaseMock } from "../mocks/supabaseMock.js";
+import { SESSION_EVENTS, subscribe } from "../../sessionEventBus.js";
 
 const SUPABASE_SPECIFIER = new URL("../../supabase.js", import.meta.url).href;
 
@@ -235,7 +236,7 @@ test("finishSession() sets ended_at, status and computes duration_minutes", asyn
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30 };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   const result = await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
@@ -257,7 +258,7 @@ test("finishSession() persists the trimmed notes argument in activity_sessions.n
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30, notes: "Revisar arritmias amanhã." };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"), "  Revisar arritmias amanhã.  ");
@@ -270,7 +271,7 @@ test("finishSession() never writes a blank/whitespace-only notes argument (leave
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30 };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"), "   ");
@@ -283,7 +284,7 @@ test("finishSession() omits notes entirely when called without the argument (exi
   const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
   const updated = { ...session, status: "finished", duration_minutes: 30 };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
@@ -301,7 +302,7 @@ test("finishSession() deducts paused_ms (already-completed pauses) from duration
   };
   const updated = { ...session, status: "finished", duration_minutes: 20 };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
@@ -321,7 +322,7 @@ test("finishSession() also deducts the current (still-open) pause interval when 
   };
   const updated = { ...session, status: "finished", duration_minutes: 20 };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: updated, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [updated], error: null }],
   });
 
   await mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z"));
@@ -371,7 +372,7 @@ test("cancelSession() sets status to cancelled without deleting the row", async 
   const session = { id: "sess-1", status: "running" };
   const cancelled = { ...session, status: "cancelled" };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: cancelled, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [cancelled], error: null }],
   });
 
   const result = await mod.cancelSession("sess-1");
@@ -394,11 +395,100 @@ test("cancelSession() refuses to cancel an already finished session", async (t) 
   );
 });
 
+// ── F15.8 — Guarda de estado nas transições (corrida entre abas) ────────────
+// Simula a janela entre leitura e escrita: getActivitySessionById() ainda vê a
+// sessão ativa, mas outra aba a encerra antes do UPDATE desta. O UPDATE
+// condicional (.in("status", fromStatuses)) então não afeta nenhuma linha —
+// o resultado deve ser o erro de domínio SESSION_STATE_CONFLICT, nunca uma
+// segunda escrita sobrepondo ended_at/duration_minutes, e nenhum evento
+// publicado no barramento.
+
+test("finishSession() turns a lost race (0 rows updated) into SESSION_STATE_CONFLICT and publishes no event", async (t) => {
+  const session = { id: "sess-1", status: "running", started_at: "2026-01-01T10:00:00.000Z" };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    // 1ª: getActivitySessionById() -> ainda "running" (nesta aba)
+    // 2ª: UPDATE condicional -> 0 linhas (outra aba já encerrou)
+    activity_sessions: [{ data: session, error: null }, { data: [], error: null }],
+  });
+  const events = [];
+  const unsubscribers = Object.values(SESSION_EVENTS).map((type) =>
+    subscribe(type, (payload) => events.push({ type, payload }))
+  );
+  t.after(() => unsubscribers.forEach((unsub) => unsub()));
+
+  await assert.rejects(
+    () => mod.finishSession("sess-1", new Date("2026-01-01T10:30:00.000Z")),
+    (err) => err.code === "SESSION_STATE_CONFLICT" && err.message.includes("outra aba")
+  );
+
+  // O UPDATE foi condicionado ao status de origem e aconteceu uma única vez.
+  const updateCalls = supabase._calls.filter(c => c.method === "update");
+  assert.strictEqual(updateCalls.length, 1);
+  const inCall = supabase._calls.find(c => c.method === "in");
+  assert.deepStrictEqual(inCall.args, ["status", ["running", "paused"]]);
+  assert.deepStrictEqual(events, []);
+});
+
+test("cancelSession() turns a lost race into SESSION_STATE_CONFLICT instead of overwriting the concurrent finish", async (t) => {
+  const session = { id: "sess-1", status: "running" };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: [], error: null }],
+  });
+  const events = [];
+  const unsubscribers = Object.values(SESSION_EVENTS).map((type) =>
+    subscribe(type, (payload) => events.push({ type, payload }))
+  );
+  t.after(() => unsubscribers.forEach((unsub) => unsub()));
+
+  await assert.rejects(
+    () => mod.cancelSession("sess-1"),
+    (err) => err.code === "SESSION_STATE_CONFLICT"
+  );
+
+  const inCall = supabase._calls.find(c => c.method === "in");
+  assert.deepStrictEqual(inCall.args, ["status", ["running", "paused"]]);
+  assert.deepStrictEqual(events, []);
+});
+
+test("pauseSession() only updates sessions still running (guarded .in) and reports a lost race as SESSION_STATE_CONFLICT", async (t) => {
+  const session = { id: "sess-1", status: "running" };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [{ data: session, error: null }, { data: [], error: null }],
+  });
+
+  await assert.rejects(
+    () => mod.pauseSession("sess-1"),
+    (err) => err.code === "SESSION_STATE_CONFLICT"
+  );
+
+  const inCall = supabase._calls.find(c => c.method === "in");
+  assert.deepStrictEqual(inCall.args, ["status", ["running"]]);
+});
+
+test("resumeSession() only updates sessions still paused (guarded .in) and reports a lost race as SESSION_STATE_CONFLICT", async (t) => {
+  const session = { id: "sess-1", status: "paused", paused_at: "2026-07-09T12:00:00.000Z", paused_ms: 0 };
+  const { mod, supabase } = await loadActivitySessionService(t, {
+    activity_sessions: [
+      { data: session, error: null }, // getActivitySessionById -> ainda "paused"
+      { data: null, error: null },    // getRunningSession -> nenhuma outra ativa
+      { data: [], error: null },      // UPDATE condicional -> 0 linhas (corrida perdida)
+    ],
+  });
+
+  await assert.rejects(
+    () => mod.resumeSession("sess-1"),
+    (err) => err.code === "SESSION_STATE_CONFLICT"
+  );
+
+  const updateInCall = supabase._calls.find(c => c.method === "in" && c.args[1].includes("paused") && c.args[1].length === 1);
+  assert.deepStrictEqual(updateInCall.args, ["status", ["paused"]]);
+});
+
 test("pauseSession() moves a running session to paused", async (t) => {
   const session = { id: "sess-1", status: "running" };
   const paused = { ...session, status: "paused", paused_at: "2026-07-09T12:00:00.000Z" };
   const { mod, supabase } = await loadActivitySessionService(t, {
-    activity_sessions: [{ data: session, error: null }, { data: paused, error: null }],
+    activity_sessions: [{ data: session, error: null }, { data: [paused], error: null }],
   });
 
   const result = await mod.pauseSession("sess-1");
@@ -428,7 +518,7 @@ test("resumeSession() moves a paused session back to running", async (t) => {
     activity_sessions: [
       { data: session, error: null }, // getActivitySessionById
       { data: null, error: null },    // getRunningSession -> nenhuma outra ativa
-      { data: resumed, error: null }, // updateActivitySession
+      { data: [resumed], error: null }, // _transition (UPDATE condicional)
     ],
   });
 
