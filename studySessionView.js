@@ -26,7 +26,8 @@ import { create as createReview, listPending as listPendingReviews } from "./rev
 import { associateReview, unlinkReview, listBySession as listSessionReviews } from "./reviewSessionService.js";
 import { saveReflection } from "./studyReflectionService.js";
 import { getNextStudyPlan, clearNextStudyPlan } from "./closeDayService.js";
-import { getEventById, getEvents } from "./eventService.js";
+import { getEventById, getEvents, getEventsByRange } from "./eventService.js";
+import { expandEvents } from "./recurrence.js";
 import { getCategories } from "./categoryService.js";
 import { confirmDialog } from "./confirmDialog.js";
 import { abandonedSessionDialog } from "./abandonedSessionDialog.js";
@@ -682,7 +683,22 @@ async function _loadStartSuggestions() {
     handleError(err, { context: "studySessionView.loadRecentTitles", silent: true });
   }
 
-  const todayEvent = _startEventsCache.find(ev => ev.event_date === todayISO);
+  // F15.5 — o compromisso de hoje vem da mesma expansão de recorrência da
+  // tela Hoje (todayView._refreshAppointments): getEventsByRange + expandEvents,
+  // nunca comparação de event_date cru — a aula fixa de terça também "é hoje".
+  // Cada ocorrência preserva o id do evento-base, então o chip continua
+  // apontando para uma opção existente do select de compromissos. Com mais de
+  // um compromisso no dia, categoria "Estudo" tem prioridade.
+  let todayEvent = null;
+  try {
+    const occurrences = expandEvents(await getEventsByRange(todayISO, todayISO), todayISO, todayISO);
+    todayEvent =
+      occurrences.find(ev => (ev.category || "").trim().toLowerCase() === "estudo") ||
+      occurrences[0] ||
+      null;
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadTodayEvent", silent: true });
+  }
   if (todayEvent) {
     suggestions.push({ kind: "event", label: `Hoje: ${todayEvent.title}`, eventId: todayEvent.id });
   }
