@@ -912,15 +912,19 @@
             </button>
           </div>
           <div id="sj-search-stats" class="sj-search-stats" hidden></div>
-          <!-- Auditoria UX #02: os filtros do Diário operam só sobre as
-               sessões já carregadas em memória (F8.4/F8.8) — quando há filtro
-               ativo e ainda existem páginas no servidor, este aviso impede o
-               usuário de tomar contagens parciais como totais. -->
-          <p id="sj-filter-partial-notice" class="insights-block-notice" hidden></p>
           <h2 class="sr-only">Sessões e resumos</h2>
           <p id="sj-list-empty" class="list-empty" hidden></p>
           <ul id="sj-list" class="sj-list"></ul>
           <button type="button" id="sj-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
+          <!-- Auditoria UX #02, rebaixado na Etapa 7 — os filtros do Diário
+               operam só sobre as sessões já carregadas em memória (F8.4/
+               F8.8); quando há filtro ativo e ainda existem páginas no
+               servidor, este aviso impede o usuário de tomar contagens
+               parciais como totais. Era um bloco destacado (mesma classe de
+               alerta usada em Insights) acima da lista, competindo por
+               atenção com o conteúdo real; vira uma nota discreta de rodapé,
+               junto de "Carregar mais" — a mesma ação que resolve o aviso. -->
+          <p id="sj-filter-partial-notice" class="sj-partial-notice" hidden></p>
           </div>
         </div>
 

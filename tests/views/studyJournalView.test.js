@@ -1431,6 +1431,27 @@ function partialNotice() {
   return document.getElementById("sj-filter-partial-notice");
 }
 
+test("Etapa 7 (auditoria UX radical) — the partial-filtering notice is a discreet footer note next to 'Carregar mais', not a highlighted alert box", async (t) => {
+  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 25, hasMore: true }),
+  });
+
+  await mod.initStudyJournalView();
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+
+  const notice = partialNotice();
+  assert.strictEqual(notice.hidden, false);
+  assert.strictEqual(notice.classList.contains("insights-block-notice"), false, "não usa mais a caixa de alerta compartilhada com Insights");
+
+  const container = document.getElementById("sj-finished-view");
+  const loadMoreBtn = document.getElementById("sj-load-more");
+  const position = notice.compareDocumentPosition(loadMoreBtn);
+  assert.ok(position & window.Node.DOCUMENT_POSITION_PRECEDING, "'Carregar mais' vem antes do aviso, que agora é uma nota de rodapé junto dele");
+  assert.ok(container.contains(notice));
+});
+
 test("UX #02 — with an active filter and more pages on the server, shows the partial-filtering notice", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
@@ -1448,7 +1469,6 @@ test("UX #02 — with an active filter and more pages on the server, shows the p
 
   assert.strictEqual(partialNotice().hidden, false);
   assert.match(partialNotice().textContent, /1 sessão\(ões\) já carregada/);
-  assert.match(partialNotice().textContent, /Carregar mais/);
 });
 
 test("UX #02 — the notice disappears when the filter is cleared", async (t) => {

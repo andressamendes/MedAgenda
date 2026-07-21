@@ -844,12 +844,18 @@ function _renderSearchStats(filteredEntries) {
   statsEl.textContent = `${stats.sessionsCount} sessão(ões) encontrada(s) · ${_formatDuration(stats.totalMinutes)} estudados`;
 }
 
-// ── Aviso de filtragem parcial (auditoria UX #02) ────────────────────────
+// ── Aviso de filtragem parcial (auditoria UX #02, rebaixado na Etapa 7) ──
 // Os filtros (F8.4/F8.8) operam exclusivamente sobre `_allEntries` — as
 // sessões já carregadas via "Carregar mais". Com filtro ativo e páginas
 // ainda não carregadas no servidor (_hasMore), as contagens exibidas (card
 // de estatísticas, grupos, resumos) são parciais sem que nada indique isso.
 // Este aviso torna a parcialidade explícita; nenhuma consulta nova é feita.
+//
+// Etapa 7 (auditoria UX radical) — era um bloco destacado (.insights-block-
+// notice, mesmo alerta de Insights) acima da lista, competindo por atenção
+// com o conteúdo real logo na entrada da tela. Vira uma nota discreta de
+// rodapé (.sj-partial-notice), ao lado do próprio "Carregar mais" — a ação
+// que resolve a parcialidade já está ali, não precisa ser repetida no texto.
 function _hasActiveFilters() {
   return Object.keys(_DEFAULT_FILTERS).some(key => _filters[key] !== _DEFAULT_FILTERS[key]);
 }
@@ -859,7 +865,7 @@ function _updatePartialNotice() {
   const show = _hasMore && _hasActiveFilters();
   partialNoticeEl.hidden = !show;
   partialNoticeEl.textContent = show
-    ? `Filtros aplicados somente às ${_allEntries.length} sessão(ões) já carregada(s) — os totais podem estar incompletos. Use "Carregar mais" para incluir sessões mais antigas.`
+    ? `Filtros aplicados só às ${_allEntries.length} sessão(ões) já carregada(s) — os totais podem estar incompletos.`
     : "";
 }
 
