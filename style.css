@@ -1586,6 +1586,16 @@ textarea { resize: vertical; }
   transform: translateY(-1px);
 }
 
+/* transform (acima) cria um stacking context novo no card em hover, o que
+   prende o .event-card-menu-dropdown (position: absolute) dentro dos limites
+   desse contexto — o próximo card da lista, sem hover, então pinta por cima
+   do menu aberto. .menu-open promove o card ativo (via z-index explícito,
+   não var(--z-dropdown) do próprio menu) para cima dos irmãos no contexto da
+   lista, resolvendo a causa raiz sem tocar no z-index do dropdown. */
+.event-card.menu-open {
+  z-index: 1;
+}
+
 .event-card-header {
   display: flex;
   align-items: flex-start;
