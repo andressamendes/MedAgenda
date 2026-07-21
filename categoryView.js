@@ -2,7 +2,7 @@
 
 import {
   getCategories, createCategory, updateCategory,
-  deleteCategory, ensureDefaultCategories,
+  deleteCategory, ensureDefaultCategories, invalidateCategoriesCache,
 } from "./categoryService.js";
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
@@ -103,6 +103,9 @@ export async function initCategories() {
  */
 export function resetCategories() {
   categoriesCache = [];
+  // F15.10 — o cache de leitura do service também não pode sobreviver à troca
+  // de usuário (mesma simetria init/reset do restante do logout).
+  invalidateCategoriesCache();
   if (catList) catList.innerHTML = "";
   if (catError) catError.textContent = "";
   if (fCategory) fCategory.innerHTML = '<option value="">— Selecione —</option>';
