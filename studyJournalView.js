@@ -827,21 +827,21 @@ function _bindFilters() {
   advancedToggleBtn?.addEventListener("click", _toggleAdvancedFilters);
 }
 
-// ── Estatísticas da busca (F8.8) ─────────────────────────────────────────
+// ── Estatísticas da busca (F8.8, reduzida na Etapa 6) ────────────────────
 // Cartão fixo acima da lista, derivado apenas do resultado já filtrado
 // (searchStats() — studySearchService.js, função pura) — nenhuma consulta
 // nova, mesmo padrão dos cartões de resumo do F8.5/F8.6.
+//
+// Etapa 6 (auditoria UX radical) — eram 5 chips (sessões, tempo, questões,
+// revisões, matérias) antes de qualquer sessão individual. Questões e
+// revisões já aparecem como indicadores em cada cartão de sessão (Etapa 2);
+// matérias diferentes é um dado de baixo valor por si só. Fica só com o que
+// responde "quantas sessões" e "quanto tempo" — uma linha só.
 function _renderSearchStats(filteredEntries) {
   if (!statsEl) return;
   const stats = searchStats(filteredEntries);
   statsEl.hidden = false;
-  statsEl.innerHTML = `
-    <span>${stats.sessionsCount} sessão(ões) encontrada(s)</span>
-    <span>${_formatDuration(stats.totalMinutes)} estudados</span>
-    <span>${stats.questionsCount} questão(ões)</span>
-    <span>${stats.reviewsCount} revisão(ões)</span>
-    <span>${stats.subjectsCount} matéria(s) diferente(s)</span>
-  `;
+  statsEl.textContent = `${stats.sessionsCount} sessão(ões) encontrada(s) · ${_formatDuration(stats.totalMinutes)} estudados`;
 }
 
 // ── Aviso de filtragem parcial (auditoria UX #02) ────────────────────────

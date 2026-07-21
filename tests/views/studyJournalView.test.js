@@ -1191,6 +1191,31 @@ test("F10 #3.2 — milestones are recalculated from the filtered subset and the 
   );
 });
 
+// ── Estatísticas da busca (F8.8, reduzida na Etapa 6) ────────────────────
+
+test("Etapa 6 (auditoria UX radical) — the search stats bar shrinks from 5 chips to a single line: sessions found and time studied", async (t) => {
+  const sessions = [
+    { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+    { id: "sess-2", event_id: "ev-2", status: "finished", started_at: "2026-03-10T09:00:00.000Z", ended_at: "2026-03-10T09:45:00.000Z", duration_minutes: 45 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+    getEvents: async () => [
+      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
+      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
+    ],
+    listQuestions: async () => [{ id: "q1" }],
+    listReviewsBySession: async () => [{ id: "r1" }],
+  });
+
+  await mod.initStudyJournalView();
+
+  const statsEl = document.getElementById("sj-search-stats");
+  assert.strictEqual(statsEl.hidden, false);
+  assert.strictEqual(statsEl.textContent, "2 sessão(ões) encontrada(s) · 1h 15min estudados");
+  assert.strictEqual(statsEl.querySelectorAll("span").length, 0, "vira uma única linha de texto, não mais 5 chips separados");
+});
+
 // ── Reflexão + destaque de busca ativa (F8.2 + F8.8) ─────────────────────
 
 test("F8.8 — saving a reflection while a search filter is active keeps the highlight in the freshly rendered reflection, without a new interaction", async (t) => {
