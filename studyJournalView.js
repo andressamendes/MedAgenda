@@ -128,6 +128,7 @@ import { setHistoryStatus } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { getUserQuestionStatistics, summarizeSessionQuestions, accuracyIndicator } from "./studyStatisticsService.js";
 import { getCategories } from "./categoryService.js";
+import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 
 const PAGE_SIZE = 10;
 
@@ -1226,6 +1227,7 @@ function _setStatusTab(status) {
     btn.classList.toggle("tab--active", active);
     btn.setAttribute("aria-selected", String(active));
   });
+  updateTabsRovingIndex(statusTabsEl);
   const showFinished = status === "finished";
   if (finishedViewEl) finishedViewEl.hidden = !showFinished;
   if (otherViewEl)    otherViewEl.hidden    = showFinished;
@@ -1264,11 +1266,9 @@ export async function initStudyJournalView() {
     finishedViewEl = document.getElementById("sj-finished-view");
     otherViewEl    = document.getElementById("sj-other-view");
     otherOnlyCancelledCheck = document.getElementById("sj-other-only-cancelled");
-    statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
-      btn.addEventListener("click", () => {
-        _setStatusTab(btn.dataset.status);
-        try { localStorage.setItem(JOURNAL_STATUS_TAB_KEY, btn.dataset.status); } catch { /* storage unavailable */ }
-      });
+    initTabs(statusTabsEl, btn => {
+      _setStatusTab(btn.dataset.status);
+      try { localStorage.setItem(JOURNAL_STATUS_TAB_KEY, btn.dataset.status); } catch { /* storage unavailable */ }
     });
     otherOnlyCancelledCheck?.addEventListener("change", _onOtherOnlyCancelledChange);
 

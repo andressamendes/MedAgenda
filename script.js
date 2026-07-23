@@ -33,6 +33,7 @@ import { initNotifications, scheduleReminders, resetNotifications } from "./noti
 import { initPushService, syncPushSubscription, resetPushService } from "./pushService.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { escapeHtml, readableTextColor } from "./utils.js";
+import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 import { toast } from "./toastService.js";
 import { initTelemetry, setTelemetryDevMode, track, EVENTS } from "./telemetryService.js";
 import { initErrorService, setErrorDevMode, handleError } from "./errorService.js";
@@ -246,6 +247,7 @@ function _setAgendaView(view) {
     btn.classList.toggle("tab--active", active);
     btn.setAttribute("aria-selected", String(active));
   });
+  updateTabsRovingIndex(document.getElementById("agenda-view-tabs"));
 
   try { localStorage.setItem(AGENDA_VIEW_KEY, view); } catch { /* storage unavailable */ }
 }
@@ -253,9 +255,7 @@ function _setAgendaView(view) {
 function _initAgendaViewTabs() {
   if (_agendaViewBound) return;
   _agendaViewBound = true;
-  document.querySelectorAll("#agenda-view-tabs .tab").forEach(btn => {
-    btn.addEventListener("click", () => _setAgendaView(btn.dataset.view));
-  });
+  initTabs(document.getElementById("agenda-view-tabs"), btn => _setAgendaView(btn.dataset.view));
 
   let saved;
   try { saved = localStorage.getItem(AGENDA_VIEW_KEY); } catch { /* storage unavailable */ }

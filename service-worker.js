@@ -102,6 +102,7 @@ const APP_SHELL = [
   './studyTimelineService.js',
   './subjectProgressService.js',
   './supabase.js',
+  './tabsController.js',
   './telemetryService.js',
   './themeService.js',
   './timeGoals.js',

@@ -38,6 +38,7 @@ import { toast } from "./toastService.js";
 import { pad, escapeHtml, localDate, formatDuration, formatClockTime } from "./utils.js";
 import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
+import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 
 const TICK_MS = 1000;
 
@@ -323,8 +324,7 @@ function _queryElements() {
 
 function _bindEvents() {
   btnStartStandalone.addEventListener("click", () => _openStartModal());
-  startTabManualEl.addEventListener("click", () => _switchStartTab("manual"));
-  startTabEventEl.addEventListener("click",  () => _switchStartTab("event"));
+  initTabs(document.getElementById("ss-start-tabs"), tab => _switchStartTab(tab === startTabManualEl ? "manual" : "event"));
   startCancelEl.addEventListener("click", () => _closeStartModal());
   startCloseEl.addEventListener("click",  () => _closeStartModal());
   startConfirmEl.addEventListener("click", () => _confirmStartModal());
@@ -739,6 +739,7 @@ function _switchStartTab(which) {
   startTabEventEl.classList.toggle("tab--active", !isManual);
   startTabManualEl.setAttribute("aria-selected", String(isManual));
   startTabEventEl.setAttribute("aria-selected", String(!isManual));
+  updateTabsRovingIndex(document.getElementById("ss-start-tabs"));
   startManualPanelEl.hidden = !isManual;
   startEventPanelEl.hidden  = isManual;
   // F13.6 — a troca de aba passa a ter o mesmo feedback de "conteúdo novo"

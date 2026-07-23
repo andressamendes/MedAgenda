@@ -15,6 +15,7 @@ import { initModal } from "./modalController.js";
 import { openDiagnosticModal } from "./diagnosticModal.js";
 import { handleError } from "./errorService.js";
 import { getTheme, setTheme } from "./themeService.js";
+import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 
 let notifStatusText, btnNotifToggle, notifPermHint;
 let pushStatusText, btnPushToggle, pushErrorHint;
@@ -33,11 +34,9 @@ export function initSettingsModal() {
 
   if (!settingsOverlay) return;
 
-  themeTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      setTheme(tab.dataset.theme);
-      renderThemeState();
-    });
+  initTabs(document.getElementById("theme-tabs"), tab => {
+    setTheme(tab.dataset.theme);
+    renderThemeState();
   });
 
   settingsModal = initModal(settingsOverlay, closeSettings);
@@ -112,6 +111,7 @@ function renderThemeState() {
     tab.classList.toggle("tab--active", active);
     tab.setAttribute("aria-selected", String(active));
   });
+  updateTabsRovingIndex(document.getElementById("theme-tabs"));
 }
 
 export function closeSettings() {

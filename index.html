@@ -404,23 +404,23 @@
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
           <div class="tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana, Mês e Lista">
-            <button type="button" class="tab tab--active" data-view="week" role="tab" aria-selected="true">Semana</button>
-            <button type="button" class="tab" data-view="month" role="tab" aria-selected="false">Mês</button>
-            <button type="button" class="tab" data-view="list" role="tab" aria-selected="false">Lista</button>
+            <button type="button" class="tab tab--active" data-view="week" role="tab" aria-selected="true" aria-controls="week-container">Semana</button>
+            <button type="button" class="tab" data-view="month" role="tab" aria-selected="false" aria-controls="calendar-container">Mês</button>
+            <button type="button" class="tab" data-view="list" role="tab" aria-selected="false" aria-controls="appointments-list-container">Lista</button>
           </div>
 
           <!-- Weekly view -->
-          <section class="week-section" id="week-container"></section>
+          <section class="week-section" id="week-container" role="tabpanel"></section>
 
           <!-- Monthly view -->
-          <section class="calendar-section" id="calendar-container" hidden></section>
+          <section class="calendar-section" id="calendar-container" role="tabpanel" hidden></section>
 
           <!-- F14.7 — "Compromissos" deixou de ser um destino de navegação
                próprio: é a mesma lista/busca/filtro/ordenação de sempre,
                agora aba "Lista" desta página (ver #agenda-view-tabs acima) —
                nenhum dado, id ou lógica de script.js muda, só o contêiner
                que a envolve. -->
-          <section class="appointments-list-section" id="appointments-list-container" hidden>
+          <section class="appointments-list-section" id="appointments-list-container" role="tabpanel" hidden>
             <div class="appointments-toolbar">
               <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" maxlength="120" title="Atalho: /" aria-keyshortcuts="/" />
               <div class="toolbar-filters">
@@ -472,8 +472,8 @@
                      aparece quando há alguma sugestão (ver _renderStartSuggestions). -->
                 <div class="ss-start-suggestions" id="ss-start-suggestions" hidden></div>
                 <div class="tabs" id="ss-start-tabs" role="tablist">
-                  <button type="button" class="tab tab--active" id="ss-start-tab-manual" role="tab" aria-selected="true">Novo estudo</button>
-                  <button type="button" class="tab" id="ss-start-tab-event" role="tab" aria-selected="false">Compromisso da agenda</button>
+                  <button type="button" class="tab tab--active" id="ss-start-tab-manual" role="tab" aria-selected="true" aria-controls="ss-start-manual-panel">Novo estudo</button>
+                  <button type="button" class="tab" id="ss-start-tab-event" role="tab" aria-selected="false" aria-controls="ss-start-event-panel">Compromisso da agenda</button>
                 </div>
 
                 <div id="ss-start-manual-panel" role="tabpanel">
@@ -897,11 +897,11 @@
           </div>
 
           <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
-            <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true">Concluídas</button>
-            <button type="button" class="tab" data-status="all" role="tab" aria-selected="false">Todas</button>
+            <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true" aria-controls="sj-finished-view">Concluídas</button>
+            <button type="button" class="tab" data-status="all" role="tab" aria-selected="false" aria-controls="sj-other-view">Todas</button>
           </div>
 
-          <div id="sj-other-view" hidden>
+          <div id="sj-other-view" role="tabpanel" hidden>
             <label class="filter-toggle sj-other-filter">
               <input type="checkbox" id="sj-other-only-cancelled" />
               <span>Somente canceladas</span>
@@ -911,7 +911,7 @@
             <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
           </div>
 
-          <div id="sj-finished-view">
+          <div id="sj-finished-view" role="tabpanel">
           <!-- Auditoria UX radical, Etapa 1 — busca e filtros eram os dois
                elementos com maior peso permanente da toolbar (input sempre
                aberto + botão de texto), competindo com a lista logo na
