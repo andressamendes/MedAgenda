@@ -304,6 +304,7 @@ test("filling the 'Novo estudo' name and confirming starts a session with Compro
   assert.strictEqual(document.getElementById("ss-start-modal").hidden, true);
   assert.strictEqual(document.getElementById("ss-status-badge").textContent, "Executando");
   assert.strictEqual(document.getElementById("ss-event-title").textContent, "Revisão de arritmias");
+  assert.strictEqual(document.getElementById("ss-event-title-label").textContent, "Estudo livre", "a standalone session must not be labeled as a Compromisso");
   assert.strictEqual(document.getElementById("ss-category").textContent, "Cardiologia");
   assert.strictEqual(document.getElementById("ss-content").textContent, "Fibrilação atrial");
   assert.strictEqual(document.getElementById("ss-date").textContent, "18/07/2026");
@@ -334,6 +335,7 @@ test("the 'Compromisso da agenda' path requires selecting an event and starts th
 
   assert.strictEqual(document.getElementById("ss-start-modal").hidden, true);
   assert.strictEqual(document.getElementById("ss-event-title").textContent, "Plantão UTI");
+  assert.strictEqual(document.getElementById("ss-event-title-label").textContent, "Compromisso", "a session linked to an event must keep the Compromisso label");
 });
 
 // F14.2 — início de sessão sem digitação: chips de um toque em cima do modal
@@ -899,6 +901,7 @@ test("the summary modal shows the session's read-only data, sourced from the exi
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ssf-event-title").textContent, "Plantão UTI");
+  assert.strictEqual(document.getElementById("ssf-event-title-label").textContent, "Compromisso");
   assert.strictEqual(document.getElementById("ssf-category").textContent, "Plantão");
   assert.strictEqual(document.getElementById("ssf-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
   assert.strictEqual(document.getElementById("ssf-content").textContent, "Revisar sepse");
@@ -2068,6 +2071,7 @@ test("F13.1 — a standalone session hides context rows it has no value for, ins
   assert.strictEqual(document.getElementById("ss-date-row").hidden, true);
   assert.strictEqual(document.getElementById("ss-subject"), null, "a linha 'Matéria' duplicava 'Categoria' e foi removida (auditoria UX #05)");
   assert.strictEqual(document.getElementById("ss-objective"), null, "a linha 'Objetivo' sempre exibia '—' (sem campo no domínio) e foi removida (auditoria UX #06)");
+  assert.strictEqual(document.getElementById("ss-event-title-label").textContent, "Estudo livre", "F18.3 — a standalone session must not be labeled 'Compromisso'");
 });
 
 test("F13.1 — a linked event also hides its own empty fields' rows", async (t) => {
@@ -2080,6 +2084,7 @@ test("F13.1 — a linked event also hides its own empty fields' rows", async (t)
 
   assert.strictEqual(document.getElementById("ss-category-row").hidden, true);
   assert.strictEqual(document.getElementById("ss-date-row").hidden, true);
+  assert.strictEqual(document.getElementById("ss-event-title-label").textContent, "Compromisso", "F18.3 — a session linked to an event keeps the 'Compromisso' label");
 });
 
 test("the context panel shows the event date, and the session status lives only in the badge", async (t) => {
