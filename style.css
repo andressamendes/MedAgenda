@@ -97,6 +97,14 @@
   --font-size-lg: 1rem;
   --font-size-xl: 1.25rem;
 
+  /* ── Rótulo "eyebrow" (F18.10) — tamanho e espaçamento de letra únicos
+     para os textos em caixa alta que anunciam uma seção/grupo (ex.:
+     .settings-section-title, .stat-card-title, .filter-label). Antes
+     desta rodada, 16 seletores repetiam esse mesmo padrão visual com
+     5 tamanhos e 5 letter-spacings diferentes. ── */
+  --eyebrow-font-size: var(--font-size-xs);
+  --eyebrow-letter-spacing: .04em;
+
   /* ── Família tipográfica de destaque (F10 PR2) — uma serifada de sistema
      (sem download, sem mudança de CSP/service worker) reservada só para
      números de destaque (cronômetro da Sessão de Estudo, cards do
@@ -593,11 +601,11 @@ body {
    visualmente os itens que abrem modais dos que trocam de página. */
 .sidebar-group-label {
   padding: .25rem .85rem .1rem;
-  font-size: .68rem;
+  font-size: var(--eyebrow-font-size);
   font-weight: 600;
   color: var(--gray-500);
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
 /* F13.2 — Agenda e Compromissos são duas visões do mesmo dado; o subgrupo
@@ -740,9 +748,9 @@ body {
   font-weight: 700;
   color: var(--gray-600);
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
 .filter-toggle {
@@ -1108,11 +1116,11 @@ body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   color: var(--gray-500);
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--gray-200);
   margin-bottom: .4rem;
@@ -1241,11 +1249,11 @@ body {
 }
 
 label {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 600;
   color: var(--gray-600);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
 .required { color: var(--red); }
@@ -1821,11 +1829,11 @@ textarea { resize: vertical; }
 }
 
 .stat-card-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 600;
   color: var(--gray-500);
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
 .stat-card-value {
@@ -2212,11 +2220,11 @@ textarea { resize: vertical; }
 
 .sj-detail-title {
   margin: 0 0 .3rem;
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   color: var(--gray-600);
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
 .sj-detail-items {
@@ -2323,10 +2331,10 @@ textarea { resize: vertical; }
 }
 
 .sj-week-narrative-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   color: var(--gray-500);
   margin: 0;
   cursor: pointer;
@@ -2677,11 +2685,11 @@ textarea { resize: vertical; }
 }
 
 .cat-add-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   color: var(--gray-600);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   margin-bottom: .6rem;
 }
 
@@ -2855,11 +2863,11 @@ textarea { resize: vertical; }
 .wk-day-head {
   text-align: center;
   padding: .45rem .25rem .4rem;
-  font-size: .68rem;
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   color: var(--gray-600);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   border-right: 1px solid var(--gray-200);
   line-height: 1.3;
 }
@@ -3191,10 +3199,10 @@ textarea { resize: vertical; }
 }
 
 .settings-section-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   color: var(--gray-500);
   padding: 0 .25rem;
 }
@@ -3319,10 +3327,10 @@ textarea { resize: vertical; }
 .account-section:last-child { border-bottom: none; }
 
 .account-section-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   color: var(--gray-600);
   margin-bottom: .85rem;
 }
@@ -3523,10 +3531,10 @@ textarea { resize: vertical; }
 }
 
 .ss-timer-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   color: var(--gray-500);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
 .ss-pause-note {
@@ -4333,10 +4341,10 @@ textarea { resize: vertical; }
    visual de .sidebar-group-label (duplicado, não compartilhado — F10 #2.4
    já documenta esse princípio para contextos diferentes neste app). */
 .ai-panel-group-title {
-  font-size: .68rem;
+  font-size: var(--eyebrow-font-size);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   color: var(--gray-500);
   margin-top: var(--space-1);
 }
@@ -4458,10 +4466,10 @@ textarea { resize: vertical; }
 }
 
 .ai-plan-priority {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   padding: .15rem .5rem;
   border-radius: var(--radius-full);
 }
@@ -4495,10 +4503,10 @@ textarea { resize: vertical; }
 }
 
 .ai-evolution-heading {
-  font-size: var(--font-size-xs);
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   color: var(--gray-600);
   margin: 0 0 .5rem;
 }
@@ -4569,10 +4577,10 @@ textarea { resize: vertical; }
 
 .smart-card-label {
   flex-shrink: 0;
-  font-size: .68rem;
+  font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: var(--eyebrow-letter-spacing);
   color: var(--gray-500);
   align-self: center;
 }
