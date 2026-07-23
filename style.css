@@ -325,9 +325,13 @@ body {
 }
 .login-wrap[hidden] { display: none; }
 
-/* ── Card (F5.2) — moldura padrão para superfícies elevadas (login, semana,
-   calendário, assistente, dashboard). padding/radius/shadow/border sempre
-   por token; nenhuma página deve sobrescrever esses quatro valores. ── */
+/* ── Card (F5.2, base unificada F18.8) — moldura padrão para superfícies
+   elevadas (login, semana, calendário, assistente, dashboard). `--radius-lg`
+   e `--shadow-md` são a base compartilhada por `.card`, `.ss-card`,
+   `.modal-card` e `.smart-card`: os quatro componentes de "cartão" do
+   produto. Cada um só diverge nos dois pontos onde há diferença real —
+   fundo (`.smart-card` é um callout inline discreto, sem sombra) e borda
+   (`.ss-card` tem contorno de 1px) — nunca em radius/sombra. ── */
 .card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -1620,11 +1624,11 @@ textarea { resize: vertical; }
    .stat-card repetiam, cada um na sua própria regra, exatamente as
    mesmas quatro declarações (background/border/border-radius/transition);
    agrupadas aqui uma única vez, sem mudar nenhum valor computado.
-   `.card` (login/superfícies elevadas — radius/shadow/padding maiores) e
+   `.card` (login/superfícies elevadas — padding maior, com sombra) e
    `.smart-card` (dica/callout inline — fundo cinza, sem sombra, sem hover)
-   usam valores diferentes de propósito: não são o mesmo padrão visual e
-   continuam com suas próprias regras, sem forçar uma unificação que mudaria
-   como aparecem hoje. ── */
+   divergem de propósito em fundo/sombra/padding (ambos compartilham o
+   mesmo radius-base, ver F18.8) e continuam com suas próprias regras, sem
+   forçar uma unificação que mudaria como aparecem hoje. ── */
 .event-card,
 .stat-card {
   background: var(--color-surface);
@@ -2539,7 +2543,7 @@ textarea { resize: vertical; }
 .modal-card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-md);
   width: 100%;
   max-width: 360px;
   overflow: hidden;
@@ -3455,8 +3459,8 @@ textarea { resize: vertical; }
   padding: var(--space-6);
   background: var(--color-surface);
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
-  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 /* F14.9 — badge de status + gatilho do modo foco lado a lado, mesma largura
@@ -4536,7 +4540,9 @@ textarea { resize: vertical; }
 }
 
 /* ── Cards Inteligentes (F3.5) — dica/sugestão/atenção/meta/revisão ──────────
-   Discretos por design: sem gráfico, sem animação, um card por linha. ── */
+   Discretos por design: sem gráfico, sem animação, um card por linha. Radius
+   vem da mesma base de `.card`/`.ss-card`/`.modal-card` (F18.8); sem sombra
+   e com fundo neutro é o modificador real que mantém o callout discreto. ── */
 .smart-cards {
   display: flex;
   flex-direction: column;
@@ -4550,7 +4556,7 @@ textarea { resize: vertical; }
   gap: var(--space-2);
   background: var(--gray-50);
   border-left: 3px solid var(--gray-300);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: .55rem .75rem;
   font-size: var(--font-size-sm);
 }
