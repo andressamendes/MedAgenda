@@ -17,20 +17,10 @@ import { initModal, bindModalBehavior, captureFocus, restoreFocus } from "./moda
 import { handleError } from "./errorService.js";
 import { startSessionForEvent } from "./studySessionView.js";
 import { showPage } from "./navigationView.js";
-import { getAIContext } from "./aiContextService.js";
-import { renderSmartCards, buildSmartCard } from "./smartCardView.js";
 import { categoryColor } from "./categoryView.js";
 import { revealWithAnimation } from "./transitionUtils.js";
 import { pad, escapeHtml, isoToday, formatDuration, formatClockTime } from "./utils.js";
 import { openQuickAdd } from "./quickAdd.js";
-
-// Categoria "com poucas sessões": mesmo piso de recommendationEngine.js/
-// planningService.js (categoria sem sessão finalizada há muito tempo, ou
-// nunca estudada) — redefinido aqui, sem importar esses módulos, para não
-// acoplar o formulário a eles.
-const UNDERSTUDIED_DAYS = 5;
-// Meta semanal "quase atingida": mesmo piso de recommendationEngine.js.
-const GOAL_NEAR_MIN_PCT = 70;
 
 const REMINDER_PRESETS = new Set(["0", "10", "30", "60", "120", "1440"]);
 
@@ -56,7 +46,6 @@ let _editingEvent = null;
 let _editScopeCtx = { occurrence: null, scope: SCOPE.SERIES };
 let _onSave   = null;
 let _historyRequestId = 0; // descarta respostas obsoletas se o evento editado mudar antes da resposta chegar
-let _insightsRequestId = 0; // mesmo padrão, para os cards inteligentes (F3.5)
 // Identifica qual edição está "ao vivo" no formulário — incrementado toda vez
 // que o formulário passa a representar uma edição diferente (nova abertura,
 // reset, fechamento). Um salvamento em andamento captura o valor no início e
@@ -86,7 +75,6 @@ let statCount          = null;
 let statLast           = null;
 let statLongest        = null;
 let statAverage        = null;
-let insightsEl         = null;
 let fTitle             = null;
 let fDate              = null;
 let fStart             = null;
@@ -102,9 +90,9 @@ let fReminderCustom    = null;
 let reminderCustomWrap = null;
 let modal              = null;
 
-// Painel "Histórico e estatísticas" (F13.4) — event-insights/session-history
-// saíram do corpo do modal de edição para este painel lateral sob demanda,
-// mesmo padrão de abrir/fechar/Focus Trap/Escape de #ai-panel (aiPanelView.js).
+// Painel "Histórico e estatísticas" (F13.4) — session-history saiu do corpo
+// do modal de edição para este painel lateral sob demanda, mesmo padrão de
+// abrir/fechar/Focus Trap/Escape de #ai-panel (aiPanelView.js).
 let eventDetailOverlay = null;
 let eventDetailPanel   = null;
 let eventDetailClose   = null;
@@ -134,7 +122,6 @@ export function initEventForm(onSave) {
   statLast            = document.getElementById("stat-last");
   statLongest         = document.getElementById("stat-longest");
   statAverage         = document.getElementById("stat-average");
-  insightsEl          = document.getElementById("event-insights");
   fTitle              = document.getElementById("f-title");
   fDate               = document.getElementById("f-date");
   fStart              = document.getElementById("f-start");
@@ -458,8 +445,6 @@ function _clearForm() {
   historyList.innerHTML = "";
   historyEmpty.hidden = true;
   statsSection.hidden = true;
-  _insightsRequestId++; // mesmo padrão, para os cards inteligentes (F3.5)
-  if (insightsEl) renderSmartCards(insightsEl, []);
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
@@ -485,7 +470,6 @@ function _populateForm(ev) {
   eventDetailTrigger.hidden = false;
   historySection.hidden  = false;
   _loadSessionHistory(ev.id);
-  _loadInsights(ev);
   eventIdField.value    = ev.id;
   fTitle.value          = ev.title           || "";
   fDate.value           = ev.event_date       || "";
@@ -630,43 +614,12 @@ function _formatRelativeMoment(iso) {
   return `${_formatSessionDate(iso)} às ${time}`;
 }
 
-// ── Cards inteligentes do compromisso (F3.5, ETAPA 5) ───────────────────────
-// Reaproveita integralmente o Context Engine (aiContextService.getAIContext())
-// já usado pelo painel de IA/planejamento/reflexão — nenhuma consulta nova é
-// feita aqui, só leitura dos mesmos blocos (categorias, meta semanal) já
-// consolidados. Nunca altera o compromisso: é só um resumo informativo.
-async function _loadInsights(ev) {
-  const requestId = ++_insightsRequestId;
-  if (!insightsEl) return;
-  renderSmartCards(insightsEl, []);
-
-  try {
-    const context = await getAIContext();
-    if (requestId !== _insightsRequestId) return; // formulário mudou de evento antes da resposta chegar
-    renderSmartCards(insightsEl, _buildEventInsightCards(ev, context));
-  } catch (err) {
-    if (requestId !== _insightsRequestId) return;
-    handleError(err, { context: "eventFormView.insights", silent: true });
-    renderSmartCards(insightsEl, []); // silencioso — o formulário continua totalmente utilizável
-  }
-}
-
-function _buildEventInsightCards(ev, context) {
-  const cards = [];
-
-  const category = (context.categories || []).find(c => c.name === ev.category);
-  if (category) {
-    if (category.daysSinceLastStudy === null) {
-      cards.push(buildSmartCard("dica", `Categoria ${ev.category} ainda sem sessões registradas.`));
-    } else if (category.daysSinceLastStudy >= UNDERSTUDIED_DAYS) {
-      cards.push(buildSmartCard("atencao", `Última sessão desta categoria há ${category.daysSinceLastStudy} dias.`));
-    }
-  }
-
-  const weeklyGoal = context.execution?.weeklyGoal;
-  if (weeklyGoal?.configured && weeklyGoal.state === "partial" && weeklyGoal.percentage >= GOAL_NEAR_MIN_PCT) {
-    cards.push(buildSmartCard("meta", `Meta semanal quase atingida: ${weeklyGoal.percentage}%.`));
-  }
-
-  return cards;
-}
+// F18.5 — o modal de compromisso não monta mais seus próprios "smart cards"
+// por fora do Decision Engine (decisionEngine.js): esse motor central já
+// decide, para todo o produto, o que vale mostrar sem o usuário pedir
+// (filterSpontaneousDecisions(), F14.6) e o resto continua acessível sob
+// demanda pelo botão "Ver histórico e estatísticas" já existente
+// (session-history/session-stats abaixo). Duplicar essa crítica aqui, com
+// limiares próprios, produzia o mesmo dado ("categoria negligenciada") ora
+// como card calmo ("dica", via Decision Engine) ora como alerta ("atenção",
+// só neste formulário) — a duplicidade foi removida, não substituída.

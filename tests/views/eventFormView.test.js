@@ -860,60 +860,23 @@ test("cancelling the recurrence-scope dialog leaves the form closed", async (t) 
   assert.strictEqual(document.getElementById("event-modal").hidden, true);
 });
 
-// ── Cards inteligentes do compromisso (F3.5, ETAPA 5) ───────────────────────
-// Reaproveita o Context Engine (aiContextService.getAIContext(), mockado
-// acima) para exibir insights sobre o compromisso aberto — nunca altera o
-// compromisso automaticamente.
+// ── F18.5 — sem bypass do Decision Engine no modal de compromisso ──────────
+// Até a auditoria F18, este formulário montava seus próprios "smart cards"
+// lendo o Context Engine diretamente (aiContextService.getAIContext()), com
+// limiares próprios (dias sem sessão, % de meta semanal) duplicados dos já
+// existentes em recommendationEngine.js — produzindo, para o mesmo dado
+// ("categoria negligenciada"), um card calmo ("dica") quando passa pelo
+// Decision Engine em outras telas e um card de alerta ("atenção") só aqui.
+// O formulário não decide mais isso por conta própria: nenhum card espontâneo
+// é montado neste modal, em nenhum cenário — quem quiser o retrospecto da
+// categoria/compromisso continua tendo o botão "Ver histórico e estatísticas"
+// (session-history/session-stats, já existente).
 
-test("a new event never loads or shows insight cards", async (t) => {
-  mockEventService(t);
-  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
-  initEventForm();
-
-  openEventForm();
-  await flush();
-
-  assert.strictEqual(document.getElementById("event-insights").hidden, true);
-});
-
-test("editing an event in a category without a session for a while shows an 'atenção' insight", async (t) => {
+test("editing an event never shows an ad hoc smart card, however understudied the category or however close the weekly goal", async (t) => {
   mockEventService(t, {
     aiContext: {
       ...EMPTY_AI_CONTEXT,
       categories: [{ name: "Farmacologia", minutes: 120, lastStudiedDate: "2026-06-01T00:00:00.000Z", daysSinceLastStudy: 12 }],
-    },
-  });
-  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
-  initEventForm();
-
-  openEventForm({ id: "evt-1", title: "Revisão", event_date: "2026-08-12", start_time: "08:00:00", category: "Farmacologia", recurrence_type: "none" });
-  await flush();
-
-  const insights = document.getElementById("event-insights");
-  assert.strictEqual(insights.hidden, false);
-  assert.match(insights.textContent, /Última sessão desta categoria há 12 dias\./);
-});
-
-test("editing an event in a never-studied category shows a 'dica' insight instead of an invented number", async (t) => {
-  mockEventService(t, {
-    aiContext: {
-      ...EMPTY_AI_CONTEXT,
-      categories: [{ name: "Pediatria", minutes: 0, lastStudiedDate: null, daysSinceLastStudy: null }],
-    },
-  });
-  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
-  initEventForm();
-
-  openEventForm({ id: "evt-2", title: "Aula", event_date: "2026-08-12", start_time: "08:00:00", category: "Pediatria", recurrence_type: "none" });
-  await flush();
-
-  assert.match(document.getElementById("event-insights").textContent, /ainda sem sessões registradas/);
-});
-
-test("editing an event while the weekly goal is nearly met shows a 'meta' insight", async (t) => {
-  mockEventService(t, {
-    aiContext: {
-      ...EMPTY_AI_CONTEXT,
       execution: {
         ...EMPTY_AI_CONTEXT.execution,
         weeklyGoal: { configured: true, goalMinutes: 600, actualMinutes: 570, percentage: 95, remainingMinutes: 30, state: "partial" },
@@ -923,25 +886,11 @@ test("editing an event while the weekly goal is nearly met shows a 'meta' insigh
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
-  openEventForm({ id: "evt-3", title: "Aula", event_date: "2026-08-12", start_time: "08:00:00", category: null, recurrence_type: "none" });
+  openEventForm({ id: "evt-1", title: "Revisão", event_date: "2026-08-12", start_time: "08:00:00", category: "Farmacologia", recurrence_type: "none" });
   await flush();
 
-  assert.match(document.getElementById("event-insights").textContent, /Meta semanal quase atingida: 95%\./);
-});
-
-test("closing the form clears any insight cards, and a failure loading them degrades silently", async (t) => {
-  mockEventService(t, { aiContext: null, getAIContext: async () => { throw new Error("network down"); } });
-  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
-  initEventForm();
-
-  await assert.doesNotReject(async () => {
-    openEventForm({ id: "evt-4", title: "Aula", event_date: "2026-08-12", start_time: "08:00:00", category: "Farmacologia", recurrence_type: "none" });
-    await flush();
-  });
-
-  assert.strictEqual(document.getElementById("event-insights").hidden, true);
-  document.getElementById("btn-cancel").click();
-  assert.strictEqual(document.getElementById("event-insights").hidden, true);
+  assert.strictEqual(document.getElementById("event-insights"), null);
+  assert.strictEqual(document.querySelectorAll("#event-modal .smart-card, #event-detail-panel .smart-card").length, 0);
 });
 
 // ── B2: ciclo de vida do formulário (BUG 02 + BUG 03) ───────────────────────

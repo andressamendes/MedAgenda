@@ -2,6 +2,24 @@
 
 ---
 
+## [Unreleased] — F18.5: Remover o bypass do Decision Engine em `eventFormView.js`
+
+- **Cards inteligentes do modal de compromisso removidos.** `eventFormView.js`
+  montava seus próprios "smart cards" (`_loadInsights`/`_buildEventInsightCards`)
+  lendo `aiContextService.getAIContext()` direto, com limiares próprios
+  (`UNDERSTUDIED_DAYS`/`GOAL_NEAR_MIN_PCT`) duplicados dos já existentes em
+  `recommendationEngine.js` — por fora do Decision Engine (`decisionEngine.js`,
+  F3.7) usado pelo resto do produto. Isso produzia, para o mesmo dado
+  ("categoria negligenciada"), um card calmo ("dica") quando passava pelo
+  Decision Engine em outras telas e um card de alerta ("atenção") só neste
+  formulário — a inconsistência de tom que a auditoria F18 (achado #8/P1)
+  apontou. O formulário não decide mais isso por conta própria: nenhum card
+  espontâneo é montado no modal de compromisso, em nenhum cenário. O
+  retrospecto da categoria/compromisso continua acessível sob demanda pelo
+  botão "Ver histórico e estatísticas" já existente (session-history/
+  session-stats) — só deixou de ser empurrado sem pedido. `#event-insights`
+  removido de `index.html`.
+
 ## [Unreleased] — F18.2: Resolver a colisão de "Todas" no Diário
 
 - **Aba de status renomeada de "Todas" para "Histórico"** em `#sj-status-tabs`
