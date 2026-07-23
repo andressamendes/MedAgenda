@@ -20,7 +20,7 @@ const STEPS = [
   { page: "agenda",       label: "Agenda",  desc: "Crie compromissos de estudo clicando em um horário livre." },
   { page: "study-session", label: "Sessão",  desc: "Inicie uma sessão avulsa e registre questões e revisões enquanto estuda." },
   { page: "journal",      label: "Diário",   desc: "Revise suas sessões concluídas e acompanhe sua sequência de estudos." },
-  { page: "dashboard",    label: "Dashboard", desc: "Acompanhe seu progresso e suas conquistas." },
+  { page: "progress",     label: "Progresso", desc: "Acompanhe seu progresso e suas conquistas." },
 ];
 
 let cardEl = null;
