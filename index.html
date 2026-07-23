@@ -287,13 +287,20 @@
         <!-- Secondary nav -->
         <!-- F14.5 — "Dashboard" removido: sua única seção ("Hoje") foi
              absorvida pela tela Hoje (#page-today, abaixo), e o restante já
-             vivia em "Progresso" (#page-progress), que segue acessível a
-             partir dela. Nenhum destino de navegação perdido, um a menos na
-             lista. -->
+             vivia em "Progresso" (#page-progress). Nenhum destino de
+             navegação perdido, um a menos na lista.
+             F18.1 — "Progresso" (F13.4/F14.5) tinha a própria página pronta
+             mas nenhum item de navegação apontava pra ela: showPage()
+             sempre caía no fallback "Hoje". O item abaixo é a porta de
+             entrada que faltava. -->
         <div class="sidebar-nav-group sidebar-nav-group--secondary">
           <button class="nav-item" data-page="journal" title="Atalho: G J" aria-keyshortcuts="g j">
             <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
             <span class="nav-label">Diário</span>
+          </button>
+          <button class="nav-item" data-page="progress" title="Atalho: G P" aria-keyshortcuts="g p">
+            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg></span>
+            <span class="nav-label">Progresso</span>
           </button>
         </div>
 

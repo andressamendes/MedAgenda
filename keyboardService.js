@@ -10,17 +10,19 @@
 import { showPage } from "./navigationView.js";
 
 // Mesmas páginas de navigationView.js/APP_PAGES — "G" seguido da inicial de
-// cada uma (h=Hoje, a=Agenda, s=Sessão, j=Diário). showPage() já cai em
-// 'today' para qualquer nome inválido, então nenhuma validação extra é
+// cada uma (h=Hoje, a=Agenda, s=Sessão, j=Diário, p=Progresso). showPage() já
+// cai em 'today' para qualquer nome inválido, então nenhuma validação extra é
 // necessária aqui. F14.5 removeu "d" (Dashboard): a página deixou de existir,
 // sua seção foi absorvida por "Hoje". F14.7 removeu "c" (Compromissos): a
 // página virou a aba "Lista" dentro de "Agenda" (já alcançável por "g a"),
-// não um destino próprio.
+// não um destino próprio. F18.1 adicionou "p" (Progresso): a página já
+// existia mas nenhum atalho apontava pra ela.
 const GO_TO_PAGE = {
   h: "today",
   a: "agenda",
   s: "study-session",
   j: "journal",
+  p: "progress",
 };
 
 // Prazo para completar o chord "G" + tecla — depois disso, "G" sozinho não

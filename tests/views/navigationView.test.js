@@ -187,6 +187,22 @@ test("clicking a [data-page] nav button navigates via showPage()", () => {
   assert.strictEqual(document.getElementById("page-agenda").hidden, false);
 });
 
+// F18.1 — "Progresso" (#page-progress) existia e funcionava, mas nenhum item
+// visível de navegação apontava pra ela: a única forma de chegar lá era
+// chamar showPage("progress") manualmente. O item abaixo é a porta de
+// entrada real, clicável a partir da sidebar (e do "Mais" no mobile, que
+// abre a mesma sidebar).
+test("F18.1 — clicking the 'Progresso' sidebar item navigates to #page-progress", () => {
+  const progressBtn = document.querySelector('.nav-item[data-page="progress"]');
+  assert.ok(progressBtn, "existe um item de navegação 'Progresso' na sidebar");
+  assert.strictEqual(progressBtn.querySelector(".nav-label").textContent, "Progresso");
+
+  progressBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("page-progress").hidden, false);
+  assert.strictEqual(progressBtn.classList.contains("nav-item--active"), true);
+});
+
 test("UX #09 — os itens que abrem modais (Calendários/Categorias) ficam num grupo 'Gerenciar' separado, sem misturar com páginas", () => {
   const manageGroup = document.querySelector('.sidebar-nav-group[aria-label="Gerenciar"]');
   assert.ok(manageGroup, "grupo 'Gerenciar' existe na sidebar");

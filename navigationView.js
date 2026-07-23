@@ -9,10 +9,13 @@ import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.
 // (#page-calendar, "Mês") foi absorvida como aba dentro de 'agenda' (ver
 // #agenda-view-tabs em script.js/_setAgendaView). showPage('calendar') cai
 // no mesmo fallback 'agenda'.
-// 'progress' (F13.4) — página "Progresso" (#page-progress), de propósito sem
-// item próprio na sidebar/bottom nav (evita reintroduzir o excesso de
-// destinos que a F13.2 já removeu de lá); alcançável pelo botão de abrir a
-// sidebar/"Mais". F14.5 removeu 'dashboard': sua única seção ("Hoje") foi
+// 'progress' (F13.4) — página "Progresso" (#page-progress). F18.1: até aqui
+// não existia nenhum item de navegação apontando para ela (nem sidebar, nem
+// bottom nav, nem atalho) — showPage("progress") funcionava, mas nenhum
+// usuário real tinha como chamá-lo; a página inteira estava morta em
+// produção. Agora tem item próprio no grupo secundário da sidebar (ver
+// index.html), alcançável também em mobile pelo botão "Mais" (que abre a
+// mesma sidebar). F14.5 removeu 'dashboard': sua única seção ("Hoje") foi
 // absorvida por 'today' (ver index.html/page-today) — nenhum destino a
 // menos de fato, só um nome de página que deixou de existir.
 // 'today' (F14.1) — nova porta de entrada (ver todayView.js): primeiro item
