@@ -124,13 +124,15 @@ test("F10 #4.2 — showPage('history') falls back to today: 'history' is no long
 });
 
 // F14.7 — "Canceladas" deixou de ser uma aba própria: virou um filtro
-// (#sj-other-only-cancelled) dentro de "Todas".
-test("F10 #4.2/F14.7 — o Diário de Estudos tem as abas Concluídas/Todas que absorveram o Histórico", () => {
+// (#sj-other-only-cancelled) dentro de "Histórico".
+// F18.2 — a aba se chamava "Todas", colidindo com o chip de período "Todas"
+// (.sj-quick-filters) do mesmo Diário; rótulo passou a "Histórico".
+test("F10 #4.2/F14.7 — o Diário de Estudos tem as abas Concluídas/Histórico que absorveram o Histórico de Sessões", () => {
   nav.showPage("journal");
 
   const tabs = Array.from(document.querySelectorAll("#sj-status-tabs .tab"));
   const labels = tabs.map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Concluídas", "Todas"]);
+  assert.deepStrictEqual(labels, ["Concluídas", "Histórico"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="history"]'), null, "o item de navegação do Histórico não existe mais na sidebar");
 });
 
