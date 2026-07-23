@@ -614,15 +614,46 @@ function _eventOptionLabel(event) {
   return date ? `${date} — ${event.title}` : event.title;
 }
 
+function _addDaysISO(iso, days) {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// F18.14 — para compromissos recorrentes, a data-base da série (event_date
+// bruto) pode estar meses no passado; expandimos a recorrência na mesma
+// janela e com a mesma fonte do chip "Hoje: X" (getEventsByRange +
+// expandEvents, ver _loadStartSuggestions) para exibir a próxima ocorrência
+// real de cada série, não a data-base. Eventos não recorrentes já mostram a
+// data correta e ficam de fora do mapa.
+async function _nextOccurrenceDatesByEventId(todayISO) {
+  const map = new Map();
+  try {
+    const horizonISO = _addDaysISO(todayISO, 365);
+    const rangeEvents = await getEventsByRange(todayISO, horizonISO);
+    const recurring = rangeEvents.filter(ev => ev.recurrence_type && ev.recurrence_type !== "none");
+    const occurrences = expandEvents(recurring, todayISO, horizonISO);
+    for (const occ of occurrences) {
+      const current = map.get(occ.id);
+      if (!current || occ.event_date < current) map.set(occ.id, occ.event_date);
+    }
+  } catch (err) {
+    handleError(err, { context: "studySessionView.loadNextOccurrences", silent: true });
+  }
+  return map;
+}
+
 async function _populateStartEventOptions() {
   startEventSelectEl.innerHTML = '<option value="">— Selecione —</option>';
   _startEventsCache = [];
   try {
     _startEventsCache = await getEvents();
+    const nextOccurrenceByEventId = await _nextOccurrenceDatesByEventId(_todayDateInputValue());
     _startEventsCache.forEach(ev => {
       const opt = document.createElement("option");
       opt.value = ev.id;
-      opt.textContent = _eventOptionLabel(ev);
+      const nextDate = nextOccurrenceByEventId.get(ev.id);
+      opt.textContent = _eventOptionLabel(nextDate ? { ...ev, event_date: nextDate } : ev);
       startEventSelectEl.appendChild(opt);
     });
   } catch (err) {

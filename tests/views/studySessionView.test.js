@@ -576,6 +576,46 @@ test("F14.2 — no chips at all when there is no history, no appointment today a
   assert.strictEqual(document.getElementById("ss-start-suggestions").children.length, 0);
 });
 
+// F18.14 — o <select> manual de "Compromisso da agenda" mostra a próxima
+// ocorrência real de uma série recorrente (mesma expansão do chip "Hoje: X"),
+// não a data-base bruta do evento (que pode estar semanas/meses no passado).
+test("F18.14 — the manual event select shows the next real occurrence date for a recurring appointment, not the base date", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  t.mock.timers.setTime(new Date("2026-07-21T12:00:00Z").getTime()); // terça-feira
+
+  const weeklyClass = {
+    id: "evt-rec", title: "Aula de Cardiologia", category: null, description: null,
+    duration_minutes: 90, event_date: "2026-06-30", recurrence_type: "weekly", // base é semanas atrás
+  };
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [weeklyClass],
+    getEventsByRange: async () => [weeklyClass],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const options = [...document.getElementById("ss-start-event").options].map(o => o.textContent);
+  assert.ok(options.includes("21/07/2026 — Aula de Cardiologia"), `expected today's occurrence date, got: ${options.join(", ")}`);
+  assert.ok(!options.includes("30/06/2026 — Aula de Cardiologia"), "must not show the stale base date of the series");
+});
+
+test("F18.14 — a non-recurring appointment in the manual select keeps its own event_date", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getEvents: async () => [
+      { id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60, event_date: "2026-07-20" },
+    ],
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-start-standalone").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const options = [...document.getElementById("ss-start-event").options].map(o => o.textContent);
+  assert.ok(options.includes("20/07/2026 — Plantão UTI"));
+});
+
 test("F14.2 — the 'Compromisso da agenda' tab is hidden entirely when there is no appointment to pick from", async (t) => {
   const { mod } = await loadStudySessionView(t, { getEvents: async () => [] });
   await mod.initStudySessionView();
