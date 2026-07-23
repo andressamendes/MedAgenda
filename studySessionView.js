@@ -93,7 +93,7 @@ let _focusMode = false;
 let ssBtnFocusToggle, ssFocusToggleLabelEl;
 
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
-let titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
+let titleEl, titleLabelEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
 let btnPause, btnResume, btnCancel, btnFinish;
 
@@ -116,7 +116,7 @@ let progressEl, progressBarEl, progressTextEl;
 // resta um recap somente-leitura delas (ver seção própria abaixo, na tela da
 // sessão ativa).
 let finishModalEl, finishModal;
-let ssfTitleEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl;
+let ssfTitleEl, ssfTitleLabelEl, ssfCategoryEl, ssfContentEl, ssfStartedAtEl, ssfEndedAtEl, ssfNetTimeEl;
 let ssfReflectionEl, ssfBtnBack, ssfBtnConfirm;
 
 // Cadastro de Questões Resolvidas (F7.4) — F10 #4.3: vive na própria tela da
@@ -223,6 +223,7 @@ function _queryElements() {
   ssFocusToggleLabelEl = document.getElementById("ss-focus-toggle-label");
 
   titleEl              = document.getElementById("ss-event-title");
+  titleLabelEl         = document.getElementById("ss-event-title-label");
   categoryEl           = document.getElementById("ss-category");
   contentEl            = document.getElementById("ss-content");
   dateEl               = document.getElementById("ss-date");
@@ -288,6 +289,7 @@ function _queryElements() {
 
   finishModalEl       = document.getElementById("ss-finish-modal");
   ssfTitleEl           = document.getElementById("ssf-event-title");
+  ssfTitleLabelEl      = document.getElementById("ssf-event-title-label");
   ssfCategoryEl        = document.getElementById("ssf-category");
   ssfContentEl         = document.getElementById("ssf-content");
   ssfStartedAtEl       = document.getElementById("ssf-started-at");
@@ -485,6 +487,7 @@ function _render() {
   pauseNoteEl.hidden = status !== "paused";
 
   titleEl.textContent    = _eventMeta?.title || "Sessão sem compromisso";
+  titleLabelEl.textContent = _session?.event_id ? "Compromisso" : "Estudo livre";
 
   // F13.1 — cada linha de contexto só existe quando há valor real; nenhuma
   // volta a mostrar "—" (auditoria F11 #27 / F12 item 5).
@@ -1359,6 +1362,7 @@ function _openFinishModal() {
   _pendingNetMinutes = netMinutes;
 
   ssfTitleEl.textContent    = _eventMeta?.title || "Sessão sem compromisso";
+  ssfTitleLabelEl.textContent = _session?.event_id ? "Compromisso" : "Estudo livre";
   ssfCategoryEl.textContent = _eventMeta?.category || "—";
   ssfContentEl.textContent  = _eventMeta?.description || "—";
   ssfStartedAtEl.textContent     = formatClockTime(_session.started_at);
