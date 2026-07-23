@@ -1360,13 +1360,12 @@
           </div>
         </form>
 
-        <!-- F13.4 — Cards inteligentes + histórico/estatísticas de sessões
-             saíram do corpo do modal de edição para um painel próprio, aberto
-             sob demanda (mesma gating de antes: só existe algo para mostrar
-             quando se está editando um compromisso já existente — ver
-             eventFormView.js/_populateForm). Evita que quem só quer mudar um
-             horário atravesse um relatório inteiro dentro do próprio modal de
-             edição. -->
+        <!-- F13.4 — Histórico/estatísticas de sessões saíram do corpo do
+             modal de edição para um painel próprio, aberto sob demanda (só
+             existe algo para mostrar quando se está editando um compromisso
+             já existente — ver eventFormView.js/_populateForm). Evita que
+             quem só quer mudar um horário atravesse um relatório inteiro
+             dentro do próprio modal de edição. -->
         <button type="button" class="btn btn-ghost" id="event-detail-trigger" hidden>Ver histórico e estatísticas</button>
       </div>
     </div>
@@ -1385,8 +1384,6 @@
     </div>
 
     <div class="ai-panel-actions">
-
-    <div id="event-insights" class="smart-cards" hidden></div>
 
     <div id="session-history" class="session-history" hidden>
           <!-- Auditoria UX #26: estatísticas + histórico de sessões competiam
