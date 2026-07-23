@@ -886,7 +886,7 @@
 
         <!-- Page: Diário (F8.1) -->
         <!-- F10 #4.2 — o Histórico de Sessões (antes uma página própria,
-             #page-history) foi absorvido aqui como a aba "Todas" abaixo.
+             #page-history) foi absorvido aqui como a aba "Histórico" abaixo.
              #sj-status-tabs alterna entre a visão rica de "Concluídas"
              (#sj-finished-view — este módulo, com agrupamento por
              dia/resumos/marcos/busca) e a visão compacta reaproveitada de
@@ -895,9 +895,16 @@
              cálculos de studyTimelineService/studyMilestoneService/
              studySummaryService, que presumem sessão concluída).
              F14.7 — a aba própria "Canceladas" virou um filtro dentro de
-             "Todas" (#sj-other-only-cancelled): ruído histórico que quase
-             ninguém folheia diariamente não merecia um dos três lugares
-             fixos da tab bar. -->
+             "Histórico" (#sj-other-only-cancelled): ruído histórico que
+             quase ninguém folheia diariamente não merecia um dos três
+             lugares fixos da tab bar.
+             F18.2 — rótulo trocado de "Todas" para "Histórico": a mesma
+             tela também tem um chip de período chamado "Todas"
+             (.sj-quick-filters, logo abaixo), e as duas palavras idênticas
+             tinham significados diferentes (todos os status vs. todo o
+             período) empilhadas a poucas linhas de distância. data-status
+             continua "all" (sem mudança de lógica), só o texto visível
+             mudou. -->
         <div id="page-journal" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Diário</h1>
@@ -905,7 +912,7 @@
 
           <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
             <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true" aria-controls="sj-finished-view">Concluídas</button>
-            <button type="button" class="tab" data-status="all" role="tab" aria-selected="false" aria-controls="sj-other-view">Todas</button>
+            <button type="button" class="tab" data-status="all" role="tab" aria-selected="false" aria-controls="sj-other-view">Histórico</button>
           </div>
 
           <div id="sj-other-view" role="tabpanel" hidden>

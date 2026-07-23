@@ -2,6 +2,15 @@
 
 ---
 
+## [Unreleased] — F18.2: Resolver a colisão de "Todas" no Diário
+
+- **Aba de status renomeada de "Todas" para "Histórico"** em `#sj-status-tabs`
+  do Diário. A mesma tela tem um chip de período (`.sj-quick-filters`) também
+  chamado "Todas", 37 linhas abaixo — as duas palavras idênticas tinham
+  significados diferentes (todos os status vs. todo o período), empilhadas a
+  poucas linhas de distância. `data-status="all"` não mudou, só o rótulo
+  visível — sem lógica nova, sem mudança de comportamento.
+
 ## [Unreleased] — F18.1: Restaurar acesso à página Progresso
 
 - **Item de navegação "Progresso" restaurado na sidebar** (grupo secundário,

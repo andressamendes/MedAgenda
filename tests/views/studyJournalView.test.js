@@ -2001,7 +2001,7 @@ test("F14.7 — 'Somente canceladas' does not exist as its own tab anymore", asy
 
   assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]'), null);
   const labels = Array.from(document.querySelectorAll("#sj-status-tabs .tab")).map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Concluídas", "Todas"]);
+  assert.deepStrictEqual(labels, ["Concluídas", "Histórico"]);
 });
 
 test("F10 #4.2 — clicking 'Todas' shows the compact view and calls setHistoryStatus('all')", async (t) => {

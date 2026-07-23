@@ -87,19 +87,23 @@
 // entre eles.
 //
 // F10 #4.2 — o Histórico de Sessões (activityHistoryView.js, antes uma
-// página própria) foi absorvido aqui como a aba "Todas" de #sj-status-tabs,
-// ao lado de "Concluídas" (a visão rica de sempre, tudo acima). Trocar de
-// aba só alterna qual <div> fica visível — #sj-finished-view (este módulo)
-// ou #sj-other-view (activityHistoryView.js, controlado via
-// setHistoryStatus()) — nenhuma sessão não concluída passa a ser carregada,
-// filtrada ou agrupada por este módulo: agrupamento por dia, resumos
-// semanais e marcos continuam presumindo sessão concluída, porque só
+// página própria) foi absorvido aqui como a aba "Histórico" de
+// #sj-status-tabs, ao lado de "Concluídas" (a visão rica de sempre, tudo
+// acima). Trocar de aba só alterna qual <div> fica visível —
+// #sj-finished-view (este módulo) ou #sj-other-view (activityHistoryView.js,
+// controlado via setHistoryStatus()) — nenhuma sessão não concluída passa a
+// ser carregada, filtrada ou agrupada por este módulo: agrupamento por dia,
+// resumos semanais e marcos continuam presumindo sessão concluída, porque só
 // sessões concluídas chegam a `_allEntries`/`filtered` aqui.
 //
 // F14.7 — "Canceladas" deixou de ser uma aba própria: virou o checkbox
-// #sj-other-only-cancelled dentro de "Todas" (ver _setStatusTab/
+// #sj-other-only-cancelled dentro de "Histórico" (ver _setStatusTab/
 // _onOtherOnlyCancelledChange abaixo) — mesmo dado, mesma
 // activityHistoryView.js, um lugar a menos na tab bar.
+//
+// F18.2 — a aba se chamava "Todas", colidindo com o chip de período "Todas"
+// (.sj-quick-filters, mesma tela). Rótulo passou a "Histórico"; data-status
+// continua "all" (sem mudança de lógica).
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents } from "./eventService.js";
@@ -132,7 +136,7 @@ import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 
 const PAGE_SIZE = 10;
 
-// F11 E21 (auditoria #30) — a aba escolhida (Concluídas/Canceladas/Todas)
+// F11 E21 (auditoria #30) — a aba escolhida (Concluídas/Histórico)
 // sobrevive ao reload, mesmo padrão de medagenda_agenda_view (script.js) e
 // medagenda_sidebar_collapsed (navigationView.js). Diferente da aba
 // Períodos/Progresso do Dashboard (F10 #3.1) e dos filtros avançados do
@@ -182,7 +186,7 @@ let weekSummariesPanelEl, weekSummariesListEl;
 let sjPanelOverlayEl, sjPanelEl, sjPanelCloseEl, sjPanelOpenBtn;
 let _sjPanelPrevFocus = null;
 // F10 #4.2 — alterna entre a visão rica de "Concluídas" (finishedViewEl,
-// este módulo) e a visão compacta de "Canceladas"/"Todas" (otherViewEl,
+// este módulo) e a visão compacta de "Histórico" (otherViewEl,
 // activityHistoryView.js), sem afetar o carregamento/estado de nenhuma das
 // duas — ver _setStatusTab().
 let statusTabsEl, finishedViewEl, otherViewEl, otherOnlyCancelledCheck;
@@ -1215,11 +1219,11 @@ async function _loadPage(reset) {
 }
 
 // F10 #4.2 — troca entre a visão rica de "Concluídas" (finishedViewEl) e a
-// visão compacta de "Todas" (otherViewEl, activityHistoryView.js). "finished"
-// nunca chama setHistoryStatus() — essa aba não usa activityHistoryView.js
-// para nada, é só este módulo mostrado normalmente.
-// F14.7 — "cancelled" deixou de ser uma aba própria: dentro de "Todas", o
-// checkbox #sj-other-only-cancelled decide se setHistoryStatus() recebe
+// visão compacta de "Histórico" (otherViewEl, activityHistoryView.js).
+// "finished" nunca chama setHistoryStatus() — essa aba não usa
+// activityHistoryView.js para nada, é só este módulo mostrado normalmente.
+// F14.7 — "cancelled" deixou de ser uma aba própria: dentro de "Histórico",
+// o checkbox #sj-other-only-cancelled decide se setHistoryStatus() recebe
 // "all" ou "cancelled" (ver _onOtherOnlyCancelledChange abaixo).
 function _setStatusTab(status) {
   statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
@@ -1232,7 +1236,7 @@ function _setStatusTab(status) {
   if (finishedViewEl) finishedViewEl.hidden = !showFinished;
   if (otherViewEl)    otherViewEl.hidden    = showFinished;
   // F13.6 — mesmo feedback de "conteúdo novo" das disclosures, aplicado à
-  // troca de aba entre "Concluídas" e "Todas".
+  // troca de aba entre "Concluídas" e "Histórico".
   revealWithAnimation(showFinished ? finishedViewEl : otherViewEl);
   if (!showFinished) setHistoryStatus(otherOnlyCancelledCheck?.checked ? "cancelled" : "all");
 }
