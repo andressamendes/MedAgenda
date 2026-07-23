@@ -98,7 +98,7 @@ Reflexão (reflections, 1:1)
     ↓
 Projeções (derivadas, nunca persistidas)
     ├── Dashboard          (activityDashboardService.js)
-    ├── Diário de Estudos  (studyJournalView.js + studySummaryService/studyMilestoneService/studyTimelineService;
+    ├── Diário de Estudos  (studyJournalView.js + studyMilestoneService/studyTimelineService;
     │                       inclui as abas "Canceladas"/"Todas" — activityHistoryView.js, F10 #4.2)
     ├── Subject Progress   (subjectProgressService.js)
     ├── Study Streak       (studyStreakService.js)
@@ -177,7 +177,6 @@ O Diário de Estudos (`studyJournalView.js`, F8) é a tela que consolida a Sess�
 |---|---|---|
 | Agrupamento por dia | `studyJournalView.js` | Não — reorganização visual das sessões já carregadas |
 | Filtros e busca | `studySearchService.js` | Não — módulo stateless, opera sobre as entradas já em memória |
-| Resumos narrativos semanais | `studySummaryService.js` | Não — texto gerado a partir das sessões visíveis, sem IA |
 | Marcos (Milestones) | `studyMilestoneService.js` | Não — recalculados do zero a cada chamada; não existe tabela `milestones`, cache ou evento publicado |
 | Timeline / evolução | `studyTimelineService.js` | Não — agregação em memória sobre o subconjunto já filtrado, sem nova consulta ao banco |
 | Reflexão | `studyReflectionService.js` | **Sim** — única escrita real da tela, em `reflections` (upsert por `session_id`) |
@@ -297,7 +296,6 @@ MedAgenda/
 | `studyStreakService.js` | Projeção pura: sequência de dias de estudo, derivada apenas de sessões `finished`, nunca persistida |
 | `achievementService.js` | Projeção pura: conquistas fixas (tempo total, sessões concluídas, questões resolvidas, sequência, matérias estudadas), recalculadas a cada chamada |
 | `activityDashboardService.js` | Indicadores do Dashboard (minutos hoje/semana/mês, progresso de metas) — funções puras sobre `listByDateRange()` + `getProfile()` |
-| `studySummaryService.js` | Resumo narrativo semanal do Diário de Estudos, derivado das sessões visíveis, sem IA |
 | `studyMilestoneService.js` | Marcos (Milestones) do Diário de Estudos, recalculados do zero a cada chamada, nunca persistidos |
 | `studyTimelineService.js` | Timeline/evolução do Diário de Estudos, agregação em memória sobre entradas já filtradas |
 | `studySearchService.js` | Busca e filtros do Diário de Estudos, módulo stateless |

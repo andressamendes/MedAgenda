@@ -2300,52 +2300,6 @@ textarea { resize: vertical; }
   color: var(--gray-700);
 }
 
-.sj-week-summary {
-  border-radius: var(--radius);
-  padding: .7rem .9rem;
-  display: flex;
-  flex-direction: column;
-  gap: .4rem;
-  background: var(--gray-50, transparent);
-}
-
-.sj-week-summary-title {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--gray-800);
-}
-
-.sj-week-summary-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem .9rem;
-  font-size: var(--font-size-xs);
-  color: var(--gray-600);
-}
-
-.sj-week-narrative {
-  border-top: 1px dashed var(--gray-200);
-  padding-top: var(--space-2);
-}
-
-.sj-week-narrative-title {
-  font-size: var(--eyebrow-font-size);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--eyebrow-letter-spacing);
-  color: var(--gray-500);
-  margin: 0;
-  cursor: pointer;
-  list-style: revert;
-}
-
-.sj-week-narrative-text {
-  margin: .4rem 0 0;
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  color: var(--gray-700);
-}
-
 .sj-reflection-error {
   margin: 0;
   color: var(--color-danger-text);
@@ -2354,8 +2308,8 @@ textarea { resize: vertical; }
 
 /* ── Marcos da Evolução (F8.7) ── */
 /* F10 #3.2 — painel <details> separado da lista de sessões (ver
-   studyJournalView.js), recolhido por padrão; mesmo espírito visual do
-   .sj-week-narrative (marcador nativo do <summary>, sem toggle próprio). */
+   studyJournalView.js), recolhido por padrão; marcador nativo do
+   <summary>, sem toggle próprio. */
 .sj-milestones-panel {
   border-radius: var(--radius);
   padding: .7rem .9rem;
@@ -2427,39 +2381,6 @@ textarea { resize: vertical; }
 .sj-milestone-date {
   font-size: var(--font-size-xs);
   color: var(--gray-500);
-}
-
-/* ── Resumos Semanais (F8.5/F8.6, movidos para o painel "Analisar" na
-   Etapa 5) — mesmo padrão visual do painel de Marcos da Evolução acima:
-   <details> recolhido por padrão, oculto por completo quando não há
-   nenhuma semana visível para resumir. */
-.sj-week-summaries-panel {
-  border-radius: var(--radius);
-  padding: .7rem .9rem;
-  background: var(--gray-50, transparent);
-  margin: 0 0 var(--space-3);
-}
-
-.sj-week-summaries-panel[open] .sj-week-summaries-panel-title {
-  margin-bottom: var(--space-2);
-}
-
-.sj-week-summaries-panel-title {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--gray-800);
-  cursor: pointer;
-  list-style: revert;
-}
-
-.sj-week-summaries-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .sj-milestone-description {

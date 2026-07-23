@@ -1,8 +1,8 @@
 /**
  * Tests for studyMilestoneService.js — Marcos da Evolução (F8.7).
  * Módulo puro, sem I/O: nenhum mock necessário — mesmo padrão de
- * studyTimelineService.test.js/studySummaryService.test.js, que também
- * testam a agregação isoladamente da busca de dados.
+ * studyTimelineService.test.js, que também testa a agregação isoladamente
+ * da busca de dados.
  */
 import { test } from "node:test";
 import assert from "node:assert";

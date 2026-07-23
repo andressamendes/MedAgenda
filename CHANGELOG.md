@@ -2,6 +2,19 @@
 
 ---
 
+## [Unreleased] — F18.16: Remover "Resumos Semanais" do Diário
+
+- **Painel "Resumos Semanais" removido do Diário de Estudos** (`studyJournalView.js`)
+  — era a segunda geração de texto narrativo formulaico respondendo à mesma
+  pergunta ("como foi meu estudo") já respondida pelo Progresso narrativo
+  (F14.5), com um template rígido de poucas variações e baixo valor
+  incremental sobre olhar os números direto (auditoria F18, achado #77/#109).
+  O agrupamento por semana existia só para alimentar esse painel; sem ele, a
+  timeline volta a agrupar só por dia. `studySummaryService.js`
+  (`buildWeeklySummary`/`buildMonthlySummary`, F8.6), consumido apenas por
+  este painel, foi removido do produto. `#sj-week-summaries-panel` removido
+  de `index.html`.
+
 ## [Unreleased] — F18.5: Remover o bypass do Decision Engine em `eventFormView.js`
 
 - **Cards inteligentes do modal de compromisso removidos.** `eventFormView.js`

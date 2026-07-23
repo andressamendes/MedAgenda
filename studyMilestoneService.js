@@ -2,11 +2,11 @@
  * studyMilestoneService.js — Marcos da Evolução (F8.7).
  *
  * Camada de agregação puramente em memória sobre as entradas já carregadas
- * pelo Diário de Estudos (studyJournalView.js/F8.1-F8.6): cada entrada é
+ * pelo Diário de Estudos (studyJournalView.js/F8.1-F8.5): cada entrada é
  * `{ session, meta, extras }`, o mesmo formato já resolvido para os cartões
- * de sessão e consumido por studyTimelineService.js (F8.5) e
- * studySummaryService.js (F8.6). Nenhuma função aqui faz I/O, consulta
- * serviço algum ou usa IA — mesma filosofia da F6.1: Sessão/Questão/Revisão/
+ * de sessão e consumido por studyTimelineService.js (F8.5). Nenhuma função
+ * aqui faz I/O, consulta serviço algum ou usa IA — mesma filosofia da F6.1:
+ * Sessão/Questão/Revisão/
  * Reflexão são fatos, "Marco" é interpretação derivada, nunca persistida.
  * Toda vez que buildMilestones() é chamado, os marcos são recalculados do
  * zero a partir das entradas recebidas — não existe tabela "milestones",

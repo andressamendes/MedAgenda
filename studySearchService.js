@@ -4,10 +4,10 @@
  * Camada de consulta puramente em memória sobre as entradas já carregadas
  * pelo Diário de Estudos (studyJournalView.js/F8.1-F8.7): cada entrada é
  * `{ session, meta, extras }`, o mesmo formato já resolvido para os cartões
- * de sessão e consumido por studyTimelineService.js/studySummaryService.js/
- * studyMilestoneService.js. Nenhuma função aqui faz I/O, consulta serviço
- * algum, publica evento ou usa IA — mesma filosofia dos três módulos
- * irmãos: separar o cálculo puro do ponto onde os dados são buscados.
+ * de sessão e consumido por studyTimelineService.js/studyMilestoneService.js.
+ * Nenhuma função aqui faz I/O, consulta serviço algum, publica evento ou usa
+ * IA — mesma filosofia dos módulos irmãos: separar o cálculo puro do ponto
+ * onde os dados são buscados.
  *
  * Módulo inteiramente stateless: nenhuma variável de módulo é mantida entre
  * chamadas, então não há "cache" a invalidar nem referência antiga a uma
