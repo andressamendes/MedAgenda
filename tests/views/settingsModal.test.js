@@ -1,7 +1,7 @@
 /**
  * Tests for settingsModal.js + diagnosticModal.js — extracted from script.js
- * (F2.7 / M8). Notification permission toggle, push toggle, dev mode display,
- * and the "Ver diagnóstico" hand-off between the two modals.
+ * (F2.7 / M8). Unified reminders toggle (local + push, F18.17), dev mode
+ * display, and the "Ver diagnóstico" hand-off between the two modals.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -14,19 +14,35 @@ const EVENT_SERVICE_SPECIFIER      = new URL("../../eventService.js", import.met
 const PUSH_SERVICE_SPECIFIER       = new URL("../../pushService.js", import.meta.url).href;
 const DIAGNOSTIC_SERVICE_SPECIFIER = new URL("../../diagnosticService.js", import.meta.url).href;
 const HEALTH_SERVICE_SPECIFIER     = new URL("../../healthService.js", import.meta.url).href;
+const CONFIG_SPECIFIER             = new URL("../../config.js", import.meta.url).href;
 
 let restoreConfig;
 
-function mockServices(t, { pushSupported = false, diagnostics, health } = {}) {
+function mockServices(t, {
+  pushSupported = false,
+  pushEnabled = false,
+  vapidPublicKey = "",
+  subscribeToPush = async () => {},
+  unsubscribeFromPush = async () => {},
+  diagnostics, health,
+} = {}) {
   t.mock.module(EVENT_SERVICE_SPECIFIER, {
     namedExports: { getEventsByRange: async () => [] },
   });
   t.mock.module(PUSH_SERVICE_SPECIFIER, {
     namedExports: {
       isPushSupported:     () => pushSupported,
-      isPushEnabled:       () => false,
-      subscribeToPush:     async () => {},
-      unsubscribeFromPush: async () => {},
+      isPushEnabled:       () => pushEnabled,
+      subscribeToPush,
+      unsubscribeFromPush,
+    },
+  });
+  t.mock.module(CONFIG_SPECIFIER, {
+    namedExports: {
+      SUPABASE_URL: "https://test.invalid",
+      SUPABASE_ANON_KEY: "test-anon-key",
+      APP_URL: "http://localhost:8080",
+      VAPID_PUBLIC_KEY: vapidPublicKey,
     },
   });
   t.mock.module(DIAGNOSTIC_SERVICE_SPECIFIER, {
@@ -98,10 +114,9 @@ test("openSettings() shows the overlay with current notification/push state", as
 
   assert.strictEqual(document.getElementById("settings-overlay").hidden, false);
   assert.strictEqual(
-    document.getElementById("notif-status-text").textContent,
-    "Ativadas — lembretes exibidos enquanto o app está aberto."
+    document.getElementById("reminders-status-text").textContent,
+    "Ativados — lembretes exibidos enquanto o app está aberto."
   );
-  assert.strictEqual(document.getElementById("push-status-text").textContent, "Push não é suportado neste navegador.");
 });
 
 // F10 #2.4 — theme picker in Settings; getTheme()/setTheme() come from
@@ -155,7 +170,7 @@ test("closeSettings() hides the overlay", async (t) => {
   assert.strictEqual(document.getElementById("settings-overlay").hidden, true);
 });
 
-test("clicking the notification toggle disables notifications and cancels pending reminders", async (t) => {
+test("clicking the reminders toggle disables local + push reminders and cancels pending timers", async (t) => {
   mockServices(t);
   notificationService.initNotifications("test-user");
   const { settings, diagnostic } = await loadModules();
@@ -163,11 +178,47 @@ test("clicking the notification toggle disables notifications and cancels pendin
   diagnostic.initDiagnosticModal();
 
   settings.openSettings();
-  document.getElementById("btn-notif-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("btn-reminders-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(document.getElementById("notif-status-text").textContent, "Desativadas.");
-  assert.strictEqual(document.getElementById("btn-notif-toggle").textContent, "Ativar");
+  assert.strictEqual(document.getElementById("reminders-status-text").textContent, "Desativados.");
+  assert.strictEqual(document.getElementById("btn-reminders-toggle").textContent, "Ativar");
+});
+
+test("clicking the reminders toggle when off enables local reminders and attempts push subscription", async (t) => {
+  let subscribeCalled = false;
+  mockServices(t, {
+    pushSupported: true,
+    vapidPublicKey: "test-vapid-key",
+    subscribeToPush: async () => { subscribeCalled = true; },
+  });
+  notificationService.initNotifications("test-user");
+  notificationService.setEnabled(false);
+  const { settings, diagnostic } = await loadModules();
+  settings.initSettingsModal();
+  diagnostic.initDiagnosticModal();
+
+  settings.openSettings();
+  document.getElementById("btn-reminders-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(notificationService.isEnabled(), true);
+  assert.strictEqual(subscribeCalled, true);
+});
+
+test("reminders toggle shows the push-enabled message when a push subscription is already active", async (t) => {
+  mockServices(t, { pushSupported: true, pushEnabled: true });
+  notificationService.initNotifications("test-user");
+  const { settings, diagnostic } = await loadModules();
+  settings.initSettingsModal();
+  diagnostic.initDiagnosticModal();
+
+  settings.openSettings();
+
+  assert.strictEqual(
+    document.getElementById("reminders-status-text").textContent,
+    "Ativados — você recebe lembretes mesmo com o app fechado."
+  );
 });
 
 test("clicking 'Ver diagnóstico' closes settings and opens the diagnostic modal with live data", async (t) => {
