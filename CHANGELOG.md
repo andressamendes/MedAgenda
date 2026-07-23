@@ -2,6 +2,23 @@
 
 ---
 
+## [Unreleased] — F18.17: Unificar Notificações locais e Push
+
+- **Um único controle "Lembretes"** substitui as duas seções técnicas
+  "Notificações locais" e "Notificações Push" em Configurações
+  (`#settings-overlay`, `settingsModal.js`) — a distinção "app aberto" vs.
+  "app fechado" era uma decisão técnica exposta ao usuário sem necessidade
+  (auditoria F18, achado #11/P1). Ativar o botão único pede permissão do
+  navegador, agenda os lembretes locais (`notificationService.js`) e, quando
+  o navegador suporta push e o servidor está configurado (`VAPID_PUBLIC_KEY`),
+  também tenta ativar a subscription push (`pushService.js`) em segundo
+  plano — a indisponibilidade de push (navegador sem suporte, VAPID ausente,
+  erro de rede) nunca bloqueia o lembrete local. Desativar cancela os dois
+  mecanismos. Nenhuma migração de dado foi necessária: quem já tinha push
+  ativo antes desta mudança continua sendo lido como "Ativado" pelo controle
+  único (o estado é derivado das preferências já salvas de cada mecanismo,
+  não reescrito).
+
 ## [Unreleased] — F18.16: Remover "Resumos Semanais" do Diário
 
 - **Painel "Resumos Semanais" removido do Diário de Estudos** (`studyJournalView.js`)

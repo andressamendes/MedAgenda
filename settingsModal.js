@@ -1,4 +1,4 @@
-// ── settingsModal.js — Modal de configurações (notificações locais e push) ──
+// ── settingsModal.js — Modal de configurações (lembretes unificados: local + push) ──
 
 import { getEventsByRange } from "./eventService.js";
 import { isoDate } from "./utils.js";
@@ -17,20 +17,16 @@ import { handleError } from "./errorService.js";
 import { getTheme, setTheme } from "./themeService.js";
 import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 
-let notifStatusText, btnNotifToggle, notifPermHint;
-let pushStatusText, btnPushToggle, pushErrorHint;
+let remindersStatusText, btnRemindersToggle, remindersHint;
 let themeTabs = [];
 let settingsModal   = null;
 
 export function initSettingsModal() {
   const settingsOverlay = document.getElementById("settings-overlay");
-  notifStatusText  = document.getElementById("notif-status-text");
-  btnNotifToggle   = document.getElementById("btn-notif-toggle");
-  notifPermHint    = document.getElementById("notif-perm-hint");
-  pushStatusText   = document.getElementById("push-status-text");
-  btnPushToggle    = document.getElementById("btn-push-toggle");
-  pushErrorHint    = document.getElementById("push-error-hint");
-  themeTabs        = Array.from(document.querySelectorAll("#theme-tabs .tab"));
+  remindersStatusText = document.getElementById("reminders-status-text");
+  btnRemindersToggle   = document.getElementById("btn-reminders-toggle");
+  remindersHint        = document.getElementById("reminders-hint");
+  themeTabs            = Array.from(document.querySelectorAll("#theme-tabs .tab"));
 
   if (!settingsOverlay) return;
 
@@ -49,58 +45,60 @@ export function initSettingsModal() {
     openDiagnosticModal();
   });
 
-  btnNotifToggle.addEventListener("click", async () => {
+  btnRemindersToggle.addEventListener("click", async () => {
     const perm    = permissionStatus();
-    const enabled = isEnabled() && perm === "granted";
+    const enabled = (isEnabled() || isPushEnabled()) && perm === "granted";
 
-    if (enabled) {
-      setEnabled(false);
-      scheduleReminders([]); // cancela todos os timeouts
-    } else {
-      const result = await requestPermission();
-      if (result === "granted") {
-        setEnabled(true);
-        try {
-          const start = new Date();
-          const end   = new Date(start);
-          end.setDate(end.getDate() + WINDOW_DAYS);
-          const events = await getEventsByRange(isoDate(start), isoDate(end));
-          scheduleReminders(events);
-        } catch (err) {
-          handleError(err, { context: 'settingsModal.rescheduleAfterEnable', silent: true });
+    btnRemindersToggle.disabled = true;
+    remindersHint.hidden        = true;
+
+    try {
+      if (enabled) {
+        setEnabled(false);
+        scheduleReminders([]); // cancela todos os timeouts locais
+        if (isPushEnabled()) {
+          await unsubscribeFromPush().catch(err => {
+            handleError(err, { context: 'settingsModal.pushUnsubscribeOnDisable', silent: true });
+          });
+        }
+      } else {
+        const result = await requestPermission();
+        if (result === "granted") {
+          setEnabled(true);
+          try {
+            const start = new Date();
+            const end   = new Date(start);
+            end.setDate(end.getDate() + WINDOW_DAYS);
+            const events = await getEventsByRange(isoDate(start), isoDate(end));
+            scheduleReminders(events);
+          } catch (err) {
+            handleError(err, { context: 'settingsModal.rescheduleAfterEnable', silent: true });
+          }
+
+          // Push é o mecanismo preferido (funciona com o app fechado); tentamos
+          // ativá-lo além do agendamento local, mas sua indisponibilidade
+          // (navegador sem suporte, VAPID não configurada, erro de servidor)
+          // não deve impedir o usuário de ter lembretes locais funcionando.
+          if (isPushSupported() && VAPID_PUBLIC_KEY) {
+            try {
+              await subscribeToPush();
+            } catch (err) {
+              handleError(err, { context: 'settingsModal.pushSubscribeAfterEnable', silent: true });
+            }
+          }
         }
       }
+    } finally {
+      btnRemindersToggle.disabled = false;
     }
 
     renderSettingsState();
-  });
-
-  btnPushToggle.addEventListener("click", async () => {
-    btnPushToggle.disabled = true;
-    pushErrorHint.hidden   = true;
-
-    try {
-      if (isPushEnabled() && Notification.permission === "granted") {
-        await unsubscribeFromPush();
-      } else {
-        await subscribeToPush();
-      }
-    } catch (err) {
-      const { friendly } = handleError(err, { context: 'settingsModal.pushToggle', silent: true, fallbackMessage: "Erro ao configurar notificações push." });
-      pushErrorHint.hidden      = false;
-      pushErrorHint.textContent = friendly;
-    } finally {
-      btnPushToggle.disabled = false;
-    }
-
-    renderPushState();
   });
 }
 
 export function openSettings() {
   renderThemeState();
   renderSettingsState();
-  renderPushState();
   settingsModal?.open();
 }
 
@@ -120,76 +118,42 @@ export function closeSettings() {
 
 function renderSettingsState() {
   if (!isSupported()) {
-    notifStatusText.textContent = "Seu navegador não suporta notificações.";
-    btnNotifToggle.hidden       = true;
-    notifPermHint.hidden        = true;
+    remindersStatusText.textContent = "Seu navegador não suporta lembretes.";
+    btnRemindersToggle.hidden       = true;
+    remindersHint.hidden            = true;
     return;
   }
 
-  const perm    = permissionStatus();
-  const enabled = isEnabled() && perm === "granted";
+  const perm = permissionStatus();
 
   if (perm === "denied") {
-    notifStatusText.textContent = "Permissão de notificação negada pelo navegador.";
-    btnNotifToggle.hidden       = true;
-    notifPermHint.hidden        = false;
-    notifPermHint.textContent   = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
+    remindersStatusText.textContent = "Permissão de notificação negada pelo navegador.";
+    btnRemindersToggle.hidden       = true;
+    remindersHint.hidden            = false;
+    remindersHint.textContent       = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
     return;
   }
 
-  notifPermHint.hidden  = true;
-  btnNotifToggle.hidden = false;
+  remindersHint.hidden        = true;
+  btnRemindersToggle.hidden   = false;
+
+  const pushOn  = isPushEnabled() && perm === "granted";
+  const localOn = isEnabled() && perm === "granted";
+  const enabled = pushOn || localOn;
 
   if (enabled) {
-    notifStatusText.textContent = "Ativadas — lembretes exibidos enquanto o app está aberto.";
-    btnNotifToggle.textContent  = "Desativar";
-    btnNotifToggle.className    = "btn btn-sm btn-ghost";
+    remindersStatusText.textContent = pushOn
+      ? "Ativados — você recebe lembretes mesmo com o app fechado."
+      : "Ativados — lembretes exibidos enquanto o app está aberto.";
+    btnRemindersToggle.textContent  = "Desativar";
+    btnRemindersToggle.className    = "btn btn-sm btn-ghost";
   } else {
-    notifStatusText.textContent = perm === "default"
-      ? "Desativadas — clique em Ativar para autorizar o navegador."
-      : "Desativadas.";
-    btnNotifToggle.textContent  = "Ativar";
+    remindersStatusText.textContent = perm === "default"
+      ? "Desativados — clique em Ativar para autorizar o navegador."
+      : "Desativados.";
+    btnRemindersToggle.textContent  = "Ativar";
     // F13.3 — btn-primary é reservado para 1 ação por tela; este toggle
-    // (como o de Push abaixo) não é a ação principal da tela de Configurações.
-    btnNotifToggle.className    = "btn btn-sm btn-secondary";
-  }
-}
-
-function renderPushState() {
-  pushErrorHint.hidden = true;
-
-  if (!isPushSupported()) {
-    pushStatusText.textContent = "Push não é suportado neste navegador.";
-    btnPushToggle.hidden       = true;
-    return;
-  }
-
-  if (!VAPID_PUBLIC_KEY) {
-    pushStatusText.textContent = "VAPID_PUBLIC_KEY não configurada — consulte a documentação.";
-    btnPushToggle.hidden       = true;
-    return;
-  }
-
-  const perm    = Notification.permission;
-  const enabled = isPushEnabled() && perm === "granted";
-
-  btnPushToggle.hidden = false;
-
-  if (perm === "denied") {
-    pushStatusText.textContent = "Permissão de notificação negada pelo navegador.";
-    btnPushToggle.hidden       = true;
-    pushErrorHint.hidden       = false;
-    pushErrorHint.textContent  = "Para reativar, clique no ícone de cadeado na barra de endereços e permita notificações para este site.";
-    return;
-  }
-
-  if (enabled) {
-    pushStatusText.textContent = "Ativadas — você receberá lembretes mesmo com o app fechado.";
-    btnPushToggle.textContent  = "Desativar Push";
-    btnPushToggle.className    = "btn btn-sm btn-ghost";
-  } else {
-    pushStatusText.textContent = "Desativadas — ative para receber lembretes com o app fechado.";
-    btnPushToggle.textContent  = "Ativar Push";
-    btnPushToggle.className    = "btn btn-sm btn-secondary";
+    // não é a ação principal da tela de Configurações.
+    btnRemindersToggle.className    = "btn btn-sm btn-secondary";
   }
 }
