@@ -23,7 +23,6 @@
   --gray-600:   #4b5563;
   --gray-700:   #374151;
   --gray-800:   #1f2937;
-  --red:        #ef4444;
 
   /* ── Design tokens (F5.1) — usar estes nomes em CSS novo ── */
   --color-primary:        var(--blue);
@@ -549,7 +548,7 @@ body {
 
 .user-menu-item:hover { background: var(--gray-100); }
 
-.user-menu-item--danger { color: var(--red); }
+.user-menu-item--danger { color: var(--color-danger); }
 
 .user-menu-divider {
   height: 1px;
@@ -1219,7 +1218,7 @@ body {
 .cal-error {
   grid-column: 1 / -1;
   text-align: center;
-  color: var(--red);
+  color: var(--color-danger);
   padding: 2.5rem 0;
   font-size: var(--font-size-sm);
 }
@@ -1255,7 +1254,7 @@ label {
   letter-spacing: var(--eyebrow-letter-spacing);
 }
 
-.required { color: var(--red); }
+.required { color: var(--color-danger); }
 
 /* ── Campos de formulário (F5.2) — mesma moldura/estados em input, select,
    textarea e busca. Área clicável mínima de 2.4rem de altura (via padding)
@@ -1457,7 +1456,7 @@ textarea { resize: vertical; }
 /* ── Error ── */
 .error {
   font-size: var(--font-size-sm);
-  color: var(--red);
+  color: var(--color-danger);
   min-height: 1.1em;
   margin-bottom: var(--space-2);
 }
@@ -1575,7 +1574,7 @@ textarea { resize: vertical; }
   align-items: center;
   gap: .3rem;
   text-align: center;
-  color: var(--red);
+  color: var(--color-danger);
 }
 
 /* F10 #1.6 (causa raiz encontrada) — mesmo bug de especificidade já corrigido
@@ -1619,7 +1618,7 @@ textarea { resize: vertical; }
 }
 
 .list-empty.list-error {
-  color: var(--red);
+  color: var(--color-danger);
 }
 
 .list-empty .list-error-retry {
@@ -2517,7 +2516,7 @@ textarea { resize: vertical; }
 }
 
 .sj-search-mark {
-  background: var(--yellow-light, #fef08a);
+  background: var(--color-warning-border);
   color: inherit;
   border-radius: .2em;
   padding: 0 .1em;
@@ -3023,7 +3022,7 @@ textarea { resize: vertical; }
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--red);
+  background: var(--color-danger);
   z-index: 3;
   pointer-events: none;
 }
@@ -3036,7 +3035,7 @@ textarea { resize: vertical; }
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--red);
+  background: var(--color-danger);
 }
 
 /* Breakpoint específico da grade Semana (F10 #2.2) — de propósito fora do
@@ -3282,7 +3281,7 @@ textarea { resize: vertical; }
   display: flex;
   justify-content: center;
   margin-bottom: var(--space-3);
-  color: var(--red);
+  color: var(--color-danger);
 }
 .auth-error-icon svg { width: var(--icon-xl); height: var(--icon-xl); }
 
@@ -4635,16 +4634,12 @@ textarea { resize: vertical; }
   border: 3px solid var(--gray-200);
   border-top-color: var(--color-ai-accent);
   border-radius: 50%;
-  animation: ai-spin .7s linear infinite;
+  animation: spin .7s linear infinite;
 }
 
 #ai-loading-text {
   min-height: 1.3em;
   text-align: center;
-}
-
-@keyframes ai-spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ── Footer ── */
