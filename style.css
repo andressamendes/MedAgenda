@@ -165,6 +165,14 @@
      posicionar relativo à casca (sidebar, área de conteúdo). ── */
   --header-total-h:     calc(var(--header-h) + var(--safe-top));
   --bottom-nav-total-h: calc(var(--bottom-nav-h) + var(--safe-bottom));
+
+  /* ── Paleta do Assistente de IA (F18.6) — a única "ilha" de cor do app
+     que não vinha de --color-N/--gray-N; tokenizada aqui para responder ao
+     tema escuro pelo mesmo mecanismo do resto do produto. ── */
+  --color-ai-gradient-start: #6366f1;
+  --color-ai-gradient-end:   #8b5cf6;
+  --color-ai-accent:         #8b5cf6;
+  --color-ai-accent-bg:      rgba(139, 92, 246, .12);
 }
 
 /* ── Tema escuro (F10 #2.4) ───────────────────────────────────────────────
@@ -230,6 +238,11 @@
   --shadow-md: 0 2px 16px rgba(0,0,0,.32);
   --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
   --shadow-xl: 0 8px 32px rgba(0,0,0,.5);
+
+  --color-ai-gradient-start: #818cf8;
+  --color-ai-gradient-end:   #a78bfa;
+  --color-ai-accent:         #a78bfa;
+  --color-ai-accent-bg:      rgba(167, 139, 250, .18);
 }
 
 body {
@@ -4216,17 +4229,6 @@ textarea { resize: vertical; }
   flex-shrink: 0;
 }
 
-/* ── Botão Assistente IA ── */
-.btn-ai {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
-  border: none;
-  font-weight: 600;
-  letter-spacing: .01em;
-  transition: opacity .15s;
-}
-.btn-ai:hover { opacity: .88; }
-
 /* ── Painel lateral: Assistente IA ── */
 .ai-panel-overlay {
   position: fixed;
@@ -4268,13 +4270,13 @@ textarea { resize: vertical; }
   gap: var(--space-2);
 }
 
-.ai-panel-icon { display: flex; color: #8b5cf6; }
+.ai-panel-icon { display: flex; color: var(--color-ai-accent); }
 .ai-panel-icon svg { width: 20px; height: 20px; }
 
 .ai-panel-title {
   font-weight: 700;
   font-size: var(--font-size-lg);
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, var(--color-ai-gradient-start), var(--color-ai-gradient-end));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -4339,8 +4341,8 @@ textarea { resize: vertical; }
   width: 100%;
 }
 .ai-action-btn:hover {
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, .12);
+  border-color: var(--color-ai-accent);
+  background: var(--color-ai-accent-bg);
 }
 .ai-action-btn:disabled {
   opacity: .5;
@@ -4387,7 +4389,7 @@ textarea { resize: vertical; }
 .ai-result-title {
   font-weight: 700;
   font-size: .9rem;
-  color: #6366f1;
+  color: var(--color-ai-gradient-start);
 }
 
 .ai-result-body {
@@ -4603,7 +4605,7 @@ textarea { resize: vertical; }
   width: 32px;
   height: 32px;
   border: 3px solid var(--gray-200);
-  border-top-color: #8b5cf6;
+  border-top-color: var(--color-ai-accent);
   border-radius: 50%;
   animation: ai-spin .7s linear infinite;
 }
