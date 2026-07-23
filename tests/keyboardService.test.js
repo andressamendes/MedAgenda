@@ -98,6 +98,17 @@ test("'G' then 's'/'j' navigates to the matching page", async (t) => {
   assert.deepStrictEqual(showPageCalls, ["study-session", "journal"]);
 });
 
+// F18.1 — "Progresso" tinha página pronta mas nenhum destino de navegação,
+// nem atalho, apontando pra ela.
+test("'G' then 'p' navigates to Progresso", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  press("g"); press("p");
+
+  assert.deepStrictEqual(showPageCalls, ["progress"]);
+});
+
 // F14.7 — "c" (Compromissos) foi removido: a página virou a aba "Lista"
 // dentro de "Agenda" (já alcançável por "g a"), não é mais um destino
 // próprio de navegação.

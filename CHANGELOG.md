@@ -2,6 +2,16 @@
 
 ---
 
+## [Unreleased] — F18.1: Restaurar acesso à página Progresso
+
+- **Item de navegação "Progresso" restaurado na sidebar** (grupo secundário,
+  ao lado de "Diário") e atalho de teclado `g p`. A página `#page-progress`
+  (Progresso narrativo, F14.5) já existia e funcionava, mas nenhum elemento
+  de navegação apontava pra ela — `showPage("progress")` só era alcançável
+  chamando a função diretamente, então a feature estava efetivamente morta
+  em produção. Também acessível em mobile pelo botão "Mais" (abre a mesma
+  sidebar). Sem nenhuma mudança na página em si.
+
 ## [Unreleased] — F17: Refatoração do Registro de Questões + Estatísticas do Diário
 
 - **Registro de questões unificado:** o botão "+1 questão" (registro fora do
