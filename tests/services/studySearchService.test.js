@@ -1,8 +1,7 @@
 /**
  * Tests for studySearchService.js — Busca Avançada e Linha do Tempo
  * Inteligente (F8.8). Módulo puro, sem I/O: nenhum mock necessário — mesmo
- * padrão de studyTimelineService.test.js/studySummaryService.test.js/
- * studyMilestoneService.test.js.
+ * padrão de studyTimelineService.test.js/studyMilestoneService.test.js.
  */
 import { test } from "node:test";
 import assert from "node:assert";

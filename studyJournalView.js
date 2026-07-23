@@ -40,22 +40,20 @@
 // de categoria do <select> são derivadas do próprio conjunto
 // carregado (nenhuma consulta a subjectProgressService/categoryService).
 //
-// F8.5 — Linha do Tempo da Evolução: cartões de resumo diário/semanal e
-// indicadores de evolução entre grupos de dia. Toda a agregação vive em
+// F8.5 — Linha do Tempo da Evolução: indicadores de evolução entre grupos de
+// dia (comparação com o dia anterior). Toda a agregação vive em
 // studyTimelineService.js (função pura, sem I/O) e é recalculada a cada
 // _render() a partir de `filtered` — o mesmo array já filtrado pelo F8.4 —
-// então os resumos automaticamente só consideram as sessões atualmente
+// então a comparação automaticamente só considera as sessões atualmente
 // visíveis, sem nenhuma consulta nova a studyStreakService/
 // subjectProgressService/questionService/activitySessionService (ver
-// cabeçalho de studyTimelineService.js). Os cartões são elementos novos
-// inseridos entre/dentro dos grupos existentes — nunca substituem
-// `.sj-day-group`/`.sj-entry`, nunca alteram o HTML já renderizado por eles.
+// cabeçalho de studyTimelineService.js).
 //
-// F8.6 — Síntese Periódica de Aprendizado: acrescenta ao cartão de resumo
-// semanal (F8.5) um texto narrativo totalmente derivado das mesmas entradas
-// visíveis daquela semana, produzido por buildWeeklySummary()
-// (studySummaryService.js — função pura, sem I/O, sem IA). Nenhuma consulta
-// nova, nenhuma persistência, nenhum outro domínio tocado.
+// F18.16 — o resumo semanal narrativo (F8.6, buildWeeklySummary() em
+// studySummaryService.js) foi removido: era a segunda geração de texto
+// narrativo formulaico respondendo à mesma pergunta ("como foi meu estudo")
+// já respondida pelo Progresso narrativo (F14.5), sem interpretação real
+// além de conectivos. studySummaryService.js foi removido do produto.
 //
 // F8.7 — Marcos da Evolução: timeline somente-leitura com os acontecimentos
 // importantes da jornada (primeira sessão, limiares de tempo/questões/
@@ -69,9 +67,9 @@
 // F10 #3.2 — Movido para fora da lista de sessões: antes era o primeiro
 // <li> de #sj-list, competindo visualmente com a própria timeline de
 // sessões logo abaixo dele. Agora vive em #sj-milestones-panel, um
-// <details> recolhido por padrão (mesmo padrão do F10 #1.4 — sj-week-
-// narrative), separado da lista e sem concorrer pela atenção do usuário ao
-// abrir o Diário. buildMilestones() e os dados considerados não mudaram.
+// <details> recolhido por padrão, separado da lista e sem concorrer pela
+// atenção do usuário ao abrir o Diário. buildMilestones() e os dados
+// considerados não mudaram.
 //
 // F18.15 — #sj-milestones-panel deixou de viver dentro do painel "Analisar"
 // (que misturava leitura com filtro) e voltou para perto de #sj-list, como
@@ -97,9 +95,9 @@
 // acima). Trocar de aba só alterna qual <div> fica visível —
 // #sj-finished-view (este módulo) ou #sj-other-view (activityHistoryView.js,
 // controlado via setHistoryStatus()) — nenhuma sessão não concluída passa a
-// ser carregada, filtrada ou agrupada por este módulo: agrupamento por dia,
-// resumos semanais e marcos continuam presumindo sessão concluída, porque só
-// sessões concluídas chegam a `_allEntries`/`filtered` aqui.
+// ser carregada, filtrada ou agrupada por este módulo: agrupamento por dia e
+// marcos continuam presumindo sessão concluída, porque só sessões
+// concluídas chegam a `_allEntries`/`filtered` aqui.
 //
 // F14.7 — "Canceladas" deixou de ser uma aba própria: virou o checkbox
 // #sj-other-only-cancelled dentro de "Histórico" (ver _setStatusTab/
@@ -125,11 +123,7 @@ import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import {
   summarizeDayEntries,
   compareDailySummaries,
-  weekKeyOf,
-  weekLabel,
-  summarizeWeekGroups,
 } from "./studyTimelineService.js";
-import { buildWeeklySummary } from "./studySummaryService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
 import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
@@ -182,14 +176,14 @@ let questionStatsTotalEl, questionStatsCorrectEl, questionStatsIncorrectEl,
 // a RPC de estatísticas espera (activity_sessions.category_id).
 let _categoriesByName = null;
 let milestonesPanelEl, milestonesListEl;
-let weekSummariesPanelEl, weekSummariesListEl;
 
 // Painel "Analisar" (F13.4) — estatísticas, período e filtros avançados
 // saíram da coluna principal para este painel lateral sob demanda, mesmo
 // padrão de abrir/fechar/Focus Trap/Escape de #ai-panel (aiPanelView.js).
-// Busca continua sempre visível fora do painel. F18.15 — Marcos da
-// Evolução e Resumos Semanais não fazem mais parte deste painel: são
-// leitura, não filtro, e voltaram para perto da timeline.
+// Busca continua sempre visível fora do painel. F18.15/F18.16 — Marcos da
+// Evolução não faz mais parte deste painel (é leitura, não filtro, e voltou
+// para perto da timeline); Resumos Semanais foi removido (redundante com o
+// Progresso narrativo, F14.5).
 let sjPanelOverlayEl, sjPanelEl, sjPanelCloseEl, sjPanelOpenBtn;
 let _sjPanelPrevFocus = null;
 // F10 #4.2 — alterna entre a visão rica de "Concluídas" (finishedViewEl,
@@ -283,7 +277,7 @@ async function _loadEventsLookup() {
 // `subject` reaproveita a mesma categoria do compromisso — o domínio ainda
 // não tem um campo próprio de matéria (ver subjectProgressService.js). A UI
 // não exibe mais um rótulo "Matéria" separado (auditoria UX #05), mas os
-// serviços puros de resumo/busca (studySummaryService/studySearchService)
+// serviços puros de busca/marcos (studySearchService/studyMilestoneService)
 // continuam lendo meta.subject — o campo permanece no meta para preservar
 // esses contratos.
 //
@@ -620,65 +614,6 @@ function _renderDayComparison(dayGroup, comparison) {
     ${_comparisonBadge(comparison.minutesDelta, "minuto", "minutos")}
     ${_comparisonBadge(comparison.questionsDelta, "questão", "questões")}
   `;
-}
-
-// ── Resumo semanal (F8.5, movido para perto da timeline na F18.15) ──────
-// Etapa 5 (auditoria UX radical) — cada resumo semanal era um <li>
-// intercalado na própria linha do tempo, quebrando a leitura cronológica
-// das sessões com um bloco de estatísticas + texto corrido entre um dia e
-// outro. Sai da lista e vira uma entrada no painel recolhível "Resumos
-// Semanais" — mesmo padrão de painel separado já usado por Marcos da
-// Evolução (F10 #3.2, logo acima).
-//
-// F18.15 — o painel "Resumos Semanais" viveu por um tempo dentro do painel
-// "Analisar", junto dos filtros; voltou a ficar perto de #sj-list (mesmo
-// lugar de #sj-milestones-panel) porque é conteúdo de leitura, não
-// resultado de um controle de filtro.
-//
-// F8.6 — Síntese Periódica: além dos números do cartão (já existentes desde
-// F8.5), acrescenta o texto narrativo de buildWeeklySummary()
-// (studySummaryService.js) sobre as mesmas `weekEntries` (as entradas já
-// filtradas/visíveis dessa semana, o mesmo subconjunto que alimentou
-// summarizeWeekGroups) — nenhuma consulta nova, nenhum dado além do que já
-// está em `_allEntries`.
-//
-// F10 #1.4 — a narrativa vem dentro de um <details> nativo, recolhida por
-// padrão: o texto corrido competia visualmente com os números do cartão
-// (que já respondem "quanto"/"quantas vezes") em toda semana renderizada.
-// <details>/<summary> foi escolhido em vez de um toggle próprio (como em
-// #1.1/#1.3) por ser puramente apresentacional — sem estado para persistir
-// entre buscas/filtros — e por manter o texto no DOM (querySelector nos
-// testes continua funcionando independente de aberto/fechado).
-function _weekSummaryItemHtml(weekKey, weekDayGroups, weekEntries) {
-  const summary = summarizeWeekGroups(weekDayGroups);
-  const narrative = buildWeeklySummary(weekEntries);
-  return `
-    <li class="sj-week-summary">
-      <div class="sj-week-summary-title">${escapeHtml(weekLabel(weekKey))}</div>
-      <div class="sj-week-summary-stats">
-        <span>${formatDuration(summary.totalMinutes)} estudadas</span>
-        <span>${summary.sessionsCount} sessão(ões)</span>
-        <span>${summary.questionsCount} questão(ões)</span>
-        <span>${summary.subjectsCount} matéria(s)</span>
-        <span>Maior sequência nesta semana: ${summary.longestStreak} dia(s)</span>
-      </div>
-      <details class="sj-week-narrative">
-        <summary class="sj-week-narrative-title">Resumo da Semana</summary>
-        <p class="sj-week-narrative-text">${escapeHtml(narrative.text).replace(/\n\n/g, "</p><p class=\"sj-week-narrative-text\">")}</p>
-      </details>
-    </li>
-  `;
-}
-
-function _renderWeekSummariesPanel(items) {
-  if (!weekSummariesPanelEl || !weekSummariesListEl) return;
-  if (items.length === 0) {
-    weekSummariesPanelEl.hidden = true;
-    weekSummariesListEl.innerHTML = "";
-    return;
-  }
-  weekSummariesPanelEl.hidden = false;
-  weekSummariesListEl.innerHTML = items.join("");
 }
 
 // F8.8 — Linha do Tempo Inteligente: quando há busca textual ativa, marca
@@ -1088,7 +1023,6 @@ function _render() {
   if (filtered.length === 0) {
     if (statsEl) statsEl.hidden = true;
     _renderMilestonesPanel([]);
-    _renderWeekSummariesPanel([]);
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
@@ -1122,26 +1056,8 @@ function _render() {
 
   // Segundo passo: renderiza os grupos de dia (F8.3, inalterado); a
   // comparação com o dia anterior (Etapa 4) entra como linha opcional no
-  // próprio cabeçalho do dia. Os resumos semanais (Etapa 5) não são mais
-  // intercalados na lista — são acumulados aqui e renderizados de uma vez
-  // no painel "Resumos Semanais" (ver _renderWeekSummariesPanel), na mesma
-  // ordem (semana mais recente primeiro).
-  let currentWeekKey = null;
-  let weekBuckets = [];
-  let weekEntries = [];
-  const weekSummaryItems = [];
-
+  // próprio cabeçalho do dia.
   dayBuckets.forEach((bucket, index) => {
-    const weekKey = weekKeyOf(bucket.iso);
-    if (currentWeekKey !== null && weekKey !== currentWeekKey) {
-      weekSummaryItems.push(_weekSummaryItemHtml(currentWeekKey, weekBuckets, weekEntries));
-      weekBuckets = [];
-      weekEntries = [];
-    }
-    currentWeekKey = weekKey;
-    weekBuckets.push({ dayKey: bucket.key, summary: daySummaries[index] });
-    weekEntries = weekEntries.concat(bucket.entries);
-
     const dayGroup = _createDayGroup(bucket.iso);
     bucket.entries.forEach(entry => {
       dayGroup.sessionsEl.appendChild(_buildEntryEl(entry));
@@ -1152,16 +1068,6 @@ function _render() {
     const previousSummary = index + 1 < dayBuckets.length ? daySummaries[index + 1] : null;
     _renderDayComparison(dayGroup, compareDailySummaries(daySummaries[index], previousSummary));
   });
-
-  // Auditoria UX #32: o laço acima só fecha o resumo de uma semana quando a
-  // semana seguinte (mais antiga) começa — a última semana visível nunca
-  // disparava essa troca e ficava sem cartão até "Carregar mais" alcançar a
-  // semana anterior. Fecha aqui também, fora do laço, para a última semana
-  // visível sempre ganhar seu resumo.
-  if (currentWeekKey !== null) {
-    weekSummaryItems.push(_weekSummaryItemHtml(currentWeekKey, weekBuckets, weekEntries));
-  }
-  _renderWeekSummariesPanel(weekSummaryItems);
 }
 
 async function _loadEntriesData(sessions) {
@@ -1194,7 +1100,6 @@ async function _loadPage(reset) {
     loadMoreBtn.hidden = true;
     if (partialNoticeEl) partialNoticeEl.hidden = true;
     if (milestonesPanelEl) milestonesPanelEl.hidden = true;
-    if (weekSummariesPanelEl) weekSummariesPanelEl.hidden = true;
   }
 
   // F17 — recarrega as Estatísticas junto de toda recarga completa: cobre
@@ -1275,8 +1180,6 @@ export async function initStudyJournalView() {
     partialNoticeEl = document.getElementById("sj-filter-partial-notice");
     milestonesPanelEl = document.getElementById("sj-milestones-panel");
     milestonesListEl  = document.getElementById("sj-milestones-list");
-    weekSummariesPanelEl = document.getElementById("sj-week-summaries-panel");
-    weekSummariesListEl  = document.getElementById("sj-week-summaries-list");
 
     statusTabsEl   = document.getElementById("sj-status-tabs");
     finishedViewEl = document.getElementById("sj-finished-view");
@@ -1373,8 +1276,6 @@ export function resetStudyJournalView() {
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
   if (milestonesPanelEl) milestonesPanelEl.hidden = true;
   if (milestonesListEl) milestonesListEl.innerHTML = "";
-  if (weekSummariesPanelEl) weekSummariesPanelEl.hidden = true;
-  if (weekSummariesListEl) weekSummariesListEl.innerHTML = "";
   if (otherOnlyCancelledCheck) otherOnlyCancelledCheck.checked = false;
   if (statusTabsEl) _setStatusTab("finished");
 

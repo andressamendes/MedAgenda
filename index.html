@@ -892,8 +892,8 @@
              dia/resumos/marcos/busca) e a visão compacta reaproveitada de
              activityHistoryView.js sem nenhuma mudança de lógica
              (#sj-other-view — sessões canceladas nunca passam pelos
-             cálculos de studyTimelineService/studyMilestoneService/
-             studySummaryService, que presumem sessão concluída).
+             cálculos de studyTimelineService/studyMilestoneService,
+             que presumem sessão concluída).
              F14.7 — a aba própria "Canceladas" virou um filtro dentro de
              "Histórico" (#sj-other-only-cancelled): ruído histórico que
              quase ninguém folheia diariamente não merecia um dos três
@@ -965,21 +965,17 @@
           </div>
           <div id="sj-search-stats" class="sj-search-stats" hidden></div>
 
-          <!-- F18.15 — Marcos da Evolução e Resumos Semanais são conteúdo de
-               leitura da própria timeline, não resultado de um filtro: saem
-               do painel "Analisar" (que agora só contém estatísticas e
-               controles de filtro) e voltam a viver aqui, junto da lista que
-               resumem/comentam. Nenhuma lógica muda — mesmos elementos,
-               mesmo _renderMilestonesPanel()/_renderWeekSummariesPanel(),
-               só de lugar. -->
+          <!-- F18.15 — Marcos da Evolução é conteúdo de leitura da própria
+               timeline, não resultado de um filtro: saiu do painel
+               "Analisar" (que agora só contém estatísticas e controles de
+               filtro) e voltou a viver aqui, junto da lista que comenta.
+               Nenhuma lógica muda — mesmo elemento, mesmo
+               _renderMilestonesPanel(), só de lugar. F18.16 — "Resumos
+               Semanais" (segunda geração de texto narrativo formulaico,
+               redundante com o Progresso narrativo) foi removido. -->
           <details id="sj-milestones-panel" class="sj-milestones-panel" hidden>
             <summary class="sj-milestones-panel-title">Marcos da Evolução</summary>
             <ul id="sj-milestones-list" class="sj-milestones-list"></ul>
-          </details>
-
-          <details id="sj-week-summaries-panel" class="sj-week-summaries-panel" hidden>
-            <summary class="sj-week-summaries-panel-title">Resumos Semanais</summary>
-            <ul id="sj-week-summaries-list" class="sj-week-summaries-list"></ul>
           </details>
 
           <h2 class="sr-only">Sessões e resumos</h2>
@@ -1000,11 +996,10 @@
 
         <!-- Painel: Analisar (estatísticas + período/filtros avançados) do
              Diário (F13.4) — mesma estrutura/comportamento de abrir-fechar
-             de #ai-panel (aiPanelView.js). F18.15 — Marcos da Evolução e
-             Resumos Semanais saíram daqui: eram conteúdo de leitura, não
-             filtro, e o rótulo "Analisar" só descrevia metade do que havia
-             dentro. Agora vivem perto da timeline (ver #sj-finished-view,
-             logo acima). -->
+             de #ai-panel (aiPanelView.js). F18.15 — Marcos da Evolução saiu
+             daqui: era conteúdo de leitura, não filtro, e o rótulo
+             "Analisar" só descrevia metade do que havia dentro. Agora vive
+             perto da timeline (ver #sj-finished-view, logo acima). -->
         <div id="sj-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
         <aside id="sj-panel" class="ai-panel" hidden
                role="dialog" aria-modal="true" aria-labelledby="sj-panel-title">

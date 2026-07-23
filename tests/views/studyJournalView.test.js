@@ -1205,10 +1205,6 @@ function dayComparisons() {
   return Array.from(document.querySelectorAll("#sj-list .sj-day-header-comparison"));
 }
 
-function weekSummaries() {
-  return Array.from(document.querySelectorAll("#sj-week-summaries-list .sj-week-summary"));
-}
-
 test("Etapa 4 (auditoria UX radical) — a day group no longer carries a separate stats card; totals live only in the header and on each session card", async (t) => {
   const sessions = [
     { id: "sess-2", event_id: "ev-1", status: "finished", started_at: "2026-03-10T14:00:00.000Z", ended_at: "2026-03-10T14:45:00.000Z", duration_minutes: 45 },
@@ -1276,69 +1272,6 @@ test("a lone visible day shows no comparison indicators", async (t) => {
   assert.strictEqual(dayComparisons()[0].hidden, true);
 });
 
-test("Etapa 5 (auditoria UX radical) — weekly summaries move out of the timeline into the collapsible 'Resumos Semanais' panel", async (t) => {
-  const sessions = [
-    // semana de 2026-03-16 (segunda) — a mais recente na linha do tempo,
-    // com dois dias consecutivos estudados.
-    { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
-    { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
-    // semana de 2026-03-09 (segunda) — mais antiga, sem uma semana seguinte
-    // no conjunto filtrado. Mesmo assim ganha cartão (auditoria UX #32): é a
-    // última semana visível, fechada fora do laço ao fim de _render().
-    { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
-  ];
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
-    getEvents: async () => [
-      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
-      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
-    ],
-    listQuestions: async () => [{ id: "q1" }],
-  });
-
-  await mod.initStudyJournalView();
-
-  assert.strictEqual(document.getElementById("sj-week-summaries-panel").hidden, false, "o painel aparece quando há semana(s) para resumir");
-  assert.strictEqual(document.querySelectorAll("#sj-list .sj-week-summary").length, 0, "o resumo semanal não é mais intercalado na timeline");
-
-  const weeks = weekSummaries();
-  assert.strictEqual(weeks.length, 2, "a semana concluída e a última semana visível (mesmo sem semana seguinte) ganham cartão");
-  const text = weeks[0].textContent;
-  assert.match(text, /Semana de 16\/03 a 22\/03/);
-  assert.match(text, /2 sessão\(ões\)/);
-  assert.match(text, /1h 30min estudadas/);
-  assert.match(text, /2 questão\(ões\)/);
-  assert.match(text, /2 matéria\(s\)/);
-  assert.match(text, /Maior sequência nesta semana: 2 dia\(s\)/);
-
-  const lastWeekText = weeks[1].textContent;
-  assert.match(lastWeekText, /Semana de 09\/03 a 15\/03/);
-  assert.match(lastWeekText, /1 sessão\(ões\)/);
-
-  // a timeline propriamente dita fica só com os grupos de dia.
-  const listChildren = Array.from(document.getElementById("sj-list").children);
-  assert.strictEqual(listChildren.length, 3, "só os 3 grupos de dia continuam na timeline");
-  assert.ok(listChildren.every(el => el.classList.contains("sj-day-group")));
-});
-
-test("Etapa 5 (auditoria UX radical) — the week summaries panel hides when no session is visible", async (t) => {
-  const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
-  });
-
-  await mod.initStudyJournalView();
-  assert.strictEqual(document.getElementById("sj-week-summaries-panel").hidden, false);
-
-  document.getElementById("sj-filter-search").value = "termo-que-nao-existe-em-nenhum-campo";
-  document.getElementById("sj-filter-search").dispatchEvent(new window.Event("input"));
-
-  assert.strictEqual(
-    document.getElementById("sj-week-summaries-panel").hidden, true,
-    "sem sessões visíveis após o filtro, o painel de resumos semanais fica oculto"
-  );
-});
-
 test("summaries recompute over only the currently filtered/visible sessions, without a new listSessions() call", async (t) => {
   const sessions = [
     { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
@@ -1367,59 +1300,6 @@ test("summaries recompute over only the currently filtered/visible sessions, wit
   assert.strictEqual(entries.length, 1, "só a sessão filtrada continua visível");
   assert.match(entries[0].textContent, /SOI II/);
   assert.doesNotMatch(entries[0].textContent, /Anatomia/);
-});
-
-// ── Síntese Periódica de Aprendizado (F8.6) ─────────────────────────────
-
-test("a weekly summary card renders a derived narrative text (Resumo da Semana) below its stats", async (t) => {
-  const sessions = [
-    { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
-    { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
-    { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
-  ];
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
-    getEvents: async () => [
-      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
-      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
-    ],
-    listQuestions: async () => [{ id: "q1" }],
-  });
-
-  await mod.initStudyJournalView();
-
-  const week = weekSummaries()[0];
-  const title = week.querySelector(".sj-week-narrative-title");
-  const text = week.querySelector(".sj-week-narrative-text").textContent;
-
-  assert.strictEqual(title.textContent, "Resumo da Semana");
-  assert.match(text, /Nesta semana você realizou 2 sessões/);
-  assert.match(text, /estudou durante 1h30/);
-  assert.match(text, /resolveu 2 questões/);
-  assert.match(text, /estudou 2 matérias diferentes/);
-});
-
-test("the weekly narrative only considers the currently visible (filtered) entries of that week", async (t) => {
-  const sessions = [
-    { id: "sess-w2-b", event_id: "ev-1", status: "finished", started_at: "2026-03-17T08:00:00.000Z", ended_at: "2026-03-17T08:30:00.000Z", duration_minutes: 30 },
-    { id: "sess-w2-a", event_id: "ev-2", status: "finished", started_at: "2026-03-16T08:00:00.000Z", ended_at: "2026-03-16T09:00:00.000Z", duration_minutes: 60 },
-    { id: "sess-w1", event_id: "ev-1", status: "finished", started_at: "2026-03-09T08:00:00.000Z", ended_at: "2026-03-09T08:30:00.000Z", duration_minutes: 30 },
-  ];
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
-    getEvents: async () => [
-      { id: "ev-1", title: "Aula Cardio", category: "Cardiologia" },
-      { id: "ev-2", title: "Aula Farmaco", category: "Farmacologia" },
-    ],
-  });
-
-  await mod.initStudyJournalView();
-  document.getElementById("sj-filter-category").value = "Cardiologia";
-  document.getElementById("sj-filter-category").dispatchEvent(new window.Event("change"));
-
-  const text = weekSummaries()[0].querySelector(".sj-week-narrative-text").textContent;
-  assert.match(text, /Nesta semana você realizou 1 sessão/);
-  assert.match(text, /estudou 1 matéria diferente/);
 });
 
 // ── Marcos da Evolução (F8.7) ───────────────────────────────────────────
