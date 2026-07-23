@@ -366,6 +366,7 @@ function _bindEvents() {
   srBtnCreate.addEventListener("click", () => _createAndAssociateReview());
 
   sqBtnToggleForm.addEventListener("click", () => {
+    _inheritQuickCounts();
     _setInlineFormVisible(sqFormEl, sqBtnToggleForm, true);
     sqTypeEl.focus();
   });
@@ -1020,6 +1021,16 @@ function _resetQuestionForm({ keepSubjectTopic = false } = {}) {
   }
   _editingQuestionId = null;
   sqBtnAdd.textContent = "Adicionar questão";
+}
+
+// F18.13 — abrir "+ Adicionar com detalhes" herda a quantidade/erros já
+// digitados no atalho rápido (sqQuickTotalEl/sqQuickErrorsEl) em vez de
+// reiniciar no default "1"/"0" de _resetQuestionForm(): quem resolve um
+// bloco grande de questões já começou a digitar o resultado no atalho antes
+// de perceber que precisa de matéria/tópico/tipo — não deveria redigitar.
+function _inheritQuickCounts() {
+  sqTotalEl.value  = sqQuickTotalEl.value;
+  sqErrorsEl.value = sqQuickErrorsEl.value;
 }
 
 // F17 — valida quantidade/erros de um lançamento (rápido ou detalhado):

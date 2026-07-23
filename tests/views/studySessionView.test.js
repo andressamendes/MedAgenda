@@ -1118,6 +1118,20 @@ test("F17 — the detailed form rejects an invalid quantity/errors combination a
   assert.strictEqual(document.getElementById("ss-question-form-error").hidden, false);
 });
 
+test("F18.13 — opening the detailed form inherits the quantity/errors already typed in the quick shortcut", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-q-quick-total").value = "8";
+  document.getElementById("ss-q-quick-errors").value = "3";
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("ss-q-total").value, "8", "quantidade digitada no atalho rápido deve ser herdada");
+  assert.strictEqual(document.getElementById("ss-q-errors").value, "3", "erros digitados no atalho rápido devem ser herdados");
+});
+
 test("F17 — editing an old question with correct_count/incorrect_count both 0 (legacy row) defaults the form to 1/0", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
