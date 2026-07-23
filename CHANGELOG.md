@@ -106,6 +106,13 @@ fase.
   as sessões já paginadas. O antigo aviso de parcialidade
   (`#sj-filter-partial-notice`) permanece só como rede de segurança e nunca
   aparece com um filtro já resolvido.
+- **F15.17 — Acessibilidade real das abas:** novo `tabsController.js`
+  implementa o padrão WAI-ARIA Tabs (roving tabindex, setas ←/→, Home/End) e
+  passa a ser usado pelas 4 superfícies com `role="tablist"` (Agenda,
+  Diário, modal de início de sessão, tema em Configurações), cada uma
+  mantendo sua própria lógica de seleção. `aria-controls` adicionado
+  ligando cada aba ao seu painel (`role="tabpanel"`). Nenhuma mudança
+  visual.
 
 ## [Unreleased] — Auditoria UX do Diário (Etapas 1–7)
 
