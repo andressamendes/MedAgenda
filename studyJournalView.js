@@ -73,6 +73,11 @@
 // narrative), separado da lista e sem concorrer pela atenção do usuário ao
 // abrir o Diário. buildMilestones() e os dados considerados não mudaram.
 //
+// F18.15 — #sj-milestones-panel deixou de viver dentro do painel "Analisar"
+// (que misturava leitura com filtro) e voltou para perto de #sj-list, como
+// conteúdo da própria timeline. Nenhuma lógica muda — mesmo id, mesma
+// função de render, só de lugar no HTML.
+//
 // F8.8 — Busca Avançada e Linha do Tempo Inteligente: substitui a busca
 // textual simples do F8.4 (só compromisso/conteúdo/observações/reflexão,
 // `String.includes` puro) e acrescenta os novos filtros combináveis
@@ -179,10 +184,12 @@ let _categoriesByName = null;
 let milestonesPanelEl, milestonesListEl;
 let weekSummariesPanelEl, weekSummariesListEl;
 
-// Painel "Analisar" (F13.4) — período, filtros avançados e marcos da
-// evolução saíram da coluna principal para este painel lateral sob demanda,
-// mesmo padrão de abrir/fechar/Focus Trap/Escape de #ai-panel
-// (aiPanelView.js). Busca continua sempre visível fora do painel.
+// Painel "Analisar" (F13.4) — estatísticas, período e filtros avançados
+// saíram da coluna principal para este painel lateral sob demanda, mesmo
+// padrão de abrir/fechar/Focus Trap/Escape de #ai-panel (aiPanelView.js).
+// Busca continua sempre visível fora do painel. F18.15 — Marcos da
+// Evolução e Resumos Semanais não fazem mais parte deste painel: são
+// leitura, não filtro, e voltaram para perto da timeline.
 let sjPanelOverlayEl, sjPanelEl, sjPanelCloseEl, sjPanelOpenBtn;
 let _sjPanelPrevFocus = null;
 // F10 #4.2 — alterna entre a visão rica de "Concluídas" (finishedViewEl,
@@ -615,13 +622,18 @@ function _renderDayComparison(dayGroup, comparison) {
   `;
 }
 
-// ── Resumo semanal (F8.5, movido para o painel "Analisar" na Etapa 4) ────
+// ── Resumo semanal (F8.5, movido para perto da timeline na F18.15) ──────
 // Etapa 5 (auditoria UX radical) — cada resumo semanal era um <li>
 // intercalado na própria linha do tempo, quebrando a leitura cronológica
 // das sessões com um bloco de estatísticas + texto corrido entre um dia e
 // outro. Sai da lista e vira uma entrada no painel recolhível "Resumos
-// Semanais", dentro do painel "Analisar" — mesmo padrão de painel separado
-// já usado por Marcos da Evolução (F10 #3.2, logo acima).
+// Semanais" — mesmo padrão de painel separado já usado por Marcos da
+// Evolução (F10 #3.2, logo acima).
+//
+// F18.15 — o painel "Resumos Semanais" viveu por um tempo dentro do painel
+// "Analisar", junto dos filtros; voltou a ficar perto de #sj-list (mesmo
+// lugar de #sj-milestones-panel) porque é conteúdo de leitura, não
+// resultado de um controle de filtro.
 //
 // F8.6 — Síntese Periódica: além dos números do cartão (já existentes desde
 // F8.5), acrescenta o texto narrativo de buildWeeklySummary()

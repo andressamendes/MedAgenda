@@ -934,9 +934,10 @@
                de disclosure de _toggleAdvancedFilters), e "Analisar" perde o
                rótulo de texto — o badge de contagem (sj-advanced-filters-
                count) não mudou de lógica, só de apresentação (número solto
-               em vez de "(N)" ao lado do texto). Período, filtros avançados
-               e marcos continuam consolidados no painel sob demanda, mesmo
-               padrão de #ai-panel. -->
+               em vez de "(N)" ao lado do texto). Período e filtros avançados
+               continuam consolidados no painel sob demanda, mesmo padrão de
+               #ai-panel; F18.15 — Marcos/Resumos deixaram de fazer parte
+               desse "sob demanda" (ver abaixo, perto da lista). -->
           <div class="appointments-toolbar sj-toolbar">
             <!-- F17 — filtros rápidos: Hoje/Semana/Todas viram o caminho
                  principal de período, sempre visíveis (antes só existia o
@@ -957,12 +958,30 @@
             <div id="sj-search-wrap" class="sj-search-wrap" hidden>
               <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
             </div>
-            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: filtros e resumos" title="Analisar">
+            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: estatísticas e filtros" title="Analisar">
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
               <span id="sj-advanced-filters-count" class="sj-toolbar-badge" hidden></span>
             </button>
           </div>
           <div id="sj-search-stats" class="sj-search-stats" hidden></div>
+
+          <!-- F18.15 — Marcos da Evolução e Resumos Semanais são conteúdo de
+               leitura da própria timeline, não resultado de um filtro: saem
+               do painel "Analisar" (que agora só contém estatísticas e
+               controles de filtro) e voltam a viver aqui, junto da lista que
+               resumem/comentam. Nenhuma lógica muda — mesmos elementos,
+               mesmo _renderMilestonesPanel()/_renderWeekSummariesPanel(),
+               só de lugar. -->
+          <details id="sj-milestones-panel" class="sj-milestones-panel" hidden>
+            <summary class="sj-milestones-panel-title">Marcos da Evolução</summary>
+            <ul id="sj-milestones-list" class="sj-milestones-list"></ul>
+          </details>
+
+          <details id="sj-week-summaries-panel" class="sj-week-summaries-panel" hidden>
+            <summary class="sj-week-summaries-panel-title">Resumos Semanais</summary>
+            <ul id="sj-week-summaries-list" class="sj-week-summaries-list"></ul>
+          </details>
+
           <h2 class="sr-only">Sessões e resumos</h2>
           <p id="sj-list-empty" class="list-empty" hidden></p>
           <ul id="sj-list" class="sj-list"></ul>
@@ -979,9 +998,13 @@
           </div>
         </div>
 
-        <!-- Painel: Analisar (período, filtros avançados, marcos da
-             evolução) do Diário (F13.4) — mesma estrutura/comportamento de
-             abrir-fechar de #ai-panel (aiPanelView.js). -->
+        <!-- Painel: Analisar (estatísticas + período/filtros avançados) do
+             Diário (F13.4) — mesma estrutura/comportamento de abrir-fechar
+             de #ai-panel (aiPanelView.js). F18.15 — Marcos da Evolução e
+             Resumos Semanais saíram daqui: eram conteúdo de leitura, não
+             filtro, e o rótulo "Analisar" só descrevia metade do que havia
+             dentro. Agora vivem perto da timeline (ver #sj-finished-view,
+             logo acima). -->
         <div id="sj-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
         <aside id="sj-panel" class="ai-panel" hidden
                role="dialog" aria-modal="true" aria-labelledby="sj-panel-title">
@@ -1087,23 +1110,6 @@
               </select>
             </div>
           </div>
-          <details id="sj-milestones-panel" class="sj-milestones-panel" hidden>
-            <summary class="sj-milestones-panel-title">Marcos da Evolução</summary>
-            <ul id="sj-milestones-list" class="sj-milestones-list"></ul>
-          </details>
-
-          <!-- Etapa 5 (auditoria UX radical) — o resumo semanal era um <li>
-               intercalado na própria linha do tempo, quebrando a leitura
-               cronológica das sessões com um bloco de estatísticas + texto
-               corrido. Move para dentro do painel "Analisar", mesmo padrão
-               de painel recolhível de Marcos da Evolução (F10 #3.2) logo
-               acima: só aparece quando há semana(s) para resumir, some
-               quando o filtro não deixa nenhuma sessão visível. -->
-          <details id="sj-week-summaries-panel" class="sj-week-summaries-panel" hidden>
-            <summary class="sj-week-summaries-panel-title">Resumos Semanais</summary>
-            <ul id="sj-week-summaries-list" class="sj-week-summaries-list"></ul>
-          </details>
-
           </div>
         </aside>
 
