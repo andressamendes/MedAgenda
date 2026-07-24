@@ -1,6 +1,7 @@
 import { createEvent } from "./eventService.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
+import { toast } from "./toastService.js";
 import { iconX } from "./icons.js";
 
 const WEEKDAYS_LONG = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
@@ -125,6 +126,7 @@ async function handleSave() {
   try {
     await createEvent({ title, event_date: selectedDate, start_time: time, recurrence_type: "none" });
     close();
+    toast.success("Compromisso salvo com sucesso.");
     if (onSaveCallback) await onSaveCallback();
   } catch (err) {
     const { friendly } = handleError(err, { context: 'quickAdd.createEvent', silent: true, fallbackMessage: "Erro ao salvar." });

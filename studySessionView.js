@@ -1309,6 +1309,8 @@ function _renderReviewsList() {
   _lastAddedReviewId = null;
 }
 
+// Sem toast ao remover, mesmo padrão de _removeQuestionEntry: o item some da
+// lista na hora, o que já confirma a ação sem precisar de outro sinal.
 async function _removeReviewEntry(reviewId) {
   if (_qrBusy) return;
   _qrBusy = true;
@@ -1340,6 +1342,8 @@ async function _createAndAssociateReview() {
     _lastAddedReviewId = linked.id;
     srDateEl.value = "";
     _renderReviewsList();
+    // Mesmo padrão de Questões (toast.info curto ao registrar, ver linha 1175).
+    toast.info("Revisão registrada.", 2000);
   } catch (err) {
     handleError(err, { context: "studySessionView.createReview" });
     // BUG 16 (herdado do fluxo antigo): se createReview() teve sucesso mas
@@ -1367,6 +1371,7 @@ async function _associateExistingReview() {
     _lastAddedReviewId = linked.id;
     _renderReviewsList();
     await _loadReviewOptions(); // a revisão associada não pode ser oferecida de novo
+    toast.info("Revisão registrada.", 2000);
   } catch (err) {
     handleError(err, { context: "studySessionView.associateReview" });
   } finally {
