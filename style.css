@@ -27,6 +27,7 @@
   /* ── Design tokens (F5.1) — usar estes nomes em CSS novo ── */
   --color-primary:        var(--blue);
   --color-primary-hover:  var(--blue-d);
+  --color-on-primary:     #fff;
   --color-surface:        #fff;
   --color-background:     var(--gray-50);
   --color-border:         var(--gray-200);
@@ -410,7 +411,7 @@ body {
   align-items: center;
   padding: var(--space-7);
   background: linear-gradient(155deg, var(--blue) 0%, var(--blue-d) 100%);
-  color: #fff;
+  color: var(--color-on-primary);
   overflow: hidden;
 }
 
@@ -639,7 +640,7 @@ body {
   height: 26px;
   border-radius: 50%;
   background: var(--blue);
-  color: #fff;
+  color: var(--color-on-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1016,9 +1017,9 @@ body {
 
 .sj-quick-filter--active {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
-.sj-quick-filter--active:hover { background: var(--color-primary-hover); color: #fff; }
+.sj-quick-filter--active:hover { background: var(--color-primary-hover); color: var(--color-on-primary); }
 
 .sj-toolbar-filter-btn {
   position: relative;
@@ -1032,7 +1033,7 @@ body {
   padding: .1rem .35rem;
   border-radius: var(--radius-full);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   font-size: .65rem;
   font-weight: 700;
   line-height: 1;
@@ -1310,7 +1311,7 @@ body {
 
 .cal-cell.cal-today .cal-day-num {
   background: var(--blue);
-  color: #fff;
+  color: var(--color-on-primary);
   border-radius: 50%;
   width: 1.55rem;
   height: 1.55rem;
@@ -1340,7 +1341,7 @@ body {
   gap: .2rem;
   font-size: .65rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-on-primary);
   padding: .1rem .35rem;
   border-radius: var(--radius-full);
 }
@@ -1595,7 +1596,7 @@ textarea { resize: vertical; }
 .btn-icon-inline svg { width: var(--icon-sm); height: var(--icon-sm); flex-shrink: 0; }
 
 /* Primary */
-.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
 /* V5.8 — resposta física ao toque: além do scale(.98) genérico de .btn,
    o primary (ação de maior peso) ganha um aperto extra + escurecimento,
@@ -1653,7 +1654,7 @@ textarea { resize: vertical; }
   width: 1rem;
   height: 1rem;
   border: 2px solid rgba(255, 255, 255, .5);
-  border-top-color: #fff;
+  border-top-color: var(--color-on-primary);
   border-radius: 50%;
   animation: spin .7s linear infinite;
 }
@@ -2611,7 +2612,7 @@ textarea { resize: vertical; }
 .tab--active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .ah-item-title {
@@ -3439,7 +3440,7 @@ textarea { resize: vertical; }
 
 .wk-day-head.wk-today .wk-day-num {
   background: var(--blue);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 /* body grid */
@@ -3507,7 +3508,7 @@ textarea { resize: vertical; }
   right: 2px;
   border-radius: 4px;
   padding: .15rem .35rem;
-  color: #fff;
+  color: var(--color-on-primary);
   font-size: .7rem;
   overflow: hidden;
   cursor: pointer;
@@ -3565,7 +3566,7 @@ textarea { resize: vertical; }
 }
 
 .wk-event-running {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--color-on-primary);
   outline-offset: -2px;
   box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 0 0 3px rgba(16, 185, 129, .45);
 }
@@ -3793,7 +3794,7 @@ textarea { resize: vertical; }
 .day-btn-active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .badge-recur {
@@ -3872,7 +3873,7 @@ textarea { resize: vertical; }
   right: 0;
   z-index: 1000;
   background: var(--gray-800);
-  color: #fff;
+  color: var(--color-on-primary);
   font-size: var(--font-size-sm);
   text-align: center;
   padding: .55rem 1rem;
@@ -4588,7 +4589,7 @@ textarea { resize: vertical; }
   padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
            calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
   background: linear-gradient(160deg, var(--color-celebration) 0%, var(--color-celebration-hover) 100%);
-  color: #fff;
+  color: var(--color-on-primary);
   animation: modal-overlay-in var(--transition-base);
 }
 
@@ -4630,7 +4631,7 @@ textarea { resize: vertical; }
 
 .achv-celebration-badge::after { animation-delay: .15s; }
 
-.achv-celebration-icon svg { width: var(--icon-xl); height: var(--icon-xl); color: #fff; }
+.achv-celebration-icon svg { width: var(--icon-xl); height: var(--icon-xl); color: var(--color-on-primary); }
 
 .achv-celebration-eyebrow {
   font-size: var(--eyebrow-font-size);
@@ -4643,7 +4644,7 @@ textarea { resize: vertical; }
 .achv-celebration-title {
   font-size: var(--font-size-xl);
   font-weight: 700;
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .achv-celebration-desc {
@@ -4653,7 +4654,7 @@ textarea { resize: vertical; }
 
 .achv-celebration-continue {
   width: 100%;
-  background: #fff;
+  background: var(--color-on-primary);
   color: var(--color-celebration-hover);
 }
 
@@ -4681,7 +4682,7 @@ textarea { resize: vertical; }
   padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
            calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
   background: linear-gradient(160deg, var(--blue) 0%, var(--blue-d) 100%);
-  color: #fff;
+  color: var(--color-on-primary);
   animation: modal-overlay-in var(--transition-base);
 }
 
@@ -4709,7 +4710,7 @@ textarea { resize: vertical; }
 .close-day-title {
   font-size: var(--font-size-xl);
   font-weight: 700;
-  color: #fff;
+  color: var(--color-on-primary);
   margin-bottom: var(--space-2);
 }
 
@@ -4733,7 +4734,7 @@ textarea { resize: vertical; }
   margin: 0 0 .15rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-on-primary);
   order: 1;
 }
 
@@ -4759,14 +4760,14 @@ textarea { resize: vertical; }
 
 .close-day-actions .btn { flex: 1; }
 
-.close-day-actions .btn-primary { background: #fff; color: var(--blue-d); }
+.close-day-actions .btn-primary { background: var(--color-on-primary); color: var(--blue-d); }
 .close-day-actions .btn-primary:hover:not(:disabled) { background: var(--gray-100); }
 .close-day-actions .btn-primary:active:not(:disabled):not(.btn-loading) {
   transform: scale(.95);
   background: var(--gray-100);
 }
 
-.close-day-actions .btn-ghost { background: rgba(255, 255, 255, .15); color: #fff; }
+.close-day-actions .btn-ghost { background: rgba(255, 255, 255, .15); color: var(--color-on-primary); }
 .close-day-actions .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .25); }
 
 /* Sequência de revelação (F19 "momento citável"): cada elemento entra com
@@ -4855,7 +4856,7 @@ textarea { resize: vertical; }
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
-  color: #fff;
+  color: var(--color-on-primary);
 }
 .toast-icon svg { width: var(--icon-sm); height: var(--icon-sm); }
 .toast-icon svg * { stroke-width: 2.8; }
@@ -5054,7 +5055,7 @@ textarea { resize: vertical; }
   line-height: 1.3;
   padding: 1px 4px;
   border-radius: var(--radius-full);
-  color: #fff;
+  color: var(--color-on-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
