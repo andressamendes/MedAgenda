@@ -63,6 +63,7 @@ import { initKeyboardShortcuts, resetKeyboardShortcuts } from "./keyboardService
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
+import { initConstancyHeatmapView, resetConstancyHeatmapView } from "./constancyHeatmapView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { initOnboardingTour, resetOnboardingTourView } from "./onboardingTourView.js";
 import { initTodayView, resetTodayView } from "./todayView.js";
@@ -349,6 +350,7 @@ async function _initApp(session) {
       safeInit("histórico de sessões", () => initActivityHistoryView()),
       safeInit("diário de estudos", () => initStudyJournalView()),
       safeInit("dashboard de execução", () => initActivityDashboardView()),
+      safeInit("heatmap de constância", () => initConstancyHeatmapView()),
       safeInit("central de insights", () => initInsightsView()),
       safeInit("tour de boas-vindas", () => initOnboardingTour()),
       safeInit("tela hoje", () => initTodayView()),
@@ -648,6 +650,7 @@ initAuthView({
     resetActivityHistoryView();
     resetStudyJournalView();
     resetActivityDashboardView();
+    resetConstancyHeatmapView();
     resetInsightsView();
     resetOnboardingTourView();
     resetTodayView();

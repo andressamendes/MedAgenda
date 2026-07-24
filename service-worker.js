@@ -43,6 +43,7 @@ const APP_SHELL = [
   './closeDayService.js',
   './config/ai.js',
   './confirmDialog.js',
+  './constancyHeatmapView.js',
   './decisionEngine.js',
   './diagnosticModal.js',
   './diagnosticService.js',
