@@ -16,6 +16,19 @@
 // <div class="tabs"> próprio (com Todos/Finalizadas/Canceladas)
 // foi removido e substituído pelo tab bar único do Diário, que nunca
 // repassa "finished" para cá (essa é a visão rica do próprio Diário).
+//
+// Fase J1 — a lista era um empilhamento cru de cartões idênticos, sem
+// nenhuma leitura temporal (mesmo defeito que a aba "Concluídas" já havia
+// resolvido com o agrupamento por dia de F8.3). Aqui os itens ganham o
+// mesmo agrupamento por dia (_dayKey/_dayLabel, mesma lógica de
+// studyJournalView.js) e são renderizados como uma timeline de fato — uma
+// linha vertical contínua conectando um marcador por sessão, colorido pelo
+// status — em vez do empilhamento de .session-history-item de antes.
+// `_dayGroups`/`_lastDayGroupKey` preservam os grupos já montados entre
+// páginas ("Carregar mais"): como listSessions() sempre devolve
+// started_at desc, uma nova página só pode continuar o último grupo já
+// aberto ou abrir grupos novos depois dele — nunca precisa reabrir um grupo
+// anterior.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents, getEventById } from "./eventService.js";
@@ -58,6 +71,11 @@ let _loading = false;
 // é definitivo: nunca fica obsoleto.
 let _eventsById     = new Map();
 let _categoriesById = new Map();
+
+// Grupo do dia atualmente aberto no fim da lista (timeline) — próxima
+// sessão da mesma data (started_at) entra nele em vez de abrir um grupo
+// novo. `null` enquanto a lista está vazia (reset ou primeira carga).
+let _lastDayGroup = null;
 
 // ── Sincronização com o barramento de eventos (F6.3) ────────────────────────
 // A tela assina SessionStarted/Finished/Cancelled/Updated e recarrega sua
@@ -149,27 +167,84 @@ function _formatDate(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
+// Mesma regra de agrupamento por dia de studyJournalView.js/_dayKey(),
+// _dayLabel() (F8.3) — "Hoje"/"Ontem" por ano/mês/dia local, sem round-trip
+// por ISO/UTC.
+function _dayKeyFromDate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function _dayKey(iso) {
+  return _dayKeyFromDate(new Date(iso));
+}
+
+function _dayLabel(iso) {
+  const key = _dayKey(iso);
+  const now = new Date();
+  if (key === _dayKeyFromDate(now)) return "Hoje";
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (key === _dayKeyFromDate(yesterday)) return "Ontem";
+  return _formatDate(iso);
+}
+
+// Timeline: uma linha vertical contínua (.ah-timeline, via CSS) conectando
+// um marcador por sessão (.ah-timeline-dot, colorido pelo mesmo status que
+// já tingia o badge de texto) — agrupados por dia, como a aba "Concluídas".
+function _ensureDayGroup(iso) {
+  const key = _dayKey(iso);
+  if (_lastDayGroup && _lastDayGroup.key === key) return _lastDayGroup;
+
+  const li = document.createElement("li");
+  li.className = "ah-day-group";
+  li.innerHTML = `
+    <div class="ah-day-header">
+      <span class="ah-day-header-date">${escapeHtml(_dayLabel(iso))}</span>
+      <span class="ah-day-header-summary"></span>
+    </div>
+    <ul class="ah-timeline"></ul>
+  `;
+  listEl.appendChild(li);
+
+  _lastDayGroup = {
+    key,
+    count: 0,
+    summaryEl: li.querySelector(".ah-day-header-summary"),
+    timelineEl: li.querySelector(".ah-timeline"),
+  };
+  return _lastDayGroup;
+}
+
+function _updateDayGroupSummary(group) {
+  group.summaryEl.textContent = `${group.count} sessão(ões)`;
+}
+
 function _renderSessions(sessions) {
   for (const s of sessions) {
     const meta = _resolveMeta(s);
+    const group = _ensureDayGroup(s.started_at);
+    group.count += 1;
+    _updateDayGroupSummary(group);
+
     const li = document.createElement("li");
-    li.className = "session-history-item";
+    li.className = `ah-timeline-item ah-timeline-item--${s.status}`;
     li.innerHTML = `
-      <div class="session-history-row">
-        <span class="ah-item-title">${escapeHtml(meta.title)}${
-          meta.category ? ` <span class="ah-item-category">· ${escapeHtml(meta.category)}</span>` : ""
-        }</span>
-        <span class="session-history-status session-history-status--${s.status}">${SESSION_STATUS_LABELS[s.status] || s.status}</span>
+      <span class="ah-timeline-dot" aria-hidden="true"></span>
+      <div class="ah-timeline-body">
+        <div class="session-history-row">
+          <span class="ah-item-title">${escapeHtml(meta.title)}${
+            meta.category ? ` <span class="ah-item-category">· ${escapeHtml(meta.category)}</span>` : ""
+          }</span>
+          <span class="session-history-status session-history-status--${s.status}">${SESSION_STATUS_LABELS[s.status] || s.status}</span>
+        </div>
+        <div class="session-history-row session-history-meta">
+          <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
+          <span>${formatDuration(s.duration_minutes)}</span>
+          <span>${SESSION_SOURCE_LABELS[s.source] || s.source}</span>
+        </div>
+        ${s.notes ? `<p class="session-history-notes">${escapeHtml(s.notes)}</p>` : ""}
       </div>
-      <div class="session-history-row session-history-meta">
-        <span>${_formatDate(s.started_at)}</span>
-        <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
-        <span>${formatDuration(s.duration_minutes)}</span>
-        <span>${SESSION_SOURCE_LABELS[s.source] || s.source}</span>
-      </div>
-      ${s.notes ? `<p class="session-history-notes">${escapeHtml(s.notes)}</p>` : ""}
     `;
-    listEl.appendChild(li);
+    group.timelineEl.appendChild(li);
   }
 }
 
@@ -186,6 +261,7 @@ async function _loadPage(reset) {
   if (reset) {
     _offset = 0;
     listEl.innerHTML = "";
+    _lastDayGroup = null;
     // Auditoria UX #20 — sem isto, a lista ficava em branco durante a
     // carga, diferente do Calendário (calendar.js/showLoading()).
     emptyEl.hidden = false;
@@ -272,6 +348,7 @@ export function resetActivityHistoryView() {
     _reloadTimer = null;
   }
   if (listEl) listEl.innerHTML = "";
+  _lastDayGroup = null;
   if (emptyEl) {
     emptyEl.hidden = true;
     emptyEl.classList.remove("list-error");
