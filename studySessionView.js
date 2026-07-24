@@ -342,7 +342,6 @@ function _bindEvents() {
       message:     "A sessão será encerrada como cancelada e não entrará nas suas estatísticas de execução. Deseja continuar?",
       confirmText: "Cancelar sessão",
       cancelText:  "Voltar",
-      danger:      true,
     });
     if (shouldCancel) {
       await _run(() => cancelSession(_session.id));
