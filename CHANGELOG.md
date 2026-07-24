@@ -2,6 +2,31 @@
 
 ---
 
+## [Unreleased] — V5.7: Celebração de conquista desbloqueada
+
+- **Uma tela cheia própria (`.achv-celebration-screen`,
+  `achievementCelebrationView.js`) revela o momento em que uma conquista
+  cruza de "em progresso" para "concluída"** — até aqui as conquistas eram
+  puramente derivadas e recalculadas a cada carregamento (F6.12), então não
+  existia nenhum instante em que essa transição fosse reconhecida pelo
+  usuário; era o único "momento de vitória" verdadeiramente novo da
+  auditoria F19. `achievementService.js` ganha `consumeNewlyCompleted()`,
+  que compara o resultado já computado de `listAchievements()` contra uma
+  marca "já celebrada" em `localStorage` (por device e por usuário, mesmo
+  padrão de `TOUR_SEEN_KEY` em `onboardingTourView.js`) — o princípio
+  arquitetural "conquistas nunca são persistidas" continua intacto: nada
+  além dessa marca de "visto" é salvo, nenhum `current`/`target`/`progress`
+  grava em lugar nenhum. A primeira checagem de sempre para um usuário
+  preenche silenciosamente as conquistas já concluídas como "vistas" (sem
+  celebração), para que quem já tinha as 5 completas antes desta feature
+  não veja todas de uma vez após o deploy. `activityDashboardView.js`
+  dispara a checagem a cada recarga do dashboard (boot, eventos de sessão,
+  atualização de meta); se mais de uma conquista se completa na mesma
+  carga, cada uma ganha sua própria revelação, em fila, nunca empilhadas.
+  Paleta e animação (badge com "burst" de anéis) próprias, para nunca ser
+  confundida com o Fechamento do Dia (V5.6) nem com um toast padrão.
+  `prefers-reduced-motion` desativa a animação do badge.
+
 ## [Unreleased] — V5.6: Tela própria para o Fechamento do Dia
 
 - **`#close-day-modal` deixa de ser um `.modal-overlay`/`.modal-card` genérico**

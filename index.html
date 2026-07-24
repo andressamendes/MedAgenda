@@ -1158,6 +1158,25 @@
 
   </div>
 
+  <!-- ── Tela: Conquista desbloqueada (V5.7) ───────────────────────────────
+       Dispara quando achievementService.consumeNewlyCompleted() detecta que
+       uma conquista acabou de cruzar para "concluída" neste device (ver
+       achievementCelebrationView.js). Mesma moldura de tela cheia do
+       Fechamento do Dia (V5.6, logo abaixo) — paleta e ícone próprios, para
+       nunca ser confundida com aquele ritual nem com um toast padrão. -->
+  <div id="achievement-celebration-screen" class="achv-celebration-screen" hidden
+       role="dialog" aria-modal="true" aria-labelledby="achv-celebration-title">
+    <div class="achv-celebration-content">
+      <span class="achv-celebration-badge" aria-hidden="true">
+        <span class="achv-celebration-icon" id="achv-celebration-icon"></span>
+      </span>
+      <p class="achv-celebration-eyebrow">Conquista desbloqueada</p>
+      <h2 class="achv-celebration-title" id="achv-celebration-title"></h2>
+      <p class="achv-celebration-desc" id="achv-celebration-desc"></p>
+      <button type="button" class="btn btn-primary achv-celebration-continue" id="achv-celebration-continue">Continuar</button>
+    </div>
+  </div>
+
   <!-- ── Tela: Fechar o dia (V5.6) ─────────────────────────────────────────
        Era um modal genérico (`.modal-overlay`/`.modal-card`, F14.8) — o
        ritual de fechamento do dia virou tela cheia própria, com os números

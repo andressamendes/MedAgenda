@@ -194,3 +194,71 @@ export async function getAchievementSummary() {
     overallProgress,
   };
 }
+
+// ── Celebração de conquista desbloqueada (V5.7) ─────────────────────────────
+// Conquistas continuam nunca persistidas (ver cabeçalho): nada aqui grava
+// `current`/`target`/`progress` em lugar nenhum. A única coisa mantida é uma
+// marca "já celebrada", por device (localStorage) e por usuário — o
+// equivalente a TOUR_SEEN_KEY em onboardingTourView.js, não a um registro do
+// domínio. Sem essa marca não existiria nenhum jeito de saber, a cada
+// recálculo puro, se uma conquista "acabou de" cruzar para concluída ou já
+// estava concluída há semanas.
+const SEEN_KEY_PREFIX = "medagenda_achv_seen_";
+
+let _userId = null;
+
+function _seenKey() {
+  return _userId ? SEEN_KEY_PREFIX + _userId : null;
+}
+
+function _saveSeen(key, idsSet) {
+  try { localStorage.setItem(key, JSON.stringify([...idsSet])); } catch { /* storage indisponível */ }
+}
+
+// Chamado no login (mesma simetria init/reset da auditoria A1.3 — ver
+// script.js/_initApp, ex. initNotifications(session.user.id)).
+export function initAchievementCelebrationTracking(userId) {
+  _userId = userId;
+}
+
+// Chamado no logout/troca de usuário — sem isto, a marca "já celebrada" do
+// usuário anterior seguiria sendo lida/escrita para o usuário seguinte nesta
+// mesma aba (SPA sem reload de página).
+export function resetAchievementCelebrationTracking() {
+  _userId = null;
+}
+
+// Recebe o resultado já computado de listAchievements() (nenhum recálculo
+// próprio) e devolve só as que acabaram de cruzar para "concluída" desde a
+// última chamada neste device, marcando-as como celebradas antes de retornar
+// — leitura e escrita síncronas do localStorage, então uma segunda chamada
+// (mesmo em sequência imediata, ex. dois recarregamentos do dashboard) nunca
+// vê a mesma conquista como "nova" de novo.
+//
+// Primeira chamada de sempre para um usuário (nenhuma chave salva ainda):
+// as conquistas já concluídas nesse momento são preenchidas como "vistas" em
+// silêncio, sem celebração — evita que quem já tinha 5 conquistas completas
+// antes desta feature existir veja as 5 de uma vez ao abrir o app depois do
+// deploy.
+export function consumeNewlyCompleted(achievements) {
+  const key = _seenKey();
+  if (!key || !achievements) return [];
+
+  let raw;
+  try { raw = localStorage.getItem(key); } catch { return []; }
+
+  if (raw === null) {
+    _saveSeen(key, new Set(achievements.filter((entry) => entry.completed).map((entry) => entry.id)));
+    return [];
+  }
+
+  let seen;
+  try { seen = new Set(JSON.parse(raw)); } catch { seen = new Set(); }
+
+  const newlyCompleted = achievements.filter((entry) => entry.completed && !seen.has(entry.id));
+  if (newlyCompleted.length > 0) {
+    newlyCompleted.forEach((entry) => seen.add(entry.id));
+    _saveSeen(key, seen);
+  }
+  return newlyCompleted;
+}

@@ -63,6 +63,7 @@ import { initKeyboardShortcuts, resetKeyboardShortcuts } from "./keyboardService
 import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
+import { initAchievementCelebrationTracking, resetAchievementCelebrationTracking } from "./achievementService.js";
 import { initConstancyHeatmapView, resetConstancyHeatmapView } from "./constancyHeatmapView.js";
 import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { initOnboardingTour, resetOnboardingTourView } from "./onboardingTourView.js";
@@ -288,6 +289,7 @@ async function _initApp(session) {
       initNotifications(session.user.id);
       initPushService(session.user.id, VAPID_PUBLIC_KEY);
     });
+    safeInit("celebração de conquistas", () => initAchievementCelebrationTracking(session.user.id));
 
     // Re-sync push subscription in case it changed since last login
     syncPushSubscription().catch(() => {});
@@ -644,6 +646,7 @@ initAuthView({
   onSignedIn:      _initApp,
   onBeforeSignOut: () => {
     resetNotifications();
+    resetAchievementCelebrationTracking();
     resetStudySessionView();
     resetActiveSessionIndicator();
     resetKeyboardShortcuts();
