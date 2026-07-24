@@ -72,17 +72,40 @@
     <div id="schema-mismatch-block" class="schema-mismatch-block"></div>
   </div>
 
-  <!-- ── Tela de autenticação (multi-view) ── -->
+  <!-- ── Tela de autenticação (multi-view) ──
+       V5.13 — composição própria em duas colunas (não é `.card` genérico
+       reaproveitado de outra superfície): `.auth-brand-panel` carrega
+       marca + proposta de valor e só existe para dar contexto/identidade;
+       nenhum dos 7 estados de `.auth-view` depende dela — todo o
+       formulário funcional continua isolado em `.auth-panel`, com os
+       mesmos ids que authView.js já lê via getElementById. Em mobile o
+       painel de marca vira uma faixa compacta acima do formulário (ver
+       @media 767px em style.css) em vez de simplesmente desaparecer. -->
   <div id="login-screen" class="login-wrap" hidden>
-    <div class="card">
+    <div class="auth-shell">
+
+      <aside class="auth-brand-panel">
+        <div class="auth-brand-decor" aria-hidden="true"></div>
+        <div class="auth-brand-content">
+          <h1 class="brand-mark auth-brand-mark">
+            <svg class="brand-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 19 12 4.5 19.5 19"/><path d="M7.7 14h8.6"/></svg>
+            <span>Anoti</span>
+          </h1>
+          <p class="auth-brand-tagline">A agenda de compromissos feita para estudantes de Medicina.</p>
+          <ul class="auth-brand-points">
+            <li>Constância à vista, com heatmap e sequência de dias estudando</li>
+            <li>Sessões de estudo com cronômetro e metas diárias</li>
+            <li>Compromissos e conquistas num só lugar, sem ruído</li>
+          </ul>
+        </div>
+      </aside>
+
+      <div class="auth-panel">
 
       <!-- ── View: Login ── -->
       <div id="view-login" class="auth-view">
-        <h1 class="brand-mark">
-          <svg class="brand-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 19 12 4.5 19.5 19"/><path d="M7.7 14h8.6"/></svg>
-          <span>Anoti</span>
-        </h1>
-        <p class="slogan">A agenda de compromissos feita para estudantes de Medicina.</p>
+        <h1>Entrar</h1>
+        <p class="slogan">Bem-vindo de volta. Continue de onde parou.</p>
         <div class="form-group">
           <label for="email">E-mail</label>
           <input type="email"     id="email"    placeholder="E-mail"  autocomplete="email" maxlength="254" />
@@ -186,6 +209,7 @@
         </div>
       </div>
 
+      </div>
     </div>
   </div>
 
