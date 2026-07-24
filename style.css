@@ -116,9 +116,9 @@
   /* ── Família tipográfica de destaque (F10 PR2) — uma serifada de sistema
      (sem download, sem mudança de CSP/service worker) reservada só para
      números de destaque (cronômetro da Sessão de Estudo, cards do
-     Dashboard). O corpo do produto continua 100% na pilha sans-serif de
-     `body`; esta variável nunca deve ser usada em texto de UI, listas ou
-     formulários.
+     Dashboard, fração de conquistas, streak e recap do fechamento do dia).
+     O corpo do produto continua 100% na pilha sans-serif de `body`; esta
+     variável nunca deve ser usada em texto de UI, listas ou formulários.
      F11 E2 (auditoria de Product Readiness): o wordmark "Anoti" usava esta
      mesma serifada — renderiza com aparência bem diferente por sistema
      operacional (Georgia no Windows, a serifa nativa do SO em Mac/Android),
@@ -2227,6 +2227,7 @@ textarea { resize: vertical; }
 .achievement-progress-bar--completed   { background: var(--color-success); }
 
 .achievement-count {
+  font-family: var(--font-display);
   font-size: var(--font-size-xs);
   color: var(--gray-500);
 }
@@ -4564,6 +4565,7 @@ textarea { resize: vertical; }
 }
 
 .close-day-stat dd {
+  font-family: var(--font-display);
   margin: 0 0 .15rem;
   font-size: 1.75rem;
   font-weight: 700;
