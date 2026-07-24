@@ -54,6 +54,15 @@
   --color-info-text:      #363f87;
   --color-info-border:    #b9c0ea;
 
+  /* ── Cor de celebração (V5.15) — segunda camada cromática ──
+     Reservada exclusivamente a estados de celebração (conquista desbloqueada,
+     marco de streak, fechamento do dia): âmbar/dourado, deliberadamente
+     distinto de --color-primary. --color-primary continua sendo só "clique
+     aqui"; este token é só "isto é especial" — as duas cores nunca devem se
+     substituir. */
+  --color-celebration:        #f59e0b;
+  --color-celebration-hover:  #b45309;
+
   /* ── Raio de borda ── */
   --radius-sm:    6px;
   --radius-md:    8px;
@@ -251,6 +260,9 @@
   --color-info-bg:        #1c2050;
   --color-info-text:      #c0c6f5;
   --color-info-border:    #4a54a0;
+
+  --color-celebration:        #fbbf24;
+  --color-celebration-hover:  #b45309;
 
   --shadow-sm: 0 1px 8px rgba(0,0,0,.24);
   --shadow-md: 0 2px 16px rgba(0,0,0,.32);
@@ -4393,11 +4405,13 @@ textarea { resize: vertical; }
 /* ── Celebração de conquista desbloqueada (V5.7) ──────────────────────────
    Mesma moldura de tela cheia do Fechamento do Dia logo abaixo (.close-day-
    screen, V5.6) — overlay + conteúdo centralizado — mas paleta e animação
-   próprias (âmbar/dourado, ícone com "burst" de anéis) para nunca ser
-   confundida com aquele ritual nem com um toast padrão (auditoria F19: o
-   único "momento de vitória" novo desta rodada). Dados: só o que
-   achievementCelebrationView.js já recebeu pronto de
-   achievementService.consumeNewlyCompleted() — nenhum cálculo aqui. */
+   próprias (âmbar/dourado via --color-celebration/--color-celebration-hover,
+   V5.15 — token reservado a estados de celebração, nunca reutilizado como cor
+   de ação — ícone com "burst" de anéis) para nunca ser confundida com aquele
+   ritual nem com um toast padrão (auditoria F19: o único "momento de vitória"
+   novo desta rodada). Dados: só o que achievementCelebrationView.js já
+   recebeu pronto de achievementService.consumeNewlyCompleted() — nenhum
+   cálculo aqui. */
 .achv-celebration-screen {
   position: fixed;
   inset: 0;
@@ -4408,7 +4422,7 @@ textarea { resize: vertical; }
   overflow-y: auto;
   padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
            calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
-  background: linear-gradient(160deg, #f59e0b 0%, #b45309 100%);
+  background: linear-gradient(160deg, var(--color-celebration) 0%, var(--color-celebration-hover) 100%);
   color: #fff;
   animation: modal-overlay-in var(--transition-base);
 }
@@ -4475,7 +4489,7 @@ textarea { resize: vertical; }
 .achv-celebration-continue {
   width: 100%;
   background: #fff;
-  color: #b45309;
+  color: var(--color-celebration-hover);
 }
 
 .achv-celebration-continue:hover:not(:disabled) { background: var(--gray-100); }
