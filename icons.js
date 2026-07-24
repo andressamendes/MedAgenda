@@ -148,6 +148,21 @@ export const iconCheck = `
     <polyline points="4 12.5 9.5 18 20 6"/>
   </svg>`;
 
+// V5.3 — usado nas conquistas de "Sessões concluídas" (achievementService.js
+// icon: "check-circle"), distinto do iconCheck acima (sem o círculo).
+export const iconCheckCircle = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="9"/>
+    <polyline points="8 12.5 11 15.5 16 9.5"/>
+  </svg>`;
+
+// V5.3 — usado na conquista de "Constância" (achievementService.js icon:
+// "flame").
+export const iconFlame = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <path d="M12 2c1 3-2 4.5-2 7.5a4 4 0 0 0 8 0c0-1-.3-2-1-3 1.5 1 3 3 3 6a6 6 0 0 1-12 0c0-4 2-5.5 4-10.5z"/>
+  </svg>`;
+
 export const iconInfo = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
     <circle cx="12" cy="12" r="9"/>

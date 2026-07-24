@@ -17,7 +17,7 @@
 // (nem precisa saber) qual página o envolve.
 
 import { getDashboardData } from "./activityDashboardService.js";
-import { getAchievementSummary } from "./achievementService.js";
+import { listAchievements } from "./achievementService.js";
 import { getProgressNarrativeData } from "./progressNarrativeService.js";
 import { open as openAccountModal } from "./accountView.js";
 import { onProfileUpdated } from "./profileService.js";
@@ -27,6 +27,7 @@ import { skeletonCardsMarkup } from "./skeletonView.js";
 import { pad, escapeHtml, formatDuration } from "./utils.js";
 import { revealWithAnimation } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
+import { iconClock, iconCheckCircle, iconTarget, iconFlame, iconBookOpen } from "./icons.js";
 
 function _formatDate(iso) {
   const d = new Date(iso);
@@ -208,18 +209,60 @@ const RECORDS_CARD_DEFS = [
       ? `Sessão finalizada em ${_formatDate(d.longestSession.started_at)}.`
       : "Nenhuma sessão finalizada neste mês.",
   },
-  // Auditoria UX #23 — achievementService.js já existia, completo e testado,
-  // mas nenhuma view o consumia. Card único no Dashboard consolidado (opção
-  // "sem criar tela nova" da auditoria), no mesmo padrão dos demais: só
-  // formata o que getAchievementSummary() já devolve pronto.
-  {
-    title: "Conquistas recentes",
-    value: d => d.achievements ? `${d.achievements.completed}/${d.achievements.total}` : "—",
-    desc:  d => d.achievements
-      ? `${d.achievements.completed > 0 ? `${d.achievements.completed} conquista(s) concluída(s)` : "Nenhuma conquista concluída ainda"}. Progresso geral: ${Math.round(d.achievements.overallProgress * 100)}%.`
-      : "Não foi possível carregar este indicador.",
-  },
 ];
+
+// ── Conquistas (V5.3) ────────────────────────────────────────────────────
+// Auditoria UX #23 já tinha exposto achievementService.js como um único card
+// resumido ("3/5"). V5.3 renderiza as 5 conquistas individualmente — mesmo
+// domínio, mesmos dados de listAchievements(), nenhum cálculo novo: só forma
+// visual (ícone + estado) para o que já existia pronto e testado.
+const ACHIEVEMENT_ICONS = {
+  clock: iconClock,
+  "check-circle": iconCheckCircle,
+  target: iconTarget,
+  flame: iconFlame,
+  book: iconBookOpen,
+};
+
+function _achievementState(achievement) {
+  if (achievement.completed) return "completed";
+  if (achievement.current > 0) return "in-progress";
+  return "locked";
+}
+
+const ACHIEVEMENT_STATE_LABEL = {
+  completed:   "Concluída",
+  "in-progress": "Em progresso",
+  locked:      "Bloqueada",
+};
+
+function _achievementItemMarkup(achievement) {
+  const state = _achievementState(achievement);
+  const pct = Math.round(achievement.progress * 100);
+  const icon = ACHIEVEMENT_ICONS[achievement.icon] || "";
+  return `
+    <li class="achievement-item achievement-item--${state}">
+      <span class="achievement-icon" aria-hidden="true">${icon}</span>
+      <div class="achievement-body">
+        <div class="achievement-header">
+          <span class="achievement-title">${escapeHtml(achievement.title)}</span>
+          <span class="achievement-state achievement-state--${state}">${ACHIEVEMENT_STATE_LABEL[state]}</span>
+        </div>
+        <p class="achievement-desc">${escapeHtml(achievement.description)}</p>
+        <div class="achievement-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+          <div class="achievement-progress-bar achievement-progress-bar--${state}" style="width: ${pct}%"></div>
+        </div>
+        <span class="achievement-count">${achievement.current}/${achievement.target}</span>
+      </div>
+    </li>`;
+}
+
+function _achievementsMarkup(achievements) {
+  if (!achievements) {
+    return `<p class="list-empty">Não foi possível carregar as conquistas.</p>`;
+  }
+  return `<ul class="achievements-list">${achievements.map(_achievementItemMarkup).join("")}</ul>`;
+}
 
 const CARD_GROUPS = [
   { defs: TODAY_CARD_DEFS,      containerId: "dash-cards-today" },
@@ -233,6 +276,7 @@ let cardsElByGroup = [];
 // em páginas diferentes, mas continuam carregados juntos numa única _load().
 let errorEls = [];
 let narrativeEl;
+let achievementsEl;
 let numbersToggleEl, numbersBodyEl;
 let todayStatsToggleEl, todayStatsBodyEl;
 let _unsubscribeProfile = null;
@@ -402,9 +446,15 @@ function _onCardsClick(ev) {
   }
 }
 
+function _renderAchievements(achievements) {
+  if (!achievementsEl) return;
+  achievementsEl.innerHTML = _achievementsMarkup(achievements);
+}
+
 function _renderError({ state, message }) {
   cardsElByGroup.forEach(({ el }) => { el.hidden = true; el.innerHTML = ""; });
   if (narrativeEl) narrativeEl.innerHTML = "";
+  if (achievementsEl) achievementsEl.innerHTML = "";
   errorEls.forEach(el => {
     el.hidden = false;
     renderStateBlock(el, { state, message, onRetry: () => _load() });
@@ -425,10 +475,11 @@ async function _load() {
   try {
     const [data, achievements, narrative] = await Promise.all([
       getDashboardData(),
-      // Isolado do carregamento principal: uma falha aqui vira "—" no card
-      // de Conquistas (mesmo padrão de fallback parcial do bloco Revisões em
-      // insightsView.js), nunca esconde os demais dez cards de execução.
-      getAchievementSummary().catch(err => {
+      // Isolado do carregamento principal: uma falha aqui vira uma mensagem
+      // de fallback na lista de Conquistas (mesmo padrão de fallback parcial
+      // do bloco Revisões em insightsView.js), nunca esconde os demais cards
+      // de execução.
+      listAchievements().catch(err => {
         handleError(err, { context: "activityDashboardView.achievements", silent: true });
         return null;
       }),
@@ -439,8 +490,9 @@ async function _load() {
         return null;
       }),
     ]);
-    _renderCards({ ...data, achievements });
+    _renderCards(data);
     _renderNarrative(narrative);
+    _renderAchievements(achievements);
   } catch (err) {
     _renderError(errorToState(handleError(err, { context: "activityDashboardView.load", silent: true })));
   } finally {
@@ -461,6 +513,7 @@ export async function initActivityDashboardView() {
       document.getElementById("dash-error"),
     ].filter(Boolean);
     narrativeEl     = document.getElementById("progress-narrative");
+    achievementsEl  = document.getElementById("achievements-list");
     numbersToggleEl = document.getElementById("progress-numbers-toggle");
     numbersBodyEl   = document.getElementById("progress-numbers-body");
     numbersToggleEl?.addEventListener("click", _toggleNumbers);
@@ -505,6 +558,7 @@ export function resetActivityDashboardView() {
     clearStateBlock(el);
   });
   if (narrativeEl) narrativeEl.innerHTML = "";
+  if (achievementsEl) achievementsEl.innerHTML = "";
   if (numbersBodyEl) numbersBodyEl.hidden = true;
   if (numbersToggleEl) {
     numbersToggleEl.setAttribute("aria-expanded", "false");

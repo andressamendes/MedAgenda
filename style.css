@@ -1932,6 +1932,117 @@ textarea { resize: vertical; }
   margin: 0 0 .6rem;
 }
 
+/* ── Conquistas (V5.3) — as 5 metas de achievementService.js, renderizadas
+   individualmente (ícone + estado) em vez do card único "3/5" da auditoria
+   UX #23. Mesmo contrato de acessibilidade das demais barras de progresso
+   do dashboard: o percentual e a contagem continuam escritos em texto
+   (.achievement-count), a barra é só uma segunda representação do mesmo
+   dado. ── */
+.achievements-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+.achievement-item {
+  display: flex;
+  gap: .8rem;
+  align-items: flex-start;
+  padding: .8rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+}
+
+.achievement-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--radius-full);
+  background: var(--gray-200);
+  color: var(--gray-500);
+}
+
+.achievement-icon svg { width: var(--icon-md); height: var(--icon-md); }
+
+.achievement-item--in-progress .achievement-icon {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.achievement-item--completed .achievement-icon {
+  background: var(--color-success-bg-strong);
+  color: var(--color-success-text);
+}
+
+.achievement-body {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.achievement-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .4rem .6rem;
+}
+
+.achievement-title {
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.achievement-state {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  padding: .1rem .5rem;
+  border-radius: var(--radius-full);
+  background: var(--gray-100);
+  color: var(--gray-600);
+  white-space: nowrap;
+}
+
+.achievement-state--in-progress { background: var(--color-info-bg); color: var(--color-info-text); }
+.achievement-state--completed   { background: var(--color-success-bg-strong); color: var(--color-success-text); }
+
+.achievement-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+}
+
+.achievement-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gray-200);
+  overflow: hidden;
+}
+
+.achievement-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gray-400);
+  transition: width var(--transition-slow);
+}
+
+.achievement-progress-bar--in-progress { background: var(--color-primary); }
+.achievement-progress-bar--completed   { background: var(--color-success); }
+
+.achievement-count {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+}
+
 /* ── Tela "Hoje" (F14.1) — porta de entrada do app ──
    Botão primário único ("Começar a estudar"/"Continuar sessão em
    andamento"), com "Continuar: {último estudo}" como ação secundária — nunca

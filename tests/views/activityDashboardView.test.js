@@ -30,10 +30,25 @@ const EMPTY_DATA = {
   dailyGoal: NO_GOAL, weeklyGoal: NO_GOAL, monthlyGoal: NO_GOAL,
 };
 
-// Auditoria UX #23 — achievementService.js mockado por inteiro (mesmo padrão
-// de decisionEngine.js acima): a derivação de conquistas em si já é coberta
-// isoladamente em tests/services/achievementService.test.js.
-const EMPTY_ACHIEVEMENTS = { total: 5, completed: 0, inProgress: 5, overallProgress: 0 };
+// Auditoria UX #23 / V5.3 — achievementService.js mockado por inteiro (mesmo
+// padrão de decisionEngine.js acima): a derivação de conquistas em si já é
+// coberta isoladamente em tests/services/achievementService.test.js. Cada
+// item segue o formato real de listAchievements() (V5.3).
+function _achievement(overrides) {
+  return {
+    id: "study-time", title: "Tempo de estudo", description: "Acumule 100 horas de estudo.",
+    category: "tempo_de_estudo", current: 0, target: 100, completed: false, progress: 0, icon: "clock",
+    ...overrides,
+  };
+}
+
+const EMPTY_ACHIEVEMENTS = [
+  _achievement({ id: "study-time", title: "Tempo de estudo", icon: "clock" }),
+  _achievement({ id: "sessions-completed", title: "Sessões concluídas", icon: "check-circle" }),
+  _achievement({ id: "questions-solved", title: "Questões resolvidas", icon: "target" }),
+  _achievement({ id: "study-streak", title: "Constância", icon: "flame" }),
+  _achievement({ id: "subjects-studied", title: "Matérias estudadas", icon: "book" }),
+];
 
 function loadView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -60,7 +75,7 @@ function loadView(t, overrides = {}) {
   });
 
   t.mock.module(ACHIEVEMENT_SERVICE_SPECIFIER, {
-    namedExports: { getAchievementSummary: overrides.getAchievementSummary ?? (async () => EMPTY_ACHIEVEMENTS) },
+    namedExports: { listAchievements: overrides.listAchievements ?? (async () => EMPTY_ACHIEVEMENTS) },
   });
 
   t.mock.module(NARRATIVE_SERVICE_SPECIFIER, {
@@ -87,7 +102,7 @@ function tick() {
 // para três níveis (#dash-cards-today, na página Dashboard; #dash-cards-
 // weekmonth e #dash-cards-records, na página Progresso — ver #page-progress
 // em index.html). Os testes abaixo, em sua maioria, não precisam saber em
-// qual nível/página um card específico caiu — só que os 12 cards de sempre
+// qual nível/página um card específico caiu — só que os 11 cards de sempre
 // continuam todos lá, com os mesmos dados. Estes helpers tratam os três
 // containers como um só para esse propósito.
 const CARD_GROUP_IDS = ["dash-cards-today", "dash-cards-weekmonth", "dash-cards-records"];
@@ -112,6 +127,16 @@ function allConfigureLinks() {
   return cardGroupEls().flatMap(el => Array.from(el.querySelectorAll('[data-action="configure-goal"]')));
 }
 
+// V5.3 — lista de Conquistas vive em #achievements-list, fora dos três
+// containers de stat-cards acima (não é mais um stat-card único).
+function achievementsListEl() {
+  return document.getElementById("achievements-list");
+}
+
+function achievementItemEls() {
+  return Array.from(achievementsListEl().querySelectorAll(".achievement-item"));
+}
+
 beforeEach(() => {
   installDom();
 });
@@ -125,13 +150,13 @@ afterEach(() => {
   clearEventBus();
 });
 
-test("with no sessions, all twelve cards render with empty/zero/no-goal values", async (t) => {
+test("with no sessions, all eleven cards render with empty/zero/no-goal values", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
 
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
-  assert.strictEqual(totalCardsCount(), 12);
+  assert.strictEqual(totalCardsCount(), 11);
   const text = allCardsText();
   assert.match(text, /Tempo estudado hoje/);
   assert.match(text, /Sessões no mês/);
@@ -688,49 +713,71 @@ test("UX #20 — shows a 'Carregando…' indicator while the dashboard data is b
   resolveData(EMPTY_DATA);
   await pending;
 
-  assert.strictEqual(totalCardsCount(), 12, "the real cards replace the loading indicator once data arrives");
+  assert.strictEqual(totalCardsCount(), 11, "the real cards replace the loading indicator once data arrives");
 });
 
-// ── Auditoria UX #23: Conquistas construídas e invisíveis — expostas como um
-// card no Dashboard consolidado, usando achievementService.getAchievementSummary()
-// já pronto e testado (nenhuma agregação nova).
+// ── Auditoria UX #23 / V5.3: Conquistas construídas e invisíveis — antes um
+// único card resumido ("3/5"), agora as 5 conquistas de
+// achievementService.listAchievements() renderizadas individualmente (ícone +
+// estado), sem nenhuma agregação nova.
 
-test("UX #23 — the 'Conquistas recentes' card renders the completed/total count and overall progress", async (t) => {
+test("V5.3 — the 5 achievements render individually, each with its title and current/target count", async (t) => {
   const { mod } = await loadView(t, {
-    getAchievementSummary: async () => ({ total: 5, completed: 2, inProgress: 3, overallProgress: 0.4 }),
+    listAchievements: async () => [
+      _achievement({ id: "study-time", title: "Tempo de estudo", current: 40, target: 100, progress: 0.4, completed: false }),
+      _achievement({ id: "sessions-completed", title: "Sessões concluídas", current: 30, target: 30, progress: 1, completed: true }),
+    ],
   });
 
   await mod.initActivityDashboardView();
 
-  const text = allCardsText();
-  assert.match(text, /Conquistas recentes/);
-  assert.match(text, /2\/5/);
-  assert.match(text, /2 conquista\(s\) concluída\(s\)/);
-  assert.match(text, /40%/);
+  const items = achievementItemEls();
+  assert.strictEqual(items.length, 2);
+  const text = achievementsListEl().textContent;
+  assert.match(text, /Tempo de estudo/);
+  assert.match(text, /40\/100/);
+  assert.match(text, /Sessões concluídas/);
+  assert.match(text, /30\/30/);
 });
 
-test("UX #23 — with no achievements completed yet, the card shows a neutral message instead of '0 conquista(s)'", async (t) => {
+test("V5.3 — an achievement with progress 0 renders as 'locked', in progress as 'in progress', and completed as 'completed'", async (t) => {
   const { mod } = await loadView(t, {
-    getAchievementSummary: async () => EMPTY_ACHIEVEMENTS,
+    listAchievements: async () => [
+      _achievement({ id: "study-time", current: 0, target: 100, progress: 0, completed: false }),
+      _achievement({ id: "sessions-completed", current: 10, target: 30, progress: 10 / 30, completed: false }),
+      _achievement({ id: "questions-solved", current: 1000, target: 1000, progress: 1, completed: true }),
+    ],
   });
 
   await mod.initActivityDashboardView();
 
-  assert.match(allCardsText(), /Nenhuma conquista concluída ainda/);
+  const items = achievementItemEls();
+  assert.ok(items[0].classList.contains("achievement-item--locked"));
+  assert.ok(items[1].classList.contains("achievement-item--in-progress"));
+  assert.ok(items[2].classList.contains("achievement-item--completed"));
 });
 
-test("UX #23 — a failure fetching achievements never breaks the other execution cards (falls back to '—')", async (t) => {
+test("V5.3 — each achievement renders its own icon based on achievementService's icon field", async (t) => {
+  const { mod } = await loadView(t, { listAchievements: async () => EMPTY_ACHIEVEMENTS });
+
+  await mod.initActivityDashboardView();
+
+  achievementItemEls().forEach(item => {
+    assert.ok(item.querySelector(".achievement-icon svg"), "every achievement item renders an icon");
+  });
+});
+
+test("V5.3 — a failure fetching achievements never breaks the other execution cards (falls back to a message)", async (t) => {
   const { mod, handleErrorCalls } = await loadView(t, {
-    getAchievementSummary: async () => { throw new Error("network down"); },
+    listAchievements: async () => { throw new Error("network down"); },
   });
 
   await assert.doesNotReject(() => mod.initActivityDashboardView());
 
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
-  assert.strictEqual(totalCardsCount(), 12);
-  const text = allCardsText();
-  assert.match(text, /Tempo estudado hoje/); // demais cards seguem de pé
-  assert.match(text, /Não foi possível carregar este indicador\./);
+  assert.strictEqual(totalCardsCount(), 11);
+  assert.match(allCardsText(), /Tempo estudado hoje/); // demais cards seguem de pé
+  assert.match(achievementsListEl().textContent, /Não foi possível carregar as conquistas\./);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
 });
 
@@ -807,9 +854,11 @@ test("F13.4/F14.5 — 'Períodos' and 'Progresso e Conquistas' cards render on t
 
   const records = document.getElementById("dash-cards-records");
   assert.strictEqual(records.hidden, false);
-  assert.strictEqual(records.children.length, 2);
+  assert.strictEqual(records.children.length, 1);
   assert.match(records.textContent, /Maior sessão/);
-  assert.match(records.textContent, /Conquistas recentes/);
+
+  // V5.3 — Conquistas saiu de dash-cards-records e virou uma lista própria.
+  assert.match(achievementsListEl().textContent, /Tempo de estudo/);
 });
 
 // ── F14.5 — Progresso narrativo ─────────────────────────────────────────────
