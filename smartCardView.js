@@ -87,8 +87,10 @@ function _cardHTML(card) {
   return `
     <div class="smart-card smart-card--${card.tipo}">
       <span class="smart-card-icon" aria-hidden="true">${meta.icon}</span>
-      <span class="smart-card-label">${meta.label}</span>
-      <p class="smart-card-message">${escapeHtml(card.mensagem)}</p>
+      <div class="smart-card-body">
+        <span class="smart-card-label">${meta.label}</span>
+        <p class="smart-card-message">${escapeHtml(card.mensagem)}</p>
+      </div>
     </div>
   `;
 }
