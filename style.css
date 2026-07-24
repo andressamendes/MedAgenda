@@ -4196,6 +4196,15 @@ textarea { resize: vertical; }
   box-shadow: var(--shadow-md);
 }
 
+/* V5.21 — #ss-active (a sessão em andamento, com o cronômetro) recebe mais
+   elevação que a base de .ss-card/.card/.stat-card: é o único momento
+   "agora" do produto, não só mais uma superfície de conteúdo. Reusa
+   --shadow-lg (já usado por .auth-shell/modais) em vez de criar um token
+   novo — modificador pontual, não uma variante geral de cartão (F18.8). */
+#ss-active {
+  box-shadow: var(--shadow-lg);
+}
+
 /* F14.9 — badge de status + gatilho do modo foco lado a lado, mesma largura
    total do card (mesmo padrão de .ss-context-more-header acima). */
 .ss-active-header {
