@@ -14,6 +14,7 @@ import { initICSView, triggerICSImport, handleICSExport } from "./academicCalend
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
+import { skeletonRowsMarkup } from "./skeletonView.js";
 import { iconMoreHorizontal } from "./icons.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -156,6 +157,14 @@ export async function openAcademicCalendarModal() {
 }
 
 async function showCalendarList() {
+  // Só na transição fechado → aberto: um refresh com o modal já aberto (ex.:
+  // após criar/editar/excluir) degrada mantendo a lista anterior visível até
+  // os novos dados chegarem (ver comentário abaixo sobre `loadError`), nunca
+  // trocando por um skeleton que apagaria o que já estava na tela.
+  if (_modalOverlay?.hidden) {
+    openModal("Calendários Acadêmicos", `<div class="acal-list-wrap"><div class="acal-list">${skeletonRowsMarkup(3)}</div></div>`);
+  }
+
   let loadError = null;
   try {
     _calendarsCache = await getCalendars();

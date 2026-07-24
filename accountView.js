@@ -10,6 +10,7 @@ import { initModal } from './modalController.js';
 import { handleError } from './errorService.js';
 import { categoryToState, STATES, triggerReauth } from './stateView.js';
 import { GOAL_LIMITS, validateGoalMinutes } from './timeGoals.js';
+import { skeletonRowsMarkup } from './skeletonView.js';
 
 const TIMEZONES = [
   'America/Sao_Paulo', 'America/Manaus', 'America/Belem',
@@ -90,7 +91,7 @@ export function close() {
 function _renderSkeleton() {
   const body = document.getElementById('account-body');
   if (!body) return;
-  body.innerHTML = '<p class="account-loading">Carregando perfil…</p>';
+  body.innerHTML = `<p class="account-loading">${skeletonRowsMarkup(5)}</p>`;
 }
 
 // ── Render full profile form ───────────────────────────────────────────────

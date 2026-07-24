@@ -125,7 +125,7 @@ test("submitting the login form with empty fields shows a validation error witho
   document.getElementById("btn-login").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await flushMicrotasks();
 
-  assert.strictEqual(document.getElementById("error-msg").textContent, "Preencha e-mail e senha.");
+  assert.strictEqual(document.getElementById("error-msg").textContent, "Falta seu e-mail e sua senha para continuar.");
   assert.strictEqual(calls.some(c => c.fn === "signIn"), false);
 });
 

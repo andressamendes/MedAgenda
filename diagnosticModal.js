@@ -5,6 +5,7 @@ import { checkHealth, HEALTH_STATUS } from "./healthService.js";
 import { escapeHtml } from "./utils.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
+import { skeletonRowsMarkup } from "./skeletonView.js";
 
 let diagnosticBody  = null;
 let diagnosticModal = null;
@@ -45,7 +46,7 @@ export function initDiagnosticModal({ isDevMode, setDevMode } = {}) {
 }
 
 export async function openDiagnosticModal() {
-  diagnosticBody.innerHTML = '<p class="diag-loading">Verificando serviços…</p>';
+  diagnosticBody.innerHTML = `<p class="diag-loading">${skeletonRowsMarkup(6)}</p>`;
   renderDevmodeState();
   diagnosticModal?.open();
 

@@ -4933,10 +4933,9 @@ textarea { resize: vertical; }
 }
 
 /* ── Loading textual (F5.2) — mesma linguagem visual em todos os pontos de
-   carregamento simples (sem skeleton): calendário acadêmico, diagnóstico,
-   conta. Só o padding vertical varia por contexto. ── */
+   carregamento simples (sem skeleton): diagnóstico, conta. Só o padding
+   vertical varia por contexto. ── */
 .diag-loading,
-.academic-loading,
 .account-loading {
   text-align: center;
   color: var(--color-text-subtle);
