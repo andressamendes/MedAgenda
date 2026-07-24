@@ -25,7 +25,7 @@
  * Ver docs/MODULARIZACAO_SCRIPT.md para o plano de extração em etapas.
  */
 
-import { getEvents, getEventById, deleteEvent, invalidateEventsCache } from "./eventService.js";
+import { getEvents, getEventById, invalidateEventsCache } from "./eventService.js";
 import { initCalendar, refreshCalendar, resetCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
 import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, initDayView, refreshDayView } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
@@ -47,6 +47,8 @@ import {
 } from "./academicCalendarView.js";
 import { initAIPanel, resetAIPanel } from "./aiPanelView.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { recurrenceScopeDialog } from "./recurrenceScopeDialog.js";
+import { SCOPE, isRecurring, applyDeleteScope } from "./recurrenceService.js";
 import { initNavigation, restoreLastPage, restoreSidebarState, showPage } from "./navigationView.js";
 import { initCategoryView, initCategories, categoryColor, resetCategories } from "./categoryView.js";
 import { initEventForm, openEventForm, openEventFormPrefilled, handleEventClick, resetEventForm } from "./eventFormView.js";
@@ -520,8 +522,7 @@ function renderList(events) {
       ev.location || "",
     ].filter(Boolean).join(" · ");
 
-    const catColor    = categoryColor(ev.category);
-    const isRecurring = ev.recurrence_type && ev.recurrence_type !== "none";
+    const catColor = categoryColor(ev.category);
 
     card.innerHTML = `
       <div class="event-card-header">
@@ -542,12 +543,12 @@ function renderList(events) {
         ${ev.category
           ? `<span class="badge" style="background:${escapeHtml(catColor)};color:${readableTextColor(catColor)}">${escapeHtml(ev.category)}</span>`
           : ""}
-        ${isRecurring ? `<span class="badge badge-recur">↻ Recorrente</span>` : ""}
+        ${isRecurring(ev) ? `<span class="badge badge-recur">↻ Recorrente</span>` : ""}
       </div>
     `;
 
     card.querySelector(".btn-edit").addEventListener("click", () => { _closeAllCardMenus(); handleEventClick(ev); });
-    card.querySelector(".btn-delete").addEventListener("click", () => { _closeAllCardMenus(); handleDelete(ev.id, card, isRecurring); });
+    card.querySelector(".btn-delete").addEventListener("click", () => { _closeAllCardMenus(); handleDelete(ev, card); });
     card.querySelector(".btn-start-session").addEventListener("click", (e) => handleStartSession(ev, e.currentTarget));
     eventList.appendChild(card);
   });
@@ -615,18 +616,38 @@ async function handleStartSession(ev, btn) {
   }
 }
 
-async function handleDelete(id, card, isRecurring) {
-  const ok = await confirmDialog({
-    title:   'Excluir compromisso',
-    message: isRecurring
-      ? 'Este é um evento recorrente. Isso excluirá toda a série. Deseja continuar?'
-      : 'Tem certeza que deseja excluir este compromisso?',
-    danger:  true,
-  });
-  if (!ok) return;
+// D2 — excluir pelo card da lista oferece o mesmo escopo (apenas esta /
+// esta e as próximas / toda a série) já usado no modal de edição
+// (eventFormView.js/handleEventClick). A lista sempre mostra a linha-base
+// (getEvents() não expande ocorrências), então a "ocorrência" passada ao
+// recurrenceService é sintética: a própria linha-base na sua própria data,
+// mesma forma que expandEvent() produziria para ela (recurrence-core.js).
+async function handleDelete(ev, card) {
+  const recurring = isRecurring(ev);
+  let scope = SCOPE.SERIES;
+
+  if (recurring) {
+    const chosen = await recurrenceScopeDialog({
+      title:   `Excluir "${ev.title}"`,
+      message: "Este compromisso faz parte de uma série recorrente. O que você deseja excluir?",
+    });
+    if (!chosen) return;
+    scope = chosen;
+  } else {
+    const ok = await confirmDialog({
+      title:   'Excluir compromisso',
+      message: 'Tem certeza que deseja excluir este compromisso?',
+      danger:  true,
+    });
+    if (!ok) return;
+  }
+
   card.style.opacity = ".4";
   try {
-    await deleteEvent(id);
+    const occurrence = recurring
+      ? { ...ev, _isOccurrence: true, _baseEventId: ev.id, _baseEventDate: ev.event_date }
+      : ev;
+    await applyDeleteScope({ sourceTable: "events", occurrence, scope });
     track(EVENTS.APPOINTMENT_DELETED);
     toast.success("Compromisso excluído.");
     await refreshAll();
