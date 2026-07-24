@@ -2,6 +2,23 @@
 
 ---
 
+## [Unreleased] — V5.18: Indicador de execução como anel, consistente entre Mês e Semana
+
+- **Anel de execução (`.exec-ring`) substitui o ícone solto no chip do Mês
+  e o texto puro no bloco da Semana/Dia** — mesmo componente visual
+  (`executionRingHTML()` em `activitySessionStats.js`, reaproveitado por
+  `calendar.js` e `weekView.js`) desenhado a partir do mesmo
+  `describeExecutionIndicator()` de sempre (F1.7), sem cálculo novo. Corrige
+  a inconsistência de acessibilidade já sinalizada no F18: no Mês, a
+  descrição completa ("Em andamento", "3h20"...) só existia no `title`
+  (só acessível no hover); agora fica sempre disponível via `.sr-only` ao
+  lado do anel, além do `title`. Na Semana/Dia o texto já era visível e
+  continua sendo, agora ao lado do mesmo anel do Mês em vez de sozinho.
+- Estados visuais inalterados (`running`/`executed`, mesmos ícones ● / ✓,
+  mesmas classes `cal-chip-*`/`wk-event-*` para o realce do card em volta) —
+  só a peça do indicador em si ganhou forma consistente entre as duas
+  visões. Anel de "em andamento" pulsa (`prefers-reduced-motion` respeitado).
+
 ## [Unreleased] — V5.17: Consolidar Progresso numa composição visual única
 
 - **Anel de meta diária (V5.2) sobe ao topo da página Progresso**, ao lado
