@@ -1983,6 +1983,60 @@ textarea { resize: vertical; }
   margin-top: 2rem;
 }
 
+/* ── Heatmap de Constância (V5.1) ──
+   84 células (12 semanas × 7 dias), desenhadas como uma grade só via
+   grid-auto-flow: column — o markup é uma lista plana de spans (dia 1..7 da
+   semana mais antiga primeiro), sem nenhum wrapper por semana; o CSS é quem
+   quebra em colunas. Cores só via tokens --color-N (nunca cor fixa), então
+   acompanha claro/escuro automaticamente, como o resto do app. */
+.constancy-heatmap {
+  margin-bottom: var(--space-5);
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  max-width: 100%;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  min-width: 8px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+.heatmap-cell--studied {
+  background: var(--color-success);
+}
+
+.heatmap-cell--future {
+  background: transparent;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}
+
+.heatmap-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+.heatmap-swatch--studied {
+  background: var(--color-success);
+}
+
 /* ── Progresso narrativo (F14.5) ──
    Substitui a leitura de grades de stat-cards por 2-3 frases interpretadas
    (auditoria F14 §10, modelo Apple Health): tipografia maior que o resto do

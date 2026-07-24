@@ -2,6 +2,21 @@
 
 ---
 
+## [Unreleased] — V5.1: Heatmap de constância no Progresso
+
+- **Heatmap de dias estudados** (`constancyHeatmapView.js`) no topo da página
+  Progresso, acima da narrativa — 84 células (12 semanas), cada uma
+  refletindo `studyStreakService.getStudyCalendar()`, que já existia,
+  testado, desde a F6.11, documentado como "pensado para consumo futuro por
+  um widget de calendário" sem nunca ter sido conectado a nenhuma view.
+  Leitura pura (nenhuma alteração em `studyStreakService.js`): dá ao
+  Progresso uma resposta visual instantânea à pergunta "como tenho sido",
+  antes de qualquer frase da narrativa. Grid responsivo via CSS Grid
+  (`grid-auto-flow: column`, sem markup aninhado por semana), cores só via
+  tokens `--color-N` (acompanha tema claro/escuro automaticamente), e
+  recarrega sozinho a cada evento do barramento de sessão (F6.2), mesmo
+  padrão de `activityDashboardView.js`.
+
 ## [Unreleased] — F18.17: Unificar Notificações locais e Push
 
 - **Um único controle "Lembretes"** substitui as duas seções técnicas

@@ -52,6 +52,7 @@ const SPECIFIERS = {
   activityHistoryView: new URL("../activityHistoryView.js", import.meta.url).href,
   studyJournalView: new URL("../studyJournalView.js", import.meta.url).href,
   activityDashboardView: new URL("../activityDashboardView.js", import.meta.url).href,
+  constancyHeatmapView: new URL("../constancyHeatmapView.js", import.meta.url).href,
   insightsView: new URL("../insightsView.js", import.meta.url).href,
   aiContextService: new URL("../aiContextService.js", import.meta.url).href,
   onboardingTourView: new URL("../onboardingTourView.js", import.meta.url).href,
@@ -179,6 +180,9 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
   });
   t.mock.module(SPECIFIERS.activityDashboardView, {
     namedExports: { initActivityDashboardView: async () => {}, resetActivityDashboardView: () => {} },
+  });
+  t.mock.module(SPECIFIERS.constancyHeatmapView, {
+    namedExports: { initConstancyHeatmapView: async () => {}, resetConstancyHeatmapView: () => {} },
   });
   t.mock.module(SPECIFIERS.insightsView, {
     namedExports: { initInsightsView: async () => {}, resetInsightsView: () => {} },
