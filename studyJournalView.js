@@ -115,6 +115,7 @@ import { listBySessions as listReviewsBySessions } from "./reviewSessionService.
 import { listBySessions as listReflectionsBySessions, saveReflection } from "./studyReflectionService.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
+import { emptyIllustrationMarkup } from "./emptyStateView.js";
 import { skeletonRowsMarkup } from "./skeletonView.js";
 import { toast } from "./toastService.js";
 import { pad, localDate, escapeHtml, formatDuration, formatClockTime } from "./utils.js";
@@ -125,7 +126,7 @@ import {
   compareDailySummaries,
 } from "./studyTimelineService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown } from "./icons.js";
+import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown, illustrationEmptyJournal } from "./icons.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -165,6 +166,16 @@ const REVIEW_STATUS_LABELS = {
   completed: "Concluída",
   skipped:   "Pulada",
 };
+
+// V5.19 — ilustração de linha própria (ver emptyStateView.js) para o estado
+// "nunca houve nenhuma sessão registrada"; a busca sem resultados continua
+// com texto simples (_render() abaixo), estado bem menos frequente e que já
+// tem contexto suficiente na própria toolbar de filtros aberta.
+const SJ_EMPTY_MARKUP = emptyIllustrationMarkup({
+  illustration: illustrationEmptyJournal,
+  title: "Nenhuma sessão de estudo registrada ainda",
+  desc: "Inicie uma sessão em “Sessão” para começar a construir seu diário de estudos.",
+});
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
 // F17 — Estatísticas de questões (seção fixa, distinta de statsEl/
@@ -1026,9 +1037,11 @@ function _render() {
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
-    emptyEl.textContent = _allEntries.length === 0
-      ? "Nenhuma sessão de estudo registrada ainda."
-      : "Nenhuma sessão encontrada para esta pesquisa.";
+    if (_allEntries.length === 0) {
+      emptyEl.innerHTML = SJ_EMPTY_MARKUP;
+    } else {
+      emptyEl.textContent = "Nenhuma sessão encontrada para esta pesquisa.";
+    }
     return;
   }
 
@@ -1115,7 +1128,7 @@ async function _loadPage(reset) {
 
     if (reset && sessions.length === 0) {
       emptyEl.hidden = false;
-      emptyEl.textContent = "Nenhuma sessão de estudo registrada ainda.";
+      emptyEl.innerHTML = SJ_EMPTY_MARKUP;
     } else {
       await _loadEntriesData(sessions);
       _refreshFilterOptions();

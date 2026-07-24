@@ -52,6 +52,7 @@ import { initCategoryView, initCategories, categoryColor, resetCategories } from
 import { initEventForm, openEventForm, openEventFormPrefilled, handleEventClick, resetEventForm } from "./eventFormView.js";
 import { initAuthView, forceReauth } from "./authView.js";
 import { setReauthHandler, errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
+import { emptyIllustrationMarkup } from "./emptyStateView.js";
 import { skeletonRowsMarkup } from "./skeletonView.js";
 import { assertSchemaCompatible } from "./schemaService.js";
 import { registerServiceWorker, initInstallButton, initOfflineDetection } from "./pwa.js";
@@ -69,7 +70,7 @@ import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { initOnboardingTour, resetOnboardingTourView } from "./onboardingTourView.js";
 import { initTodayView, resetTodayView } from "./todayView.js";
 import { resetAIContextService } from "./aiContextService.js";
-import { iconMoreHorizontal } from "./icons.js";
+import { iconMoreHorizontal, illustrationEmptyAgenda } from "./icons.js";
 import { initTheme } from "./themeService.js";
 
 // F11 E4 — sinaliza para boot-watchdog.js (script clássico, carregado antes
@@ -118,7 +119,14 @@ const headerEmail = document.getElementById("header-email");
 // ── Lista ──────────────────────────────────────────────────────────────────
 const eventList = document.getElementById("event-list");
 const listEmpty = document.getElementById("list-empty");
-const LIST_EMPTY_TEXT = listEmpty.textContent;
+// V5.19 — ilustração de linha própria no lugar do texto solto que este
+// elemento tinha antes (ver emptyStateView.js); LIST_EMPTY_MARKUP substitui o
+// antigo LIST_EMPTY_TEXT capturado do próprio HTML.
+const LIST_EMPTY_MARKUP = emptyIllustrationMarkup({
+  illustration: illustrationEmptyAgenda,
+  title: "Nenhum compromisso encontrado",
+  desc: "Toque em “+ Novo compromisso” para agendar o primeiro.",
+});
 
 // ── Indicador de sincronização ─────────────────────────────────────────────
 const syncIndicator = document.getElementById("sync-indicator");
@@ -145,7 +153,7 @@ function _resetEventList() {
   listEmpty.hidden = true;
   listEmpty.classList.remove("list-error");
   clearStateBlock(listEmpty);
-  listEmpty.textContent = LIST_EMPTY_TEXT;
+  listEmpty.innerHTML = LIST_EMPTY_MARKUP;
   if (searchInput) searchInput.value = "";
   if (filterCategorySelect) filterCategorySelect.innerHTML = '<option value="">Todas as categorias</option>';
   if (sortSelect) sortSelect.value = "date-asc";
@@ -498,7 +506,7 @@ function renderList(events) {
   listEmpty.hidden    = events.length > 0;
   listEmpty.classList.remove("list-error");
   clearStateBlock(listEmpty);
-  listEmpty.textContent = LIST_EMPTY_TEXT;
+  listEmpty.innerHTML = LIST_EMPTY_MARKUP;
 
   events.forEach((ev) => {
     const card = document.createElement("div");

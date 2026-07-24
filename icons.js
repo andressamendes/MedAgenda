@@ -187,3 +187,45 @@ export const iconDatabase = `
     <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
   </svg>`;
+
+// ── Ilustrações de linha — estados vazios (V5.19) ────────────────────────
+//
+// Mesmo traço único das demais (STROKE), viewBox maior (120x90) para
+// comportar uma pequena composição própria em vez de um ícone genérico só
+// ampliado — usadas nos três estados vazios de maior tráfego (Sessão,
+// Diário, Agenda; ver emptyStateView.js). Sem width/height fixos, mesmo
+// motivo dos ícones acima: o tamanho é decidido por CSS em cada tela.
+
+export const illustrationEmptySession = `
+  <svg viewBox="0 0 120 90" ${STROKE} aria-hidden="true" focusable="false">
+    <circle cx="50" cy="45" r="27"/>
+    <line x1="50" y1="45" x2="50" y2="28"/>
+    <line x1="50" y1="45" x2="63" y2="52"/>
+    <circle cx="50" cy="45" r="2" fill="currentColor" stroke="none"/>
+    <circle cx="91" cy="66" r="13"/>
+    <polygon points="87 60 87 72 97 66" fill="currentColor" stroke="none"/>
+    <line x1="12" y1="80" x2="30" y2="80" stroke-dasharray="2 6"/>
+  </svg>`;
+
+export const illustrationEmptyJournal = `
+  <svg viewBox="0 0 120 90" ${STROKE} aria-hidden="true" focusable="false">
+    <path d="M12 22h34a8 8 0 0 1 8 8v38a6 6 0 0 0-6-6H12z"/>
+    <path d="M108 22H74a8 8 0 0 0-8 8v38a6 6 0 0 1 6-6h36z"/>
+    <line x1="20" y1="36" x2="42" y2="36" stroke-dasharray="2 5"/>
+    <line x1="20" y1="46" x2="42" y2="46" stroke-dasharray="2 5"/>
+    <line x1="20" y1="56" x2="38" y2="56" stroke-dasharray="2 5"/>
+    <line x1="78" y1="36" x2="100" y2="36" stroke-dasharray="2 5"/>
+    <line x1="78" y1="46" x2="100" y2="46" stroke-dasharray="2 5"/>
+    <line x1="78" y1="56" x2="96" y2="56" stroke-dasharray="2 5"/>
+    <path d="M95 12l6 6-16 16-7 1 1-7z"/>
+  </svg>`;
+
+export const illustrationEmptyAgenda = `
+  <svg viewBox="0 0 120 90" ${STROKE} aria-hidden="true" focusable="false">
+    <rect x="18" y="18" width="84" height="60" rx="8"/>
+    <line x1="18" y1="36" x2="102" y2="36"/>
+    <line x1="40" y1="10" x2="40" y2="24"/>
+    <line x1="80" y1="10" x2="80" y2="24"/>
+    <line x1="46" y1="56" x2="74" y2="56" stroke-dasharray="2 6"/>
+    <circle cx="60" cy="56" r="1.5" fill="currentColor" stroke="none"/>
+  </svg>`;
