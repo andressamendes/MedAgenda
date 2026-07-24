@@ -302,15 +302,27 @@ body {
   font-weight: 700;
   letter-spacing: -.01em;
   color: var(--blue);
+  animation: app-loading-breathe 1.8s ease-in-out infinite;
 }
 
+/* Substitui o antigo anel cinza genérico (V5.14): o degradê reproduz o
+   mesmo par de azuis do ícone do app (icons/icon.svg, --blue → --blue-d),
+   então a tela de carregamento já "parece" com o app antes de qualquer
+   outro pixel aparecer. Anel via mask (não border), pois só assim o
+   conic-gradient consegue desenhar uma cauda com fade real. */
 .app-loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid var(--gray-200);
-  border-top-color: var(--blue);
   border-radius: 50%;
-  animation: spin .7s linear infinite;
+  background: conic-gradient(from 0deg, var(--blue-d), var(--blue), rgba(73, 84, 168, .12) 65%, var(--blue-d));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: spin .8s linear infinite;
+}
+
+@keyframes app-loading-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .6; }
 }
 
 /* ── Banco de dados desatualizado (P0) — reusa .state-block (ver bloco de
@@ -1707,6 +1719,8 @@ textarea { resize: vertical; }
   .content-reveal { animation: none; }
   .page-enter { animation: none; }
   .count-pulse { animation: none; }
+  .app-loading-logo { animation: none; }
+  .app-loading-spinner { animation: none; opacity: .85; }
   .disclosure-chevron svg { transition: none; }
   .toast.toast-milestone { transition: opacity var(--transition-slow); }
   .toast.toast-milestone .toast-icon { animation: none; }
