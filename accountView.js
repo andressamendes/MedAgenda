@@ -227,6 +227,11 @@ function _renderProfile(p) {
       <div class="account-section account-danger-zone">
         <h3 class="account-section-title">Zona de Perigo</h3>
         <p class="account-hint">Excluir sua conta remove permanentemente todos os seus dados, compromissos, categorias e notificações. Esta ação não pode ser desfeita.</p>
+        <div class="field">
+          <label for="acc-delete-pwd">Confirme sua senha para excluir a conta</label>
+          <input type="password" id="acc-delete-pwd" placeholder="Digite sua senha atual" autocomplete="current-password" maxlength="128" />
+        </div>
+        <p id="delete-error" class="error" role="alert" aria-live="assertive"></p>
         <button type="button" id="btn-delete-account" class="btn btn-sm btn-danger">Excluir minha conta</button>
       </div>
     </div>
@@ -474,8 +479,20 @@ async function _handleChangePassword() {
   }
 }
 
-// ── Delete account ─────────────────────────────────────────────────────────
+// ── Delete account (D3 — mesma fricção de reautenticação de _handleChangePassword) ──
+// Fluxo: confirmDialog (intenção) → reautenticação por senha (mesmo
+// auth.js#reauthenticate usado na troca de senha) → só então a exclusão de
+// fato. Uma sessão já aberta nunca basta por si só para apagar a conta —
+// exigir só o confirmDialog deixaria a exclusão mais fraca que a simples
+// troca de senha.
 async function _handleDeleteAccount() {
+  const errEl    = document.getElementById('delete-error');
+  const pwdInput = document.getElementById('acc-delete-pwd');
+  errEl.textContent = '';
+
+  const password = pwdInput.value;
+  if (!password) { errEl.textContent = 'Digite sua senha para confirmar a exclusão.'; return; }
+
   const confirmed = await confirmDialog({
     title:       'Excluir conta',
     message:     'ATENÇÃO: Esta ação é irreversível.\n\n' +
@@ -490,8 +507,32 @@ async function _handleDeleteAccount() {
   if (!confirmed) return;
 
   const btn = document.getElementById('btn-delete-account');
-  _setLoading(btn, 'Excluindo…', true);
+  _setLoading(btn, 'Verificando senha…', true);
 
+  try {
+    await reauthenticate(password);
+  } catch (err) {
+    const { category, friendly } = handleError(err, {
+      context: 'accountView.reauthenticateForDelete',
+      silent:  true,
+      fallbackMessage: 'Não foi possível confirmar sua senha.',
+    });
+    _setLoading(btn, 'Excluir minha conta', false);
+
+    // Mesmo tratamento de _handleChangePassword: 'current_password_incorrect'
+    // significa que a sessão continua válida e só a senha informada estava
+    // errada — não deve disparar o pipeline de sessão expirada.
+    if (err?.code !== 'current_password_incorrect' && categoryToState(category) === STATES.SESSION_EXPIRED) {
+      triggerReauth();
+      return;
+    }
+
+    pwdInput.value = '';
+    errEl.textContent = friendly;
+    return;
+  }
+
+  _setLoading(btn, 'Excluindo…', true);
   try {
     const { error } = await supabase.functions.invoke('delete-account');
     if (error) throw error;
@@ -503,6 +544,7 @@ async function _handleDeleteAccount() {
       silent: true,
       fallbackMessage: 'Não foi possível excluir a conta. Tente novamente.',
     });
+    pwdInput.value = '';
     _setLoading(btn, 'Excluir minha conta', false);
     toast.error(friendly);
   }
