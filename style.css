@@ -5679,6 +5679,37 @@ textarea { resize: vertical; }
   text-align: center;
 }
 
+/* ── Variantes visuais de .ai-panel (Fase G1) ──────────────────────────────
+   Mesma mecânica de abrir/fechar/foco (overlay, aside, aria, Escape) para os
+   4 painéis — só a composição visual diverge, via modificador opcional na
+   tag <aside>. Nenhuma classe/id usada pelo JS de abertura muda.
+
+   --control (controle/filtro): sj-panel (Analisar/Diário) — cabeçalho neutro,
+   título sólido (sem o gradiente de IA), acento em --color-primary. Comunica
+   "ferramenta de estatísticas e filtros", não conversa com IA.
+
+   --conversation (leitura/conversa): ai-panel (Assistente IA) — reforça o
+   tom de IA já presente (ícone + título em gradiente) com um fundo em leque
+   suave no cabeçalho, para diferenciar de um simples painel de dados. ── */
+.ai-panel--control .ai-panel-header {
+  background: var(--gray-50);
+}
+
+.ai-panel--control .ai-panel-title {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--gray-800);
+}
+
+.ai-panel--control .ai-panel-close:hover {
+  color: var(--color-primary);
+  background: var(--gray-200);
+}
+
+.ai-panel--conversation .ai-panel-header {
+  background: linear-gradient(135deg, var(--color-ai-accent-bg), transparent 70%);
+}
+
 /* Breakpoint "Mobile pequeno" do registro (F10 #2.2) — ver :root. */
 @media (max-width: 480px) {
   .ai-panel { width: 100vw; }
