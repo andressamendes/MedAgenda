@@ -401,11 +401,19 @@
                Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
-          <div class="tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Semana, Mês e Lista">
+          <!-- V5.12 — aba "Dia" (mobile-first): lista vertical de horários de
+               um único dia, ver initDayView()/weekView.js. É a aba padrão em
+               telas ≤767px (script.js/_initAgendaViewTabs); Semana e Mês
+               continuam intactas e disponíveis em qualquer largura. -->
+          <div class="tabs" id="agenda-view-tabs" role="tablist" aria-label="Alternar entre Dia, Semana, Mês e Lista">
+            <button type="button" class="tab" data-view="day" role="tab" aria-selected="false" aria-controls="day-container">Dia</button>
             <button type="button" class="tab tab--active" data-view="week" role="tab" aria-selected="true" aria-controls="week-container">Semana</button>
             <button type="button" class="tab" data-view="month" role="tab" aria-selected="false" aria-controls="calendar-container">Mês</button>
             <button type="button" class="tab" data-view="list" role="tab" aria-selected="false" aria-controls="appointments-list-container">Lista</button>
           </div>
+
+          <!-- Daily view (V5.12) -->
+          <section class="week-section" id="day-container" role="tabpanel" hidden></section>
 
           <!-- Weekly view -->
           <section class="week-section" id="week-container" role="tabpanel"></section>

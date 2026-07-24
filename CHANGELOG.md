@@ -2,6 +2,24 @@
 
 ---
 
+## [Unreleased] — V5.12: Vista "Dia" mobile-first na Agenda
+
+- **Nova aba "Dia" em `#agenda-view-tabs`** (`weekView.js`/`initDayView`) —
+  lista vertical de horários de um único dia, mesma grade de Semana (mesmas
+  classes de evento/slot/linha do agora, mesmos indicadores de execução,
+  mesmo clique em horário vazio para criar compromisso) reduzida a uma única
+  coluna. A grade de Semana precisa de 7 colunas lado a lado
+  (`min-width: 480px`, decisão consciente documentada em `style.css`) e
+  força scroll horizontal em telas estreitas — Dia usa a mesma grade sem
+  essa restrição, então não há scroll horizontal a forçar em nenhuma
+  largura. Estado de navegação (dia exibido) independente de Semana:
+  navegar em um não afeta o outro.
+- **Torna-se a aba padrão em telas ≤767px** (`script.js`/`_initAgendaViewTabs`)
+  quando não há preferência de aba salva — Semana continua padrão em telas
+  maiores. Uma vez escolhida manualmente, a aba persiste (mesmo
+  comportamento de sempre, independente da largura). Semana e Mês continuam
+  intactas e disponíveis em qualquer tamanho de tela.
+
 ## [Unreleased] — V5.11: Mini-timer flutuante
 
 - **O chip de sessão ativa (`activeSessionIndicatorView.js`, F11 E13) evolui

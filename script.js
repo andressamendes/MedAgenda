@@ -27,7 +27,7 @@
 
 import { getEvents, getEventById, deleteEvent, invalidateEventsCache } from "./eventService.js";
 import { initCalendar, refreshCalendar, resetCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
-import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility } from "./weekView.js";
+import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, initDayView, refreshDayView } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import { initNotifications, scheduleReminders, resetNotifications } from "./notificationService.js";
 import { initPushService, syncPushSubscription, resetPushService } from "./pushService.js";
@@ -154,7 +154,7 @@ function _resetEventList() {
 async function refreshAll() {
   if (syncIndicator) syncIndicator.hidden = false;
   try {
-    await Promise.all([loadEvents(), refreshWeekView(), refreshCalendar()]);
+    await Promise.all([loadEvents(), refreshWeekView(), refreshDayView(), refreshCalendar()]);
     updateLastSync();
   } finally {
     if (syncIndicator) syncIndicator.hidden = true;
@@ -233,13 +233,16 @@ function _renderAllFilterBars() {
 // alternar com #week-container/#calendar-container em vez de viver numa
 // página separada.
 const AGENDA_VIEW_KEY = "medagenda_agenda_view";
-const AGENDA_VIEWS = ["week", "month", "list"];
+const AGENDA_VIEWS = ["day", "week", "month", "list"];
+const AGENDA_MOBILE_QUERY = "(max-width: 767px)"; // V5.12 — mesmo limiar usado no default de "Dia"
 let _agendaViewBound = false;
 
 function _setAgendaView(view) {
+  const dayEl   = document.getElementById("day-container");
   const weekEl  = document.getElementById("week-container");
   const monthEl = document.getElementById("calendar-container");
   const listEl  = document.getElementById("appointments-list-container");
+  if (dayEl)   dayEl.hidden   = view !== "day";
   if (weekEl)  weekEl.hidden  = view !== "week";
   if (monthEl) monthEl.hidden = view !== "month";
   if (listEl)  listEl.hidden  = view !== "list";
@@ -254,6 +257,10 @@ function _setAgendaView(view) {
   try { localStorage.setItem(AGENDA_VIEW_KEY, view); } catch { /* storage unavailable */ }
 }
 
+// V5.12 — "Dia" torna-se a aba padrão em telas ≤767px (persona majoritariamente
+// mobile — F18); Semana continua padrão em telas maiores. Só se aplica quando
+// não há preferência salva: uma vez que o usuário escolhe uma aba, ela
+// persiste (mesmo comportamento de sempre) independentemente da largura.
 function _initAgendaViewTabs() {
   if (_agendaViewBound) return;
   _agendaViewBound = true;
@@ -261,7 +268,9 @@ function _initAgendaViewTabs() {
 
   let saved;
   try { saved = localStorage.getItem(AGENDA_VIEW_KEY); } catch { /* storage unavailable */ }
-  _setAgendaView(AGENDA_VIEWS.includes(saved) ? saved : "week");
+  const isMobile = window.matchMedia?.(AGENDA_MOBILE_QUERY).matches;
+  const fallback = isMobile ? "day" : "week";
+  _setAgendaView(AGENDA_VIEWS.includes(saved) ? saved : fallback);
 }
 
 // ── [DOMAIN: autenticação] — extraído para authView.js ───────────────────
@@ -337,6 +346,12 @@ async function _initApp(session) {
     // de rodar em seguida.
     await Promise.all([
       safeInit("semana", () => initWeekView(document.getElementById("week-container"), {
+        onSlotClick: (date, time) =>
+          openQuickAdd(date, refreshAll, time, openEventFormPrefilled),
+        onEventClick: handleEventClick,
+        onAcademicEventClick: openAcademicCalendarModal,
+      })),
+      safeInit("dia", () => initDayView(document.getElementById("day-container"), {
         onSlotClick: (date, time) =>
           openQuickAdd(date, refreshAll, time, openEventFormPrefilled),
         onEventClick: handleEventClick,

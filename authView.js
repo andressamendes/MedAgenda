@@ -7,7 +7,7 @@ import {
 } from "./auth.js";
 import { track, EVENTS } from "./telemetryService.js";
 import { toast } from "./toastService.js";
-import { destroyWeekView } from "./weekView.js";
+import { destroyWeekView, destroyDayView } from "./weekView.js";
 import { handleError } from "./errorService.js";
 import { AuthError, AUTH_REASONS } from "./authError.js";
 
@@ -45,6 +45,7 @@ export function showAuthView(name) {
   if (_appLoading) _appLoading.hidden = true;
   _closeAllModals();
   destroyWeekView();
+  destroyDayView();
   _initializedUserId = null;
   if (_onBeforeSignOut) _onBeforeSignOut();
   _loginScreen.hidden = false;

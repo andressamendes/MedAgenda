@@ -396,7 +396,8 @@ restoreSidebarState()
 - `initWeekView(el, cbs)` — inicializa a view e começa o timer da linha do agora.
 - `refreshWeekView()` — rebusca e rerenderiza a semana atual.
 - `destroyWeekView()` — limpa o timer, o DOM renderizado (grade, dica de IA e plano da semana) e o estado do módulo, incluindo o cache `_weeklyPlan` (chamado no logout).
-- `setWeekViewAcademicProvider(fn)` / `setWeekViewPersonalVisibility(fn)` — injetores de estado externo.
+- `setWeekViewAcademicProvider(fn)` / `setWeekViewPersonalVisibility(fn)` — injetores de estado externo (compartilhados com a vista "Dia" abaixo).
+- `initDayView(el, cbs)` / `refreshDayView()` / `destroyDayView()` (V5.12) — mesmo contrato de `initWeekView`/`refreshWeekView`/`destroyWeekView`, mas para a vista "Dia": grade de horários de um único dia (estado próprio `_dDate`, independente de `_mon`), reaproveitando as mesmas funções de expansão/indicador/foco por teclado. Reusa `_academicProvider`/`_showPersonal` já injetados para a Semana — não precisa de injetores próprios.
 
 ---
 

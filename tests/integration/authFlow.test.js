@@ -63,7 +63,7 @@ function mockAuth(t, { failLoginMessage } = {}) {
 
   // authView.js only needs destroyWeekView() from weekView.js, which itself
   // transitively imports Supabase — irrelevant to the login/logout flow.
-  t.mock.module(WEEK_VIEW_SPECIFIER, { namedExports: { destroyWeekView: () => {} } });
+  t.mock.module(WEEK_VIEW_SPECIFIER, { namedExports: { destroyWeekView: () => {}, destroyDayView: () => {} } });
 
   return calls;
 }
@@ -168,7 +168,7 @@ test("forceReauth() still shows the login screen even if signOut() itself fails 
       clearAuthRedirectParams: () => {},
     },
   });
-  t.mock.module(WEEK_VIEW_SPECIFIER, { namedExports: { destroyWeekView: () => {} } });
+  t.mock.module(WEEK_VIEW_SPECIFIER, { namedExports: { destroyWeekView: () => {}, destroyDayView: () => {} } });
 
   const { initAuthView, forceReauth } = await import(`../../authView.js?t=${Math.random()}`);
   initAuthView({});

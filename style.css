@@ -3285,6 +3285,105 @@ textarea { resize: vertical; }
    bastava não sobrescrever isso: a grade volta a ter fonte legível e rola
    horizontalmente por gesto, como qualquer tabela larga do app. */
 
+/* ── Visualização "Dia" (V5.12) ──────────────────────────────────────────────
+   Mesma grade de horários de Semana (mesmas classes de evento/slot/linha do
+   agora — .wk-event, .wk-slot, .wk-now-line, .wk-allday-chip, .wk-hour-label
+   — reaproveitadas sem alteração), mas com uma única coluna: sem 7 colunas
+   lado a lado não há motivo para o min-width: 480px de .wk-head-row/.wk-body,
+   então não há scroll horizontal a forçar em nenhuma largura — a própria
+   razão de existir desta vista (ver weekView.js/initDayView). */
+.dv-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.dv-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  font-size: .95rem;
+  color: var(--gray-800);
+  text-transform: capitalize;
+}
+
+.dv-error {
+  font-size: var(--font-size-sm);
+  padding: .5rem .75rem;
+  margin-bottom: var(--space-3);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-bg-strong);
+  border-radius: var(--radius);
+  color: var(--color-danger-text);
+}
+
+.dv-wrap {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dv-scroll {
+  max-height: min(620px, 72vh);
+  overflow-y: scroll;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.dv-allday-row {
+  display: flex;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  min-height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.dv-gutter-allday {
+  flex: 0 0 52px;
+  font-size: .58rem;
+  color: var(--gray-500);
+  text-align: right;
+  padding: .3rem .4rem 0 0;
+  border-right: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+
+.dv-allday-row .wk-allday-col {
+  flex: 1;
+  min-width: 0;
+  border-right: none;
+}
+
+.dv-body {
+  display: flex;
+}
+
+.dv-time-col {
+  flex: 0 0 52px;
+  position: relative;
+  height: 2304px; /* 48 slots × 48px */
+  border-right: 1px solid var(--gray-200);
+  background: var(--color-surface);
+}
+
+.dv-col-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.dv-day-col {
+  position: relative;
+  cursor: pointer;
+}
+
+@media (max-width: 680px) {
+  .dv-label { font-size: .85rem; }
+}
+
 /* ── Recorrência — campos extras no formulário ──────────────────────────────
    Reaproveitado por dois formulários (Compromissos e Eventos Acadêmicos —
    ver recurrenceFieldView.js/F16): seletor por classe, não por id, já que

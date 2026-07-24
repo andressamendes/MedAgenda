@@ -99,12 +99,13 @@ test("F10 #4.1 — showPage('calendar') falls back to today: 'calendar' is no lo
 
 // F14.7 — "Lista" (antes a página própria "Compromissos") entrou como
 // terceira aba de #agenda-view-tabs, ao lado de Semana/Mês.
-test("F10 #4.1/F14.7 — a página Agenda tem as abas Semana/Mês/Lista que absorveram Mês e Compromissos", () => {
+// V5.12 — "Dia" entrou como aba adicional (mobile-first), antes de Semana.
+test("F10 #4.1/F14.7 — a página Agenda tem as abas Dia/Semana/Mês/Lista que absorveram Mês e Compromissos", () => {
   nav.showPage("agenda");
 
   const tabs = Array.from(document.querySelectorAll("#agenda-view-tabs .tab"));
   const labels = tabs.map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Semana", "Mês", "Lista"]);
+  assert.deepStrictEqual(labels, ["Dia", "Semana", "Mês", "Lista"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="calendar"]'), null, "não existe mais um item de navegação próprio para o Mês na sidebar");
   assert.strictEqual(document.querySelector('.nav-item[data-page="appointments"]'), null, "não existe mais um item de navegação próprio para Compromissos na sidebar");
   assert.strictEqual(document.querySelectorAll('.nav-item[data-page="agenda"]').length, 1, "Semana, Mês e Lista compartilham um único item 'Agenda' na sidebar");

@@ -60,7 +60,7 @@ function loadAuthView(t, authOverrides = {}) {
     },
   });
   t.mock.module(WEEKVIEW_SPECIFIER, {
-    namedExports: { destroyWeekView: () => {} },
+    namedExports: { destroyWeekView: () => {}, destroyDayView: () => {} },
   });
   return import(`../../authView.js?t=${Math.random()}`);
 }
