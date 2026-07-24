@@ -8,7 +8,12 @@
 // os cards, ao menos. F14.5 acrescenta, no topo da página Progresso, um
 // resumo narrativo (2-3 frases) que interpreta os mesmos números em vez de
 // só listá-los (ver _narrativeSentences() abaixo); os cards recuam para trás
-// de um disclosure ("Ver números").
+// de um disclosure ("Ver detalhes", V5.17). V5.17 também soma o anel de meta
+// diária (V5.2) ao topo da página, ao lado do heatmap de constância (V5.1):
+// as três peças (anel + heatmap + narrativa) formam a composição visual
+// primária de Progresso — nenhum cálculo novo, só uma segunda renderização
+// do mesmo data.dailyGoal fora do stat-card "Meta diária" (que continua
+// existindo, sem mudança, na página "Hoje").
 //
 // F14.5 — a antiga página "Dashboard" (#page-dashboard) foi removida: sua
 // única seção ("Hoje") passou a viver dentro da página "Hoje" (#page-today,
@@ -281,6 +286,7 @@ let cardsElByGroup = [];
 // em páginas diferentes, mas continuam carregados juntos numa única _load().
 let errorEls = [];
 let narrativeEl;
+let goalRingHeroEl;
 let achievementsEl;
 let numbersToggleEl, numbersBodyEl;
 let todayStatsToggleEl, todayStatsBodyEl;
@@ -336,6 +342,27 @@ function _narrativeSentences(data) {
   return sentences;
 }
 
+// V5.17 — mesmo anel de _progressRingMarkup() (meta diária), agora também
+// solto no topo da página Progresso, com o mesmo texto de _formatGoalDesc()
+// ao lado (nenhuma leitura nova: é o mesmo par valor+descrição do stat-card
+// "Meta diária", só fora do card).
+function _goalRingHeroMarkup(progress) {
+  if (!progress.configured) {
+    return `<p class="progress-goal-ring-empty">${GOAL_STATE_LABEL.no_goal} <button type="button" class="link-btn" data-action="configure-goal">Configurar meta</button></p>`;
+  }
+  return `
+    ${_progressRingMarkup(progress)}
+    <div class="progress-goal-ring-text">
+      <span class="progress-goal-ring-value">${_formatGoalValue(progress)}</span>
+      <span class="progress-goal-ring-desc">${_formatGoalDesc(progress)}</span>
+    </div>`;
+}
+
+function _renderGoalRingHero(data) {
+  if (!goalRingHeroEl) return;
+  goalRingHeroEl.innerHTML = _goalRingHeroMarkup(data.dailyGoal);
+}
+
 function _renderNarrative(data) {
   if (!narrativeEl) return;
   if (!data) {
@@ -351,7 +378,7 @@ function _toggleNumbers() {
   const next = !expanded;
   numbersBodyEl.hidden = !next;
   numbersToggleEl.setAttribute("aria-expanded", String(next));
-  numbersToggleEl.querySelector(".disclosure-label").textContent = next ? "Ocultar números" : "Ver números";
+  numbersToggleEl.querySelector(".disclosure-label").textContent = next ? "Ocultar detalhes" : "Ver detalhes";
   if (next) revealWithAnimation(numbersBodyEl);
 }
 
@@ -459,6 +486,7 @@ function _renderAchievements(achievements) {
 function _renderError({ state, message }) {
   cardsElByGroup.forEach(({ el }) => { el.hidden = true; el.innerHTML = ""; });
   if (narrativeEl) narrativeEl.innerHTML = "";
+  if (goalRingHeroEl) goalRingHeroEl.innerHTML = "";
   if (achievementsEl) achievementsEl.innerHTML = "";
   errorEls.forEach(el => {
     el.hidden = false;
@@ -496,6 +524,7 @@ async function _load() {
       }),
     ]);
     _renderCards(data);
+    _renderGoalRingHero(data);
     _renderNarrative(narrative);
     _renderAchievements(achievements);
     // V5.7 — celebração de conquista desbloqueada: só dispara para o que
@@ -524,6 +553,8 @@ export async function initActivityDashboardView() {
       document.getElementById("dash-error"),
     ].filter(Boolean);
     narrativeEl     = document.getElementById("progress-narrative");
+    goalRingHeroEl  = document.getElementById("progress-goal-ring");
+    goalRingHeroEl?.addEventListener("click", _onCardsClick);
     achievementsEl  = document.getElementById("achievements-list");
     numbersToggleEl = document.getElementById("progress-numbers-toggle");
     numbersBodyEl   = document.getElementById("progress-numbers-body");
@@ -569,13 +600,14 @@ export function resetActivityDashboardView() {
     clearStateBlock(el);
   });
   if (narrativeEl) narrativeEl.innerHTML = "";
+  if (goalRingHeroEl) goalRingHeroEl.innerHTML = "";
   if (achievementsEl) achievementsEl.innerHTML = "";
   resetAchievementCelebrationView();
   if (numbersBodyEl) numbersBodyEl.hidden = true;
   if (numbersToggleEl) {
     numbersToggleEl.setAttribute("aria-expanded", "false");
     const label = numbersToggleEl.querySelector(".disclosure-label");
-    if (label) label.textContent = "Ver números";
+    if (label) label.textContent = "Ver detalhes";
   }
   if (todayStatsBodyEl) todayStatsBodyEl.hidden = true;
   if (todayStatsToggleEl) {

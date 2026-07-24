@@ -2,6 +2,25 @@
 
 ---
 
+## [Unreleased] — V5.17: Consolidar Progresso numa composição visual única
+
+- **Anel de meta diária (V5.2) sobe ao topo da página Progresso**, ao lado
+  do heatmap de constância (V5.1), formando com a narrativa (F14.5) a
+  experiência primária da página — nenhuma das três peças ganha cálculo
+  novo aqui: é a mesma `dailyGoal` já renderizada dentro do stat-card "Meta
+  diária" (que continua existindo, sem mudança, na página "Hoje"), só
+  desenhada uma segunda vez fora do card (`_renderGoalRingHero()` em
+  `activityDashboardView.js`), com o mesmo par percentual+descrição em
+  texto ao lado do anel.
+- **O disclosure que esconde as grades de stat-cards vira "Ver detalhes"**
+  (era "Ver números") — agora que Progresso tem três peças visuais acima
+  dele (anel, heatmap, narrativa) em vez de duas, o rótulo passa a
+  descrever melhor o que ainda falta destrinchar atrás do clique. Mesmo
+  `#progress-numbers-toggle`/`#progress-numbers-body` de sempre, mesmos
+  containers/ids por trás (`dash-cards-weekmonth`, `dash-cards-records`,
+  `insights-revisoes-*`, `insights-produtividade-*`) — nenhuma lógica de
+  filtro ou dado muda, só a hierarquia visual e o texto do botão.
+
 ## [Unreleased] — V5.12: Vista "Dia" mobile-first na Agenda
 
 - **Nova aba "Dia" em `#agenda-view-tabs`** (`weekView.js`/`initDayView`) —
