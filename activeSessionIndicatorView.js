@@ -131,7 +131,7 @@ async function _quickAddQuestion() {
     _quickBusy = false;
     quickBtnEl.disabled = false;
   }
-  toast.info("Questão registrada.", 2000);
+  toast.info("Questão anotada.", 2000);
   // A lista de studySessionView.js só recarrega quando a identidade da
   // sessão muda (ver _syncSessionQuestionsAndReviews/_sessionDataLoadedFor)
   // — sem este empurrão, uma questão registrada por aqui ficaria fora da
