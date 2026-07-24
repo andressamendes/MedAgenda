@@ -1559,6 +1559,8 @@ textarea { resize: vertical; }
   .page-enter { animation: none; }
   .count-pulse { animation: none; }
   .disclosure-chevron svg { transition: none; }
+  .toast.toast-milestone { transition: opacity var(--transition-slow); }
+  .toast.toast-milestone .toast-icon { animation: none; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
@@ -3969,6 +3971,24 @@ textarea { resize: vertical; }
 
 .toast.toast-in  { opacity: 1; transform: translateX(0) scale(1); }
 .toast.toast-out { opacity: 0; transform: translateX(12px) scale(.98); }
+
+/* Marco do ciclo diário (ex.: fechamento do dia) — motion própria: entra com
+   um "pop" (overshoot de escala) em vez do slide padrão, e o ícone pulsa uma
+   vez ao assentar. Reservado a momentos de maior peso emocional; toasts
+   triviais (success/error/warning/info) continuam com o slide padrão. */
+.toast.toast-milestone {
+  transform: scale(.9);
+  transition: opacity var(--transition-slow), transform .45s cubic-bezier(.34, 1.56, .64, 1);
+  border-width: 1.5px;
+}
+.toast.toast-milestone.toast-in { transform: scale(1); }
+.toast.toast-milestone .toast-icon { animation: toast-milestone-pulse .5s ease .3s both; }
+
+@keyframes toast-milestone-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
 
 .toast-success { background: var(--color-success-bg); border-color: var(--color-success-border); color: var(--color-success-text); }
 .toast-error   { background: var(--color-danger-bg); border-color: var(--color-danger-border); color: var(--color-danger-text); }
