@@ -2,6 +2,27 @@
 
 ---
 
+## [Unreleased] — V5.6: Tela própria para o Fechamento do Dia
+
+- **`#close-day-modal` deixa de ser um `.modal-overlay`/`.modal-card` genérico**
+  e ganha uma experiência de tela cheia (`.close-day-screen`, `index.html`/
+  `style.css`) — o ritual de fechamento do dia (F14.8) era a melhor ideia de
+  design emocional do produto (auditoria F19) escondida dentro do componente
+  de modal mais reaproveitado do app. Os números do recap (tempo, sessões,
+  questões, sequência — mesmos dados de `closeDayService.getDayRecap()`,
+  nenhum cálculo novo) agora são revelados em sequência, um a um, via
+  `--cd-delay` inline por elemento (`index.html`) e uma única animação
+  `close-day-reveal` que lê essa variável (`style.css`) — sem JS extra, a
+  troca de `hidden` já reinicia a sequência a cada abertura. `todayView.js`
+  não mudou nenhuma lógica (mesmo `initModal()`, mesmo
+  `getDayRecap()`/`setNextStudyPlan()`), só a moldura visual do elemento
+  overlay. Acessibilidade preservada e reforçada: mesmo Focus Trap/Escape/
+  clique-fora de `modalController.js`, foco inicial no campo "o que você vai
+  estudar amanhã", e o recap ganhou `aria-live="polite"` (ausente no modal
+  antigo) para que a leitura dos números seja anunciada assim que carrega.
+  `prefers-reduced-motion` desativa a sequência (todo o conteúdo aparece de
+  uma vez, sem `translateY`).
+
 ## [Unreleased] — V5.2: Anel de progresso para a meta diária
 
 - **Anel circular (SVG) substitui a barra linear** no card "Meta diária" do
