@@ -977,7 +977,7 @@ body {
 .bottom-nav-icon { display: flex; align-items: center; justify-content: center; }
 .bottom-nav-icon svg { width: var(--icon-md); height: var(--icon-md); }
 
-.bottom-nav-label { font-size: .62rem; font-weight: 600; }
+.bottom-nav-label { font-size: .75rem; font-weight: 600; }
 
 /* F14.9 — Modo foco: com uma sessão de estudo rodando, oculta a moldura do
    app inteiro (header, sidebar, seu overlay mobile e bottom-nav) — só o
