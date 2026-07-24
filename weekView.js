@@ -8,7 +8,8 @@ import { errorToState, renderStateBlock } from "./stateView.js";
 import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { renderPlanList } from "./planListView.js";
-import { iconCalendarWeek, iconChevronDown } from "./icons.js";
+import { iconCalendarWeek } from "./icons.js";
+import { disclosureToggleContent } from "./disclosureToggle.js";
 
 // F10 #1.6 — Estado vazio didático: um usuário novo, com a agenda ainda sem
 // nenhum compromisso, via só a grade em branco — "zero onboarding hoje"
@@ -118,7 +119,7 @@ function buildShell() {
     </div>
     <div id="wk-tip" class="smart-cards" hidden></div>
     <div class="wk-plan-toggle-row">
-      <button type="button" class="btn btn-sm btn-ghost disclosure-toggle" id="wk-plan-toggle" aria-expanded="false" aria-controls="wk-plan-list" hidden><span class="disclosure-label">Mostrar plano da semana</span><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
+      <button type="button" class="btn btn-sm btn-ghost disclosure-toggle" id="wk-plan-toggle" aria-expanded="false" aria-controls="wk-plan-list" hidden>${disclosureToggleContent("Mostrar plano da semana")}</button>
     </div>
     <div id="wk-plan-list" class="ai-result-body--plan wk-plan-list" hidden></div>
     <div class="wk-wrap">

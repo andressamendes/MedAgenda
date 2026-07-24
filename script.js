@@ -72,7 +72,8 @@ import { initInsightsView, resetInsightsView } from "./insightsView.js";
 import { initOnboardingTour, resetOnboardingTourView } from "./onboardingTourView.js";
 import { initTodayView, resetTodayView } from "./todayView.js";
 import { resetAIContextService } from "./aiContextService.js";
-import { iconMoreHorizontal, illustrationEmptyAgenda } from "./icons.js";
+import { iconMoreHorizontal, illustrationEmptyAgenda, injectStaticIcons } from "./icons.js";
+import { initStaticDisclosureToggles } from "./disclosureToggle.js";
 import { initTheme } from "./themeService.js";
 
 // F11 E4 — sinaliza para boot-watchdog.js (script clássico, carregado antes
@@ -88,6 +89,12 @@ window.__anotiBooted = true;
 // minimizar o flash de tema errado no primeiro paint (a CSP do app não
 // permite script inline para fazer isto ainda mais cedo; ver themeService.js).
 initTheme();
+
+// Fase I1/I2 — preenche os ícones e botões de disclosure que index.html só
+// deixou como placeholders (`[data-icon]`/`[data-disclosure-label]`), antes
+// de qualquer código que dependa do conteúdo desses elementos.
+injectStaticIcons();
+initStaticDisclosureToggles();
 
 // ── [DOMAIN: observabilidade] ─────────────────────────────────────────────
 // Inicializa serviços de observabilidade imediatamente

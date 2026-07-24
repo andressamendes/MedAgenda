@@ -48,7 +48,7 @@
   <!-- ── Tela de carregamento inicial ── -->
   <div id="app-loading" class="app-loading-screen" role="status" aria-label="Carregando aplicação">
     <div class="app-loading-logo brand-mark">
-      <svg class="brand-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 19 12 4.5 19.5 19"/><path d="M7.7 14h8.6"/></svg>
+      <span class="brand-mark-icon" aria-hidden="true" data-icon="brand-mark"></span>
       <span>Anoti</span>
     </div>
     <div class="app-loading-spinner" aria-hidden="true"></div>
@@ -66,7 +66,7 @@
        Histórico, IA ou Sessões nesse caso. Ver script.js/schemaService.js. -->
   <div id="schema-mismatch-screen" class="app-loading-screen" role="alert" aria-live="assertive" hidden>
     <div class="app-loading-logo brand-mark">
-      <svg class="brand-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 19 12 4.5 19.5 19"/><path d="M7.7 14h8.6"/></svg>
+      <span class="brand-mark-icon" aria-hidden="true" data-icon="brand-mark"></span>
       <span>Anoti</span>
     </div>
     <div id="schema-mismatch-block" class="schema-mismatch-block"></div>
@@ -88,7 +88,7 @@
         <div class="auth-brand-decor" aria-hidden="true"></div>
         <div class="auth-brand-content">
           <h1 class="brand-mark auth-brand-mark">
-            <svg class="brand-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 19 12 4.5 19.5 19"/><path d="M7.7 14h8.6"/></svg>
+            <span class="brand-mark-icon" aria-hidden="true" data-icon="brand-mark"></span>
             <span>Anoti</span>
           </h1>
           <p class="auth-brand-tagline">A agenda de compromissos feita para estudantes de Medicina.</p>
@@ -147,7 +147,7 @@
 
       <!-- ── View: Confirmar e-mail ── -->
       <div id="view-email-sent" class="auth-view" hidden>
-        <div class="auth-success-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+        <div class="auth-success-icon" aria-hidden="true" data-icon="mail"></div>
         <h1>Verifique seu e-mail</h1>
         <p class="slogan">Enviamos um link de confirmação para o endereço informado. Clique no link para ativar sua conta.</p>
         <p id="email-sent-addr" class="auth-email-display"></p>
@@ -173,7 +173,7 @@
 
       <!-- ── View: Link enviado ── -->
       <div id="view-reset-sent" class="auth-view" hidden>
-        <div class="auth-success-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="8 12.5 11 15.5 16 9"/></svg></div>
+        <div class="auth-success-icon" aria-hidden="true" data-icon="check-circle"></div>
         <h1>Link enviado!</h1>
         <p class="slogan">Verifique sua caixa de entrada e clique no link para redefinir sua senha.</p>
         <div class="auth-links">
@@ -200,7 +200,7 @@
 
       <!-- ── View: Link de redefinição inválido/expirado ── -->
       <div id="view-link-invalid" class="auth-view" hidden>
-        <div class="auth-error-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div class="auth-error-icon" aria-hidden="true" data-icon="alert-triangle"></div>
         <h1>Link inválido</h1>
         <p id="link-invalid-msg" class="slogan"></p>
         <button type="button" class="btn btn-primary" id="btn-request-new-link">Solicitar novo link</button>
@@ -219,15 +219,9 @@
     <!-- ── Header ── -->
     <header class="app-header">
       <div class="header-left">
-        <button class="btn-icon sidebar-toggle" id="btn-sidebar-toggle" aria-label="Alternar menu">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
+        <button class="btn-icon sidebar-toggle" id="btn-sidebar-toggle" aria-label="Alternar menu" data-icon="menu"></button>
         <span class="app-title brand-mark">
-          <svg class="brand-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 19 12 4.5 19.5 19"/><path d="M7.7 14h8.6"/></svg>
+          <span class="brand-mark-icon" aria-hidden="true" data-icon="brand-mark"></span>
           <span>Anoti</span>
         </span>
         <span id="sync-indicator" class="sync-indicator" hidden aria-live="polite" aria-label="Sincronizando dados">
@@ -238,17 +232,13 @@
         <!-- F13.2 — "Assistente IA" abre um painel (não troca de página), então
              vive como ação de header, não como item da sidebar: a lista
              principal de navegação passa a conter só destinos reais. -->
-        <button type="button" id="nav-ai-assistant" class="btn-icon" title="Assistente IA" aria-label="Assistente IA">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" focusable="false"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
-        </button>
+        <button type="button" id="nav-ai-assistant" class="btn-icon" title="Assistente IA" aria-label="Assistente IA" data-icon="sparkle"></button>
         <button id="btn-install-pwa" class="btn btn-sm btn-ghost" hidden>Instalar</button>
         <div class="user-menu-wrap" id="user-menu-wrap">
           <button id="btn-user-menu" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
             <span class="user-avatar-circle" id="header-avatar-circle">?</span>
             <span id="header-email" class="header-user-name"></span>
-            <svg class="user-menu-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+            <span class="user-menu-chevron" aria-hidden="true" data-icon="chevron-down"></span>
           </button>
           <div id="user-menu-dropdown" class="user-menu-dropdown" hidden role="menu">
             <button id="btn-my-account" class="user-menu-item" role="menuitem">Minha Conta</button>
@@ -277,7 +267,7 @@
                Agenda. Fora do subgrupo "Compromissos" — não é mais uma visão
                de compromissos, é a resposta a "o que eu faço agora". -->
           <button class="nav-item nav-item--active" data-page="today" title="Atalho: G H" aria-keyshortcuts="g h">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="21.5"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="21.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="sun"></span>
             <span class="nav-label">Hoje</span>
           </button>
           <!-- F14.7 — "Compromissos" deixou de ser um destino de navegação
@@ -286,11 +276,11 @@
                agrupava as duas páginas (F13.2) não tem mais motivo para
                existir — resta um único destino "Agenda". -->
           <button class="nav-item" data-page="agenda" title="Atalho: G A" aria-keyshortcuts="g a">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="calendar-week"></span>
             <span class="nav-label">Agenda</span>
           </button>
           <button class="nav-item" data-page="study-session" title="Atalho: G S" aria-keyshortcuts="g s">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="clock"></span>
             <span class="nav-label">Sessão</span>
           </button>
         </div>
@@ -308,11 +298,11 @@
              entrada que faltava. -->
         <div class="sidebar-nav-group sidebar-nav-group--secondary">
           <button class="nav-item" data-page="journal" title="Atalho: G J" aria-keyshortcuts="g j">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="book-open"></span>
             <span class="nav-label">Diário</span>
           </button>
           <button class="nav-item" data-page="progress" title="Atalho: G P" aria-keyshortcuts="g p">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="trending-up"></span>
             <span class="nav-label">Progresso</span>
           </button>
         </div>
@@ -325,11 +315,11 @@
         <div class="sidebar-nav-group sidebar-nav-group--secondary" aria-label="Gerenciar">
           <span class="sidebar-group-label" aria-hidden="true">Gerenciar</span>
           <button class="nav-item" id="btn-academic-cals">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="layers"></span>
             <span class="nav-label">Calendários Acadêmicos</span>
           </button>
           <button class="nav-item" id="btn-categories">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></span>
+            <span class="nav-icon" aria-hidden="true" data-icon="tag"></span>
             <span class="nav-label">Categorias</span>
           </button>
         </div>
@@ -380,7 +370,7 @@
                clique revela os mesmos cards de sempre. -->
           <section class="today-stats" aria-labelledby="today-stats-toggle">
             <div class="today-stats-toggle-row">
-              <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="today-stats-toggle" aria-expanded="false" aria-controls="today-stats-body"><span class="disclosure-label">Ver números de hoje</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+              <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="today-stats-toggle" aria-expanded="false" aria-controls="today-stats-body" data-disclosure-label="Ver números de hoje"></button>
             </div>
             <div id="today-stats-body" class="today-stats-body" hidden>
               <h2 id="today-stats-title" class="today-section-title">Hoje em números</h2>
@@ -478,7 +468,7 @@
 
           <!-- Estado: nenhuma sessão em andamento (F11 E19, auditoria #22) -->
           <div id="ss-empty" class="state-block ss-empty">
-            <span class="state-block-icon" aria-hidden="true"><svg viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="50" cy="45" r="27"/><line x1="50" y1="45" x2="50" y2="28"/><line x1="50" y1="45" x2="63" y2="52"/><circle cx="50" cy="45" r="2" fill="currentColor" stroke="none"/><circle cx="91" cy="66" r="13"/><polygon points="87 60 87 72 97 66" fill="currentColor" stroke="none"/><line x1="12" y1="80" x2="30" y2="80" stroke-dasharray="2 6"/></svg></span>
+            <span class="state-block-icon" aria-hidden="true" data-icon="illustration-empty-session"></span>
             <strong class="state-block-title">Nenhuma sessão de estudo em andamento</strong>
             <p id="ss-empty-message" class="state-block-desc">Inicie uma sessão para cronometrar seu estudo, registrar questões respondidas e agendar revisões.</p>
             <button type="button" id="ss-btn-start-standalone" class="btn btn-primary state-block-action">Iniciar sessão</button>
@@ -493,7 +483,7 @@
             <div class="modal-card modal-session">
               <div class="modal-header">
                 <h2 class="modal-title" id="ss-start-title">Iniciar sessão de estudo</h2>
-                <button class="modal-close" id="ss-start-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+                <button class="modal-close" id="ss-start-close" aria-label="Fechar" data-icon="x"></button>
               </div>
               <div class="modal-body">
                 <!-- F14.2 — chips de um toque: preenchem nome+categoria (estudo
@@ -523,7 +513,7 @@
                        rótulo+ícone em todos os toggles do app. -->
                   <div class="ss-collapsible-header">
                     <h3 class="ss-questions-title">Mais opções</h3>
-                    <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-start-more-toggle" aria-expanded="false" aria-controls="ss-start-more-body"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+                    <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-start-more-toggle" aria-expanded="false" aria-controls="ss-start-more-body" data-disclosure-label="Mostrar"></button>
                   </div>
                   <div id="ss-start-more-body" hidden>
                     <div class="field">
@@ -575,7 +565,7 @@
                    sessão não é ocultado pelo modo foco) e alterna o mesmo
                    estado que Esc desfaz — ver studySessionView.js. -->
               <button type="button" class="btn btn-ghost btn-sm ss-focus-toggle" id="ss-btn-focus-toggle" aria-pressed="false">
-                <span class="ss-focus-toggle-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></span>
+                <span class="ss-focus-toggle-icon" aria-hidden="true" data-icon="maximize"></span>
                 <span id="ss-focus-toggle-label">Foco</span>
               </button>
             </div>
@@ -652,7 +642,7 @@
               <div class="ai-panel-title-wrap">
                 <span class="ai-panel-title" id="ss-panel-title">Detalhes da sessão</span>
               </div>
-              <button class="ai-panel-close" id="ss-panel-close" aria-label="Fechar painel de detalhes da sessão"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+              <button class="ai-panel-close" id="ss-panel-close" aria-label="Fechar painel de detalhes da sessão" data-icon="x"></button>
             </div>
 
             <div class="ai-panel-actions">
@@ -712,7 +702,7 @@
                 <input type="number" id="ss-q-quick-errors" min="0" step="1" value="0" inputmode="numeric">
 
                 <button type="button" class="btn btn-secondary btn-sm ss-quick-question-btn" id="ss-btn-quick-question">
-                  <span class="ss-quick-question-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="4 12.5 9.5 18 20 6"/></svg></span>
+                  <span class="ss-quick-question-icon" aria-hidden="true" data-icon="check"></span>
                   Registrar
                 </button>
               </div>
@@ -901,7 +891,7 @@
           <div id="progress-narrative" class="progress-narrative" aria-live="polite"></div>
 
           <div class="progress-numbers-toggle-row">
-            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body"><span class="disclosure-label">Ver detalhes</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body" data-disclosure-label="Ver detalhes"></button>
           </div>
 
           <!-- Mesmos containers/ids de sempre (dash-cards-weekmonth,
@@ -1014,14 +1004,11 @@
               <button type="button" class="sj-quick-filter" data-period="7d">Semana</button>
               <button type="button" class="sj-quick-filter sj-quick-filter--active" data-period="all" aria-pressed="true">Todas</button>
             </div>
-            <button type="button" class="btn-icon" id="sj-search-toggle" aria-expanded="false" aria-controls="sj-search-wrap" aria-label="Buscar no diário" title="Buscar (atalho: /)" aria-keyshortcuts="/">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
-            </button>
+            <button type="button" class="btn-icon" id="sj-search-toggle" aria-expanded="false" aria-controls="sj-search-wrap" aria-label="Buscar no diário" title="Buscar (atalho: /)" aria-keyshortcuts="/" data-icon="search"></button>
             <div id="sj-search-wrap" class="sj-search-wrap" hidden>
               <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
             </div>
-            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: estatísticas e filtros" title="Analisar">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
+            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: estatísticas e filtros" title="Analisar" data-icon="sliders-horizontal">
               <span id="sj-advanced-filters-count" class="sj-toolbar-badge" hidden></span>
             </button>
           </div>
@@ -1069,7 +1056,7 @@
             <div class="ai-panel-title-wrap">
               <span class="ai-panel-title" id="sj-panel-title">Analisar</span>
             </div>
-            <button class="ai-panel-close" id="sj-panel-close" aria-label="Fechar painel de análise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            <button class="ai-panel-close" id="sj-panel-close" aria-label="Fechar painel de análise" data-icon="x"></button>
           </div>
 
           <div class="ai-panel-actions">
@@ -1118,7 +1105,7 @@
                usado em "Mostrar"/"Ocultar" (abaixo, _toggleEntry) e no resumo
                da Sessão (UX #04). F11 E8: chevron rotativo (.disclosure-toggle)
                padroniza o mesmo par rótulo+ícone em todos os toggles. -->
-          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters"><span class="disclosure-label">Filtros avançados</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters" data-disclosure-label="Filtros avançados"></button>
           <div id="sj-advanced-filters" hidden>
             <div class="toolbar-filters">
               <select id="sj-filter-category" class="toolbar-select">
@@ -1182,23 +1169,23 @@
          Mês como abas da mesma tela (ver #agenda-view-tabs). -->
     <nav class="bottom-nav" aria-label="Navegação">
       <button class="bottom-nav-item bottom-nav-item--active" data-page="today">
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="21.5"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="21.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></span>
+        <span class="bottom-nav-icon" aria-hidden="true" data-icon="sun"></span>
         <span class="bottom-nav-label">Hoje</span>
       </button>
       <button class="bottom-nav-item" data-page="agenda">
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="13" width="12" height="4" fill="currentColor" stroke="none"/></svg></span>
+        <span class="bottom-nav-icon" aria-hidden="true" data-icon="calendar-week"></span>
         <span class="bottom-nav-label">Agenda</span>
       </button>
       <button class="bottom-nav-item" data-page="study-session">
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+        <span class="bottom-nav-icon" aria-hidden="true" data-icon="clock"></span>
         <span class="bottom-nav-label">Sessão</span>
       </button>
       <button class="bottom-nav-item" data-page="journal">
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"/></svg></span>
+        <span class="bottom-nav-icon" aria-hidden="true" data-icon="book-open"></span>
         <span class="bottom-nav-label">Diário</span>
       </button>
       <button class="bottom-nav-item" id="bottom-nav-more">
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span>
+        <span class="bottom-nav-icon" aria-hidden="true" data-icon="more-horizontal"></span>
         <span class="bottom-nav-label">Mais</span>
       </button>
     </nav>
@@ -1213,7 +1200,7 @@
          enquanto a página de Sessão está ativa). -->
     <div id="active-session-chip" class="active-session-chip" hidden>
       <button type="button" id="active-session-chip-toggle" class="active-session-chip-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="active-session-chip-panel" aria-label="Sessão de estudo em andamento — toque para expandir">
-        <span class="active-session-chip-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+        <span class="active-session-chip-icon" aria-hidden="true" data-icon="clock"></span>
         <span id="active-session-chip-time" class="active-session-chip-time"></span>
       </button>
       <div id="active-session-chip-panel" class="active-session-chip-panel" hidden>
@@ -1296,7 +1283,7 @@
     <div class="modal-card modal-event">
       <div class="modal-header">
         <h2 class="modal-title" id="form-title">Novo compromisso</h2>
-        <button class="modal-close" id="event-modal-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="modal-close" id="event-modal-close" aria-label="Fechar" data-icon="x"></button>
       </div>
       <div class="modal-body modal-event-body">
         <!-- F11 E14 (auditoria #18) — "Iniciar Sessão" era a ÚLTIMA ação do
@@ -1310,7 +1297,7 @@
              startSessionBtn.hidden já usado por eventFormView.js (só mudou
              de lugar no DOM, nenhuma lógica nova). -->
         <button type="button" id="btn-start-session" class="btn btn-primary event-start-cta" hidden>
-          <span class="event-start-cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+          <span class="event-start-cta-icon" aria-hidden="true" data-icon="clock"></span>
           Iniciar sessão de estudo
         </button>
 
@@ -1351,7 +1338,7 @@
                atrás de "Mais opções" (mesmo padrão de disclosure do E8). -->
           <div class="ss-collapsible-header">
             <h3 class="ss-questions-title">Mais opções</h3>
-            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="f-color-toggle" aria-expanded="false" aria-controls="f-color-wrap"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="f-color-toggle" aria-expanded="false" aria-controls="f-color-wrap" data-disclosure-label="Mostrar"></button>
           </div>
           <div id="f-color-wrap" hidden>
             <div class="field">
@@ -1481,7 +1468,7 @@
       <div class="ai-panel-title-wrap">
         <span class="ai-panel-title" id="event-detail-title">Histórico e estatísticas</span>
       </div>
-      <button class="ai-panel-close" id="event-detail-close" aria-label="Fechar painel de histórico e estatísticas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+      <button class="ai-panel-close" id="event-detail-close" aria-label="Fechar painel de histórico e estatísticas" data-icon="x"></button>
     </div>
 
     <div class="ai-panel-actions">
@@ -1496,7 +1483,7 @@
                atualiza o texto ao alternar). -->
           <div class="ss-collapsible-header">
             <h3 class="session-history-title">Sessões realizadas</h3>
-            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="session-history-toggle" aria-expanded="false" aria-controls="session-history-body"><span class="disclosure-label">Mostrar histórico deste compromisso</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="session-history-toggle" aria-expanded="false" aria-controls="session-history-body" data-disclosure-label="Mostrar histórico deste compromisso"></button>
           </div>
           <div id="session-history-body" hidden>
             <div id="session-stats" class="session-stats" hidden>
@@ -1536,7 +1523,7 @@
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <h2 class="modal-title" id="cat-modal-title">Gerenciar Categorias</h2>
-        <button class="modal-close" id="cat-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="modal-close" id="cat-close" aria-label="Fechar" data-icon="x"></button>
       </div>
       <div class="modal-body cat-modal-body">
         <div id="cat-list" aria-live="polite"></div>
@@ -1559,7 +1546,7 @@
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <h2 class="modal-title" id="settings-modal-title">Configurações</h2>
-        <button class="modal-close" id="settings-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="modal-close" id="settings-close" aria-label="Fechar" data-icon="x"></button>
       </div>
       <div class="modal-body settings-body">
 
@@ -1609,7 +1596,7 @@
     <div class="modal-card modal-account">
       <div class="modal-header">
         <h2 class="modal-title" id="account-title">Minha Conta</h2>
-        <button class="modal-close" id="account-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="modal-close" id="account-close" aria-label="Fechar" data-icon="x"></button>
       </div>
       <div class="modal-body account-body" id="account-body"></div>
     </div>
@@ -1621,7 +1608,7 @@
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <h2 class="modal-title" id="diagnostic-title">Diagnóstico do Sistema</h2>
-        <button class="modal-close" id="diagnostic-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="modal-close" id="diagnostic-close" aria-label="Fechar" data-icon="x"></button>
       </div>
       <div class="modal-body diagnostic-body" id="diagnostic-body">
         <p class="diag-loading">Verificando serviços&#8230;</p>
@@ -1654,7 +1641,7 @@
     <div class="modal-card modal-lg modal-academic">
       <div class="modal-header">
         <h2 class="modal-title" id="academic-modal-title">Calendários Acadêmicos</h2>
-        <button class="modal-close" id="academic-close" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="modal-close" id="academic-close" aria-label="Fechar" data-icon="x"></button>
       </div>
       <div class="modal-body academic-modal-body" id="academic-modal-body"></div>
     </div>
@@ -1666,10 +1653,10 @@
          role="dialog" aria-modal="true" aria-labelledby="ai-panel-title">
     <div class="ai-panel-header">
       <div class="ai-panel-title-wrap">
-        <span class="ai-panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" focusable="false"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg></span>
+        <span class="ai-panel-icon" aria-hidden="true" data-icon="sparkle"></span>
         <span class="ai-panel-title" id="ai-panel-title">Assistente IA</span>
       </div>
-      <button class="ai-panel-close" id="ai-panel-close" aria-label="Fechar painel de IA"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+      <button class="ai-panel-close" id="ai-panel-close" aria-label="Fechar painel de IA" data-icon="x"></button>
     </div>
 
     <div class="ai-panel-actions">
@@ -1682,13 +1669,13 @@
            services/ai/aiService.js) continuam no código — só deixaram de
            ter botão próprio aqui (auditoria F14 §4/§9). -->
       <button id="btn-ai-plan" class="btn ai-action-btn" aria-label="Planejar minha semana" title="Sugestões organizadas por prioridade — você decide o que fazer">
-        <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
+        <span class="ai-action-icon" aria-hidden="true" data-icon="clipboard"></span>
         <div class="ai-action-text">
           <strong>Planejar minha semana</strong>
         </div>
       </button>
       <button id="btn-ai-evolution" class="btn ai-action-btn" aria-label="Ver como estou indo" title="Reflexão sobre como você executou o planejamento">
-        <span class="ai-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg></span>
+        <span class="ai-action-icon" aria-hidden="true" data-icon="trending-up"></span>
         <div class="ai-action-text">
           <strong>Como estou indo</strong>
         </div>
@@ -1699,8 +1686,8 @@
       <div class="ai-result-header">
         <span id="ai-result-title" class="ai-result-title"></span>
         <div class="ai-result-header-actions">
-          <button id="btn-ai-retry" class="btn btn-sm btn-ghost btn-icon-inline" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>Tentar novamente</button>
-          <button id="btn-ai-back" class="btn btn-sm btn-ghost btn-icon-inline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Voltar</button>
+          <button id="btn-ai-retry" class="btn btn-sm btn-ghost btn-icon-inline" hidden><span data-icon="history"></span>Tentar novamente</button>
+          <button id="btn-ai-back" class="btn btn-sm btn-ghost btn-icon-inline"><span data-icon="arrow-left"></span>Voltar</button>
         </div>
       </div>
       <div id="ai-result-body" class="ai-result-body"></div>

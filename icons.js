@@ -229,3 +229,121 @@ export const illustrationEmptyAgenda = `
     <line x1="46" y1="56" x2="74" y2="56" stroke-dasharray="2 6"/>
     <circle cx="60" cy="56" r="1.5" fill="currentColor" stroke="none"/>
   </svg>`;
+
+// ── Ícones estáticos do markup de index.html (Fase I1) ───────────────────
+//
+// Catálogo estendido para cobrir os ícones que viviam como <svg> inline
+// no HTML (header, navegação, modais, painel de IA etc.) — ver
+// injectStaticIcons() abaixo, chamado uma vez no boot (script.js) para
+// preencher os placeholders `[data-icon]` deixados no lugar deles.
+
+export const iconMenu = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>`;
+
+export const iconBrandMark = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <path d="M4.5 19 12 4.5 19.5 19"/>
+    <path d="M7.7 14h8.6"/>
+  </svg>`;
+
+export const iconMail = `
+  <svg viewBox="0 0 24 24" ${STROKE} focusable="false">
+    <rect x="3" y="5" width="18" height="14" rx="2"/>
+    <path d="m3 7 9 6 9-6"/>
+  </svg>`;
+
+export const iconSun = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="4.5"/>
+    <line x1="12" y1="2.5" x2="12" y2="4.5"/>
+    <line x1="12" y1="19.5" x2="12" y2="21.5"/>
+    <line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/>
+    <line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/>
+    <line x1="2.5" y1="12" x2="4.5" y2="12"/>
+    <line x1="19.5" y1="12" x2="21.5" y2="12"/>
+    <line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/>
+    <line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/>
+  </svg>`;
+
+export const iconTrendingUp = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <polyline points="3 17 9 11 13 15 21 6"/>
+    <polyline points="15 6 21 6 21 12"/>
+  </svg>`;
+
+export const iconMaximize = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+    <path d="M16 3h3a2 2 0 0 1 2 2v3"/>
+    <path d="M8 21H5a2 2 0 0 1-2-2v-3"/>
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+  </svg>`;
+
+export const iconSearch = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <circle cx="11" cy="11" r="7"/>
+    <line x1="21" y1="21" x2="16.2" y2="16.2"/>
+  </svg>`;
+
+export const iconSlidersHorizontal = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <line x1="4" y1="6" x2="20" y2="6"/>
+    <line x1="4" y1="12" x2="20" y2="12"/>
+    <line x1="4" y1="18" x2="20" y2="18"/>
+    <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/>
+    <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/>
+    <circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/>
+  </svg>`;
+
+export const iconArrowLeft = `
+  <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
+    <line x1="19" y1="12" x2="5" y2="12"/>
+    <polyline points="12 19 5 12 12 5"/>
+  </svg>`;
+
+// Nome (kebab-case, usado em data-icon="...") → markup. Cobre só os ícones
+// referenciados por placeholders estáticos em index.html (ver
+// injectStaticIcons); ícones usados exclusivamente via import direto nos
+// módulos de view (a maioria) não precisam de entrada aqui.
+const STATIC_ICON_REGISTRY = {
+  "menu": iconMenu,
+  "brand-mark": iconBrandMark,
+  "mail": iconMail,
+  "sun": iconSun,
+  "calendar-week": iconCalendarWeek,
+  "clock": iconClock,
+  "sparkle": iconSparkle,
+  "book-open": iconBookOpen,
+  "trending-up": iconTrendingUp,
+  "layers": iconLayers,
+  "tag": iconTag,
+  "chevron-down": iconChevronDown,
+  "x": iconX,
+  "maximize": iconMaximize,
+  "check": iconCheck,
+  "check-circle": iconCheckCircle,
+  "alert-triangle": iconAlertTriangle,
+  "search": iconSearch,
+  "sliders-horizontal": iconSlidersHorizontal,
+  "more-horizontal": iconMoreHorizontal,
+  "clipboard": iconClipboard,
+  "history": iconHistory,
+  "arrow-left": iconArrowLeft,
+  "illustration-empty-session": illustrationEmptySession,
+};
+
+// Preenche todo elemento `[data-icon]` sob `root` com o SVG correspondente
+// do catálogo acima — chamado uma vez no boot (script.js), antes de
+// qualquer outra inicialização que leia esses elementos.
+export function injectStaticIcons(root = document) {
+  root.querySelectorAll("[data-icon]").forEach((el) => {
+    const markup = STATIC_ICON_REGISTRY[el.getAttribute("data-icon")];
+    // insertAdjacentHTML (não innerHTML) preserva filhos que já existam no
+    // elemento — ex.: o badge de contagem dentro de #sj-btn-open-panel.
+    if (markup) el.insertAdjacentHTML("afterbegin", markup);
+  });
+}

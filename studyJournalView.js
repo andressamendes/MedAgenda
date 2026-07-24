@@ -126,7 +126,8 @@ import {
   compareDailySummaries,
 } from "./studyTimelineService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, iconChevronDown, illustrationEmptyJournal } from "./icons.js";
+import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, illustrationEmptyJournal } from "./icons.js";
+import { disclosureToggleContent } from "./disclosureToggle.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -666,7 +667,7 @@ function _buildEntryEl(entry) {
   li.innerHTML = `
     <div class="sj-entry-header">
       <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
-      <button type="button" class="btn-icon sj-toggle disclosure-toggle" aria-expanded="false" aria-label="Mostrar detalhes"><span class="disclosure-chevron" aria-hidden="true">${iconChevronDown}</span></button>
+      <button type="button" class="btn-icon sj-toggle disclosure-toggle" aria-expanded="false" aria-label="Mostrar detalhes">${disclosureToggleContent()}</button>
     </div>
     <div class="sj-entry-time">${formatClockTime(s.started_at)}–${formatClockTime(s.ended_at)}</div>
     <div class="sj-entry-summary">${escapeHtml(summaryParts.join(" • "))}</div>
