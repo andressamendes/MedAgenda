@@ -1342,7 +1342,7 @@ body {
   font-weight: 600;
   color: #fff;
   padding: .1rem .35rem;
-  border-radius: 3px;
+  border-radius: var(--radius-full);
 }
 
 .cal-chip-text {
@@ -5053,7 +5053,7 @@ textarea { resize: vertical; }
   font-size: .62rem;
   line-height: 1.3;
   padding: 1px 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-full);
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
