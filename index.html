@@ -1158,43 +1158,45 @@
 
   </div>
 
-  <!-- ── Modal: Fechar o dia (F14.8) ──────────────────────────────────────
-       Recap de 15 segundos (tempo, sessões, questões, sequência — nenhum
-       cálculo novo, ver closeDayService.getDayRecap()) + um único campo
-       opcional para o primeiro estudo de amanhã, que reaparece como chip no
-       próximo início de sessão (studySessionView.js/_loadStartSuggestions). -->
-  <div id="close-day-modal" class="modal-overlay" hidden
+  <!-- ── Tela: Fechar o dia (V5.6) ─────────────────────────────────────────
+       Era um modal genérico (`.modal-overlay`/`.modal-card`, F14.8) — o
+       ritual de fechamento do dia virou tela cheia própria, com os números
+       do recap revelados em sequência (--cd-delay em style.css). Nenhum
+       dado novo: mesmo recap de 15 segundos (tempo, sessões, questões,
+       sequência — closeDayService.getDayRecap()) e o mesmo campo opcional
+       para o primeiro estudo de amanhã, que reaparece como chip no próximo
+       início de sessão (studySessionView.js/_loadStartSuggestions). -->
+  <div id="close-day-modal" class="close-day-screen" hidden
        role="dialog" aria-modal="true" aria-labelledby="close-day-title">
-    <div class="modal-card modal-session">
-      <div class="modal-header">
-        <h2 class="modal-title" id="close-day-title">Fechar o dia</h2>
-      </div>
-      <div class="modal-body">
-        <dl class="ss-context" id="close-day-recap">
-          <div class="ss-context-row">
-            <dt>Tempo estudado hoje</dt>
-            <dd id="cd-minutes">—</dd>
-          </div>
-          <div class="ss-context-row">
-            <dt>Sessões concluídas</dt>
-            <dd id="cd-sessions">—</dd>
-          </div>
-          <div class="ss-context-row">
-            <dt>Questões registradas</dt>
-            <dd id="cd-questions">—</dd>
-          </div>
-          <div class="ss-context-row">
-            <dt>Sequência de dias</dt>
-            <dd id="cd-streak">—</dd>
-          </div>
-        </dl>
+    <div class="close-day-content">
+      <p class="close-day-eyebrow" style="--cd-delay: 0">Fechamento do dia</p>
+      <h2 class="close-day-title" id="close-day-title" style="--cd-delay: 1">Como foi o seu dia de estudos</h2>
 
-        <div class="field">
-          <label for="cd-next-study">O que você vai estudar amanhã? (opcional)</label>
-          <input type="text" id="cd-next-study" placeholder="Ex.: Cardiologia" maxlength="120">
+      <dl class="close-day-recap" id="close-day-recap" aria-live="polite">
+        <div class="close-day-stat" style="--cd-delay: 2">
+          <dt>Tempo estudado hoje</dt>
+          <dd id="cd-minutes">—</dd>
         </div>
+        <div class="close-day-stat" style="--cd-delay: 3">
+          <dt>Sessões concluídas</dt>
+          <dd id="cd-sessions">—</dd>
+        </div>
+        <div class="close-day-stat" style="--cd-delay: 4">
+          <dt>Questões registradas</dt>
+          <dd id="cd-questions">—</dd>
+        </div>
+        <div class="close-day-stat" style="--cd-delay: 5">
+          <dt>Sequência de dias</dt>
+          <dd id="cd-streak">—</dd>
+        </div>
+      </dl>
+
+      <div class="field close-day-next" style="--cd-delay: 6">
+        <label for="cd-next-study">O que você vai estudar amanhã? (opcional)</label>
+        <input type="text" id="cd-next-study" placeholder="Ex.: Cardiologia" maxlength="120">
       </div>
-      <div class="modal-footer">
+
+      <div class="close-day-actions" style="--cd-delay: 7">
         <button type="button" class="btn btn-ghost"   id="cd-btn-back">Voltar</button>
         <button type="button" class="btn btn-primary" id="cd-btn-confirm">Fechar o dia</button>
       </div>

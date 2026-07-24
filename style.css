@@ -1561,6 +1561,11 @@ textarea { resize: vertical; }
   .disclosure-chevron svg { transition: none; }
   .toast.toast-milestone { transition: opacity var(--transition-slow); }
   .toast.toast-milestone .toast-icon { animation: none; }
+  .close-day-eyebrow,
+  .close-day-title,
+  .close-day-stat,
+  .close-day-next,
+  .close-day-actions { animation: none; opacity: 1; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
@@ -3938,6 +3943,130 @@ textarea { resize: vertical; }
 .modal-session .modal-body {
   overflow-y: auto;
   flex: 1;
+}
+
+/* ── Fechar o dia — tela cheia (V5.6) ─────────────────────────────────────
+   Antes um `.modal-overlay`/`.modal-card` igual a qualquer outro do produto
+   (F14.8) — o ritual de fechamento do dia (auditoria F19, o momento mais
+   citável do ciclo diário) ganha aqui uma moldura própria: tela cheia,
+   gradiente de acento, e os números do recap (mesmos dados de
+   closeDayService.getDayRecap(), nenhum cálculo novo) revelados um a um em
+   vez de todos de uma vez. Cada elemento na sequência declara sua posição
+   via `--cd-delay` inline (index.html) e `close-day-reveal` lê essa
+   variável — evita repetir oito `animation-delay` fixos em CSS e mantém a
+   ordem visível só olhando o HTML. */
+.close-day-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
+           calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
+  background: linear-gradient(160deg, var(--blue) 0%, var(--blue-d) 100%);
+  color: #fff;
+  animation: modal-overlay-in var(--transition-base);
+}
+
+.close-day-screen[hidden] { display: none; }
+
+.close-day-content {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  margin: auto;
+}
+
+.close-day-eyebrow {
+  font-size: var(--eyebrow-font-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+  color: rgba(255, 255, 255, .75);
+}
+
+.close-day-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: var(--space-2);
+}
+
+.close-day-recap {
+  width: 100%;
+  margin: var(--space-2) 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4) var(--space-3);
+}
+
+.close-day-stat dt {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: rgba(255, 255, 255, .75);
+  order: 2;
+}
+
+.close-day-stat dd {
+  margin: 0 0 .15rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  order: 1;
+}
+
+.close-day-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.close-day-next {
+  width: 100%;
+  margin: var(--space-2) 0 0;
+  text-align: left;
+}
+
+.close-day-next label { color: rgba(255, 255, 255, .75); }
+
+.close-day-actions {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.close-day-actions .btn { flex: 1; }
+
+.close-day-actions .btn-primary { background: #fff; color: var(--blue-d); }
+.close-day-actions .btn-primary:hover:not(:disabled) { background: var(--gray-100); }
+
+.close-day-actions .btn-ghost { background: rgba(255, 255, 255, .15); color: #fff; }
+.close-day-actions .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .25); }
+
+/* Sequência de revelação (F19 "momento citável"): cada elemento entra com
+   um fade + leve subida, escalonado por `--cd-delay` (0 a 7, um passo por
+   elemento do recap). Roda sozinha ao abrir — `.close-day-screen[hidden]`
+   vira `display:none`, então a troca para visível reinicia a animação de
+   cada descendente do zero, sem nenhum JS extra. */
+.close-day-eyebrow,
+.close-day-title,
+.close-day-stat,
+.close-day-next,
+.close-day-actions {
+  opacity: 0;
+  animation: close-day-reveal .5s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--cd-delay, 0) * 90ms);
+}
+
+@keyframes close-day-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Toast notifications ── */

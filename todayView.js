@@ -239,14 +239,17 @@ async function _refreshTip() {
   renderSmartCards(tipEl, decision ? [decisionToCard(decision)] : []);
 }
 
-// ── Fechar o dia (F14.8) ──────────────────────────────────────────────────
+// ── Fechar o dia (F14.8, tela cheia própria desde V5.6) ─────────────────────
 // O dia nunca tinha desfecho (auditoria F14 §7/§13): a última sessão
-// terminava e nada dizia "pronto, seu dia está encerrado". Este modal cobre
-// as duas metades desse fechamento — um recap de 15 segundos (nenhum
-// cálculo novo, ver closeDayService.getDayRecap()) e um único campo
-// opcional para o primeiro estudo de amanhã, que reaparece como chip no
-// próximo início de sessão (studySessionView.js/_loadStartSuggestions lê o
-// mesmo closeDayService.getNextStudyPlan()).
+// terminava e nada dizia "pronto, seu dia está encerrado". Esta tela (era
+// um modal genérico até V5.6, ver #close-day-modal em index.html) cobre as
+// duas metades desse fechamento — um recap de 15 segundos (nenhum cálculo
+// novo, ver closeDayService.getDayRecap()) e um único campo opcional para o
+// primeiro estudo de amanhã, que reaparece como chip no próximo início de
+// sessão (studySessionView.js/_loadStartSuggestions lê o mesmo
+// closeDayService.getNextStudyPlan()). initModal() continua controlando
+// abertura/fechamento (hidden), Escape, clique fora e Focus Trap — só a
+// moldura visual do elemento overlay mudou, nenhuma lógica de ciclo de vida.
 
 async function _openCloseDayModal() {
   if (_closingDay) return;
