@@ -12,7 +12,8 @@
     "build:app-shell": "node scripts/generate-app-shell.js",
     "check:app-shell": "node scripts/generate-app-shell.js --check",
     "check:schema": "node scripts/check-schema.js",
-    "verify": "npm run check:app-shell && npm test && npm run check:schema"
+    "lint:css": "stylelint \"*.css\"",
+    "verify": "npm run check:app-shell && npm test && npm run check:schema && npm run lint:css"
   },
   "engines": {
     "node": ">=20.18.0"
@@ -26,6 +27,8 @@
   "author": "andressamendes",
   "license": "MIT",
   "devDependencies": {
-    "jsdom": "^29.1.1"
+    "jsdom": "^29.1.1",
+    "stylelint": "^17.14.1",
+    "stylelint-declaration-strict-value": "^1.11.1"
   }
 }

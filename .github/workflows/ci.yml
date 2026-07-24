@@ -29,6 +29,13 @@ jobs:
       - name: Run tests
         run: npm test
 
+      # Guard rail de tokens de design: aponta font-size/border-radius/box-shadow/cor
+      # fora de var(--...) em style.css. Roda como warning (não falha o build) porque
+      # ainda há um backlog de literais no CSS existente; o objetivo aqui é impedir que
+      # PRs futuras adicionem mais literais em silêncio, não bloquear tudo de uma vez.
+      - name: Lint CSS design tokens
+        run: npm run lint:css
+
       # P1 — Guard Rail de Schema: este workflow (ci.yml) roda em qualquer
       # push/PR e não tem acesso ao Supabase de produção (nenhum secret
       # configurado aqui, de propósito — ver docs/OPERATIONS.md). O script
