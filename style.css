@@ -2133,7 +2133,7 @@ textarea { resize: vertical; }
    .stat-card-desc e em aria-valuenow, então nada depende só da cor. */
 .dashboard-progress {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--gray-200);
   overflow: hidden;
   margin-top: .1rem;
@@ -2294,7 +2294,7 @@ textarea { resize: vertical; }
 
 .achievement-progress {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--gray-200);
   overflow: hidden;
 }
@@ -4061,7 +4061,7 @@ textarea { resize: vertical; }
   gap: .35rem;
   padding: .5rem .85rem;
   border: 1px solid var(--color-primary);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   color: var(--color-primary);
   font-size: var(--font-size-sm);
@@ -4298,7 +4298,7 @@ textarea { resize: vertical; }
 .ss-progress-track {
   width: 100%;
   height: .5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--gray-100);
   overflow: hidden;
 }
@@ -4306,7 +4306,7 @@ textarea { resize: vertical; }
 .ss-progress-bar {
   height: 100%;
   width: 0%;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-primary, #383f87);
   transition: width .3s ease;
 }
