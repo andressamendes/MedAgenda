@@ -88,6 +88,16 @@
   --icon-lg: 24px;
   --icon-xl: 40px;
 
+  /* ── Cápsula do ícone (C1) — mesma disciplina do F18.7 aplicada agora ao
+     contêiner (não ao glifo): consolida os 7 tamanhos crus de wrapper
+     (19.2/24/28/30.4/34/35.2/42px) que .btn-icon-sm/lg, .nav-icon,
+     .achievement-icon, .toast-icon e .smart-card-icon usavam sem relação
+     entre si. --icon-box-sm é a cápsula compacta; --icon-box-md é o padrão
+     de botão de ícone; --icon-box-lg é a variante de destaque. */
+  --icon-box-sm: 24px;
+  --icon-box-md: 32px;
+  --icon-box-lg: 40px;
+
   /* ── Espaçamento (F10 #2.1: valores existentes desde F5.1, agora
      referenciados por var() em todo o arquivo onde já batiam exatamente com
      um destes — troca só de forma de escrever o mesmo valor, nunca do
@@ -584,8 +594,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: var(--icon-box-md);
+  height: var(--icon-box-md);
   padding: 0;
   border-radius: var(--radius-sm);
   background: none;
@@ -605,8 +615,8 @@ body {
 
 .btn-icon svg { width: var(--icon-md); height: var(--icon-md); }
 
-.btn-icon-sm { width: 28px; height: 28px; }
-.btn-icon-lg { width: 42px; height: 42px; }
+.btn-icon-sm { width: var(--icon-box-sm); height: var(--icon-box-sm); }
+.btn-icon-lg { width: var(--icon-box-lg); height: var(--icon-box-lg); }
 
 /* ── User menu ── */
 .user-menu-wrap {
@@ -824,7 +834,7 @@ body {
 
 .nav-icon {
   flex-shrink: 0;
-  width: 1.2rem;
+  width: var(--icon-box-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2234,8 +2244,8 @@ textarea { resize: vertical; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.2rem;
-  height: 2.2rem;
+  width: var(--icon-box-md);
+  height: var(--icon-box-md);
   border-radius: var(--radius-full);
   background: var(--gray-200);
   color: var(--gray-500);
@@ -4853,8 +4863,8 @@ textarea { resize: vertical; }
   justify-content: center;
   flex-shrink: 0;
   margin-top: .1rem;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: var(--icon-box-sm);
+  height: var(--icon-box-sm);
   border-radius: 50%;
   color: var(--color-on-primary);
 }
@@ -5564,8 +5574,8 @@ textarea { resize: vertical; }
 
 .smart-card-icon {
   flex-shrink: 0;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: var(--icon-box-md);
+  height: var(--icon-box-md);
   display: flex;
   align-items: center;
   justify-content: center;
