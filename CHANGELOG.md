@@ -2,6 +2,20 @@
 
 ---
 
+## [Unreleased] — V5.2: Anel de progresso para a meta diária
+
+- **Anel circular (SVG) substitui a barra linear** no card "Meta diária" do
+  Dashboard de Execução (`activityDashboardView.js`) — o primeiro "momento
+  Apple Health" do produto (F19 roadmap). Mesmo dado de entrada
+  (`dailyGoal.percentage`/`.state`), mesmo contrato de acessibilidade da
+  barra anterior: `role="progressbar"` + `aria-valuenow` espelham o
+  percentual, que continua escrito em texto (`.stat-card-value`/
+  `.stat-card-desc`) — o anel nunca é a única forma de ler o progresso.
+  Meta semanal e mensal continuam com a barra linear de sempre
+  (`_progressBarMarkup`), sem nenhuma mudança — só a meta diária ganhou o
+  anel (`_progressRingMarkup`), reaproveitável depois na meta semanal
+  (V5.17).
+
 ## [Unreleased] — V5.1: Heatmap de constância no Progresso
 
 - **Heatmap de dias estudados** (`constancyHeatmapView.js`) no topo da página
