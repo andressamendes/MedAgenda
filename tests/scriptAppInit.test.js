@@ -58,6 +58,11 @@ const SPECIFIERS = {
   aiContextService: new URL("../aiContextService.js", import.meta.url).href,
   onboardingTourView: new URL("../onboardingTourView.js", import.meta.url).href,
   todayView: new URL("../todayView.js", import.meta.url).href,
+  // recurrenceService.js (F16) é mockado por inteiro, não só suas dependências
+  // (academicCalendarService.js/recurrenceExceptionsService.js, que puxam
+  // supabase.js real — mesma nota em tests/views/eventFormView.test.js).
+  recurrenceService: new URL("../recurrenceService.js", import.meta.url).href,
+  recurrenceScopeDialog: new URL("../recurrenceScopeDialog.js", import.meta.url).href,
 };
 
 let container;
@@ -66,15 +71,17 @@ let openAcademicCalendarModalCalls;
 let startSessionForEventCalls;
 let showPageCalls;
 let confirmDialogCalls;
+let scopeDialogCalls;
 let deleteEventCalls;
 let toastInfoCalls;
 
-function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true, getEventsImpl, hasActiveStudySession = false } = {}) {
+function mockScriptDependencies(t, { events = [], startSessionResult = false, confirmResult = true, scopeDialogResult = "series", getEventsImpl, hasActiveStudySession = false } = {}) {
   authCallbacks = null;
   openAcademicCalendarModalCalls = 0;
   startSessionForEventCalls = [];
   showPageCalls = [];
   confirmDialogCalls = [];
+  scopeDialogCalls = [];
   deleteEventCalls = [];
   toastInfoCalls = [];
 
@@ -131,6 +138,20 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
   t.mock.module(SPECIFIERS.aiPanelView, { namedExports: { initAIPanel: () => {}, resetAIPanel: () => {} } });
   t.mock.module(SPECIFIERS.confirmDialog, {
     namedExports: { confirmDialog: async (opts) => { confirmDialogCalls.push(opts); return confirmResult; } },
+  });
+  t.mock.module(SPECIFIERS.recurrenceService, {
+    namedExports: {
+      SCOPE: { THIS: "this", FUTURE: "future", SERIES: "series" },
+      isRecurring: (ev) => !!ev && !!ev.recurrence_type && ev.recurrence_type !== "none",
+      isExpandedOccurrence: (ev) => !!ev?._isOccurrence,
+      applyDeleteScope: async ({ occurrence }) => {
+        const baseId = occurrence?._isOccurrence ? occurrence._baseEventId : occurrence?.id;
+        deleteEventCalls.push(baseId);
+      },
+    },
+  });
+  t.mock.module(SPECIFIERS.recurrenceScopeDialog, {
+    namedExports: { recurrenceScopeDialog: async (opts) => { scopeDialogCalls.push(opts); return scopeDialogResult; } },
   });
   t.mock.module(SPECIFIERS.navigationView, {
     namedExports: {
@@ -328,7 +349,7 @@ const RECURRING_EVENT = {
   start_time: "08:00:00", duration_minutes: 60, recurrence_type: "weekly",
 };
 
-test("UX #14 — deleting a recurring appointment from the list warns that it deletes the whole series", async (t) => {
+test("UX #14 — deleting a recurring appointment from the list offers the recurrence scope choice (D2)", async (t) => {
   mockScriptDependencies(t, { events: [RECURRING_EVENT] });
 
   await import(`../script.js?t=${Math.random()}`);
@@ -339,8 +360,9 @@ test("UX #14 — deleting a recurring appointment from the list warns that it de
   btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
-  assert.strictEqual(confirmDialogCalls.length, 1);
-  assert.match(confirmDialogCalls[0].message, /série/i, "the confirm dialog must mention that the whole series is deleted");
+  assert.strictEqual(scopeDialogCalls.length, 1, "a recurring appointment offers the recurrence scope choice (apenas esta / esta e as próximas / toda a série)");
+  assert.match(scopeDialogCalls[0].message, /série/i, "the scope dialog must mention it's part of a recurring series");
+  assert.strictEqual(confirmDialogCalls.length, 0, "the plain confirm dialog is not used for recurring items");
   assert.deepStrictEqual(deleteEventCalls, ["evt-2"]);
 });
 
@@ -357,6 +379,7 @@ test("UX #14 — deleting a non-recurring appointment keeps the plain confirmati
 
   assert.strictEqual(confirmDialogCalls.length, 1);
   assert.doesNotMatch(confirmDialogCalls[0].message, /série/i);
+  assert.strictEqual(scopeDialogCalls.length, 0, "the recurrence scope dialog is not used for non-recurring items");
   assert.deepStrictEqual(deleteEventCalls, ["evt-1"]);
 });
 
