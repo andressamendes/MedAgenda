@@ -1897,7 +1897,10 @@ textarea { resize: vertical; }
 /* ── Base compartilhada dos cards de conteúdo (F10 #2.3) — .event-card e
    .stat-card repetiam, cada um na sua própria regra, exatamente as
    mesmas quatro declarações (background/border/border-radius/transition);
-   agrupadas aqui uma única vez, sem mudar nenhum valor computado.
+   agrupadas aqui uma única vez. `--radius-lg`/`--shadow-md` (B1, P0.2)
+   alinham as duas famílias à mesma escala de elevação de `.card`/
+   `.modal-card`/`.ss-card`/`.smart-card` — a bifurcação radius-8px/
+   shadow-sm que só existia aqui não tinha justificativa funcional.
    `.card` (login/superfícies elevadas — padding maior, com sombra) e
    `.smart-card` (dica/callout inline — fundo cinza, sem sombra, sem hover)
    divergem de propósito em fundo/sombra/padding (ambos compartilham o
@@ -1907,7 +1910,7 @@ textarea { resize: vertical; }
 .stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 
@@ -1915,11 +1918,11 @@ textarea { resize: vertical; }
   padding: .9rem 1rem;
   position: relative;
   border-left: 4px solid var(--color-primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .event-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-1px);
 }
 
@@ -2090,7 +2093,7 @@ textarea { resize: vertical; }
 }
 
 .stat-card:hover {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
