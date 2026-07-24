@@ -326,12 +326,15 @@ body {
 .login-wrap[hidden] { display: none; }
 
 /* ── Card (F5.2, base unificada F18.8) — moldura padrão para superfícies
-   elevadas (login, semana, calendário, assistente, dashboard). `--radius-lg`
-   e `--shadow-md` são a base compartilhada por `.card`, `.ss-card`,
+   elevadas (semana, calendário, assistente, dashboard). `--radius-lg` e
+   `--shadow-md` são a base compartilhada por `.card`, `.ss-card`,
    `.modal-card` e `.smart-card`: os quatro componentes de "cartão" do
    produto. Cada um só diverge nos dois pontos onde há diferença real —
    fundo (`.smart-card` é um callout inline discreto, sem sombra) e borda
-   (`.ss-card` tem contorno de 1px) — nunca em radius/sombra. ── */
+   (`.ss-card` tem contorno de 1px) — nunca em radius/sombra.
+   A autenticação (V5.13) deixou de usar `.card` — tem composição própria
+   em `.auth-shell`/`.auth-panel` abaixo, para não ser só mais uma
+   superfície elevada genérica. ── */
 .card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -351,6 +354,145 @@ body {
   font-size: var(--font-size-sm);
   color: var(--gray-600);
   margin-bottom: 1.75rem;
+}
+
+/* ── Autenticação (V5.13) — composição própria em duas colunas: um painel
+   de marca/contexto (`.auth-brand-panel`) ao lado do formulário
+   (`.auth-panel`), para que a primeira tela do produto não seja só mais
+   um `.card` genérico. Nenhum dos 7 estados de `.auth-view` muda de
+   comportamento aqui — só a moldura ao redor deles. */
+.auth-shell {
+  display: flex;
+  width: 100%;
+  max-width: 900px;
+  min-height: 560px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.auth-brand-panel {
+  flex: 0 0 40%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--space-7);
+  background: linear-gradient(155deg, var(--blue) 0%, var(--blue-d) 100%);
+  color: #fff;
+  overflow: hidden;
+}
+
+/* Formas decorativas discretas — só gradiente/opacidade, sem imagem, para
+   o painel não ficar uma chapa de cor lisa. */
+.auth-brand-decor {
+  position: absolute;
+  inset: -20% -30% auto auto;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.16), transparent 70%);
+  pointer-events: none;
+}
+.auth-brand-decor::after {
+  content: '';
+  position: absolute;
+  left: -40%;
+  bottom: -35%;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 70% 70%, rgba(255,255,255,.1), transparent 70%);
+}
+
+.auth-brand-content {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand-mark {
+  font-size: 1.4rem;
+  margin-bottom: var(--space-5);
+}
+
+.auth-brand-tagline {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: var(--space-6);
+  max-width: 30ch;
+}
+
+.auth-brand-points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+}
+
+.auth-brand-points li {
+  position: relative;
+  padding-left: 1.3rem;
+  font-size: var(--font-size-sm);
+  color: rgba(255,255,255,.88);
+  line-height: 1.45;
+}
+.auth-brand-points li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .45em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.75);
+}
+
+.auth-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-7);
+  min-width: 0;
+}
+
+.auth-panel h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.auth-panel .slogan {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-bottom: 1.75rem;
+}
+
+/* Mobile (ver breakpoint "Mobile" do registro, F10 #2.2): painel de marca
+   deixa de ser uma coluna e vira uma faixa compacta acima do formulário —
+   tratamento visual próprio, não um desaparecimento simples. */
+@media (max-width: 767px) {
+  .auth-shell {
+    flex-direction: column;
+    max-width: 400px;
+    min-height: 0;
+  }
+  .auth-brand-panel {
+    flex: 0 0 auto;
+    padding: var(--space-6) var(--space-5);
+  }
+  .auth-brand-tagline {
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-4);
+    max-width: none;
+  }
+  .auth-brand-points {
+    display: none;
+  }
+  .auth-panel {
+    padding: var(--space-6) var(--space-5);
+  }
 }
 
 /* ── Header ── */
