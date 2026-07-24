@@ -75,7 +75,16 @@ function loadView(t, overrides = {}) {
   });
 
   t.mock.module(ACHIEVEMENT_SERVICE_SPECIFIER, {
-    namedExports: { listAchievements: overrides.listAchievements ?? (async () => EMPTY_ACHIEVEMENTS) },
+    namedExports: {
+      listAchievements: overrides.listAchievements ?? (async () => EMPTY_ACHIEVEMENTS),
+      // V5.7 — consumeNewlyCompleted() é uma decisão do próprio
+      // achievementService (coberta isoladamente em
+      // tests/services/achievementCelebration.test.js): aqui basta um mock
+      // neutro que nunca reporta nada como "recém-concluído", para não
+      // disparar a tela de celebração por engano nestes testes de
+      // renderização.
+      consumeNewlyCompleted: overrides.consumeNewlyCompleted ?? (() => []),
+    },
   });
 
   t.mock.module(NARRATIVE_SERVICE_SPECIFIER, {

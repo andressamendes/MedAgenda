@@ -1566,6 +1566,9 @@ textarea { resize: vertical; }
   .close-day-stat,
   .close-day-next,
   .close-day-actions { animation: none; opacity: 1; }
+  .achv-celebration-badge { animation: none; }
+  .achv-celebration-badge::before,
+  .achv-celebration-badge::after { animation: none; opacity: 0; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
@@ -3955,6 +3958,107 @@ textarea { resize: vertical; }
    via `--cd-delay` inline (index.html) e `close-day-reveal` lê essa
    variável — evita repetir oito `animation-delay` fixos em CSS e mantém a
    ordem visível só olhando o HTML. */
+/* ── Celebração de conquista desbloqueada (V5.7) ──────────────────────────
+   Mesma moldura de tela cheia do Fechamento do Dia logo abaixo (.close-day-
+   screen, V5.6) — overlay + conteúdo centralizado — mas paleta e animação
+   próprias (âmbar/dourado, ícone com "burst" de anéis) para nunca ser
+   confundida com aquele ritual nem com um toast padrão (auditoria F19: o
+   único "momento de vitória" novo desta rodada). Dados: só o que
+   achievementCelebrationView.js já recebeu pronto de
+   achievementService.consumeNewlyCompleted() — nenhum cálculo aqui. */
+.achv-celebration-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
+           calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
+  background: linear-gradient(160deg, #f59e0b 0%, #b45309 100%);
+  color: #fff;
+  animation: modal-overlay-in var(--transition-base);
+}
+
+.achv-celebration-screen[hidden] { display: none; }
+
+.achv-celebration-content {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  margin: auto;
+}
+
+.achv-celebration-badge {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, .18);
+  margin-bottom: var(--space-2);
+  animation: achv-badge-pop .5s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.achv-celebration-badge::before,
+.achv-celebration-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  border: 2px solid rgba(255, 255, 255, .6);
+  animation: achv-ring-burst 1s ease-out both;
+}
+
+.achv-celebration-badge::after { animation-delay: .15s; }
+
+.achv-celebration-icon svg { width: var(--icon-xl); height: var(--icon-xl); color: #fff; }
+
+.achv-celebration-eyebrow {
+  font-size: var(--eyebrow-font-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+  color: rgba(255, 255, 255, .75);
+}
+
+.achv-celebration-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: #fff;
+}
+
+.achv-celebration-desc {
+  color: rgba(255, 255, 255, .9);
+  margin-bottom: var(--space-2);
+}
+
+.achv-celebration-continue {
+  width: 100%;
+  background: #fff;
+  color: #b45309;
+}
+
+.achv-celebration-continue:hover:not(:disabled) { background: var(--gray-100); }
+
+@keyframes achv-badge-pop {
+  0%   { opacity: 0; transform: scale(.5); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes achv-ring-burst {
+  0%   { opacity: .8; transform: scale(.8); }
+  100% { opacity: 0;  transform: scale(1.6); }
+}
+
 .close-day-screen {
   position: fixed;
   inset: 0;

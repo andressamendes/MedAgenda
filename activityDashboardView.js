@@ -17,7 +17,8 @@
 // (nem precisa saber) qual página o envolve.
 
 import { getDashboardData } from "./activityDashboardService.js";
-import { listAchievements } from "./achievementService.js";
+import { listAchievements, consumeNewlyCompleted } from "./achievementService.js";
+import { setAchievementIcons, celebrateAchievements, initAchievementCelebrationView, resetAchievementCelebrationView } from "./achievementCelebrationView.js";
 import { getProgressNarrativeData } from "./progressNarrativeService.js";
 import { open as openAccountModal } from "./accountView.js";
 import { onProfileUpdated } from "./profileService.js";
@@ -223,6 +224,10 @@ const ACHIEVEMENT_ICONS = {
   flame: iconFlame,
   book: iconBookOpen,
 };
+// V5.7 — mesmo mapa ícone→SVG é reaproveitado pela tela de celebração, sem
+// duplicar a tabela nem importar icons.js com nomes diferentes em dois
+// lugares.
+setAchievementIcons(ACHIEVEMENT_ICONS);
 
 function _achievementState(achievement) {
   if (achievement.completed) return "completed";
@@ -493,6 +498,11 @@ async function _load() {
     _renderCards(data);
     _renderNarrative(narrative);
     _renderAchievements(achievements);
+    // V5.7 — celebração de conquista desbloqueada: só dispara para o que
+    // achievementService.consumeNewlyCompleted() determinar como recém-
+    // concluído neste device (nunca recalculado aqui, nunca duplicado se
+    // listAchievements() falhou e achievements veio null).
+    if (achievements) celebrateAchievements(consumeNewlyCompleted(achievements));
   } catch (err) {
     _renderError(errorToState(handleError(err, { context: "activityDashboardView.load", silent: true })));
   } finally {
@@ -507,6 +517,7 @@ async function _load() {
  * meta mudar, sem exigir reload da página nem polling.
  */
 export async function initActivityDashboardView() {
+  initAchievementCelebrationView();
   if (cardsElByGroup.length === 0) {
     errorEls = [
       document.getElementById("dash-error-today"),
@@ -559,6 +570,7 @@ export function resetActivityDashboardView() {
   });
   if (narrativeEl) narrativeEl.innerHTML = "";
   if (achievementsEl) achievementsEl.innerHTML = "";
+  resetAchievementCelebrationView();
   if (numbersBodyEl) numbersBodyEl.hidden = true;
   if (numbersToggleEl) {
     numbersToggleEl.setAttribute("aria-expanded", "false");
