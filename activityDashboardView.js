@@ -25,6 +25,7 @@ import { getDashboardData } from "./activityDashboardService.js";
 import { listAchievements, consumeNewlyCompleted } from "./achievementService.js";
 import { setAchievementIcons, celebrateAchievements, initAchievementCelebrationView, resetAchievementCelebrationView } from "./achievementCelebrationView.js";
 import { getProgressNarrativeData } from "./progressNarrativeService.js";
+import { getInsightsData } from "./insightsService.js";
 import { open as openAccountModal } from "./accountView.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
@@ -305,7 +306,45 @@ function _formatCategoryPercentage(category, weekMinutes) {
   return Math.round((category.minutes / weekMinutes) * 100);
 }
 
-function _narrativeSentences(data) {
+// F19 (Fase J4) — a antiga Central de Insights (insightsView.js) sobrevivia
+// como duas grades de stat-cards à parte (Revisões/Produtividade), já atrás
+// do mesmo disclosure "Ver detalhes" de Períodos/Recordes/Conquistas — mas
+// só ali, nunca na narrativa. Quem lia só as 2-3 frases do topo (a leitura
+// mais comum, é o próprio objetivo do F14.5) nunca sabia se havia revisão
+// pendente ou compromisso nunca estudado. `getInsightsData()`
+// (insightsService.js) é a mesma função que insightsView.js já chama para as
+// grades atrás do disclosure — nenhuma consulta nova, só uma segunda leitura
+// do mesmo resultado (mesmo padrão do anel de meta diária, V5.17). Cada
+// bloco só vira frase quando chegou "ok"/"partial" com dado real: um bloco
+// em erro fica de fora da narrativa (fica só no aviso do próprio disclosure),
+// nunca uma frase quebrada ou "null revisões".
+function _reviewsSentence(revisoesBlock) {
+  const data = revisoesBlock?.data;
+  if (!data) return null;
+  const { pendingCount, completedCount } = data;
+  if (pendingCount === null && completedCount === null) return null;
+  if (pendingCount === null) {
+    return `${completedCount} ${completedCount === 1 ? "revisão concluída" : "revisões concluídas"} até agora.`;
+  }
+  if (pendingCount === 0) {
+    return completedCount
+      ? `Nenhuma revisão pendente — ${completedCount} ${completedCount === 1 ? "já concluída" : "já concluídas"}.`
+      : "Nenhuma revisão pendente no momento.";
+  }
+  return `${pendingCount} ${pendingCount === 1 ? "revisão pendente" : "revisões pendentes"} aguardando.`;
+}
+
+function _productivitySentence(produtividadeBlock) {
+  const data = produtividadeBlock?.data;
+  if (!data) return null;
+  const { executedCount, neverExecutedCount } = data;
+  const total = executedCount + neverExecutedCount;
+  if (total === 0) return null;
+  if (neverExecutedCount === 0) return "Todos os compromissos já tiveram ao menos uma sessão de estudo.";
+  return `${executedCount} de ${total} compromissos já foram estudados.`;
+}
+
+function _narrativeSentences(data, insights) {
   const { weekMinutes, previousWeekMinutes, dominantCategory, currentStreak } = data;
   const sentences = [];
 
@@ -339,6 +378,12 @@ function _narrativeSentences(data) {
     ? `Sequência atual: ${currentStreak} ${currentStreak === 1 ? "dia seguido" : "dias seguidos"} estudando.`
     : "Nenhuma sequência ativa no momento.");
 
+  const reviewsSentence = _reviewsSentence(insights?.revisoes);
+  if (reviewsSentence) sentences.push(reviewsSentence);
+
+  const productivitySentence = _productivitySentence(insights?.produtividade);
+  if (productivitySentence) sentences.push(productivitySentence);
+
   return sentences;
 }
 
@@ -363,13 +408,13 @@ function _renderGoalRingHero(data) {
   goalRingHeroEl.innerHTML = _goalRingHeroMarkup(data.dailyGoal);
 }
 
-function _renderNarrative(data) {
+function _renderNarrative(data, insights) {
   if (!narrativeEl) return;
   if (!data) {
     narrativeEl.innerHTML = `<p class="progress-narrative-fallback">Não foi possível carregar o resumo desta semana.</p>`;
     return;
   }
-  narrativeEl.innerHTML = _narrativeSentences(data).map(s => `<p>${s}</p>`).join("");
+  narrativeEl.innerHTML = _narrativeSentences(data, insights).map(s => `<p>${s}</p>`).join("");
 }
 
 function _toggleNumbers() {
@@ -506,7 +551,7 @@ async function _load() {
   });
   if (narrativeEl) narrativeEl.innerHTML = `<p class="progress-narrative-loading">Carregando…</p>`;
   try {
-    const [data, achievements, narrative] = await Promise.all([
+    const [data, achievements, narrative, insights] = await Promise.all([
       getDashboardData(),
       // Isolado do carregamento principal: uma falha aqui vira uma mensagem
       // de fallback na lista de Conquistas (mesmo padrão de fallback parcial
@@ -522,10 +567,20 @@ async function _load() {
         handleError(err, { context: "activityDashboardView.narrative", silent: true });
         return null;
       }),
+      // Fase J4 — mesma função que insightsView.js já chama para as grades de
+      // Revisões/Produtividade atrás do disclosure "Ver detalhes" (nenhuma
+      // consulta nova): aqui só alimenta duas frases a mais na narrativa (ver
+      // _reviewsSentence/_productivitySentence). getInsightsData() nunca
+      // rejeita (cada bloco carrega seu próprio status), mas o .catch é a
+      // mesma rede de segurança das outras duas fontes isoladas acima.
+      getInsightsData().catch(err => {
+        handleError(err, { context: "activityDashboardView.insights", silent: true });
+        return null;
+      }),
     ]);
     _renderCards(data);
     _renderGoalRingHero(data);
-    _renderNarrative(narrative);
+    _renderNarrative(narrative, insights);
     _renderAchievements(achievements);
     // V5.7 — celebração de conquista desbloqueada: só dispara para o que
     // achievementService.consumeNewlyCompleted() determinar como recém-

@@ -1320,24 +1320,56 @@ body {
   opacity: .35;
 }
 
-.cal-cell.cal-today .cal-day-num {
-  background: var(--blue);
-  color: var(--color-on-primary);
-  border-radius: 50%;
-  width: 1.55rem;
-  height: 1.55rem;
+/* ── Anel de assiduidade do dia (Fase J3) ─────────────────────────────────
+   O único elemento que nenhuma grade de calendário genérica tem: um anel
+   fino ao redor do número do dia, preenchido (conic-gradient) pela fração
+   dos compromissos pessoais daquele dia já estudados — os mesmos
+   indicadores de execução que já tingem cada chip (ver _dayProgress() em
+   calendar.js), nenhuma consulta nova. Dias sem nenhum compromisso
+   rastreável (.cal-day-badge--empty) ficam exatamente como antes, sem anel
+   — a densidade de informação da visão de Mês não perde nada, só ganha um
+   resumo visual que hoje só existe abrindo cada compromisso. */
+.cal-day-badge {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  margin-bottom: var(--space-1);
+}
+
+.cal-day-badge::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(var(--color-success) calc(var(--cal-progress, 0) * 1%), var(--gray-200) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+}
+
+.cal-day-badge--empty::before {
+  content: none;
+}
+
+.cal-cell.cal-today .cal-day-badge {
+  background: var(--blue);
+  color: var(--color-on-primary);
 }
 
 .cal-day-num {
+  position: relative;
+  z-index: 1;
   font-size: var(--font-size-xs);
   font-weight: 700;
   color: var(--gray-600);
-  display: block;
-  margin-bottom: var(--space-1);
   line-height: 1;
+}
+
+.cal-cell.cal-today .cal-day-num {
+  color: var(--color-on-primary);
 }
 
 .cal-chips {
@@ -2056,6 +2088,103 @@ textarea { resize: vertical; }
   margin: .4rem 0 0;
   color: var(--gray-600);
   white-space: pre-wrap;
+}
+
+/* ── Aba "Histórico" do Diário (Fase J1) ──────────────────────────────────
+   Antes um empilhamento cru de .session-history-item idênticos, sem leitura
+   temporal nenhuma. Agora agrupada por dia (mesmo critério de .sj-day-group,
+   F8.3) e renderizada como timeline de fato: uma linha vertical contínua
+   (.ah-timeline, via ::before) conectando um marcador por sessão
+   (.ah-timeline-dot), colorido pelo mesmo status do badge de texto ao lado. */
+.ah-day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ah-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ah-day-header {
+  display: flex;
+  align-items: baseline;
+  gap: .6rem;
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-600);
+  padding: 0 .1rem;
+}
+
+.ah-day-header-date {
+  font-size: var(--font-size-sm);
+  color: var(--gray-800);
+}
+
+.ah-day-header-summary {
+  font-weight: 400;
+  color: var(--gray-500);
+}
+
+.ah-timeline {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+/* Linha vertical contínua atravessando todos os marcadores do dia — some
+   sozinha quando o grupo tem uma única sessão (nada para conectar). */
+.ah-timeline::before {
+  content: "";
+  position: absolute;
+  left: .3rem;
+  top: .55rem;
+  bottom: .55rem;
+  width: 2px;
+  background: var(--gray-200);
+}
+
+.ah-timeline-item {
+  position: relative;
+  display: flex;
+  gap: .7rem;
+}
+
+.ah-timeline-dot {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: .6rem;
+  height: .6rem;
+  margin-top: .35rem;
+  border-radius: 50%;
+  background: var(--gray-400);
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 2px var(--gray-200);
+}
+
+.ah-timeline-item--finished  .ah-timeline-dot { background: var(--color-success); box-shadow: 0 0 0 2px var(--color-success-bg-strong); }
+.ah-timeline-item--cancelled .ah-timeline-dot { background: var(--color-danger);  box-shadow: 0 0 0 2px var(--color-danger-bg); }
+.ah-timeline-item--running   .ah-timeline-dot { background: var(--color-success); box-shadow: 0 0 0 2px var(--color-success-bg-strong); }
+.ah-timeline-item--paused    .ah-timeline-dot { background: var(--color-warning); box-shadow: 0 0 0 2px var(--color-warning-bg); }
+
+.ah-timeline-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: .6rem .8rem;
+  font-size: var(--font-size-sm);
 }
 
 /* ── Revisões do compromisso (F2.3) ── */
@@ -4531,6 +4660,58 @@ textarea { resize: vertical; }
   display: flex;
   gap: .5rem;
 }
+
+/* ── Revisões — opções de registro (Fase J2) ──────────────────────────────
+   Antes um <select>/<input> soltos ao lado de um botão fantasma, na mesma
+   grade genérica do formulário detalhado de Questões. Ganham a composição
+   de cartão + ícone + botão de destaque (mesmo par ícone/botão de
+   .ss-quick-question-btn) que já dá ao registro rápido de Questões seu peso
+   visual — "Associar" e "Criar" são as duas formas de registrar uma
+   revisão, cada uma seu próprio cartão em vez de linhas empilhadas. */
+.ss-review-option {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .6rem .8rem;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  margin-bottom: .6rem;
+}
+
+.ss-review-option-icon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--gray-500);
+}
+
+.ss-review-option-icon svg { width: var(--icon-md); height: var(--icon-md); display: block; }
+
+.ss-review-option-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ss-review-option-body label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: .2rem;
+  display: block;
+}
+
+.ss-review-option-body select,
+.ss-review-option-body input {
+  width: 100%;
+}
+
+.ss-review-action-btn {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-shrink: 0;
+}
+
+.ss-review-action-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
 
 /* Modal de configuração pré-início (#ss-start-modal) — os dois caminhos
    ("Novo estudo" digitado livremente x "Compromisso da agenda" já existente)

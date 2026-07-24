@@ -13,6 +13,7 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
 const ACHIEVEMENT_SERVICE_SPECIFIER = new URL("../../achievementService.js", import.meta.url).href;
 const NARRATIVE_SERVICE_SPECIFIER  = new URL("../../progressNarrativeService.js", import.meta.url).href;
+const INSIGHTS_SERVICE_SPECIFIER   = new URL("../../insightsService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
 const ACCOUNT_VIEW_SPECIFIER       = new URL("../../accountView.js", import.meta.url).href;
 const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
@@ -20,6 +21,17 @@ const ERROR_SPECIFIER              = new URL("../../errorService.js", import.met
 // F14.5 — dados neutros (sem sessões, sem sequência) para o resumo
 // narrativo, mesmo padrão de EMPTY_DATA/EMPTY_ACHIEVEMENTS acima.
 const EMPTY_NARRATIVE = { weekMinutes: 0, previousWeekMinutes: 0, dominantCategory: null, currentStreak: 0 };
+
+// Fase J4 — a narrativa passou a acrescentar frases de Revisões/Produtividade
+// (insightsService.getInsightsData(), a mesma fonte já usada pelas grades de
+// insightsView.js atrás do disclosure "Ver detalhes"). Estado neutro para os
+// testes que não exercitam essas frases especificamente.
+const EMPTY_INSIGHTS = {
+  execucao:      { status: "ok", data: {}, error: null },
+  metas:         { status: "ok", data: {}, error: null },
+  revisoes:      { status: "ok", data: { pendingCount: 0, completedCount: 0 }, error: null },
+  produtividade: { status: "ok", data: { totalEvents: 0, executedCount: 0, neverExecutedCount: 0 }, error: null },
+};
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
@@ -89,6 +101,10 @@ function loadView(t, overrides = {}) {
 
   t.mock.module(NARRATIVE_SERVICE_SPECIFIER, {
     namedExports: { getProgressNarrativeData: overrides.getProgressNarrativeData ?? (async () => EMPTY_NARRATIVE) },
+  });
+
+  t.mock.module(INSIGHTS_SERVICE_SPECIFIER, {
+    namedExports: { getInsightsData: overrides.getInsightsData ?? (async () => EMPTY_INSIGHTS) },
   });
 
   const openAccountCalls = [];
@@ -995,4 +1011,85 @@ test("F14.5 — a failure building the narrative falls back to a neutral message
   assert.match(document.getElementById("progress-narrative").textContent, /Não foi possível carregar o resumo desta semana\./);
   assert.strictEqual(document.getElementById("dash-cards-weekmonth").hidden, false);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.narrative" && c.context.silent === true));
+});
+
+// ── Fase J4 — a narrativa absorve os insights de Revisões/Produtividade ─────
+// que antes só existiam nas grades de insightsView.js atrás do disclosure
+// "Ver detalhes". A grade continua lá (nenhuma grade de stat-cards passou a
+// existir fora de disclosure); a narrativa só ganhou frases equivalentes.
+
+test("J4 — a pending review count becomes a narrative sentence", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 3, completedCount: 5 }, error: null },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  assert.match(document.getElementById("progress-narrative").textContent, /3 revisões pendentes aguardando\./);
+});
+
+test("J4 — zero pending reviews with some completed reads as a reassuring sentence, not a blank", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 0, completedCount: 4 }, error: null },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  assert.match(document.getElementById("progress-narrative").textContent, /Nenhuma revisão pendente — 4 já concluídas\./);
+});
+
+test("J4 — appointments never studied become a productivity sentence", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      produtividade: { status: "ok", data: { totalEvents: 10, executedCount: 6, neverExecutedCount: 4 }, error: null },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  assert.match(document.getElementById("progress-narrative").textContent, /6 de 10 compromissos já foram estudados\./);
+});
+
+test("J4 — a block that failed to load (status error) is left out of the narrative instead of narrating null data", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "error", data: null, error: new Error("down") },
+      produtividade: { status: "error", data: null, error: new Error("down") },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const text = document.getElementById("progress-narrative").textContent;
+  assert.doesNotMatch(text, /revis/i);
+  assert.doesNotMatch(text, /compromissos já foram estudados/);
+});
+
+test("J4 — a catastrophic failure fetching insights never breaks the rest of the narrative", async (t) => {
+  const { mod, handleErrorCalls } = await loadView(t, {
+    getInsightsData: async () => { throw new Error("network down"); },
+  });
+
+  await assert.doesNotReject(() => mod.initActivityDashboardView());
+
+  const text = document.getElementById("progress-narrative").textContent;
+  assert.match(text, /Nenhuma sequência ativa no momento\./);
+  assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.insights" && c.context.silent === true));
+});
+
+test("J4 — the stat-card grids (Períodos/Recordes/Revisões/Produtividade) never render outside the 'Ver detalhes' disclosure", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initActivityDashboardView();
+
+  assert.strictEqual(document.getElementById("progress-numbers-body").hidden, true);
+  document.getElementById("progress-numbers-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("progress-numbers-body").hidden, false);
 });
