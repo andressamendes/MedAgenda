@@ -1,8 +1,8 @@
 import { getEventsByRange } from "./eventService.js";
 import { getEventExecutionSummaries } from "./activitySessionService.js";
-import { describeExecutionIndicator } from "./activitySessionStats.js";
+import { describeExecutionIndicator, executionRingHTML } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
-import { pad, isoDate, isoToday, readableTextColor } from "./utils.js";
+import { pad, isoDate, isoToday, readableTextColor, escapeHtml } from "./utils.js";
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock } from "./stateView.js";
 
@@ -215,15 +215,14 @@ function renderGrid(byDate, summaries = {}) {
       chip.title = isAcademic
         ? `[${ev._calendarName}] ${ev.title}`
         : ev.title;
-      chip.textContent = ev.title;
 
-      if (!isAcademic) {
-        const indicator = describeExecutionIndicator(summaries[ev.id]);
-        if (indicator) {
-          chip.classList.add(`cal-chip-${indicator.state}`);
-          chip.textContent = `${indicator.icon} ${ev.title}`;
-          chip.title = `${chip.title} — ${indicator.text}`;
-        }
+      const indicator = isAcademic ? null : describeExecutionIndicator(summaries[ev.id]);
+      if (indicator) {
+        chip.classList.add(`cal-chip-${indicator.state}`);
+        chip.innerHTML = `${executionRingHTML(indicator)}<span class="cal-chip-text">${escapeHtml(ev.title)}</span><span class="sr-only">${escapeHtml(indicator.text)}</span>`;
+        chip.title = `${chip.title} — ${indicator.text}`;
+      } else {
+        chip.innerHTML = `<span class="cal-chip-text">${escapeHtml(ev.title)}</span>`;
       }
 
       if (!isAcademic && callbacks?.onEventClick) {

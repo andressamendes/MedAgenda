@@ -108,3 +108,16 @@ export function describeExecutionIndicator(summary) {
   }
   return null;
 }
+
+/**
+ * V5.18 — markup do anel de execução, compartilhado por calendar.js (chip do
+ * Mês) e weekView.js (evento da Semana/Dia), garantindo o mesmo indicador
+ * visual nas duas visões. Sempre `aria-hidden` — é decorativo; o texto de
+ * describeExecutionIndicator() precisa ser exposto ao lado (visível ou via
+ * `.sr-only`) por quem chama, nunca só pelo `title` (falha de acessibilidade
+ * já sinalizada no F18: informação que só existe no hover não é acessível).
+ */
+export function executionRingHTML(indicator) {
+  if (!indicator) return "";
+  return `<span class="exec-ring exec-ring-${indicator.state}" aria-hidden="true">${indicator.icon}</span>`;
+}

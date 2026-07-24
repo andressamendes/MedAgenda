@@ -1,6 +1,6 @@
 import { getEventsByRange } from "./eventService.js";
 import { getEventExecutionSummaries } from "./activitySessionService.js";
-import { describeExecutionIndicator } from "./activitySessionStats.js";
+import { describeExecutionIndicator, executionRingHTML } from "./activitySessionStats.js";
 import { expandEvents } from "./recurrence.js";
 import { pad, isoDate, isoToday, mondayOf, escapeHtml, readableTextColor } from "./utils.js";
 import { handleError } from "./errorService.js";
@@ -425,7 +425,7 @@ function renderEvents(events, summaries = {}) {
       <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
       ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
       <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
-      ${indicator ? `<span class="wk-ev-indicator">${indicator.icon} ${escapeHtml(indicator.text)}</span>` : ""}
+      ${indicator ? `<span class="wk-ev-indicator">${executionRingHTML(indicator)}<span>${escapeHtml(indicator.text)}</span></span>` : ""}
     `;
 
     if (_cbs.onEventClick) {
@@ -755,7 +755,7 @@ function renderDayEvents(events, summaries = {}) {
       <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
       ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
       <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
-      ${indicator ? `<span class="wk-ev-indicator">${indicator.icon} ${escapeHtml(indicator.text)}</span>` : ""}
+      ${indicator ? `<span class="wk-ev-indicator">${executionRingHTML(indicator)}<span>${escapeHtml(indicator.text)}</span></span>` : ""}
     `;
 
     if (_dCbs.onEventClick) {

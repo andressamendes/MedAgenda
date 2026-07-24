@@ -1335,11 +1335,18 @@ body {
 }
 
 .cal-chip {
+  display: flex;
+  align-items: center;
+  gap: .2rem;
   font-size: .65rem;
   font-weight: 600;
   color: #fff;
   padding: .1rem .35rem;
   border-radius: 3px;
+}
+
+.cal-chip-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1371,6 +1378,45 @@ body {
 
 .cal-chip-executed {
   box-shadow: inset 2px 0 0 rgba(255, 255, 255, .7);
+}
+
+/* V5.18 — anel de execução: mesmo componente no chip do Mês (.cal-chip) e no
+   evento da Semana/Dia (.wk-event), só variando de tamanho pelo font-size do
+   contexto (em unidades `em`). Substitui o ícone solto no texto (Mês, com a
+   descrição só em `title`) e o texto puro (Semana) por um indicador visual
+   único, com a descrição completa sempre disponível (ver executionRingHTML()
+   em activitySessionStats.js). */
+.exec-ring {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  font-size: .95em;
+  line-height: 1;
+  border: 1.5px solid rgba(255, 255, 255, .85);
+  background: rgba(0, 0, 0, .18);
+}
+
+.exec-ring-executed {
+  background: rgba(255, 255, 255, .92);
+  color: #10b981;
+}
+
+.exec-ring-running {
+  background: rgba(16, 185, 129, .4);
+  animation: exec-ring-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes exec-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, .5); }
+  50%      { box-shadow: 0 0 0 3px rgba(16, 185, 129, .3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exec-ring-running { animation: none; }
 }
 
 .cal-loading {
@@ -3466,10 +3512,16 @@ textarea { resize: vertical; }
 
 /* F1.7 — indicadores de execução */
 .wk-ev-indicator {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: .3em;
   font-size: .6rem;
   font-weight: 700;
   opacity: .92;
+}
+
+.wk-ev-indicator > span {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
