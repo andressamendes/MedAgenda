@@ -26,8 +26,6 @@ const LEGACY_F_IDS = {
   endCount:  "f-recurrence-end-count",
   until:     "f-recurrence-until",
   count:     "f-recurrence-count",
-  untilWrap: "f-recurrence-until-wrap",
-  countWrap: "f-recurrence-count-wrap",
 };
 
 function IDS(prefix) {
@@ -45,8 +43,6 @@ function IDS(prefix) {
     endCount:  `${prefix}-recurrence-end-count`,
     until:     `${prefix}-recurrence-until`,
     count:     `${prefix}-recurrence-count`,
-    untilWrap: `${prefix}-recurrence-until-wrap`,
-    countWrap: `${prefix}-recurrence-count-wrap`,
   };
 }
 
@@ -117,17 +113,13 @@ export function renderRecurrenceFieldsHTML(prefix) {
           <label class="recurrence-end-option">
             <input type="radio" name="${prefix}-recurrence-end" id="${ids.endUntil}" value="until">
             Em uma data
+            <input type="date" id="${ids.until}" disabled />
           </label>
           <label class="recurrence-end-option">
             <input type="radio" name="${prefix}-recurrence-end" id="${ids.endCount}" value="count">
             Após N ocorrências
+            <input type="number" id="${ids.count}" min="1" max="730" placeholder="Número de ocorrências" disabled />
           </label>
-        </div>
-        <div id="${ids.untilWrap}" hidden>
-          <input type="date" id="${ids.until}" />
-        </div>
-        <div id="${ids.countWrap}" hidden>
-          <input type="number" id="${ids.count}" min="1" max="730" placeholder="Número de ocorrências" />
         </div>
       </div>
     </div>
@@ -158,8 +150,8 @@ export function bindRecurrenceFields(prefix) {
 
 function _syncEndMode(e) {
   const mode = e.endUntil?.checked ? "until" : e.endCount?.checked ? "count" : "never";
-  if (e.untilWrap) e.untilWrap.hidden = mode !== "until";
-  if (e.countWrap) e.countWrap.hidden = mode !== "count";
+  if (e.until) e.until.disabled = mode !== "until";
+  if (e.count) e.count.disabled = mode !== "count";
 }
 
 export function showRecurrenceField(prefix, { focus = false } = {}) {

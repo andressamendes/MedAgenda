@@ -97,11 +97,10 @@ let titleEl, titleLabelEl, categoryEl, contentEl, dateEl, startedAtEl, expectedD
 let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
 let btnPause, btnResume, btnCancel, btnFinish;
 
-// F13.1 — só Compromisso/Categoria ficam sempre visíveis no contexto da
-// sessão ativa; o resto (Conteúdo/Data/Horário de início/Tempo previsto)
-// entra atrás do mesmo disclosure "Mostrar"/"Ocultar" já usado em
-// Questões/Revisões logo abaixo, nascendo fechado a cada sessão nova.
-let ctxMoreToggleEl, ctxMoreBodyEl;
+// F1/F2 — só Compromisso/Categoria ficam sempre visíveis no cartão de status
+// da sessão ativa; o resto (Conteúdo/Data/Horário de início/Tempo previsto)
+// vive dentro do painel "Detalhes da sessão" (ssPanel* abaixo), único ponto
+// de entrada — não há mais um disclosure próprio para isso.
 
 // Painel de Contexto (F7.6) — barra de progresso temporal (só quando o
 // compromisso tem tempo previsto). Nenhum cálculo novo: os mesmos valores
@@ -234,8 +233,6 @@ function _queryElements() {
   contentRowEl           = document.getElementById("ss-content-row");
   dateRowEl              = document.getElementById("ss-date-row");
   expectedDurationRowEl  = document.getElementById("ss-expected-duration-row");
-  ctxMoreToggleEl        = document.getElementById("ss-context-more-toggle");
-  ctxMoreBodyEl          = document.getElementById("ss-context-more");
 
   progressEl      = document.getElementById("ss-progress");
   progressBarEl   = document.getElementById("ss-progress-bar");
@@ -351,8 +348,6 @@ function _bindEvents() {
       toast.success("Sessão cancelada. Sem problema — retome quando quiser.");
     }
   });
-
-  ctxMoreToggleEl.addEventListener("click", () => _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, ctxMoreBodyEl.hidden));
 
   ssBtnFocusToggle.addEventListener("click", () => _setFocusMode(!_focusMode));
 
@@ -984,7 +979,6 @@ function _syncSessionQuestionsAndReviews() {
   _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
   srDateEl.value = "";
   _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
-  _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
   if (ssPanelEl && !ssPanelEl.hidden) _closeSsPanel();
 
   if (!_session) {
@@ -1708,7 +1702,7 @@ export function resetStudySessionView() {
   if (srListEl) _renderReviewsList();
   if (sqFormEl) _setInlineFormVisible(sqFormEl, sqBtnToggleForm, false);
   if (srFormEl) _setInlineFormVisible(srFormEl, srBtnToggleForm, false);
-  if (ctxMoreToggleEl) _setSectionExpanded(ctxMoreToggleEl, ctxMoreBodyEl, false);
+  if (btnCancel) btnCancel.hidden = true;
   if (categoryRowEl) categoryRowEl.hidden = false;
   [contentRowEl, dateRowEl, expectedDurationRowEl].forEach(row => { if (row) row.hidden = false; });
   if (srDateEl) srDateEl.value = "";
