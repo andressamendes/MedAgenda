@@ -181,7 +181,7 @@ test("login: a plain (non-auth-flagged, non-categorized) error falls back to the
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Não foi possível fazer login. Tente novamente."
+    "Não conseguimos fazer seu login agora. Tente de novo."
   );
 });
 
@@ -376,7 +376,7 @@ test("password recovery (forgot password): unclassifiable error falls back to th
 
   assert.strictEqual(
     document.getElementById("forgot-error").textContent,
-    "Não foi possível enviar o link. Tente novamente."
+    "Não conseguimos enviar o link agora. Tente de novo."
   );
 });
 

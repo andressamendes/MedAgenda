@@ -191,7 +191,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
     errorMsg.textContent = '';
     const email    = emailInput.value.trim();
     const password = passwordInput.value;
-    if (!email || !password) { errorMsg.textContent = 'Preencha e-mail e senha.'; return; }
+    if (!email || !password) { errorMsg.textContent = 'Falta seu e-mail e sua senha para continuar.'; return; }
 
     loginBtn.disabled    = true;
     loginBtn.textContent = 'Entrando…';
@@ -203,7 +203,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       const { friendly } = handleError(err, {
         context: 'authView.login',
         silent: true,
-        fallbackMessage: 'Não foi possível fazer login. Tente novamente.',
+        fallbackMessage: 'Não conseguimos fazer seu login agora. Tente de novo.',
       });
       errorMsg.textContent = friendly;
     } finally {
@@ -248,11 +248,11 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
     const confirm  = document.getElementById('reg-confirm').value;
     const terms    = document.getElementById('reg-terms').checked;
 
-    if (!fullName)      { registerError.textContent = 'Nome é obrigatório.'; return; }
-    if (!email)         { registerError.textContent = 'E-mail é obrigatório.'; return; }
-    if (pwd.length < 8) { registerError.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
-    if (pwd !== confirm) { registerError.textContent = 'As senhas não coincidem.'; return; }
-    if (!terms)         { registerError.textContent = 'Aceite os Termos de Uso para continuar.'; return; }
+    if (!fullName)      { registerError.textContent = 'Como podemos te chamar? Preencha seu nome.'; return; }
+    if (!email)         { registerError.textContent = 'Falta seu e-mail para continuar.'; return; }
+    if (pwd.length < 8) { registerError.textContent = 'Sua senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (pwd !== confirm) { registerError.textContent = 'As senhas não coincidem — confira e tente de novo.'; return; }
+    if (!terms)         { registerError.textContent = 'Para continuar, é só aceitar os Termos de Uso.'; return; }
 
     registerBtn.disabled    = true;
     registerBtn.textContent = 'Criando conta…';
@@ -279,7 +279,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       const { friendly } = handleError(err, {
         context: 'authView.signup',
         silent: true,
-        fallbackMessage: 'Não foi possível criar a conta. Tente novamente.',
+        fallbackMessage: 'Não conseguimos criar sua conta agora. Tente de novo.',
       });
       registerError.textContent = friendly;
     } finally {
@@ -297,7 +297,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
     forgotError.textContent = '';
 
     const email = document.getElementById('forgot-email').value.trim();
-    if (!email) { forgotError.textContent = 'Informe seu e-mail.'; return; }
+    if (!email) { forgotError.textContent = 'Falta seu e-mail para enviarmos o link.'; return; }
 
     sendResetBtn.disabled    = true;
     sendResetBtn.textContent = 'Enviando…';
@@ -308,7 +308,7 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
       const { friendly } = handleError(err, {
         context: 'authView.forgotPassword',
         silent: true,
-        fallbackMessage: 'Não foi possível enviar o link. Tente novamente.',
+        fallbackMessage: 'Não conseguimos enviar o link agora. Tente de novo.',
       });
       forgotError.textContent = friendly;
     } finally {
@@ -328,20 +328,20 @@ export function initAuthView({ onSignedIn, onBeforeSignOut } = {}) {
     const pwd     = document.getElementById('new-password').value;
     const confirm = document.getElementById('new-password-confirm').value;
 
-    if (pwd.length < 8)  { newPwdError.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return; }
-    if (pwd !== confirm)  { newPwdError.textContent = 'As senhas não coincidem.'; return; }
+    if (pwd.length < 8)  { newPwdError.textContent = 'Sua senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (pwd !== confirm)  { newPwdError.textContent = 'As senhas não coincidem — confira e tente de novo.'; return; }
 
     setPasswordBtn.disabled    = true;
     setPasswordBtn.textContent = 'Salvando…';
     try {
       await updatePassword(pwd);
-      toast.success('Senha definida com sucesso. Você já pode fazer login.');
+      toast.success('Senha redefinida! Já pode entrar com ela.');
       showLogin();
     } catch (err) {
       const { friendly } = handleError(err, {
         context: 'authView.setPassword',
         silent: true,
-        fallbackMessage: 'Não foi possível definir a senha.',
+        fallbackMessage: 'Não conseguimos salvar sua nova senha. Tente de novo.',
       });
       newPwdError.textContent = friendly;
     } finally {
