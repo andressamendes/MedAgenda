@@ -1878,6 +1878,40 @@ textarea { resize: vertical; }
 .dashboard-progress-bar--achieved  { background: var(--color-success); }
 .dashboard-progress-bar--exceeded  { background: var(--blue); }
 
+/* V5.2 — anel circular da meta diária (substitui .dashboard-progress só
+   nesse card): mesmo contrato de cor por estado da barra acima
+   (primary/success/exceeded), só desenhado com stroke em vez de largura. O
+   percentual em si nunca depende só desta cor — continua escrito em
+   .stat-card-value/.stat-card-desc (ver _progressRingMarkup()). */
+.dashboard-progress-ring {
+  align-self: center;
+  margin-top: .2rem;
+}
+
+.dashboard-progress-ring svg {
+  /* -90° gira a origem do traço do "3 horas" (padrão SVG) para o topo do
+     círculo, mesmo ponto de partida de qualquer indicador circular de
+     progresso. */
+  transform: rotate(-90deg);
+}
+
+.dashboard-progress-ring-bg {
+  fill: none;
+  stroke: var(--gray-200);
+  stroke-width: 6;
+}
+
+.dashboard-progress-ring-fg {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--transition-slow);
+}
+
+.dashboard-progress-ring-fg--achieved  { stroke: var(--color-success); }
+.dashboard-progress-ring-fg--exceeded  { stroke: var(--blue); }
+
 /* F11 E11 — minigráfico semanal (computeWeekSparkline()/
    activityDashboardService.js): puro SVG, sem lib externa; cor via
    currentColor para acompanhar claro/escuro como o resto dos ícones. */

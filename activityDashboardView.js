@@ -71,6 +71,30 @@ function _progressBarMarkup(progress) {
     </div>`;
 }
 
+// V5.2 — anel circular (SVG puro) para o card de meta diária, substituindo a
+// barra linear acima só ali (o "primeiro momento Apple Health" do produto,
+// F19 roadmap). Mesmo contrato de acessibilidade de _progressBarMarkup(): o
+// percentual continua escrito em _formatGoalDesc() e em .stat-card-value —
+// o anel é só uma segunda representação do mesmo dado, nunca a única.
+const RING_RADIUS = 26;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+function _progressRingMarkup(progress) {
+  if (!progress.configured) return "";
+  const pct = Math.max(0, Math.min(100, progress.percentage));
+  const stateClass = progress.state === "exceeded" ? " dashboard-progress-ring-fg--exceeded"
+    : progress.state === "achieved" ? " dashboard-progress-ring-fg--achieved" : "";
+  const offset = RING_CIRCUMFERENCE * (1 - pct / 100);
+  return `
+    <div class="dashboard-progress-ring" role="progressbar" aria-valuenow="${progress.percentage}" aria-valuemin="0" aria-valuemax="100">
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+        <circle class="dashboard-progress-ring-bg" cx="32" cy="32" r="${RING_RADIUS}"></circle>
+        <circle class="dashboard-progress-ring-fg${stateClass}" cx="32" cy="32" r="${RING_RADIUS}"
+          stroke-dasharray="${RING_CIRCUMFERENCE.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"></circle>
+      </svg>
+    </div>`;
+}
+
 // F11 E11 — minigráfico de barras dos minutos estudados por dia, desde
 // segunda-feira (dados de computeWeekSparkline(), já buscados junto com o
 // resto do dashboard — nenhuma consulta nova). SVG puro (sem lib externa),
@@ -103,7 +127,9 @@ const GOAL_CARD_DEFS = [
     title: "Meta diária",
     value: d => _formatGoalValue(d.dailyGoal),
     desc:  d => _formatGoalDesc(d.dailyGoal),
-    extra: d => _progressBarMarkup(d.dailyGoal),
+    // V5.2 — só a meta diária ganha o anel (o "primeiro momento Apple
+    // Health"); semanal/mensal continuam com a barra linear de sempre.
+    extra: d => _progressRingMarkup(d.dailyGoal),
     goalKey: "dailyGoal",
   },
   {
