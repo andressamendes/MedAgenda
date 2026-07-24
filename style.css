@@ -3754,6 +3754,21 @@ textarea { resize: vertical; }
   cursor: pointer;
 }
 
+/* F3 — data/contagem de fim de recorrência ficam ao lado do próprio radio em
+   vez de um bloco revelado à parte: remove um nível de disclosure aninhado. */
+.recurrence-end-option input[type="date"],
+.recurrence-end-option input[type="number"] {
+  width: 8rem;
+  margin-left: .15rem;
+}
+
+.recurrence-end-option input[type="number"] { width: 6rem; }
+
+.recurrence-end-option input:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
 /* ── Escolha de escopo de edição/exclusão de série (recurrenceScopeDialog.js) ── */
 .recurrence-scope-options {
   display: flex;
@@ -4220,7 +4235,7 @@ textarea { resize: vertical; }
 }
 
 /* F14.9 — badge de status + gatilho do modo foco lado a lado, mesma largura
-   total do card (mesmo padrão de .ss-context-more-header acima). */
+   total do card. */
 .ss-active-header {
   display: flex;
   align-items: center;
@@ -4327,47 +4342,39 @@ textarea { resize: vertical; }
   color: var(--gray-500);
 }
 
-.ss-context {
+/* F1 — cartão de status compacto: substitui os antigos blocos `dl`
+   (.ss-context/.ss-context-row) do contexto da sessão e do resumo de
+   encerramento. Mesmos dados, formato de composição de cartão em vez de
+   tabela de definição — grid compacto de itens rotulados, não uma lista de
+   linhas empilhadas. */
+.ss-status-card {
   width: 100%;
   margin: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-2);
 }
 
-/* F13.1 — o header do disclosure "Mais detalhes" precisa da mesma largura
-   total do card (.ss-card centraliza filhos por padrão via
-   align-items:center, então sem isto o botão "Mostrar" encolheria ao
-   próprio conteúdo em vez de alinhar como os demais toggles da tela). */
-.ss-context-more-header {
-  width: 100%;
-  margin-top: -.4rem;
-}
-
-.ss-context-row {
+.ss-status-item {
   display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  font-size: var(--font-size-sm);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px dashed var(--gray-200);
+  flex-direction: column;
+  gap: .15rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--gray-50);
+  border-radius: var(--radius);
 }
 
-.ss-context-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.ss-context-row dt {
-  color: var(--gray-500);
+.ss-status-label {
+  font-size: var(--eyebrow-font-size);
   font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
 }
 
-.ss-context-row dd {
-  margin: 0;
+.ss-status-value {
+  font-size: var(--font-size-sm);
   color: var(--gray-800);
-  text-align: right;
-  max-width: 60%;
   overflow-wrap: break-word;
 }
 
@@ -4428,6 +4435,14 @@ textarea { resize: vertical; }
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--gray-700);
+}
+
+/* F2 — Cancelar sessão, dentro de "Detalhes da sessão": ação rara/destrutiva,
+   com espaço extra das seções de conteúdo acima (mesmo espaçamento de
+   .ss-questions-block, que já demarca seções dentro do painel). */
+.ss-panel-cancel {
+  align-self: flex-start;
+  margin-top: var(--space-2);
 }
 
 /* Auditoria UX #04 — cabeçalho das seções opcionais colapsáveis do

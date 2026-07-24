@@ -597,81 +597,91 @@
 
             <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa não será contabilizado na duração final.</p>
 
-            <!-- F13.1 — só o essencial fica visível por padrão (Compromisso,
-                 Categoria); linhas sem valor são ocultadas em vez de mostrar
-                 "—". O resto do contexto (Conteúdo/Data/Horário de início/
-                 Tempo previsto) fica atrás do mesmo padrão de disclosure já
-                 usado no restante do app — reduz o card de sessão ativa sem
-                 remover nenhum dado. -->
-            <dl class="ss-context">
-              <div class="ss-context-row">
-                <dt id="ss-event-title-label">Compromisso</dt>
-                <dd id="ss-event-title">—</dd>
+            <!-- F1 — cartão de status compacto (não mais um `dl`) com só o
+                 essencial visível por padrão (Compromisso, Categoria); linhas
+                 sem valor são ocultadas em vez de mostrar "—". O resto do
+                 contexto (Conteúdo/Data/Horário de início/Tempo previsto)
+                 mudou de lugar na F2 — ver "Detalhes da sessão" abaixo, não
+                 há mais um segundo disclosure aqui dentro do card ativo. -->
+            <div class="ss-status-card">
+              <div class="ss-status-item">
+                <span class="ss-status-label" id="ss-event-title-label">Compromisso</span>
+                <span class="ss-status-value" id="ss-event-title">—</span>
               </div>
-              <div class="ss-context-row" id="ss-category-row">
-                <dt>Categoria</dt>
-                <dd id="ss-category">—</dd>
+              <div class="ss-status-item" id="ss-category-row">
+                <span class="ss-status-label">Categoria</span>
+                <span class="ss-status-value" id="ss-category">—</span>
               </div>
-            </dl>
-
-            <div class="ss-collapsible-header ss-context-more-header">
-              <h3 class="ss-questions-title">Mais detalhes</h3>
-              <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="ss-context-more-toggle" aria-expanded="false" aria-controls="ss-context-more"><span class="disclosure-label">Mostrar</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
             </div>
-            <dl class="ss-context ss-context-more" id="ss-context-more" hidden>
-              <div class="ss-context-row" id="ss-content-row">
-                <dt>Conteúdo</dt>
-                <dd id="ss-content">—</dd>
-              </div>
-              <div class="ss-context-row" id="ss-date-row">
-                <dt>Data</dt>
-                <dd id="ss-date">—</dd>
-              </div>
-              <div class="ss-context-row">
-                <dt>Horário de início</dt>
-                <dd id="ss-started-at">—</dd>
-              </div>
-              <div class="ss-context-row" id="ss-expected-duration-row">
-                <dt>Tempo previsto</dt>
-                <dd id="ss-expected-duration">—</dd>
-              </div>
-            </dl>
 
+            <!-- F2 — cronômetro + no máximo 2 ações primárias visíveis por
+                 padrão (Pausar/Continuar + Finalizar); Cancelar, o contexto
+                 completo e Questões/Revisões saíram daqui para dentro de
+                 "Detalhes da sessão" (único ponto de entrada, ver #ss-panel
+                 abaixo) — em vez de coexistirem sempre visíveis ao lado. -->
             <div class="ss-actions">
               <button type="button" class="btn btn-ghost"     id="ss-btn-pause"  hidden>Pausar</button>
               <button type="button" class="btn btn-secondary" id="ss-btn-resume" hidden>Continuar</button>
-              <button type="button" class="btn btn-danger"    id="ss-btn-cancel" hidden>Cancelar</button>
               <button type="button" class="btn btn-primary"   id="ss-btn-finish" hidden>Finalizar</button>
             </div>
 
             <!-- F17 — "+1 questão" (registro fora do painel, sem
-                 correta/incorreta) foi removido: "Questões e revisões" é o
-                 único ponto de entrada para registrar questões. O badge
-                 combina as duas contagens (ss-questions-count/
+                 correta/incorreta) foi removido: "Detalhes da sessão" é o
+                 único ponto de entrada para registrar questões/revisões. O
+                 badge combina as duas contagens (ss-questions-count/
                  ss-reviews-count nunca pararam de ser atualizados por
                  studySessionView.js — só ganharam este espelho visível mesmo
                  com o painel fechado). -->
             <div class="ss-quick-actions-row">
               <button type="button" class="btn btn-secondary ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
-                Questões e revisões<span id="ss-panel-badge" class="ss-section-count"></span>
+                Detalhes da sessão<span id="ss-panel-badge" class="ss-section-count"></span>
               </button>
             </div>
           </div>
 
-          <!-- Painel: Questões Resolvidas + Revisões da sessão ativa (F13.4) —
-               mesma estrutura/comportamento de abrir-fechar de #ai-panel
+          <!-- Painel "Detalhes da sessão" (F2) — único ponto de entrada para o
+               contexto completo do compromisso e para Questões
+               Resolvidas/Revisões da sessão ativa (antes: um disclosure de
+               contexto + um painel separado de Questões/Revisões). Mesma
+               estrutura/comportamento de abrir-fechar de #ai-panel
                (aiPanelView.js), reaproveitando as mesmas classes .ai-panel*. -->
           <div id="ss-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
           <aside id="ss-panel" class="ai-panel" hidden
                  role="dialog" aria-modal="true" aria-labelledby="ss-panel-title">
             <div class="ai-panel-header">
               <div class="ai-panel-title-wrap">
-                <span class="ai-panel-title" id="ss-panel-title">Questões e revisões</span>
+                <span class="ai-panel-title" id="ss-panel-title">Detalhes da sessão</span>
               </div>
-              <button class="ai-panel-close" id="ss-panel-close" aria-label="Fechar painel de questões e revisões"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+              <button class="ai-panel-close" id="ss-panel-close" aria-label="Fechar painel de detalhes da sessão"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
 
             <div class="ai-panel-actions">
+
+            <!-- F1 — mesmo cartão de status compacto do card ativo, agora com
+                 o restante do contexto (Conteúdo/Data/Horário de início/Tempo
+                 previsto) que antes vivia atrás de "Mais detalhes"; abrir este
+                 painel já é o único nível de disclosure necessário. -->
+            <div class="ss-questions-block">
+              <h3 class="ss-questions-title">Contexto</h3>
+              <div class="ss-status-card">
+                <div class="ss-status-item" id="ss-content-row">
+                  <span class="ss-status-label">Conteúdo</span>
+                  <span class="ss-status-value" id="ss-content">—</span>
+                </div>
+                <div class="ss-status-item" id="ss-date-row">
+                  <span class="ss-status-label">Data</span>
+                  <span class="ss-status-value" id="ss-date">—</span>
+                </div>
+                <div class="ss-status-item">
+                  <span class="ss-status-label">Horário de início</span>
+                  <span class="ss-status-value" id="ss-started-at">—</span>
+                </div>
+                <div class="ss-status-item" id="ss-expected-duration-row">
+                  <span class="ss-status-label">Tempo previsto</span>
+                  <span class="ss-status-value" id="ss-expected-duration">—</span>
+                </div>
+              </div>
+            </div>
 
             <!-- F10 #4.3 — Questões e Revisões deixaram de ser exclusivas do
                  encerramento: são registradas aqui, durante a sessão ativa, e
@@ -784,6 +794,12 @@
               </div>
             </div>
 
+            <!-- F2 — Cancelar sessão saiu das ações sempre visíveis do card
+                 ativo (só aparecia com a sessão pausada) para dentro de
+                 "Detalhes da sessão": é uma ação rara e destrutiva, não uma
+                 das no máximo 2 ações primárias da tela. -->
+            <button type="button" class="btn btn-danger btn-sm ss-panel-cancel" id="ss-btn-cancel" hidden>Cancelar sessão</button>
+
             </div>
           </aside>
 
@@ -794,32 +810,34 @@
                 <h2 class="modal-title" id="ss-finish-title">Resumo da sessão</h2>
               </div>
               <div class="modal-body">
-                <dl class="ss-context">
-                  <div class="ss-context-row">
-                    <dt id="ssf-event-title-label">Compromisso</dt>
-                    <dd id="ssf-event-title">—</dd>
+                <!-- F1 — cartão de status compacto (não mais um `dl`); mesmos
+                     campos exibidos antes, nenhum dado a menos. -->
+                <div class="ss-status-card">
+                  <div class="ss-status-item">
+                    <span class="ss-status-label" id="ssf-event-title-label">Compromisso</span>
+                    <span class="ss-status-value" id="ssf-event-title">—</span>
                   </div>
-                  <div class="ss-context-row">
-                    <dt>Categoria</dt>
-                    <dd id="ssf-category">—</dd>
+                  <div class="ss-status-item">
+                    <span class="ss-status-label">Categoria</span>
+                    <span class="ss-status-value" id="ssf-category">—</span>
                   </div>
-                  <div class="ss-context-row">
-                    <dt>Conteúdo</dt>
-                    <dd id="ssf-content">—</dd>
+                  <div class="ss-status-item">
+                    <span class="ss-status-label">Conteúdo</span>
+                    <span class="ss-status-value" id="ssf-content">—</span>
                   </div>
-                  <div class="ss-context-row">
-                    <dt>Horário de início</dt>
-                    <dd id="ssf-started-at">—</dd>
+                  <div class="ss-status-item">
+                    <span class="ss-status-label">Horário de início</span>
+                    <span class="ss-status-value" id="ssf-started-at">—</span>
                   </div>
-                  <div class="ss-context-row">
-                    <dt>Horário de término</dt>
-                    <dd id="ssf-ended-at">—</dd>
+                  <div class="ss-status-item">
+                    <span class="ss-status-label">Horário de término</span>
+                    <span class="ss-status-value" id="ssf-ended-at">—</span>
                   </div>
-                  <div class="ss-context-row">
-                    <dt>Tempo de estudo (pausas descontadas)</dt>
-                    <dd id="ssf-net-time">—</dd>
+                  <div class="ss-status-item">
+                    <span class="ss-status-label">Tempo de estudo (pausas descontadas)</span>
+                    <span class="ss-status-value" id="ssf-net-time">—</span>
                   </div>
-                </dl>
+                </div>
 
                 <label for="ssf-reflection" class="ss-notes-label">O que ficou desta sessão?</label>
                 <textarea id="ssf-reflection" class="ss-notes-textarea" rows="3" placeholder="O que aprendeu, dificuldades, o que revisar depois… (opcional)"></textarea>
@@ -1423,17 +1441,13 @@
                 <label class="recurrence-end-option">
                   <input type="radio" name="f-recurrence-end" id="f-recurrence-end-until" value="until">
                   Em uma data
+                  <input type="date" id="f-recurrence-until" disabled />
                 </label>
                 <label class="recurrence-end-option">
                   <input type="radio" name="f-recurrence-end" id="f-recurrence-end-count" value="count">
                   Após N ocorrências
+                  <input type="number" id="f-recurrence-count" min="1" max="730" placeholder="Número de ocorrências" disabled />
                 </label>
-              </div>
-              <div id="f-recurrence-until-wrap" hidden>
-                <input type="date" id="f-recurrence-until" />
-              </div>
-              <div id="f-recurrence-count-wrap" hidden>
-                <input type="number" id="f-recurrence-count" min="1" max="730" placeholder="Número de ocorrências" />
               </div>
             </div>
           </div>

@@ -2,6 +2,32 @@
 
 ---
 
+## [Unreleased] — Fase F (F1–F3): Reconstrução da Sessão de Estudo
+
+- **F1 — cartão de status compacto substitui os blocos `dl` de contexto**
+  (`.ss-status-card`/`.ss-status-item`, antes `.ss-context`/`.ss-context-row`
+  em formato de tabela de definição) tanto no card da sessão ativa quanto no
+  resumo de encerramento — mesmos dados exibidos hoje, nenhuma informação
+  perdida, só o formato muda.
+- **F2 — Questões, Revisões e o restante do contexto do compromisso
+  (Conteúdo/Data/Horário de início/Tempo previsto) migram para um único
+  ponto de entrada, "Detalhes da sessão"** (`#ss-panel`, mesmo painel que já
+  existia para Questões/Revisões — agora também com a seção "Contexto" que
+  antes vivia atrás do disclosure "Mais detalhes" dentro do card ativo, que
+  deixou de existir). A tela de sessão ativa passa a mostrar cronômetro + no
+  máximo 2 ações primárias por padrão (Pausar/Continuar + Finalizar);
+  "Cancelar sessão" (ação rara e destrutiva) também se mudou para dentro do
+  painel. O atalho "+1 questão" do mini-timer flutuante
+  (`activeSessionIndicatorView.js`, V5.11) continua exatamente como está.
+- **F3 — recorrência do formulário de compromisso cai de 3 para 2 níveis de
+  disclosure aninhado** (`recurrenceFieldView.js`, reaproveitado também por
+  Eventos Acadêmicos): a data/contagem de "Fim da recorrência" ("Em uma
+  data"/"Após N ocorrências") passam a ficar ao lado do próprio rádio, em
+  vez de um bloco revelado à parte — o rádio agora habilita/desabilita o
+  campo vizinho em vez de mostrar/esconder um wrapper próprio. O toggle
+  "+ Repetir" (F10 #1.1) continua existindo — a maioria dos compromissos não
+  é recorrente.
+
 ## [Unreleased] — V5.18: Indicador de execução como anel, consistente entre Mês e Semana
 
 - **Anel de execução (`.exec-ring`) substitui o ícone solto no chip do Mês

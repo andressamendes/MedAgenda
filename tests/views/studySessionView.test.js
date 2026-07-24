@@ -2344,21 +2344,28 @@ test("F17 — the '+1 questão' button no longer exists on the main card", async
   assert.strictEqual(document.getElementById("ss-btn-open-panel").hidden, false, "the panel trigger remains the sole entry point");
 });
 
-test("F13.1 — 'Mais detalhes' nasce colapsado e revela Conteúdo/Data/Horário/Tempo previsto ao expandir", async (t) => {
+test("F2 — 'Detalhes da sessão' é o único ponto de entrada para o contexto completo (Conteúdo/Data/Horário/Tempo previsto)", async (t) => {
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: "Sepse", duration_minutes: 60, event_date: "2026-07-19" }),
   });
   await mod.initStudySessionView();
 
-  assert.strictEqual(document.getElementById("ss-context-more").hidden, true);
-  assert.strictEqual(document.getElementById("ss-context-more-toggle").getAttribute("aria-expanded"), "false");
-  // Compromisso e Categoria continuam sempre visíveis, fora do disclosure.
+  // Não existe mais um segundo disclosure de contexto dentro do card ativo —
+  // o painel inteiro é o único nível de disclosure.
+  assert.strictEqual(document.getElementById("ss-context-more"), null);
+  assert.strictEqual(document.getElementById("ss-context-more-toggle"), null);
+  // Compromisso e Categoria continuam sempre visíveis, fora do painel.
   assert.strictEqual(document.getElementById("ss-category-row").hidden, false);
 
-  document.getElementById("ss-context-more-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("ss-context-more").hidden, false);
-  assert.strictEqual(document.getElementById("ss-context-more-toggle").getAttribute("aria-expanded"), "true");
+  // O restante do contexto já está renderizado (dentro do painel, que só
+  // fica invisível por estar hidden — não por um disclosure próprio).
+  assert.strictEqual(document.getElementById("ss-panel").hidden, true);
+  assert.strictEqual(document.getElementById("ss-content").textContent, "Sepse");
+  assert.strictEqual(document.getElementById("ss-expected-duration").textContent, "1h 0min");
+
+  document.getElementById("ss-btn-open-panel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("ss-panel").hidden, false);
   assert.strictEqual(document.getElementById("ss-content").textContent, "Sepse");
   assert.strictEqual(document.getElementById("ss-expected-duration").textContent, "1h 0min");
 });
