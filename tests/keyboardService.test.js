@@ -10,17 +10,23 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { installDom, uninstallDom } from "./mocks/domFixture.js";
 
-const NAVIGATION_SPECIFIER  = new URL("../navigationView.js", import.meta.url).href;
+const NAVIGATION_SPECIFIER      = new URL("../navigationView.js", import.meta.url).href;
+const COMMAND_PALETTE_SPECIFIER = new URL("../commandPaletteView.js", import.meta.url).href;
 
 let newEventClicks;
 let showPageCalls;
+let paletteOpenCalls;
 
 function loadService(t) {
   newEventClicks = [];
   showPageCalls = [];
+  paletteOpenCalls = [];
   document.getElementById("btn-new-event").addEventListener("click", () => { newEventClicks.push(true); });
   t.mock.module(NAVIGATION_SPECIFIER, {
     namedExports: { showPage: (name) => { showPageCalls.push(name); } },
+  });
+  t.mock.module(COMMAND_PALETTE_SPECIFIER, {
+    namedExports: { openCommandPalette: () => { paletteOpenCalls.push(true); } },
   });
   return import(`../keyboardService.js?t=${Math.random()}`);
 }
@@ -185,6 +191,47 @@ test("Ctrl/Cmd/Alt+key combinations are never intercepted (browser shortcuts sta
   press("n", { altKey: true });
 
   assert.strictEqual(newEventClicks.length, 0);
+});
+
+// V5.10 — Ctrl+K/Cmd+K abre a paleta de comando, o único atalho desta tela
+// deliberadamente modificado (Ctrl/Cmd) que a gente intercepta.
+test("Ctrl+K opens the command palette", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  press("k", { ctrlKey: true });
+
+  assert.strictEqual(paletteOpenCalls.length, 1);
+});
+
+test("Cmd+K (metaKey) also opens the command palette", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  press("k", { metaKey: true });
+
+  assert.strictEqual(paletteOpenCalls.length, 1);
+});
+
+test("Ctrl+K opens the palette even while typing in a text field", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  const input = document.getElementById("f-title");
+  input.focus();
+  input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true }));
+
+  assert.strictEqual(paletteOpenCalls.length, 1);
+});
+
+test("Ctrl+Shift+K and Ctrl+Alt+K do not open the command palette (reserved combos elsewhere)", async (t) => {
+  const { initKeyboardShortcuts } = await loadService(t);
+  initKeyboardShortcuts();
+
+  press("k", { ctrlKey: true, shiftKey: true });
+  press("k", { ctrlKey: true, altKey: true });
+
+  assert.strictEqual(paletteOpenCalls.length, 0);
 });
 
 test("resetKeyboardShortcuts() stops all shortcuts from firing", async (t) => {
