@@ -211,17 +211,6 @@
         </span>
       </div>
       <div class="header-right">
-        <!-- F11 E13 (auditoria #10) — sem isto, uma sessão de estudo em
-             andamento ficava invisível assim que o usuário saía da página
-             "Sessão" (F7.2, único lugar com o cronômetro completo). Este
-             chip só mostra tempo decorrido + link de volta — nenhum
-             controle de pausar/retomar/finalizar é duplicado aqui (ver
-             activeSessionIndicatorView.js). Atualiza por minuto, não por
-             segundo — só precisa comunicar "ainda rodando há quanto tempo". -->
-        <button type="button" id="active-session-chip" class="active-session-chip" hidden aria-label="Sessão de estudo em andamento — clique para abrir">
-          <span class="active-session-chip-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
-          <span id="active-session-chip-time" class="active-session-chip-time"></span>
-        </button>
         <!-- F13.2 — "Assistente IA" abre um painel (não troca de página), então
              vive como ação de header, não como item da sidebar: a lista
              principal de navegação passa a conter só destinos reais. -->
@@ -1157,6 +1146,27 @@
         <span class="bottom-nav-label">Mais</span>
       </button>
     </nav>
+
+    <!-- V5.11 — mini-timer flutuante (evolução do antigo chip de header, F11
+         E13/auditoria #10): mesmo papel (uma sessão de estudo em andamento
+         nunca fica invisível fora da página "Sessão"), agora fixo na tela em
+         qualquer rolagem, com um toque expandindo para tempo + "+1 questão"
+         sem duplicar os controles completos de studySessionView.js (pausar/
+         retomar/finalizar/formulário detalhado continuam exclusivos de lá —
+         ver _render() em activeSessionIndicatorView.js, que o esconde
+         enquanto a página de Sessão está ativa). -->
+    <div id="active-session-chip" class="active-session-chip" hidden>
+      <button type="button" id="active-session-chip-toggle" class="active-session-chip-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="active-session-chip-panel" aria-label="Sessão de estudo em andamento — toque para expandir">
+        <span class="active-session-chip-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+        <span id="active-session-chip-time" class="active-session-chip-time"></span>
+      </button>
+      <div id="active-session-chip-panel" class="active-session-chip-panel" hidden>
+        <button type="button" id="active-session-chip-open" class="active-session-chip-open">Abrir sessão</button>
+        <button type="button" id="active-session-chip-quick" class="active-session-chip-quick">
+          <span aria-hidden="true">+1</span> questão
+        </button>
+      </div>
+    </div>
 
   </div>
 

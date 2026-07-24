@@ -2,6 +2,21 @@
 
 ---
 
+## [Unreleased] — V5.11: Mini-timer flutuante
+
+- **O chip de sessão ativa (`activeSessionIndicatorView.js`, F11 E13) evolui
+  de um botão só dentro do header para um mini-timer fixo na tela**, que
+  sobrevive a qualquer rolagem em qualquer página. Um toque no tempo expande
+  um painel com "Abrir sessão" (navega para `study-session`) e "+1 questão"
+  (registro rápido via `sessionQuestionsService.addQuestion()`, mesmo padrão
+  de defaults do registro rápido de `studySessionView.js` — múltipla
+  escolha/média/já respondida). Continua sem duplicar nenhum controle
+  completo (pausar/retomar/finalizar/formulário detalhado): o widget se
+  esconde sozinho enquanto a página de Sessão está ativa, observando
+  diretamente o atributo `hidden` de `#page-study-session` (nenhum evento
+  novo de navegação foi introduzido). Posicionamento fixo respeita as safe
+  areas e sobe acima da bottom nav em telas mobile (`style.css`).
+
 ## [Unreleased] — V5.10: Paleta de comando (Ctrl/Cmd+K)
 
 - **`commandPaletteView.js` unifica navegação, ações rápidas e busca numa
