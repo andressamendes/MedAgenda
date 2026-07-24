@@ -4629,6 +4629,58 @@ textarea { resize: vertical; }
   gap: .5rem;
 }
 
+/* ── Revisões — opções de registro (Fase J2) ──────────────────────────────
+   Antes um <select>/<input> soltos ao lado de um botão fantasma, na mesma
+   grade genérica do formulário detalhado de Questões. Ganham a composição
+   de cartão + ícone + botão de destaque (mesmo par ícone/botão de
+   .ss-quick-question-btn) que já dá ao registro rápido de Questões seu peso
+   visual — "Associar" e "Criar" são as duas formas de registrar uma
+   revisão, cada uma seu próprio cartão em vez de linhas empilhadas. */
+.ss-review-option {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .6rem .8rem;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  margin-bottom: .6rem;
+}
+
+.ss-review-option-icon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--gray-500);
+}
+
+.ss-review-option-icon svg { width: var(--icon-md); height: var(--icon-md); display: block; }
+
+.ss-review-option-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ss-review-option-body label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: .2rem;
+  display: block;
+}
+
+.ss-review-option-body select,
+.ss-review-option-body input {
+  width: 100%;
+}
+
+.ss-review-action-btn {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-shrink: 0;
+}
+
+.ss-review-action-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
+
 /* Modal de configuração pré-início (#ss-start-modal) — os dois caminhos
    ("Novo estudo" digitado livremente x "Compromisso da agenda" já existente)
    nunca ficam visíveis ao mesmo tempo; usa o componente único de abas

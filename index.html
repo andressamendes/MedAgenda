@@ -768,16 +768,33 @@
 
               <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-toggle-review-form" aria-expanded="false" aria-controls="ss-review-form">+ Adicionar revisão</button>
 
+              <!-- Fase J2 — as duas formas de registrar uma revisão (associar
+                   uma já pendente ou agendar uma nova) ganham a mesma
+                   composição de cartão + ícone + botão de destaque que
+                   Questões já usa no seu registro rápido, em vez do
+                   <select>/<input> soltos ao lado de um botão fantasma. -->
               <div id="ss-review-form" class="ss-question-form" hidden>
-                <div class="ss-question-form-row" id="ss-review-associate-row">
-                  <label for="ss-r-existing">Revisão existente</label>
-                  <select id="ss-r-existing"></select>
-                  <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-associate-review">Associar revisão</button>
+                <div class="ss-review-option" id="ss-review-associate-row">
+                  <span class="ss-review-option-icon" aria-hidden="true" data-icon="repeat"></span>
+                  <div class="ss-review-option-body">
+                    <label for="ss-r-existing">Revisão existente</label>
+                    <select id="ss-r-existing"></select>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm ss-review-action-btn" id="ss-btn-associate-review">
+                    <span class="ss-review-action-icon" aria-hidden="true" data-icon="check"></span>
+                    Associar
+                  </button>
                 </div>
-                <div class="ss-question-form-row" id="ss-review-create-row">
-                  <label for="ss-r-date">Nova revisão em</label>
-                  <input type="date" id="ss-r-date">
-                  <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-create-review">Criar revisão</button>
+                <div class="ss-review-option" id="ss-review-create-row">
+                  <span class="ss-review-option-icon" aria-hidden="true" data-icon="calendar-week"></span>
+                  <div class="ss-review-option-body">
+                    <label for="ss-r-date">Nova revisão em</label>
+                    <input type="date" id="ss-r-date">
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm ss-review-action-btn" id="ss-btn-create-review">
+                    <span class="ss-review-action-icon" aria-hidden="true" data-icon="check"></span>
+                    Criar
+                  </button>
                 </div>
                 <button type="button" class="btn btn-ghost btn-sm" id="ss-btn-cancel-review">Cancelar</button>
               </div>

@@ -325,6 +325,7 @@ const STATIC_ICON_REGISTRY = {
   "x": iconX,
   "maximize": iconMaximize,
   "check": iconCheck,
+  "repeat": iconRepeat,
   "check-circle": iconCheckCircle,
   "alert-triangle": iconAlertTriangle,
   "search": iconSearch,
