@@ -537,7 +537,7 @@ async function _handleDeleteAccount() {
     const { error } = await supabase.functions.invoke('delete-account');
     if (error) throw error;
     await signOut();
-    toast.info('Conta excluída. Até logo!');
+    toast.success('Conta excluída. Até logo!');
   } catch (err) {
     const { friendly } = handleError(err, {
       context: 'accountView.deleteAccount',
