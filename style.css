@@ -5523,9 +5523,15 @@ textarea { resize: vertical; }
 }
 
 /* ── Cards Inteligentes (F3.5) — dica/sugestão/atenção/meta/revisão ──────────
-   Discretos por design: sem gráfico, sem animação, um card por linha. Radius
-   vem da mesma base de `.card`/`.ss-card`/`.modal-card` (F18.8); sem sombra
-   e com fundo neutro é o modificador real que mantém o callout discreto. ── */
+   V5.20: a versão anterior (ícone + rótulo + mensagem numa linha, borda
+   esquerda de 3px) era indistinguível do padrão genérico de "AI insight
+   callout" usado em qualquer produto com IA. A composição autoral troca a
+   borda por um selo de ícone tingido na cor do tipo — o próprio selo carrega
+   a identidade, sem depender de uma tarja lateral — e empilha rótulo/mensagem
+   verticalmente, como um mini-cabeçalho de cartão em vez de uma linha de
+   callout. Radius continua vindo da mesma base de `.card`/`.ss-card`/
+   `.modal-card` (F18.8); sem sombra e com fundo neutro mantêm o callout
+   discreto (nunca mais de 1 por tela, nunca crítico espontâneo). ── */
 .smart-cards {
   display: flex;
   flex-direction: column;
@@ -5536,28 +5542,36 @@ textarea { resize: vertical; }
 .smart-card {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--space-3);
   background: var(--gray-50);
-  border-left: 3px solid var(--gray-300);
   border-radius: var(--radius-lg);
-  padding: .55rem .75rem;
+  padding: .7rem .85rem;
   font-size: var(--font-size-sm);
 }
 
 .smart-card-icon {
   flex-shrink: 0;
-  line-height: 1.4;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, currentColor 16%, transparent);
 }
 .smart-card-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
 
+.smart-card-body {
+  min-width: 0;
+}
+
 .smart-card-label {
-  flex-shrink: 0;
+  display: block;
   font-size: var(--eyebrow-font-size);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--eyebrow-letter-spacing);
-  color: var(--gray-500);
-  align-self: center;
+  margin: 0 0 .15rem;
 }
 
 .smart-card-message {
@@ -5566,19 +5580,18 @@ textarea { resize: vertical; }
   line-height: 1.45;
 }
 
-.smart-card--dica     { border-left-color: var(--blue); }
-.smart-card--sugestao { border-left-color: #06b6d4; }
-.smart-card--atencao  { border-left-color: var(--color-warning); }
-.smart-card--meta     { border-left-color: var(--color-success); }
-.smart-card--revisao  { border-left-color: #8b5cf6; }
-
-/* Cor do ícone (F11 E5) casada com a cor de destaque já usada acima na
-   borda esquerda de cada tipo — mesmo código de cor, sem valor novo. */
-.smart-card--dica     .smart-card-icon { color: var(--blue); }
-.smart-card--sugestao .smart-card-icon { color: #06b6d4; }
-.smart-card--atencao  .smart-card-icon { color: var(--color-warning); }
-.smart-card--meta     .smart-card-icon { color: var(--color-success); }
-.smart-card--revisao  .smart-card-icon { color: #8b5cf6; }
+/* Selo do ícone e rótulo compartilham a cor de destaque de cada tipo — a
+   identidade visual agora mora nesses dois pontos, não numa borda lateral. */
+.smart-card--dica     .smart-card-icon,
+.smart-card--dica     .smart-card-label     { color: var(--blue); }
+.smart-card--sugestao .smart-card-icon,
+.smart-card--sugestao .smart-card-label     { color: #06b6d4; }
+.smart-card--atencao  .smart-card-icon,
+.smart-card--atencao  .smart-card-label     { color: var(--color-warning); }
+.smart-card--meta     .smart-card-icon,
+.smart-card--meta     .smart-card-label     { color: var(--color-success); }
+.smart-card--revisao  .smart-card-icon,
+.smart-card--revisao  .smart-card-label     { color: #8b5cf6; }
 
 /* ── Plano rápido na agenda (F3.5, ETAPA 6) — mesma marcação de plano do
    painel de IA (ver .ai-plan-item em Plano da Semana), reaproveitada aqui. ── */
