@@ -866,8 +866,16 @@
             <h2 class="dash-tier-title">Períodos</h2>
             <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
 
-            <h2 class="dash-tier-title">Progresso e Conquistas</h2>
+            <h2 class="dash-tier-title">Recordes</h2>
             <div id="dash-cards-records" class="stat-cards" hidden></div>
+
+            <!-- V5.3 — as 5 conquistas de achievementService.js (já
+                 calculadas e testadas) renderizadas individualmente, com
+                 ícone e estado (bloqueada/em progresso/concluída) —
+                 substitui o card único "3/5" da auditoria UX #23
+                 (activityDashboardView.js/_load()). -->
+            <h2 class="dash-tier-title">Conquistas</h2>
+            <div id="achievements-list"></div>
 
             <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
                  renderizados por insightsView.js. Execução e Metas não existem
