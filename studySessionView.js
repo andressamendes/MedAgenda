@@ -349,7 +349,7 @@ function _bindEvents() {
       // Auditoria UX #22: ao contrário de finalizar (que abre o resumo — F7.3
       // — e por isso já comunica o resultado), cancelar só fazia a tela
       // voltar ao estado ocioso, sem nenhum sinal de que a ação funcionou.
-      toast.success("Sessão cancelada.");
+      toast.success("Sessão cancelada. Sem problema — retome quando quiser.");
     }
   });
 
@@ -1173,7 +1173,7 @@ async function _quickAddQuestion() {
   _renderQuestionsList();
   sqQuickTotalEl.value = "1";
   sqQuickErrorsEl.value = "0";
-  toast.info("Questão registrada.", 2000);
+  toast.info("Questão anotada.", 2000);
 }
 
 async function _submitQuestionForm() {
@@ -1216,7 +1216,7 @@ async function _submitQuestionForm() {
   // fácil de não notar numa lista já longa. Microfeedback (duração curta):
   // várias questões podem ser adicionadas em sequência no mesmo formulário,
   // então um toast com a duração padrão acumularia na tela.
-  toast.info(editingId !== null ? "Questão atualizada." : "Questão adicionada.", 2000);
+  toast.info(editingId !== null ? "Alterações salvas." : "Questão anotada.", 2000);
   // Auditoria UX #25: foco de volta ao primeiro campo permite cadência rápida
   // por teclado ao lançar várias questões em sequência (ex.: resolveu um
   // bloco inteiro de uma prova), sem precisar clicar de volta no formulário.
@@ -1486,7 +1486,7 @@ async function _confirmFinish() {
   // mais para dispensá-la, um toast confirma o encerramento e a navegação já
   // leva direto para onde a sessão finalizada aparece.
   _closeFinishModal();
-  toast.success("Sessão encerrada e registrada no Diário de Estudos.");
+  toast.success("Sessão concluída e guardada no Diário de Estudos.");
   showPage("journal");
 }
 

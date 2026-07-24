@@ -285,7 +285,7 @@ async function _confirmCloseDay() {
   try {
     await setNextStudyPlan({ title: cdNextStudyEl.value });
     _closeCloseDayModal();
-    toast.milestone("Dia encerrado. Até amanhã!");
+    toast.milestone("Dia encerrado. Foi um bom dia de estudo — até amanhã!");
   } catch (err) {
     handleError(err, { context: "todayView.confirmCloseDay" });
   } finally {

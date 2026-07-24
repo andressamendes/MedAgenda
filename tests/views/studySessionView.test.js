@@ -994,7 +994,7 @@ test("adding a question on the active screen persists it immediately via addQues
   assert.strictEqual(document.getElementById("ss-questions-empty").hidden, true);
   // Auditoria UX #22: antes, a lista crescendo era o único sinal — fácil de
   // não notar numa lista já longa.
-  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão adicionada/);
+  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão anotada/);
 });
 
 // ── F11 E15 (auditoria UX #09) — registro rápido de 1 clique, sem abrir o
@@ -1024,7 +1024,7 @@ test("F11 E15 — the quick-add button registers an answered question in a singl
   assert.strictEqual(document.getElementById("ss-question-form").hidden, true, "the quick path never opens the detailed form");
   assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
   assert.strictEqual(document.getElementById("ss-questions-empty").hidden, true);
-  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão registrada/);
+  assert.match(document.querySelector("#toast-container .toast-message").textContent, /Questão anotada/);
 });
 
 test("F11 E15 — the quick-add button does nothing without an active session", async (t) => {
@@ -1276,7 +1276,7 @@ test("editing a question calls updateQuestion() with the right id instead of dup
   assert.ok(document.getElementById("ss-questions-list").textContent.includes("Nefrologia"));
   // Auditoria UX #22: editar tem seu próprio microfeedback, distinto de adicionar.
   const toasts = document.querySelectorAll("#toast-container .toast-message");
-  assert.match(toasts[toasts.length - 1].textContent, /Questão atualizada/);
+  assert.match(toasts[toasts.length - 1].textContent, /Alterações salvas/);
 });
 
 test("adding a question is independent of ever opening the finish modal, and confirming finish does not call addQuestion again", async (t) => {
