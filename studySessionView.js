@@ -1027,6 +1027,18 @@ async function _loadSessionQuestionsAndReviews(sessionId) {
   }
 }
 
+// V5.11 — o mini-timer flutuante (activeSessionIndicatorView.js) permite
+// registrar "+1 questão" em qualquer página, fora do fluxo desta view. Sem
+// isto, _sessionQuestions ficaria desatualizada aqui até a próxima
+// pausa/retomada da MESMA sessão (guarda de _sessionDataLoadedFor acima, que
+// existe para não sobrescrever um formulário em edição — não se aplica a
+// esta recarga pontual). Só busca de novo a lista; nenhum formulário aberto
+// é tocado.
+export function refreshSessionQuestions() {
+  if (!_session) return;
+  _loadSessionQuestionsAndReviews(_session.id);
+}
+
 // ── Questões Resolvidas (F7.4) ──────────────────────────────────────────────
 // F10 #4.3: cada questão é persistida assim que adicionada/editada/removida —
 // _sessionQuestions é só o espelho em memória do que sessionQuestionsService

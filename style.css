@@ -3614,29 +3614,103 @@ textarea { resize: vertical; }
 
 .sync-indicator[hidden] { display: none; }
 
-/* F11 E13 — chip de sessão ativa no header (activeSessionIndicatorView.js),
-   visível em qualquer página enquanto houver sessão "running"/"paused". Cor
-   de destaque discreta (mesmo tom do link/primário), nunca vermelha/piscante
-   — não é um alarme, só um lembrete de que o cronômetro continua rodando. */
+/* V5.11 — mini-timer flutuante (evolução do antigo chip só de header, F11
+   E13/auditoria #10): mesmo papel (uma sessão em andamento nunca fica
+   invisível fora da página "Sessão"), agora fixo na tela em qualquer
+   rolagem/página, escondido só enquanto a própria página de Sessão está
+   ativa (ver activeSessionIndicatorView.js/_render() — os controles
+   completos já vivem lá, este widget nunca os duplica). Cor de destaque
+   discreta (mesmo tom do link/primário), nunca vermelha/piscante — não é um
+   alarme, só um lembrete de que o cronômetro continua rodando. */
 .active-session-chip {
+  position: fixed;
+  right: calc(var(--space-4) + var(--safe-right));
+  bottom: calc(var(--space-4) + var(--safe-bottom));
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.active-session-chip[hidden] { display: none; }
+
+.active-session-chip-toggle {
   display: inline-flex;
   align-items: center;
   gap: .35rem;
-  padding: .3rem .6rem;
+  padding: .5rem .85rem;
   border: 1px solid var(--color-primary);
   border-radius: 999px;
-  background: transparent;
+  background: var(--color-surface);
   color: var(--color-primary);
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
+  box-shadow: var(--shadow-lg);
   transition: background var(--transition-fast);
 }
 
-.active-session-chip:hover { background: var(--gray-100); }
-.active-session-chip[hidden] { display: none; }
+.active-session-chip-toggle:hover { background: var(--gray-100); }
 
 .active-session-chip-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
+
+/* Painel expandido — some por padrão (aria-expanded/hidden via JS), só
+   tempo + "+1 questão" (sem duplicar pausar/retomar/finalizar/formulário
+   detalhado, exclusivos de studySessionView.js). */
+.active-session-chip-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: min(220px, calc(100vw - 2rem));
+  padding: var(--space-3);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.active-session-chip-panel[hidden] { display: none; }
+
+.active-session-chip-open,
+.active-session-chip-quick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  padding: .45rem .7rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  color: var(--color-text);
+  transition: background var(--transition-fast);
+}
+
+.active-session-chip-open:hover,
+.active-session-chip-quick:hover { background: var(--gray-100); }
+
+.active-session-chip-quick {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.active-session-chip-quick:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+/* Mobile: bottom-nav ocupa a mesma faixa inferior — o mini-timer sobe acima
+   dela para nunca cobrir "Mais"/"Sessão" (ver .bottom-nav, mesmo breakpoint). */
+@media (max-width: 767px) {
+  .active-session-chip {
+    bottom: calc(var(--bottom-nav-total-h) + var(--space-3));
+  }
+}
 
 .sync-spinner {
   display: inline-block;
