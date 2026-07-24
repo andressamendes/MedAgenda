@@ -427,7 +427,8 @@ test("saving time goals shows the pipeline's friendly message instead of a raw t
   );
 });
 
-async function openAccountAndConfirmDelete() {
+async function openAccountAndConfirmDelete(password = "senha-atual-correta") {
+  document.getElementById("acc-delete-pwd").value = password;
   document.getElementById("btn-delete-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
   await new Promise(r => setTimeout(r, 0));
@@ -465,4 +466,81 @@ test("a failed account deletion shows the pipeline's friendly message, never the
   await openAccountAndConfirmDelete();
 
   assert.strictEqual(toastErrorMsg, "Sem conexão com a internet. Verifique sua rede e tente novamente.");
+});
+
+// ── D3 — Igualar a fricção de exclusão de conta à de troca de senha ────────
+// Excluir a conta não pode se apoiar só num confirmDialog: assim como a troca
+// de senha, precisa reautenticar (auth.js#reauthenticate) antes de chamar a
+// Edge Function 'delete-account'.
+
+test("D3 — deleting the account requires the password field before even showing the confirm dialog", async (t) => {
+  let confirmDialogCalled = false;
+  let reauthCalled = false;
+  t.mock.module(CONFIRM_SPECIFIER, {
+    namedExports: { confirmDialog: async () => { confirmDialogCalled = true; return true; } },
+  });
+  const view = await loadAccountView(t, {
+    authOverrides: { reauthenticate: async () => { reauthCalled = true; } },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  await openAccountAndConfirmDelete("");
+
+  assert.strictEqual(
+    document.getElementById("delete-error").textContent,
+    "Digite sua senha para confirmar a exclusão."
+  );
+  assert.strictEqual(confirmDialogCalled, false);
+  assert.strictEqual(reauthCalled, false);
+});
+
+test("D3 — deleting the account reauthenticates with the typed password before invoking the delete Edge Function", async (t) => {
+  let reauthCalledWith = null;
+  let deleteInvoked = false;
+  mockConfirmDialog(t, true);
+  const view = await loadAccountView(t, {
+    authOverrides: { reauthenticate: async (pwd) => { reauthCalledWith = pwd; } },
+    functionResponses: {
+      "delete-account": async () => { deleteInvoked = true; return { data: {}, error: null }; },
+    },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  await openAccountAndConfirmDelete("minha-senha-atual");
+
+  assert.strictEqual(reauthCalledWith, "minha-senha-atual");
+  assert.strictEqual(deleteInvoked, true);
+});
+
+test("D3 — wrong password during account-deletion reauthentication shows a friendly inline error and never calls the delete Edge Function", async (t) => {
+  let deleteInvoked = false;
+  mockConfirmDialog(t, true);
+  const view = await loadAccountView(t, {
+    authOverrides: {
+      reauthenticate: async () => {
+        throw authApiError("Senha atual incorreta.", { code: "current_password_incorrect" });
+      },
+    },
+    functionResponses: {
+      "delete-account": async () => { deleteInvoked = true; return { data: {}, error: null }; },
+    },
+  });
+  view.initAccountView("user-1");
+  document.getElementById("btn-my-account").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  await openAccountAndConfirmDelete("senha-errada");
+
+  assert.strictEqual(
+    document.getElementById("delete-error").textContent,
+    "Senha atual incorreta. Verifique e tente novamente."
+  );
+  assert.strictEqual(document.getElementById("acc-delete-pwd").value, "");
+  assert.strictEqual(deleteInvoked, false);
+  // Never signed out over a wrong password.
+  assert.strictEqual(document.getElementById("account-overlay").hidden, false);
 });
