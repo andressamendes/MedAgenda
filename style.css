@@ -1385,6 +1385,13 @@ textarea { resize: vertical; }
 /* Primary */
 .btn-primary { background: var(--color-primary); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+/* V5.8 — resposta física ao toque: além do scale(.98) genérico de .btn,
+   o primary (ação de maior peso) ganha um aperto extra + escurecimento,
+   pra sentir "pressionado" já no press, não só na troca de cor do hover. */
+.btn-primary:active:not(:disabled):not(.btn-loading) {
+  transform: scale(.95);
+  background: var(--color-primary-hover);
+}
 
 /* Secondary — superfície neutra com borda, para ações de mesmo peso que
    não devem competir visualmente com a primária */
@@ -1569,6 +1576,9 @@ textarea { resize: vertical; }
   .achv-celebration-badge { animation: none; }
   .achv-celebration-badge::before,
   .achv-celebration-badge::after { animation: none; opacity: 0; }
+  .btn:active:not(:disabled):not(.btn-loading),
+  .btn-primary:active:not(:disabled):not(.btn-loading),
+  .close-day-actions .btn-primary:active:not(:disabled):not(.btn-loading) { transform: none; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
@@ -4149,6 +4159,10 @@ textarea { resize: vertical; }
 
 .close-day-actions .btn-primary { background: #fff; color: var(--blue-d); }
 .close-day-actions .btn-primary:hover:not(:disabled) { background: var(--gray-100); }
+.close-day-actions .btn-primary:active:not(:disabled):not(.btn-loading) {
+  transform: scale(.95);
+  background: var(--gray-100);
+}
 
 .close-day-actions .btn-ghost { background: rgba(255, 255, 255, .15); color: #fff; }
 .close-day-actions .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .25); }
