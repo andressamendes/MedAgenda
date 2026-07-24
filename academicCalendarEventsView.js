@@ -2,6 +2,7 @@ import { getAcademicEvents, createAcademicEvent } from "./academicCalendarServic
 import { toast } from "./toastService.js";
 import { escapeHtml } from "./utils.js";
 import { confirmDialog } from "./confirmDialog.js";
+import { recurrenceScopeDialog } from "./recurrenceScopeDialog.js";
 import { handleError } from "./errorService.js";
 import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
 import {
@@ -108,16 +109,36 @@ export async function showEventList(calId) {
     btn.addEventListener("click", async () => {
       const ev = events.find(e => e.id === btn.dataset.id);
       if (!ev) return;
-      const ok = await confirmDialog({
-        title:   'Excluir evento',
-        message: isRecurring(ev)
-          ? `"${ev.title}" é um evento recorrente. Isso excluirá toda a série. Deseja continuar?`
-          : `Excluir "${ev.title}"?`,
-        danger:  true,
-      });
-      if (!ok) return;
+
+      // D2 — mesmo escopo (apenas esta / esta e as próximas / toda a série)
+      // já oferecido no modal de edição (eventFormView.js). A lista aqui
+      // sempre traz a linha-base (getAcademicEvents() não expande
+      // ocorrências), então a "ocorrência" repassada ao recurrenceService é
+      // sintética: a própria linha-base na sua própria data.
+      const recurring = isRecurring(ev);
+      let scope = SCOPE.SERIES;
+
+      if (recurring) {
+        const chosen = await recurrenceScopeDialog({
+          title:   `Excluir "${ev.title}"`,
+          message: "Este evento faz parte de uma série recorrente. O que você deseja excluir?",
+        });
+        if (!chosen) return;
+        scope = chosen;
+      } else {
+        const ok = await confirmDialog({
+          title:   'Excluir evento',
+          message: `Excluir "${ev.title}"?`,
+          danger:  true,
+        });
+        if (!ok) return;
+      }
+
       try {
-        await applyDeleteScope({ sourceTable: SOURCE_TABLE, occurrence: ev, scope: SCOPE.SERIES });
+        const occurrence = recurring
+          ? { ...ev, _isOccurrence: true, _baseEventId: ev.id, _baseEventDate: ev.start_date }
+          : ev;
+        await applyDeleteScope({ sourceTable: SOURCE_TABLE, occurrence, scope });
         toast.success("Evento excluído.");
         _getOnChange()?.();
         await showEventList(calId);
