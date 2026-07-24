@@ -2,6 +2,29 @@
 
 ---
 
+## [Unreleased] — V5.10: Paleta de comando (Ctrl/Cmd+K)
+
+- **`commandPaletteView.js` unifica navegação, ações rápidas e busca numa
+  única superfície de comando, aberta por Ctrl+K/Cmd+K** — os atalhos "N"
+  (novo compromisso), "G + tecla" (ir para uma página) e "/" (focar busca)
+  já existiam, mas eram invisíveis fora de um `title=""`; a paleta os torna
+  descobríveis sem mudar nenhum deles. Cobre os 9 comandos mínimos: 5
+  destinos de navegação (Hoje/Agenda/Sessão/Diário/Progresso, via
+  `showPage()`), 2 ações rápidas ("Novo compromisso" delega ao mesmo clique
+  em `#btn-new-event` que "N" já usa; "Iniciar sessão de estudo" abre o
+  mesmo modal de configuração pré-início de `#ss-btn-start-standalone`,
+  só quando não há sessão em andamento) e 2 atalhos de busca ("Buscar no
+  Diário"/"Buscar compromissos", que navegam e focam o campo já existente
+  de cada página). Fuzzy simples (prefixo > substring > subsequência de
+  caracteres, sem dependência externa) filtra a lista ao digitar. Totalmente
+  navegável por teclado (setas para mover a seleção com wrap-around, Enter
+  confirma, Esc fecha — reaproveitando o Focus Trap/Escape/clique-fora
+  compartilhado de `modalController.js`, mesmo padrão de todo modal do
+  produto). `keyboardService.js` intercepta especificamente Ctrl/Cmd+K (sem
+  Shift/Alt) antes da guarda geral que ignora combinações
+  Ctrl/Cmd/Alt+tecla — funciona mesmo com o foco num campo de texto, sem
+  colidir com nenhum atalho existente.
+
 ## [Unreleased] — V5.9: Onboarding com propósito emocional
 
 - **A lista numerada de 4 passos do tour de boas-vindas (`onboardingTourView.js`)

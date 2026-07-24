@@ -8,6 +8,7 @@
 // precisa continuar sendo só um caractere digitado, nunca um atalho.
 
 import { showPage } from "./navigationView.js";
+import { openCommandPalette } from "./commandPaletteView.js";
 
 // Mesmas páginas de navigationView.js/APP_PAGES — "G" seguido da inicial de
 // cada uma (h=Hoje, a=Agenda, s=Sessão, j=Diário, p=Progresso). showPage() já
@@ -70,6 +71,18 @@ function _clearPendingGo() {
 }
 
 function _handleKeydown(e) {
+  // V5.10 — Ctrl+K (Cmd+K no Mac) abre a paleta de comando, mesmo padrão
+  // Linear/Raycast/GitHub. Único atalho desta tela que roda mesmo dentro de
+  // um campo de texto (title="" de #cp-input não conflita com o "/" de foco
+  // de busca porque é um combo diferente) — mas nunca junto de Shift/Alt,
+  // que já significam outra coisa em vários navegadores/SOs.
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    _clearPendingGo();
+    openCommandPalette();
+    return;
+  }
+
   // Nunca intercepta atalhos do navegador/SO (Ctrl/Cmd/Alt+tecla).
   if (e.ctrlKey || e.metaKey || e.altKey) { _clearPendingGo(); return; }
   if (_isTypingTarget(e.target)) { _clearPendingGo(); return; }
