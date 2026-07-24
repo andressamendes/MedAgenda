@@ -17,7 +17,7 @@ function getContainer() {
   return document.getElementById('toast-container');
 }
 
-export function showToast(message, type = 'info', duration = 4500) {
+export function showToast(message, type = 'info', duration = 4500, { milestone = false } = {}) {
   const c = getContainer();
   if (!c) return;
 
@@ -26,7 +26,7 @@ export function showToast(message, type = 'info', duration = 4500) {
 
   const cfg = TYPES[type] || TYPES.info;
   const el = document.createElement('div');
-  el.className = `toast toast-${type}`;
+  el.className = `toast toast-${type}${milestone ? ' toast-milestone' : ''}`;
   el.setAttribute('role', 'alert');
   el.setAttribute('aria-label', `${cfg.label}: ${message}`);
   el.innerHTML = `
@@ -52,8 +52,12 @@ export function showToast(message, type = 'info', duration = 4500) {
 }
 
 export const toast = {
-  success: (msg, dur) => showToast(msg, 'success', dur),
-  error:   (msg, dur) => showToast(msg, 'error',   dur),
-  warning: (msg, dur) => showToast(msg, 'warning', dur),
-  info:    (msg, dur) => showToast(msg, 'info',    dur),
+  success:   (msg, dur) => showToast(msg, 'success', dur),
+  error:     (msg, dur) => showToast(msg, 'error',   dur),
+  warning:   (msg, dur) => showToast(msg, 'warning', dur),
+  info:      (msg, dur) => showToast(msg, 'info',    dur),
+  // Variante para marcos do ciclo diário (ex.: fechamento do dia) — mesma
+  // semântica de sucesso, motion e permanência maiores para o momento de
+  // maior peso emocional, distinto das confirmações triviais.
+  milestone: (msg, dur = 6000) => showToast(msg, 'success', dur, { milestone: true }),
 };
