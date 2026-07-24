@@ -867,17 +867,23 @@
           </div>
           <p id="dash-error" class="list-empty list-error" hidden></p>
 
-          <!-- V5.1 — Heatmap de constância: dias estudados nas últimas 12
-               semanas (studyStreakService.getStudyCalendar(), sem alteração
-               nenhuma nesse serviço). Fica acima da narrativa: resposta
-               visual instantânea para "como tenho sido", antes de qualquer
-               frase. -->
-          <div id="constancy-heatmap" class="constancy-heatmap"></div>
+          <!-- V5.17 — composição visual única da experiência primária de
+               Progresso: anel de meta diária (V5.2) + heatmap de constância
+               (V5.1) lado a lado, seguidos da narrativa (F14.5). As três
+               peças já existiam isoladas (o anel só aparecia dentro do card
+               "Meta diária" na página "Hoje"); nenhuma delas ganha cálculo
+               novo aqui — só uma segunda renderização do mesmo
+               data.dailyGoal, desta vez fora do stat-card, como resposta
+               visual instantânea antes de qualquer grade de números. -->
+          <div class="progress-hero">
+            <div id="progress-goal-ring" class="progress-goal-ring"></div>
+            <div id="constancy-heatmap" class="constancy-heatmap"></div>
+          </div>
 
           <div id="progress-narrative" class="progress-narrative" aria-live="polite"></div>
 
           <div class="progress-numbers-toggle-row">
-            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body"><span class="disclosure-label">Ver números</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body"><span class="disclosure-label">Ver detalhes</span><span class="disclosure-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></span></button>
           </div>
 
           <!-- Mesmos containers/ids de sempre (dash-cards-weekmonth,

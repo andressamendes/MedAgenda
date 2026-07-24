@@ -675,13 +675,17 @@ test("repeated initActivityDashboardView() calls don't double-subscribe (no doub
 });
 
 test("resetActivityDashboardView() clears the rendered cards (no data survives logout)", async (t) => {
-  const data = { ...EMPTY_DATA, todayMinutes: 90, todaySessionsCount: 2 };
+  const data = {
+    ...EMPTY_DATA, todayMinutes: 90, todaySessionsCount: 2,
+    dailyGoal: { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" },
+  };
   const { mod } = await loadView(t, { getDashboardData: async () => data });
 
   await mod.initActivityDashboardView();
 
   // Sanity: dados do usuário estão renderizados antes do logout.
   assert.match(allCardsText(), /1h 30min/);
+  assert.match(document.getElementById("progress-goal-ring").textContent, /50%/);
 
   mod.resetActivityDashboardView();
 
@@ -689,6 +693,7 @@ test("resetActivityDashboardView() clears the rendered cards (no data survives l
   // após o logout — cards de execução voltam ao estado de uma aplicação
   // recém-aberta.
   assert.strictEqual(allCardsHtml(), "", "logout must leave no rendered data behind");
+  assert.strictEqual(document.getElementById("progress-goal-ring").innerHTML, "", "logout must leave no rendered data behind in the hero ring either");
 });
 
 test("subscribes to onProfileUpdated on init: a profile (goal) update triggers a reload", async (t) => {
@@ -793,7 +798,7 @@ test("V5.3 — a failure fetching achievements never breaks the other execution 
 // F13.4/F14.5 — "Hoje" (as três cards de sempre) vive agora dentro da página
 // "Hoje" (#page-today — a antiga #page-dashboard foi removida); "Períodos" e
 // "Progresso e Conquistas" seguem sempre visíveis (sem abas) na página
-// "Progresso" (#page-progress), atrás de um disclosure "Ver números" — nunca
+// "Progresso" (#page-progress), atrás de um disclosure "Ver detalhes" — nunca
 // reduzindo os dados exibidos, nem mudando como/quando são buscados (os três
 // níveis continuam chegando juntos em uma única _load()).
 
@@ -813,7 +818,7 @@ test("F10 #3.1/F14.5 — 'Hoje' has exactly the three today-scoped cards, render
 
 // F15.13 — a grade "Hoje em números" reintroduzia uma grade de stats no
 // primeiro olhar do dia, em tensão com "mede em silêncio, fala em frases"
-// (mesmo princípio do disclosure "Ver números" do Progresso, F14.5). Mesmo
+// (mesmo princípio do disclosure "Ver detalhes" do Progresso, F14.5/V5.17). Mesmo
 // padrão aplicado aqui: a tela Hoje abre sem grade visível; os cards em si
 // não mudam (mesmos ids, mesmos dados, mesma _load()).
 
@@ -890,7 +895,7 @@ test("F14.5 — the Progresso page opens with a narrative summary and no number 
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
 });
 
-test("F14.5 — clicking 'Ver números' reveals the number grid behind the disclosure", async (t) => {
+test("V5.17 — clicking 'Ver detalhes' reveals the number grid behind the disclosure", async (t) => {
   const { mod } = await loadView(t);
   await mod.initActivityDashboardView();
 
@@ -901,12 +906,58 @@ test("F14.5 — clicking 'Ver números' reveals the number grid behind the discl
 
   assert.strictEqual(body.hidden, false);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
-  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar números");
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar detalhes");
 
   toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
   assert.strictEqual(body.hidden, true);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+// ── V5.17 — Composição visual primária (anel + heatmap + narrativa) ────────
+
+test("V5.17 — a configured daily goal renders its own progress ring at the top of the Progresso page", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      dailyGoal: { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const hero = document.getElementById("progress-goal-ring");
+  assert.ok(document.getElementById("page-progress").contains(hero), "expected #progress-goal-ring inside #page-progress");
+  const ring = hero.querySelector(".dashboard-progress-ring");
+  assert.ok(ring, "o anel de progresso deve existir para uma meta diária configurada");
+  assert.strictEqual(ring.getAttribute("aria-valuenow"), "50");
+  assert.match(hero.textContent, /50%/);
+  assert.match(hero.textContent, /Meta parcialmente atingida/);
+});
+
+test("V5.17 — the hero ring appears before the heatmap and both appear before the number grid disclosure", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initActivityDashboardView();
+
+  const page = document.getElementById("page-progress");
+  const positions = ["progress-goal-ring", "constancy-heatmap", "progress-narrative", "progress-numbers-toggle", "dash-cards-weekmonth"]
+    .map(id => Array.from(page.querySelectorAll("*")).indexOf(document.getElementById(id)));
+  const sorted = [...positions].sort((a, b) => a - b);
+  assert.deepStrictEqual(positions, sorted, "expected ring, heatmap and narrative before the number-grid disclosure");
+});
+
+test("V5.17 — an unconfigured daily goal shows a 'Configurar meta' link instead of an empty ring", async (t) => {
+  const { mod, openAccountCalls } = await loadView(t);
+  await mod.initActivityDashboardView();
+
+  const hero = document.getElementById("progress-goal-ring");
+  assert.strictEqual(hero.querySelector(".dashboard-progress-ring"), null);
+  const link = hero.querySelector('[data-action="configure-goal"]');
+  assert.ok(link, "expected a 'Configurar meta' link when the daily goal is unconfigured");
+
+  link.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(openAccountCalls.length, 1);
+  assert.deepStrictEqual(openAccountCalls[0], { focusSection: "goals" });
 });
 
 test("F15.1 — a category name containing HTML renders as literal text in the narrative (stored XSS, M1)", async (t) => {
