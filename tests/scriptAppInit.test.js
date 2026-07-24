@@ -94,6 +94,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
   t.mock.module(SPECIFIERS.weekView, {
     namedExports: {
       initWeekView: async () => {}, refreshWeekView: async () => {},
+      initDayView: async () => {}, refreshDayView: async () => {},
       setWeekViewAcademicProvider: () => {}, setWeekViewPersonalVisibility: () => {},
     },
   });

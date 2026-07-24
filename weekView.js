@@ -45,6 +45,7 @@ export function setWeekViewPersonalVisibility(fn) {
 
 const ROW_H      = 48; // px per 30-min slot — total height 2304px
 const DAYS       = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+const DAYS_FULL  = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"]; // índice = Date.getDay()
 const MONTHS     = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const MONTHS_ABR = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 
@@ -540,4 +541,305 @@ function dateToCol(isoStr) {
 
 function sameWeek(date, mon) {
   return isoDate(mondayOf(date)) === isoDate(mon);
+}
+
+// ── V5.12 — Vista "Dia" ──────────────────────────────────────────────────────
+// Mobile-first: a grade Semana precisa de 7 colunas lado a lado (min-width
+// 480px, decisão consciente — ver comentário sobre .wk-scroll em style.css) e
+// força scroll horizontal em telas estreitas. "Dia" é a mesma grade de
+// horários, reaproveitando os mesmos dados já expandidos por expandEvents()/
+// o mesmo describeExecutionIndicator()/bindActivate() de Semana, só que com
+// uma única coluna — sem 7 colunas não há min-width a forçar, então não há
+// scroll horizontal. Estado independente de Semana (_dDate própria, não
+// _mon): navegar em Dia não afeta a semana exibida em Semana, e vice-versa.
+// Registrada como aba própria em #agenda-view-tabs (script.js/_setAgendaView)
+// e torna-se a aba padrão em telas ≤767px (script.js/_initAgendaViewTabs).
+
+let _dEl  = null;
+let _dCbs = {};
+let _dDate = null; // Date — dia exibido (time=00:00:00)
+let _dNowTimer = null;
+let _dFetchGeneration = 0; // mesmo padrão anti-race de _fetchGeneration (AUD-007)
+
+export async function initDayView(el, cbs = {}) {
+  if (_dNowTimer) { clearInterval(_dNowTimer); _dNowTimer = null; }
+  _dEl  = el;
+  _dCbs = cbs;
+  _dDate = todayMidnight();
+  buildDayShell();
+  await fetchAndRenderDay();
+  _dNowTimer = setInterval(updateDayNowLine, 60_000);
+}
+
+export async function refreshDayView() {
+  if (!_dEl) return;
+  await fetchAndRenderDay();
+}
+
+export function destroyDayView() {
+  if (_dNowTimer) { clearInterval(_dNowTimer); _dNowTimer = null; }
+  if (_dEl) _dEl.innerHTML = "";
+  _dEl = null;
+  _dCbs = {};
+  _dDate = null;
+  _dFetchGeneration++;
+}
+
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function buildDayShell() {
+  _dEl.innerHTML = `
+    <div class="dv-nav">
+      <button class="btn btn-sm btn-ghost" id="dv-prev" aria-label="Dia anterior">‹</button>
+      <span class="dv-label" id="dv-label"></span>
+      <button class="btn btn-sm btn-ghost" id="dv-today">Hoje</button>
+      <button class="btn btn-sm btn-ghost" id="dv-next" aria-label="Próximo dia">›</button>
+    </div>
+    <div class="dv-error" id="dv-error" hidden></div>
+    <div id="dv-empty-tip" class="state-block wk-empty-tip" hidden>
+      <span class="state-block-icon" aria-hidden="true">${iconCalendarWeek}</span>
+      <strong class="state-block-title">Seu dia está vazio</strong>
+      <span class="state-block-desc">Toque em qualquer horário abaixo para criar um compromisso, ou use "+ Novo compromisso".</span>
+    </div>
+    <div class="dv-wrap">
+      <div class="dv-scroll" id="dv-scroll">
+        <div class="dv-allday-row" id="dv-allday-row">
+          <div class="dv-gutter-allday">Dia todo</div>
+          <div class="wk-allday-col" id="dv-allday-col"></div>
+        </div>
+        <div class="dv-body">
+          <div class="dv-time-col" id="dv-time-col"></div>
+          <div class="dv-col-wrap" id="dv-col-wrap">
+            <div class="dv-day-col" id="dv-day-col"></div>
+            <div class="wk-now-line" id="dv-now-line" hidden></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  _dEl.querySelector("#dv-prev").addEventListener("click",  () => navigateDay(-1));
+  _dEl.querySelector("#dv-next").addEventListener("click",  () => navigateDay(1));
+  _dEl.querySelector("#dv-today").addEventListener("click", goTodayDay);
+
+  buildDayTimeCol();
+  buildDaySlots();
+}
+
+function buildDayTimeCol() {
+  const col = _dEl.querySelector("#dv-time-col");
+  for (let h = 0; h < 24; h++) {
+    const lbl = document.createElement("div");
+    lbl.className   = "wk-hour-label";
+    lbl.style.top   = `${h * 2 * ROW_H}px`;
+    lbl.textContent = `${pad(h)}:00`;
+    col.appendChild(lbl);
+  }
+}
+
+function buildDaySlots() {
+  const col = _dEl.querySelector("#dv-day-col");
+  for (let s = 0; s < 48; s++) {
+    const slot = document.createElement("div");
+    slot.className = "wk-slot";
+    col.appendChild(slot);
+  }
+  col.addEventListener("click", (e) => {
+    if (e.target.closest(".wk-event")) return;
+    if (!_dCbs.onSlotClick) return;
+    const slotEl = e.target.closest(".wk-slot");
+    if (!slotEl) return;
+    const s = Array.from(col.querySelectorAll(".wk-slot")).indexOf(slotEl);
+    if (s < 0) return;
+    _dCbs.onSlotClick(isoDate(_dDate), `${pad(Math.floor(s / 2))}:${pad((s % 2) * 30)}`);
+  });
+}
+
+async function navigateDay(delta) {
+  _dDate.setDate(_dDate.getDate() + delta);
+  await fetchAndRenderDay();
+}
+
+async function goTodayDay() {
+  _dDate = todayMidnight();
+  await fetchAndRenderDay();
+}
+
+async function fetchAndRenderDay() {
+  const generation = ++_dFetchGeneration;
+
+  updateDayLabel();
+  clearDayEvents();
+
+  try {
+    const iso = isoDate(_dDate);
+    const [rawEvents, academicEvents] = await Promise.all([
+      _showPersonal() ? getEventsByRange(iso, iso) : Promise.resolve([]),
+      _academicProvider ? _academicProvider(iso, iso) : Promise.resolve([]),
+    ]);
+    const personal = expandEvents(rawEvents, iso, iso);
+    const executionSummaries = await fetchExecutionSummaries(personal);
+    if (generation !== _dFetchGeneration) return;
+    renderDayEvents(personal, executionSummaries);
+    renderDayAcademicEvents(academicEvents);
+    hideDayError();
+    updateDayEmptyTip(personal.length + academicEvents.length === 0);
+  } catch (err) {
+    if (generation !== _dFetchGeneration) return;
+    showDayError(errorToState(handleError(err, { context: "weekView.fetchAndRenderDay", silent: true })));
+  }
+
+  if (generation !== _dFetchGeneration) return;
+  updateDayNowLine();
+  scrollToTimeDay();
+}
+
+function showDayError({ state, message }) {
+  const banner = _dEl.querySelector("#dv-error");
+  if (!banner) return;
+  renderStateBlock(banner, { state, message, onRetry: fetchAndRenderDay });
+  banner.hidden = false;
+  updateDayEmptyTip(false);
+}
+
+function hideDayError() {
+  const banner = _dEl.querySelector("#dv-error");
+  if (banner) banner.hidden = true;
+}
+
+function updateDayEmptyTip(isEmpty) {
+  const tip = _dEl?.querySelector("#dv-empty-tip");
+  if (!tip) return;
+  tip.hidden = !isEmpty;
+}
+
+function updateDayLabel() {
+  const el = _dEl.querySelector("#dv-label");
+  if (!el) return;
+  const weekday = DAYS_FULL[_dDate.getDay()];
+  el.textContent = `${weekday}, ${_dDate.getDate()} de ${MONTHS[_dDate.getMonth()]}`;
+}
+
+function clearDayEvents() {
+  _dEl.querySelectorAll(".wk-event").forEach(el => el.remove());
+  const allday = _dEl.querySelector("#dv-allday-col");
+  if (allday) allday.innerHTML = "";
+}
+
+function renderDayEvents(events, summaries = {}) {
+  const col = _dEl.querySelector("#dv-day-col");
+  if (!col) return;
+  events.forEach(ev => {
+    if (!ev.start_time) return;
+
+    const [h, m] = ev.start_time.split(":").map(Number);
+    const totalMin = h * 60 + m;
+    const top    = (totalMin / 30) * ROW_H;
+    const dur    = ev.duration_minutes || 30;
+    const height = Math.max((dur / 30) * ROW_H - 2, 22);
+
+    const indicator = describeExecutionIndicator(summaries[ev.id]);
+
+    const block = document.createElement("div");
+    block.className = indicator ? `wk-event wk-event-${indicator.state}` : "wk-event";
+    block.style.top      = `${top}px`;
+    block.style.height   = `${height}px`;
+    const bgColor = ev.color || "#3b82f6";
+    block.style.background = bgColor;
+    block.style.color      = readableTextColor(bgColor);
+    block.innerHTML = `
+      <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
+      ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
+      <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
+      ${indicator ? `<span class="wk-ev-indicator">${indicator.icon} ${escapeHtml(indicator.text)}</span>` : ""}
+    `;
+
+    if (_dCbs.onEventClick) {
+      bindActivate(block, e => {
+        e.stopPropagation();
+        _dCbs.onEventClick(ev);
+      });
+    }
+
+    col.appendChild(block);
+  });
+}
+
+function renderDayAcademicEvents(events) {
+  events.forEach(ev => {
+    if (ev.all_day !== false) {
+      const col = _dEl.querySelector("#dv-allday-col");
+      if (!col) return;
+      const chip = document.createElement("div");
+      chip.className = "wk-allday-chip";
+      const chipColor = ev.color || ev._calendarColor || "#7c3aed";
+      chip.style.background = chipColor;
+      chip.style.color      = readableTextColor(chipColor);
+      chip.title = `[${ev._calendarName}] ${ev.title}`;
+      chip.textContent = ev.title;
+      if (_dCbs.onAcademicEventClick) {
+        bindActivate(chip, e => { e.stopPropagation(); _dCbs.onAcademicEventClick(ev); });
+      }
+      col.appendChild(chip);
+    } else if (ev.start_time) {
+      const col = _dEl.querySelector("#dv-day-col");
+      if (!col) return;
+      const [h, m] = ev.start_time.split(":").map(Number);
+      const totalMin = h * 60 + m;
+      const top    = (totalMin / 30) * ROW_H;
+      const dur    = ev.duration_minutes || 60;
+      const height = Math.max((dur / 30) * ROW_H - 2, 22);
+
+      const block = document.createElement("div");
+      block.className = "wk-event wk-event-academic";
+      block.style.top        = `${top}px`;
+      block.style.height     = `${height}px`;
+      const blockColor = ev.color || ev._calendarColor || "#7c3aed";
+      block.style.background = blockColor;
+      block.style.color      = readableTextColor(blockColor);
+      block.innerHTML = `
+        <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
+        <span class="wk-ev-cat">${escapeHtml(ev._calendarName || "Acadêmico")}</span>
+        <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
+      `;
+
+      if (_dCbs.onAcademicEventClick) {
+        bindActivate(block, e => { e.stopPropagation(); _dCbs.onAcademicEventClick(ev); });
+      }
+
+      col.appendChild(block);
+    }
+  });
+}
+
+function updateDayNowLine() {
+  const line = _dEl?.querySelector("#dv-now-line");
+  if (!line) return;
+
+  if (!_dDate || isoDate(_dDate) !== isoToday()) {
+    line.hidden = true;
+    return;
+  }
+
+  const now  = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  line.hidden    = false;
+  line.style.top = `${(mins / 30) * ROW_H}px`;
+}
+
+function scrollToTimeDay() {
+  const scroll = _dEl.querySelector("#dv-scroll");
+  if (!scroll) return;
+  requestAnimationFrame(() => {
+    if (!_dEl || !_dDate) return;
+    const now  = new Date();
+    const mins = isoDate(_dDate) === isoToday()
+      ? now.getHours() * 60 + now.getMinutes()
+      : 8 * 60;
+    scroll.scrollTop = Math.max(0, (mins / 30) * ROW_H - scroll.clientHeight / 2);
+  });
 }
