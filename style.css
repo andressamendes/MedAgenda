@@ -2919,8 +2919,10 @@ textarea { resize: vertical; }
 
 .wk-empty-tip .state-block-icon { color: var(--color-primary); }
 
-/* F10 #5.4 — tour de boas-vindas: mesmo espírito de .wk-empty-tip (dispensável,
-   nunca um modal), com uma lista de passos clicáveis em vez de só texto. */
+/* F10 #5.4, V5.9 — tour de boas-vindas: mesmo espírito de .wk-empty-tip
+   (dispensável, nunca um modal). 2-3 telas curtas de propósito emocional
+   (o "porquê" do Anoti) navegadas por pontos, em vez da antiga lista
+   numerada de funções. */
 .onboarding-tour-card {
   padding: 1rem .75rem;
   margin-bottom: var(--space-3);
@@ -2931,48 +2933,28 @@ textarea { resize: vertical; }
 
 .onboarding-tour-card .state-block-icon { color: var(--color-primary); }
 
-.onboarding-tour-steps {
-  list-style: none;
-  margin: var(--space-3) 0;
-  padding: 0;
+.onboarding-tour-dots {
   display: flex;
-  flex-direction: column;
   gap: .4rem;
-  width: 100%;
+  margin: var(--space-3) 0;
 }
 
-.onboarding-tour-step {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  width: 100%;
-  padding: .5rem .6rem;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
-  background: var(--color-surface, #fff);
-  color: var(--color-text);
-  text-align: left;
-  cursor: pointer;
+.onboarding-tour-dot {
+  width: .5rem;
+  height: .5rem;
+  border-radius: var(--radius-full);
+  background: var(--gray-200);
   transition: background var(--transition-fast);
 }
 
-.onboarding-tour-step:hover { background: var(--gray-100); }
+.onboarding-tour-dot.is-active { background: var(--color-primary); }
 
-.onboarding-tour-step-num {
-  flex-shrink: 0;
-  display: inline-flex;
+.onboarding-tour-actions {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-  color: #fff;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
+  gap: .5rem;
+  flex-wrap: wrap;
 }
-
-.onboarding-tour-step-text { font-size: var(--font-size-sm, .9rem); }
 
 /* scroll container — always show scrollbar to keep head/body aligned */
 .wk-scroll {

@@ -1,7 +1,9 @@
 /**
- * F10 #5.4 — tour de boas-vindas leve e opcional: um cartão dispensável no
- * topo da Agenda (nunca um modal), mostrado uma única vez para quem nunca
- * teve nenhuma sessão de estudo.
+ * F10 #5.4, V5.9 — tour de boas-vindas leve e opcional: um cartão dispensável
+ * no topo da Agenda (nunca um modal), mostrado uma única vez para quem nunca
+ * teve nenhuma sessão de estudo. 2-3 telas curtas de propósito emocional
+ * (o "porquê" do Anoti), navegadas por "Continuar"/"Pular", em vez da antiga
+ * lista numerada de funções.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -56,7 +58,8 @@ test("a brand-new user (no sessions ever) sees the dismissible tour card, never 
   const card = document.getElementById("onboarding-tour-card");
   assert.strictEqual(card.hidden, false);
   assert.ok(!card.classList.contains("modal-overlay"), "the tour renders inline, never as a modal overlay");
-  assert.strictEqual(card.querySelectorAll(".onboarding-tour-step").length, 4, "3-4 short steps, per the roadmap item");
+  assert.strictEqual(card.querySelectorAll(".onboarding-tour-dot").length, 3, "2-3 short emotional-purpose screens, per V5.9");
+  assert.ok(card.querySelector("#onboarding-tour-skip"), "always dismissible, from the very first screen");
 });
 
 test("a user who already has at least one session never sees the tour", async (t) => {
@@ -81,11 +84,11 @@ test("an already-active user (per hasAnySession) is marked as seen, so the check
   assert.strictEqual(localStorage.getItem(TOUR_SEEN_KEY), "1");
 });
 
-test("clicking 'Entendi, vamos começar' dismisses the card and it never reappears", async (t) => {
+test("clicking 'Pular' dismisses the card immediately, from any screen, and it never reappears", async (t) => {
   const { initOnboardingTour } = await loadOnboardingTourView(t, { hasAnySession: async () => false });
   await initOnboardingTour();
 
-  document.getElementById("onboarding-tour-dismiss").click();
+  document.getElementById("onboarding-tour-skip").click();
 
   const card = document.getElementById("onboarding-tour-card");
   assert.strictEqual(card.hidden, true);
@@ -96,15 +99,39 @@ test("clicking 'Entendi, vamos começar' dismisses the card and it never reappea
   assert.strictEqual(card.hidden, true);
 });
 
-test("clicking a step navigates to that page via showPage(), without dismissing the card", async (t) => {
+test("'Continuar' advances through the screens without dismissing, and the last screen offers 'Vamos começar'", async (t) => {
   const { initOnboardingTour } = await loadOnboardingTourView(t, { hasAnySession: async () => false });
   await initOnboardingTour();
 
-  const steps = document.querySelectorAll(".onboarding-tour-step");
-  steps[1].click(); // "Sessão" step
+  const card = document.getElementById("onboarding-tour-card");
+  const dotCount = card.querySelectorAll(".onboarding-tour-dot").length;
 
-  assert.deepStrictEqual(showPageCalls, ["study-session"]);
-  assert.strictEqual(document.getElementById("onboarding-tour-card").hidden, false, "clicking a step is not the same as dismissing");
+  for (let i = 0; i < dotCount - 1; i++) {
+    document.getElementById("onboarding-tour-next").click();
+    assert.strictEqual(card.hidden, false, "advancing screens never dismisses the tour");
+  }
+
+  assert.strictEqual(document.getElementById("onboarding-tour-next").textContent, "Vamos começar");
+  document.getElementById("onboarding-tour-next").click();
+  assert.strictEqual(card.hidden, true, "finishing the last screen dismisses the tour");
+  assert.strictEqual(localStorage.getItem(TOUR_SEEN_KEY), "1");
+});
+
+test("the final screen's call-to-action dismisses the tour and navigates via showPage()", async (t) => {
+  const { initOnboardingTour } = await loadOnboardingTourView(t, { hasAnySession: async () => false });
+  await initOnboardingTour();
+
+  const card = document.getElementById("onboarding-tour-card");
+  const dotCount = card.querySelectorAll(".onboarding-tour-dot").length;
+  for (let i = 0; i < dotCount - 1; i++) document.getElementById("onboarding-tour-next").click();
+
+  const ctaBtn = document.getElementById("onboarding-tour-cta");
+  assert.ok(ctaBtn, "the last screen offers a concrete action, not just more explanation");
+  ctaBtn.click();
+
+  assert.deepStrictEqual(showPageCalls, ["agenda"]);
+  assert.strictEqual(card.hidden, true);
+  assert.strictEqual(localStorage.getItem(TOUR_SEEN_KEY), "1");
 });
 
 test("a failure checking hasAnySession() never shows the tour by mistake", async (t) => {

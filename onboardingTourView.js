@@ -1,4 +1,4 @@
-// onboardingTourView.js — tour de boas-vindas leve e opcional (F10 #5.4).
+// onboardingTourView.js — tour de boas-vindas leve e opcional (F10 #5.4, V5.9).
 //
 // Nunca um modal obrigatório: um cartão dispensável no topo da Agenda, no
 // mesmo espírito do estado vazio didático de weekView.js (F10 #1.6) — mesmas
@@ -8,23 +8,44 @@
 // nenhuma sessão de estudo (hasAnySession() em activitySessionService.js) —
 // um usuário já ativo nunca vê o tour, mesmo que o localStorage tenha sido
 // limpo.
+//
+// V5.9: a lista numerada de 4 telas (uma por página do app) foi trocada por
+// 2-3 telas curtas de propósito emocional — o "porquê" do Anoti (a curva do
+// esquecimento, progresso visível) antes de qualquer lista de funções. A
+// última tela ainda oferece uma ação concreta (ir para a Agenda), mas o tour
+// em si não ensina mais "o que cada tela faz" — isso o usuário descobre
+// explorando.
 import { hasAnySession } from "./activitySessionService.js";
 import { revealWithAnimation } from "./transitionUtils.js";
 import { handleError } from "./errorService.js";
-import { iconSparkle } from "./icons.js";
+import { iconSparkle, iconRepeat, iconFlame } from "./icons.js";
 import { showPage } from "./navigationView.js";
 
 const TOUR_SEEN_KEY = "medagenda_tour_seen";
 
-const STEPS = [
-  { page: "agenda",       label: "Agenda",  desc: "Crie compromissos de estudo clicando em um horário livre." },
-  { page: "study-session", label: "Sessão",  desc: "Inicie uma sessão avulsa e registre questões e revisões enquanto estuda." },
-  { page: "journal",      label: "Diário",   desc: "Revise suas sessões concluídas e acompanhe sua sequência de estudos." },
-  { page: "progress",     label: "Progresso", desc: "Acompanhe seu progresso e suas conquistas." },
+const SLIDES = [
+  {
+    icon: iconSparkle,
+    title: "Bem-vindo(a) ao Anoti",
+    desc: "Medicina não se aprende numa noite — se aprende em constância. O Anoti existe para te ajudar a manter essa constância, sem peso.",
+  },
+  {
+    icon: iconRepeat,
+    title: "Contra o esquecimento",
+    desc: "O que você estuda hoje some em semanas sem revisão. Cada sessão que você registra aqui vira memória de longo prazo, não só uma tarde de estudo.",
+  },
+  {
+    icon: iconFlame,
+    title: "Seu progresso, visível",
+    desc: "Sua sequência de estudos e o que já foi revisado ficam à vista — para você nunca perder de vista o quanto já caminhou.",
+    cta: "Marcar meu primeiro horário",
+    ctaPage: "agenda",
+  },
 ];
 
 let cardEl = null;
 let _bound = false;
+let _slideIndex = 0;
 
 function _hasSeenTour() {
   try { return localStorage.getItem(TOUR_SEEN_KEY) === "1"; } catch { return true; }
@@ -40,26 +61,39 @@ function _dismiss() {
 }
 
 function _renderCard() {
+  const slide = SLIDES[_slideIndex];
+  const isLast = _slideIndex === SLIDES.length - 1;
+
   cardEl.innerHTML = `
-    <span class="state-block-icon" aria-hidden="true">${iconSparkle}</span>
-    <strong class="state-block-title">Bem-vindo(a) ao Anoti</strong>
-    <span class="state-block-desc">Um resumo rápido do que você pode fazer por aqui:</span>
-    <ol class="onboarding-tour-steps">
-      ${STEPS.map((step, i) => `
-        <li>
-          <button type="button" class="onboarding-tour-step" data-page="${step.page}">
-            <span class="onboarding-tour-step-num">${i + 1}</span>
-            <span class="onboarding-tour-step-text"><strong>${step.label}</strong> — ${step.desc}</span>
-          </button>
-        </li>
-      `).join("")}
-    </ol>
-    <button type="button" class="btn btn-sm btn-ghost state-block-action" id="onboarding-tour-dismiss">Entendi, vamos começar</button>
+    <span class="state-block-icon" aria-hidden="true">${slide.icon}</span>
+    <strong class="state-block-title">${slide.title}</strong>
+    <span class="state-block-desc">${slide.desc}</span>
+    <div class="onboarding-tour-dots" role="presentation">
+      ${SLIDES.map((_, i) => `<span class="onboarding-tour-dot${i === _slideIndex ? " is-active" : ""}"></span>`).join("")}
+    </div>
+    <div class="onboarding-tour-actions">
+      <button type="button" class="btn btn-sm btn-ghost" id="onboarding-tour-skip">Pular</button>
+      ${slide.cta ? `<button type="button" class="btn btn-sm btn-ghost state-block-action" id="onboarding-tour-cta">${slide.cta}</button>` : ""}
+      <button type="button" class="btn btn-sm btn-primary state-block-action" id="onboarding-tour-next">${isLast ? "Vamos começar" : "Continuar"}</button>
+    </div>
   `;
-  cardEl.querySelectorAll(".onboarding-tour-step").forEach(btn => {
-    btn.addEventListener("click", () => showPage(btn.dataset.page));
+
+  cardEl.querySelector("#onboarding-tour-skip").addEventListener("click", _dismiss);
+  cardEl.querySelector("#onboarding-tour-next").addEventListener("click", () => {
+    if (isLast) {
+      _dismiss();
+      return;
+    }
+    _slideIndex += 1;
+    _renderCard();
   });
-  cardEl.querySelector("#onboarding-tour-dismiss").addEventListener("click", _dismiss);
+  const ctaBtn = cardEl.querySelector("#onboarding-tour-cta");
+  if (ctaBtn) {
+    ctaBtn.addEventListener("click", () => {
+      _dismiss();
+      showPage(slide.ctaPage);
+    });
+  }
 }
 
 export async function initOnboardingTour() {
@@ -85,6 +119,7 @@ export async function initOnboardingTour() {
     return;
   }
 
+  _slideIndex = 0;
   _renderCard();
   cardEl.hidden = false;
   revealWithAnimation(cardEl);

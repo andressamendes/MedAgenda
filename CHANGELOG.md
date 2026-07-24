@@ -2,6 +2,23 @@
 
 ---
 
+## [Unreleased] — V5.9: Onboarding com propósito emocional
+
+- **A lista numerada de 4 passos do tour de boas-vindas (`onboardingTourView.js`)
+  dá lugar a 2-3 telas curtas de propósito emocional** — o tour antigo era
+  puramente funcional ("o que cada tela faz": Agenda, Sessão, Diário,
+  Progresso) e nunca explicava por que isso importa para quem estuda
+  Medicina, perdendo a chance de uma primeira impressão emocional. As novas
+  telas (`SLIDES` em vez de `STEPS`) contam o "porquê" do Anoti — constância
+  em vez de intensidade, a curva do esquecimento, progresso visível — e só a
+  última tela oferece uma ação concreta ("Marcar meu primeiro horário" →
+  Agenda). Navegação por "Continuar"/pontos (`.onboarding-tour-dots`,
+  `style.css`) substitui a lista clicável de páginas. As regras já existentes
+  seguem intactas: nunca um modal, sempre dispensável a qualquer momento
+  (botão "Pular" em toda tela), nunca reaparece após visto
+  (`medagenda_tour_seen` em `localStorage`), e continua condicionado a nunca
+  ter havido nenhuma sessão de estudo (`hasAnySession()`).
+
 ## [Unreleased] — V5.7: Celebração de conquista desbloqueada
 
 - **Uma tela cheia própria (`.achv-celebration-screen`,
