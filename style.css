@@ -1320,24 +1320,56 @@ body {
   opacity: .35;
 }
 
-.cal-cell.cal-today .cal-day-num {
-  background: var(--blue);
-  color: var(--color-on-primary);
-  border-radius: 50%;
-  width: 1.55rem;
-  height: 1.55rem;
+/* ── Anel de assiduidade do dia (Fase J3) ─────────────────────────────────
+   O único elemento que nenhuma grade de calendário genérica tem: um anel
+   fino ao redor do número do dia, preenchido (conic-gradient) pela fração
+   dos compromissos pessoais daquele dia já estudados — os mesmos
+   indicadores de execução que já tingem cada chip (ver _dayProgress() em
+   calendar.js), nenhuma consulta nova. Dias sem nenhum compromisso
+   rastreável (.cal-day-badge--empty) ficam exatamente como antes, sem anel
+   — a densidade de informação da visão de Mês não perde nada, só ganha um
+   resumo visual que hoje só existe abrindo cada compromisso. */
+.cal-day-badge {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  margin-bottom: var(--space-1);
+}
+
+.cal-day-badge::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(var(--color-success) calc(var(--cal-progress, 0) * 1%), var(--gray-200) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+}
+
+.cal-day-badge--empty::before {
+  content: none;
+}
+
+.cal-cell.cal-today .cal-day-badge {
+  background: var(--blue);
+  color: var(--color-on-primary);
 }
 
 .cal-day-num {
+  position: relative;
+  z-index: 1;
   font-size: var(--font-size-xs);
   font-weight: 700;
   color: var(--gray-600);
-  display: block;
-  margin-bottom: var(--space-1);
   line-height: 1;
+}
+
+.cal-cell.cal-today .cal-day-num {
+  color: var(--color-on-primary);
 }
 
 .cal-chips {

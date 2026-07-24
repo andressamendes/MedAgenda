@@ -174,6 +174,22 @@ function bindActivate(el, handler) {
   });
 }
 
+// Fase J3 — o único elemento que uma grade de calendário genérica nunca tem:
+// um anel de progresso ao redor do número do dia, preenchido pela fração dos
+// compromissos pessoais daquele dia já estudados (mesmos indicadores de
+// execução que já tingem cada chip — nenhuma consulta nova). Dias sem
+// compromisso rastreável (fins de semana livres, dias futuros ainda sem
+// sessão) não ganham anel — só os que têm algo a mostrar.
+function _dayProgress(dayEvents, summaries) {
+  const trackable = dayEvents.filter(ev => !ev._isAcademic);
+  if (trackable.length === 0) return null;
+  const done = trackable.filter(ev => {
+    const indicator = describeExecutionIndicator(summaries[ev.id]);
+    return indicator && (indicator.state === "executed" || indicator.state === "running");
+  }).length;
+  return { done, total: trackable.length, percent: Math.round((done / trackable.length) * 100) };
+}
+
 function renderGrid(byDate, summaries = {}) {
   const body = container.querySelector("#cal-body");
   if (!body) return;
@@ -196,14 +212,30 @@ function renderGrid(byDate, summaries = {}) {
       cell.addEventListener("click", () => callbacks.onDayClick(date));
     }
 
+    const dayEvents = byDate[date] || [];
+    const progress = otherMonth ? null : _dayProgress(dayEvents, summaries);
+
+    const badgeEl = document.createElement("span");
+    badgeEl.className = "cal-day-badge" + (progress ? "" : " cal-day-badge--empty");
+    if (progress) badgeEl.style.setProperty("--cal-progress", String(progress.percent));
+
     const numEl = document.createElement("span");
     numEl.className = "cal-day-num";
     numEl.textContent = day;
-    cell.appendChild(numEl);
+    badgeEl.appendChild(numEl);
+
+    if (progress) {
+      const srEl = document.createElement("span");
+      srEl.className = "sr-only";
+      srEl.textContent = `${progress.done} de ${progress.total} compromisso(s) estudado(s)`;
+      badgeEl.appendChild(srEl);
+    }
+
+    cell.appendChild(badgeEl);
 
     const chipsEl = document.createElement("div");
     chipsEl.className = "cal-chips";
-    (byDate[date] || []).forEach(ev => {
+    dayEvents.forEach(ev => {
       const chip = document.createElement("div");
       const isAcademic = !!ev._isAcademic;
       chip.className = isAcademic ? "cal-chip cal-chip-academic" : "cal-chip";
