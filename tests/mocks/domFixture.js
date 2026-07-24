@@ -7,6 +7,8 @@ import { JSDOM } from "jsdom";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { injectStaticIcons } from "../../icons.js";
+import { initStaticDisclosureToggles } from "../../disclosureToggle.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const INDEX_HTML_PATH = path.join(__dirname, "..", "..", "index.html");
@@ -69,6 +71,13 @@ export function installDom({ url = "http://localhost/" } = {}) {
       enumerable: true,
     });
   }
+
+  // Fase I1/I2 — index.html só deixa placeholders (`[data-icon]`/
+  // `[data-disclosure-label]`); em produção script.js os preenche no boot,
+  // então os testes de view (que carregam o HTML sem rodar o boot inteiro)
+  // precisam do mesmo passo para ver o markup real de ícones/disclosures.
+  injectStaticIcons(dom.window.document);
+  initStaticDisclosureToggles(dom.window.document);
 
   return dom;
 }
