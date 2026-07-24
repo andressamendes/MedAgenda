@@ -1843,6 +1843,40 @@ textarea { resize: vertical; }
   margin-top: .4rem;
 }
 
+/* ── Estado vazio ilustrado (V5.19, ver emptyStateView.js) ─────────────────
+   Mesmo espírito de .state-block (ícone + título + descrição centralizados),
+   mas sem a cor de erro fixa: usado só para "sem dados ainda", nunca para
+   falha. A ilustração ocupa bem mais espaço que um ícone comum — reserva
+   proposital para dar às telas "não há nada aqui ainda" o mesmo cuidado
+   visual de qualquer outro estado do produto. */
+.empty-illustration-icon,
+.empty-illustration-title,
+.empty-illustration-desc {
+  display: block;
+}
+
+.empty-illustration-icon {
+  color: var(--color-primary);
+  margin: 0 auto .6rem;
+}
+
+.empty-illustration-icon svg {
+  width: clamp(84px, 24vw, 120px);
+  aspect-ratio: 4 / 3;
+  height: auto;
+}
+
+.empty-illustration-title {
+  font-weight: 600;
+  font-size: .95rem;
+  margin-bottom: .3rem;
+}
+
+.empty-illustration-desc {
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+}
+
 /* ── Cards de eventos ── */
 .list-empty {
   font-size: var(--font-size-sm);
@@ -4133,7 +4167,10 @@ textarea { resize: vertical; }
 }
 
 .ss-empty .state-block-icon { color: var(--color-primary); }
-.ss-empty .state-block-icon svg { width: var(--icon-xl); height: var(--icon-xl); }
+/* V5.19 — ilustração de linha própria (icons.js/illustrationEmptySession) no
+   lugar do ícone genérico de 40px; mesma proporção 4:3 usada nos demais
+   estados vazios ilustrados (ver .empty-illustration-icon svg). */
+.ss-empty .state-block-icon svg { width: clamp(84px, 24vw, 120px); aspect-ratio: 4 / 3; height: auto; }
 
 /* Mesmo bug de especificidade de .state-block[hidden] (ver F10 #1.6 acima):
    `.ss-empty`/`.ss-card` fixam `display` e empatam em especificidade com

@@ -49,6 +49,7 @@ const APP_SHELL = [
   './decisionEngine.js',
   './diagnosticModal.js',
   './diagnosticService.js',
+  './emptyStateView.js',
   './errorService.js',
   './eventFormView.js',
   './eventService.js',
