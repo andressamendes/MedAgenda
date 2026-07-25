@@ -2,6 +2,17 @@
 
 ---
 
+## [Unreleased] — Restringir "Iniciar sessão" às categorias de estudo
+
+- Na tela "Hoje", o botão "Iniciar sessão" em "Compromissos de hoje" agora só
+  aparece para compromissos das categorias "Estudo" ou "Simulado"
+  (`todayView.js`/`_isStudyCategory`, mesma comparação case-insensitive já
+  usada por `studySessionView.js` para reconhecer um compromisso de estudo).
+  Compromissos de outras categorias (Ambulatório, Atividade Física, Aula,
+  Pessoal etc.) deixam de oferecer ou sugerir uma sessão de estudo.
+
+---
+
 ## [Unreleased] — Fase F (F1–F3): Reconstrução da Sessão de Estudo
 
 - **F1 — cartão de status compacto substitui os blocos `dl` de contexto**
