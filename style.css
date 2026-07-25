@@ -169,10 +169,23 @@
      corpo — visual estável em qualquer SO. */
   --font-display: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 
-  /* ── Transições (F5.2) — microinterações consistentes ── */
-  --transition-fast: .12s ease;
-  --transition-base: .18s ease;
-  --transition-slow: .3s cubic-bezier(.2, .8, .2, 1);
+  /* ── Transições (F5.2) — microinterações consistentes ──
+     Fase 3 (curvas de movimento autorais): --transition-fast/base usavam o
+     `ease` genérico de framework; --transition-slow já usava
+     cubic-bezier(.2, .8, .2, 1) — a mesma curva reaparecia, literal e sem
+     nome, em content-reveal, achv-badge-pop e close-day-reveal. Nenhuma
+     transição do produto era reconhecível como "assinatura Anoti": todas
+     se moviam com o timing default do navegador. --ease-anoti nomeia essa
+     curva (partida rápida, chegada assentada — sem overshoot) e passa a
+     ser a única curva de entrada/saída do produto, aplicada aqui aos três
+     degraus de duração; troca só de curva, nenhuma duração muda. A curva
+     bounce do toast de marco (cubic-bezier(.34, 1.56, .64, 1)) é uma
+     exceção deliberada — celebração, não movimento padrão — e permanece
+     como está, no mesmo espírito de --color-celebration vs --color-primary. */
+  --ease-anoti: cubic-bezier(.2, .8, .2, 1);
+  --transition-fast: .12s var(--ease-anoti);
+  --transition-base: .18s var(--ease-anoti);
+  --transition-slow: .3s var(--ease-anoti);
 
   /* ── Anel de foco (F5.2) — acessibilidade consistente em botões, inputs,
      itens de navegação e cartões clicáveis ── */
@@ -724,7 +737,7 @@ body {
 .disclosure-chevron svg {
   width: var(--icon-sm);
   height: var(--icon-sm);
-  transition: transform .15s ease;
+  transition: transform .15s var(--ease-anoti);
 }
 
 .disclosure-toggle[aria-expanded="true"] .disclosure-chevron svg {
@@ -791,7 +804,7 @@ body {
   padding: var(--space-3) var(--space-2);
   gap: var(--space-1);
   padding-left: calc(var(--space-2) + var(--safe-left));
-  transition: width .2s ease;
+  transition: width .2s var(--ease-anoti);
 }
 
 .sidebar-nav-group {
@@ -1215,7 +1228,7 @@ body {
     bottom: 0;
     z-index: var(--z-sidebar);
     transform: translateX(-100%);
-    transition: transform .25s ease;
+    transition: transform .25s var(--ease-anoti);
     height: auto;
     width: min(var(--sidebar-w), 85vw);
     padding-bottom: calc(var(--space-3) + var(--safe-bottom));
@@ -1819,7 +1832,7 @@ textarea { resize: vertical; }
 }
 
 .content-reveal {
-  animation: content-reveal .2s cubic-bezier(.2, .8, .2, 1);
+  animation: content-reveal .2s var(--ease-anoti);
 }
 
 /* F11 E9 — troca de página (showPage()/navigationView.js): mesmo princípio de
@@ -4859,7 +4872,7 @@ textarea { resize: vertical; }
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, .18);
   margin-bottom: var(--space-2);
-  animation: achv-badge-pop .5s cubic-bezier(.2, .8, .2, 1) both;
+  animation: achv-badge-pop .5s var(--ease-anoti) both;
 }
 
 .achv-celebration-badge::before,
@@ -5024,7 +5037,7 @@ textarea { resize: vertical; }
 .close-day-next,
 .close-day-actions {
   opacity: 0;
-  animation: close-day-reveal .5s cubic-bezier(.2, .8, .2, 1) both;
+  animation: close-day-reveal .5s var(--ease-anoti) both;
   animation-delay: calc(var(--cd-delay, 0) * 90ms);
 }
 
