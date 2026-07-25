@@ -140,12 +140,24 @@
   --space-5: 1.25rem;
   --space-6: 1.5rem;
 
-  /* ── Escala tipográfica (F10 #2.1, mesma nota acima) ── */
+  /* ── Escala tipográfica (F10 #2.1, mesma nota acima) ──
+     F5 (auditoria de hierarquia): 62% dos tamanhos do produto viviam
+     amontoados em --font-size-xs/sm (12-13,6px) — nada "gritava" ou
+     "sussurrava" por tamanho, só por font-weight. --font-size-3xs/2xs
+     absorvem o cluster de valores crus abaixo de .75rem (badges, chips,
+     rótulos de grade); --font-size-2xl/3xl/4xl dão aos títulos de página
+     e números de destaque (.page-title, .stat-card-value,
+     .ss-timer-value) uma escala real acima de --font-size-xl. */
+  --font-size-3xs: .625rem;
+  --font-size-2xs: .6875rem;
   --font-size-xs: .75rem;
   --font-size-sm: .85rem;
   --font-size-md: .875rem;
   --font-size-lg: 1rem;
   --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.75rem;
+  --font-size-4xl: 3rem;
 
   /* ── Rótulo "eyebrow" (F18.10) — tamanho e espaçamento de letra únicos
      para os textos em caixa alta que anunciam uma seção/grupo (ex.:
@@ -370,7 +382,7 @@ body {
 .app-loading-screen[hidden] { display: none; }
 
 .app-loading-logo {
-  font-size: 1.5rem;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   letter-spacing: -.01em;
   color: var(--blue);
@@ -452,7 +464,7 @@ body {
 }
 
 .card h1 {
-  font-size: 1.5rem;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   margin-bottom: var(--space-1);
 }
@@ -518,12 +530,12 @@ body {
 }
 
 .auth-brand-mark {
-  font-size: 1.4rem;
+  font-size: var(--font-size-2xl);
   margin-bottom: var(--space-5);
 }
 
 .auth-brand-tagline {
-  font-size: 1.05rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   line-height: 1.4;
   margin-bottom: var(--space-6);
@@ -565,7 +577,7 @@ body {
 }
 
 .auth-panel h1 {
-  font-size: 1.5rem;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   margin-bottom: var(--space-1);
 }
@@ -625,7 +637,7 @@ body {
 
 .app-title {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--font-size-lg);
   letter-spacing: -.01em;
   color: var(--blue);
 }
@@ -967,7 +979,7 @@ body {
 }
 
 .page-title {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--gray-800);
 }
@@ -1110,7 +1122,7 @@ body {
   border-radius: var(--radius-full);
   background: var(--color-primary);
   color: var(--color-on-primary);
-  font-size: .65rem;
+  font-size: var(--font-size-3xs);
   font-weight: 700;
   line-height: 1;
   text-align: center;
@@ -1220,7 +1232,7 @@ body {
 .bottom-nav-icon { display: flex; align-items: center; justify-content: center; }
 .bottom-nav-icon svg { width: var(--icon-md); height: var(--icon-md); }
 
-.bottom-nav-label { font-size: .75rem; font-weight: 600; }
+.bottom-nav-label { font-size: var(--font-size-xs); font-weight: 600; }
 
 /* F14.9 — Modo foco: com uma sessão de estudo rodando, oculta a moldura do
    app inteiro (header, sidebar, seu overlay mobile e bottom-nav) — só o
@@ -1447,7 +1459,7 @@ body {
   display: flex;
   align-items: center;
   gap: .2rem;
-  font-size: .65rem;
+  font-size: var(--font-size-3xs);
   font-weight: 600;
   color: var(--color-on-primary);
   padding: .1rem .35rem;
@@ -1745,7 +1757,7 @@ textarea { resize: vertical; }
 
 /* Tamanhos */
 .btn-sm { padding: .4rem .85rem; font-size: var(--font-size-sm); }
-.btn-lg { padding: .8rem 1.4rem; font-size: 1rem; }
+.btn-lg { padding: .8rem 1.4rem; font-size: var(--font-size-lg); }
 
 /* Loading — mantém a largura do botão, esconde o rótulo e mostra um
    spinner central; ativar via classe (sem alterar o texto/JS do botão) */
@@ -1941,7 +1953,7 @@ textarea { resize: vertical; }
 
 .state-block-title {
   font-weight: 600;
-  font-size: .95rem;
+  font-size: var(--font-size-lg);
 }
 
 .state-block-desc {
@@ -1977,7 +1989,7 @@ textarea { resize: vertical; }
 
 .empty-illustration-title {
   font-weight: 600;
-  font-size: .95rem;
+  font-size: var(--font-size-lg);
   margin-bottom: .3rem;
 }
 
@@ -2055,7 +2067,7 @@ textarea { resize: vertical; }
 
 .event-card-title {
   font-weight: 700;
-  font-size: .95rem;
+  font-size: var(--font-size-lg);
 }
 
 .event-card-actions {
@@ -2313,7 +2325,7 @@ textarea { resize: vertical; }
 
 .stat-card-value {
   font-family: var(--font-display);
-  font-size: 1.6rem;
+  font-size: var(--font-size-3xl);
   font-weight: 700;
   color: var(--gray-800);
 }
@@ -2331,8 +2343,8 @@ textarea { resize: vertical; }
   gap: .15rem;
 }
 .stat-card--sm:hover { box-shadow: none; transform: none; }
-.stat-card--sm .stat-card-title { font-size: .68rem; }
-.stat-card--sm .stat-card-value { font-family: inherit; font-size: .95rem; color: var(--gray-800); }
+.stat-card--sm .stat-card-title { font-size: var(--font-size-2xs); }
+.stat-card--sm .stat-card-value { font-family: inherit; font-size: var(--font-size-lg); color: var(--gray-800); }
 
 /* F11 E11 — barra de progresso das metas de tempo (dailyGoal/weeklyGoal/
    monthlyGoal), puramente visual: o percentual continua escrito em
@@ -2698,7 +2710,7 @@ textarea { resize: vertical; }
 
 .progress-goal-ring-value {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--gray-800);
 }
@@ -2735,7 +2747,7 @@ textarea { resize: vertical; }
 
 .progress-narrative p {
   margin: 0 0 .4rem;
-  font-size: 1.05rem;
+  font-size: var(--font-size-lg);
   line-height: 1.5;
   color: var(--gray-800);
 }
@@ -2935,7 +2947,7 @@ textarea { resize: vertical; }
 }
 
 .sj-entry-summary {
-  font-size: .95rem;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--gray-800);
   margin-top: .3rem;
@@ -3317,7 +3329,7 @@ textarea { resize: vertical; }
 
 .cp-group-label {
   padding: .5rem .6rem .3rem;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -3343,7 +3355,7 @@ textarea { resize: vertical; }
 .cp-item-label { flex: 1; font-size: var(--font-size-sm); }
 
 .cp-item-hint {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   letter-spacing: .03em;
   color: var(--gray-500);
@@ -3366,14 +3378,14 @@ textarea { resize: vertical; }
   gap: 1rem;
   padding: .6rem 1rem;
   border-top: 1px solid var(--color-border);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--gray-500);
   flex-shrink: 0;
 }
 
 .cp-footer kbd {
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--font-size-3xs);
   font-weight: 600;
   background: var(--gray-100);
   border: 1px solid var(--color-border);
@@ -3518,7 +3530,7 @@ textarea { resize: vertical; }
   flex: 1;
   text-align: center;
   font-weight: 700;
-  font-size: .95rem;
+  font-size: var(--font-size-lg);
   color: var(--gray-800);
 }
 
@@ -3665,7 +3677,7 @@ textarea { resize: vertical; }
 .wk-hour-label {
   position: absolute;
   right: 6px;
-  font-size: .62rem;
+  font-size: var(--font-size-3xs);
   color: var(--gray-500);
   transform: translateY(-50%);
   user-select: none;
@@ -3714,7 +3726,7 @@ textarea { resize: vertical; }
   border-radius: 4px;
   padding: .15rem .35rem;
   color: var(--color-on-primary);
-  font-size: .7rem;
+  font-size: var(--font-size-2xs);
   overflow: hidden;
   cursor: pointer;
   z-index: 2;
@@ -3746,7 +3758,7 @@ textarea { resize: vertical; }
 .wk-ev-cat,
 .wk-ev-time {
   display: block;
-  font-size: .62rem;
+  font-size: var(--font-size-3xs);
   opacity: .88;
   white-space: nowrap;
   overflow: hidden;
@@ -3758,7 +3770,7 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   gap: .3em;
-  font-size: .6rem;
+  font-size: var(--font-size-3xs);
   font-weight: 700;
   opacity: .92;
 }
@@ -3830,7 +3842,7 @@ textarea { resize: vertical; }
   flex: 1;
   text-align: center;
   font-weight: 700;
-  font-size: .95rem;
+  font-size: var(--font-size-lg);
   color: var(--gray-800);
   text-transform: capitalize;
 }
@@ -3870,7 +3882,7 @@ textarea { resize: vertical; }
 
 .dv-gutter-allday {
   flex: 0 0 52px;
-  font-size: .58rem;
+  font-size: var(--font-size-3xs);
   color: var(--gray-500);
   text-align: right;
   padding: .3rem .4rem 0 0;
@@ -3908,7 +3920,7 @@ textarea { resize: vertical; }
 }
 
 @media (max-width: 680px) {
-  .dv-label { font-size: .85rem; }
+  .dv-label { font-size: var(--font-size-sm); }
 }
 
 /* ── Recorrência — campos extras no formulário ──────────────────────────────
@@ -4481,7 +4493,7 @@ textarea { resize: vertical; }
 
 .ss-timer-value {
   font-family: var(--font-display);
-  font-size: 3rem;
+  font-size: var(--font-size-4xl);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--gray-800);
@@ -5004,7 +5016,7 @@ textarea { resize: vertical; }
 .close-day-stat dd {
   font-family: var(--font-display);
   margin: 0 0 .15rem;
-  font-size: 1.75rem;
+  font-size: var(--font-size-3xl);
   font-weight: 700;
   color: var(--color-on-primary);
   order: 1;
@@ -5302,7 +5314,7 @@ textarea { resize: vertical; }
 }
 
 .wk-gutter-allday {
-  font-size: .58rem;
+  font-size: var(--font-size-3xs);
   color: var(--gray-500);
   text-align: right;
   padding: .3rem .4rem 0 0;
@@ -5322,7 +5334,7 @@ textarea { resize: vertical; }
 .wk-allday-col:last-child { border-right: none; }
 
 .wk-allday-chip {
-  font-size: .62rem;
+  font-size: var(--font-size-3xs);
   line-height: 1.3;
   padding: 1px 4px;
   border-radius: var(--radius-full);
@@ -5800,7 +5812,7 @@ textarea { resize: vertical; }
 }
 
 .ai-evolution-detail {
-  font-size: .74rem;
+  font-size: var(--font-size-2xs);
   line-height: 1.4;
   color: var(--gray-500);
   margin: 0;
