@@ -1,20 +1,29 @@
-// ── icons.js — Ícones SVG inline (auditoria UX #33) ─────────────────────────
+// ── icons.js — Ícones SVG inline (auditoria UX #33 · Fase 2: família autoral) ──
 //
 // Substitui os emoji usados como iconografia de produto (nav, estados de
-// erro, marcos do Diário) por SVGs simples de traço único, no mesmo estilo
-// já usado nos ícones do cabeçalho (index.html) — viewBox 24x24,
-// stroke="currentColor", sem preenchimento fixo. Emoji renderiza de forma
-// inconsistente entre sistemas operacionais e tinha glifos quase idênticos
-// (📅/🗓) para conceitos diferentes (Semana × Mês); estes ícones são
-// desenhados para ficar visualmente distintos entre si.
+// erro, marcos do Diário) por SVGs simples de traço único. Emoji renderiza
+// de forma inconsistente entre sistemas operacionais e tinha glifos quase
+// idênticos (📅/🗓) para conceitos diferentes (Semana × Mês); estes ícones
+// são desenhados para ficar visualmente distintos entre si.
+//
+// Assinatura própria (Fase 2), para não ler como Feather/Lucide "de fábrica":
+//   1. Traço 1.75 (não 2) — levemente mais fino que o padrão Feather.
+//   2. Terminações quadradas (stroke-linecap="square") e junções em esquadro
+//      (stroke-linejoin="miter") em vez de round/round — pontas e vértices
+//      chanfrados, não arredondados.
+//   3. Corte de canto: todo contêiner retangular (calendário, prancheta,
+//      cadeado, envelope, cartão de agenda) tem o canto superior direito
+//      cortado a 45° em vez de rx arredondado — silhueta reconhecível mesmo
+//      isolada, sem depender de cor. Ao desenhar um ícone novo com contêiner
+//      retangular, siga essa mesma convenção (chanfro ~15% do lado menor).
 //
 // Sem width/height fixos no <svg> — cada tela controla o tamanho via CSS
 // (".nav-icon svg", ".state-block-icon svg", ".sj-milestone-icon svg" etc.).
-const STROKE = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const STROKE = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"';
 
 export const iconCalendarWeek = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
-    <rect x="3" y="4" width="18" height="17" rx="2"/>
+    <path d="M3 4H18L21 7V21H3Z"/>
     <line x1="3" y1="10" x2="21" y2="10"/>
     <line x1="8" y1="2" x2="8" y2="6"/>
     <line x1="16" y1="2" x2="16" y2="6"/>
@@ -23,7 +32,7 @@ export const iconCalendarWeek = `
 
 export const iconCalendarMonth = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
-    <rect x="3" y="4" width="18" height="17" rx="2"/>
+    <path d="M3 4H18L21 7V21H3Z"/>
     <line x1="3" y1="10" x2="21" y2="10"/>
     <line x1="8" y1="2" x2="8" y2="6"/>
     <line x1="16" y1="2" x2="16" y2="6"/>
@@ -37,7 +46,7 @@ export const iconCalendarMonth = `
 
 export const iconClipboard = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
-    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-2-2h-2"/>
     <rect x="9" y="3" width="6" height="4" rx="1"/>
   </svg>`;
 
@@ -93,7 +102,7 @@ export const iconMoreHorizontal = `
 
 export const iconLock = `
   <svg viewBox="0 0 24 24" ${STROKE} aria-hidden="true" focusable="false">
-    <rect x="5" y="11" width="14" height="10" rx="2"/>
+    <path d="M5 11H16L19 14V21H5Z"/>
     <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
   </svg>`;
 
@@ -171,7 +180,7 @@ export const iconInfo = `
   </svg>`;
 
 export const iconX = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false">
     <line x1="6" y1="6" x2="18" y2="18"/>
     <line x1="18" y1="6" x2="6" y2="18"/>
   </svg>`;
@@ -222,7 +231,7 @@ export const illustrationEmptyJournal = `
 
 export const illustrationEmptyAgenda = `
   <svg viewBox="0 0 120 90" ${STROKE} aria-hidden="true" focusable="false">
-    <rect x="18" y="18" width="84" height="60" rx="8"/>
+    <path d="M18 18H88L102 32V78H18Z"/>
     <line x1="18" y1="36" x2="102" y2="36"/>
     <line x1="40" y1="10" x2="40" y2="24"/>
     <line x1="80" y1="10" x2="80" y2="24"/>
@@ -238,21 +247,21 @@ export const illustrationEmptyAgenda = `
 // preencher os placeholders `[data-icon]` deixados no lugar deles.
 
 export const iconMenu = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true" focusable="false">
     <line x1="3" y1="6" x2="21" y2="6"/>
     <line x1="3" y1="12" x2="21" y2="12"/>
     <line x1="3" y1="18" x2="21" y2="18"/>
   </svg>`;
 
 export const iconBrandMark = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false">
     <path d="M4.5 19 12 4.5 19.5 19"/>
     <path d="M7.7 14h8.6"/>
   </svg>`;
 
 export const iconMail = `
   <svg viewBox="0 0 24 24" ${STROKE} focusable="false">
-    <rect x="3" y="5" width="18" height="14" rx="2"/>
+    <path d="M3 5H18L21 8V19H3Z"/>
     <path d="m3 7 9 6 9-6"/>
   </svg>`;
 
