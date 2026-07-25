@@ -377,24 +377,40 @@ body {
   animation: app-loading-breathe 1.8s ease-in-out infinite;
 }
 
-/* Substitui o antigo anel cinza genérico (V5.14): o degradê reproduz o
-   mesmo par de azuis do ícone do app (icons/icon.svg, --blue → --blue-d),
-   então a tela de carregamento já "parece" com o app antes de qualquer
-   outro pixel aparecer. Anel via mask (não border), pois só assim o
-   conic-gradient consegue desenhar uma cauda com fade real. */
-.app-loading-spinner {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: conic-gradient(from 0deg, var(--blue-d), var(--blue), rgba(73, 84, 168, .12) 65%, var(--blue-d));
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-  animation: spin .8s linear infinite;
+/* Substitui o anel cinza/cônico genérico (Fase 4): um spinner circular é o
+   componente mais reconhecível de "template de tutorial CSS" que existe —
+   não carrega nenhuma identidade própria, só cor. Troca por uma barra que
+   varre a mesma dupla de azuis do ícone do app (--blue-d → --blue) e usa a
+   curva de movimento autoral do produto (--ease-anoti, Fase 3) em vez do
+   linear cru de um spinner: a tela de carregamento passa a se mover como o
+   resto do app se move, não como um componente genérico plugado nele. */
+.app-loading-bar {
+  width: 96px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--gray-200);
+}
+.app-loading-bar-fill {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--blue-d), var(--blue));
+  animation: app-loading-sweep 1.3s var(--ease-anoti) infinite;
 }
 
 @keyframes app-loading-breathe {
   0%, 100% { opacity: 1; }
   50%      { opacity: .6; }
+}
+
+/* translateX é relativo à própria largura do elemento: -100% deixa a barra
+   inteira fora à esquerda, 290% (≈ 100% / 35% de largura) a leva inteira
+   para fora à direita — percurso completo através da trilha. */
+@keyframes app-loading-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(290%); }
 }
 
 /* ── Banco de dados desatualizado (P0) — reusa .state-block (ver bloco de
@@ -1871,7 +1887,7 @@ textarea { resize: vertical; }
   .page-enter { animation: none; }
   .count-pulse { animation: none; }
   .app-loading-logo { animation: none; }
-  .app-loading-spinner { animation: none; opacity: .85; }
+  .app-loading-bar-fill { animation: none; opacity: .85; }
   .disclosure-chevron svg { transition: none; }
   .toast.toast-milestone { transition: opacity var(--transition-slow); }
   .toast.toast-milestone .toast-icon { animation: none; }
