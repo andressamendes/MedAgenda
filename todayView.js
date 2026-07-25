@@ -192,24 +192,41 @@ async function _refreshAppointments() {
   }
 }
 
+// Categorias que representam estudo de fato — a única razão de existir de
+// "Iniciar sessão" é abrir uma sessão de estudo, então compromissos de outras
+// categorias (Ambulatório, Atividade Física, Aula, Pessoal…) não devem
+// oferecer ou sugerir essa ação (ver studySessionView.js:714 pela mesma
+// comparação case-insensitive contra ev.category).
+const STUDY_CATEGORIES = ["estudo", "simulado"];
+
+function _isStudyCategory(category) {
+  return STUDY_CATEGORIES.includes((category || "").trim().toLowerCase());
+}
+
 function _buildApptItem(ev) {
   const li = document.createElement("li");
   li.className = "today-appt-item";
+  const startBtnHtml = _isStudyCategory(ev.category)
+    ? `<button type="button" class="btn btn-sm btn-secondary today-appt-start">Iniciar sessão</button>`
+    : "";
   li.innerHTML = `
     <span class="today-appt-time">${ev.start_time.slice(0, 5)}</span>
     <span class="today-appt-title">${escapeHtml(ev.title)}</span>
-    <button type="button" class="btn btn-sm btn-secondary today-appt-start">Iniciar sessão</button>
+    ${startBtnHtml}
   `;
-  li.querySelector(".today-appt-start").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    try {
-      const started = await startSessionForEvent(ev);
-      if (started) showPage("study-session");
-    } finally {
-      btn.disabled = false;
-    }
-  });
+  const startBtn = li.querySelector(".today-appt-start");
+  if (startBtn) {
+    startBtn.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const started = await startSessionForEvent(ev);
+        if (started) showPage("study-session");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
   return li;
 }
 

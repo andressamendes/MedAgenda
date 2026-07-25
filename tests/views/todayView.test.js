@@ -209,8 +209,8 @@ test("no last session at all keeps 'Continuar' hidden", async (t) => {
 
 test("today's appointments are listed, sorted by start time", async (t) => {
   const events = [
-    { id: "e2", title: "Aula de Cardiologia", start_time: "14:00:00" },
-    { id: "e1", title: "Plantão UPA", start_time: "08:00:00" },
+    { id: "e2", title: "Aula de Cardiologia", start_time: "14:00:00", category: "Aula" },
+    { id: "e1", title: "Plantão UPA", start_time: "08:00:00", category: "Estudo" },
   ];
   const { initTodayView } = await loadView(t, {
     getEventsByRange: async () => events,
@@ -234,7 +234,7 @@ test("no appointments today shows the empty message", async (t) => {
 });
 
 test("clicking 'Iniciar sessão' on a today's appointment starts the session and navigates", async (t) => {
-  const event = { id: "e1", title: "Plantão UPA", start_time: "08:00:00" };
+  const event = { id: "e1", title: "Plantão UPA", start_time: "08:00:00", category: "Estudo" };
   const { initTodayView } = await loadView(t, { getEventsByRange: async () => [event] });
   await initTodayView();
 
@@ -244,6 +244,32 @@ test("clicking 'Iniciar sessão' on a today's appointment starts the session and
   assert.strictEqual(startSessionForEventCalls.length, 1);
   assert.strictEqual(startSessionForEventCalls[0].id, "e1");
   assert.ok(showPageCalls.includes("study-session"));
+});
+
+// Regra desta task: "Iniciar sessão" só existe para compromissos de Estudo
+// ou Simulado — outras categorias (Ambulatório, Atividade Física, Aula,
+// Pessoal…) não devem oferecer nem sugerir uma sessão de estudo.
+test("appointments outside Estudo/Simulado categories show no 'Iniciar sessão' button", async (t) => {
+  const events = [
+    { id: "e1", title: "Ambulatório de Clínica", start_time: "08:00:00", category: "Ambulatório" },
+    { id: "e2", title: "Corrida", start_time: "07:00:00", category: "Atividade Física" },
+    { id: "e3", title: "Aula de Cardiologia", start_time: "10:00:00", category: "Aula" },
+    { id: "e4", title: "Aniversário", start_time: "18:00:00", category: "Pessoal" },
+    { id: "e5", title: "Revisão de Farmaco", start_time: "09:00:00", category: "estudo" },
+    { id: "e6", title: "Simulado ENARE", start_time: "11:00:00", category: "Simulado" },
+    { id: "e7", title: "Sem categoria", start_time: "12:00:00" },
+  ];
+  const { initTodayView } = await loadView(t, { getEventsByRange: async () => events });
+  await initTodayView();
+
+  const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
+  assert.strictEqual(items.length, 7);
+  assert.strictEqual(document.querySelectorAll("#today-appointments-list .today-appt-start").length, 2);
+
+  const titlesWithButton = items
+    .filter(li => li.querySelector(".today-appt-start"))
+    .map(li => li.querySelector(".today-appt-title").textContent);
+  assert.deepStrictEqual(titlesWithButton, ["Revisão de Farmaco", "Simulado ENARE"]);
 });
 
 test("personal events hidden (isPersonalVisible() false) show no appointments", async (t) => {
