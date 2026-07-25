@@ -67,6 +67,7 @@
   --color-text-subtle:    var(--gray-500);
 
   --color-success:        #10b981;
+  --color-success-hover:  #059669;
   --color-success-bg:     #f0fdf4;
   --color-success-text:   #15803d;
   --color-success-border: #86efac;
@@ -77,6 +78,7 @@
   --color-warning-border: #fcd34d;
 
   --color-danger:         #ef4444;
+  --color-danger-hover:   #dc2626;
   --color-danger-bg:      #fef2f2;
   --color-danger-text:    #b91c1c;
   --color-danger-border:  #fca5a5;
@@ -99,7 +101,7 @@
   --radius-sm:    6px;
   --radius-md:    8px;
   --radius-lg:    12px;
-  --radius-full:  999px;
+  --radius-full:  100vmax; /* qualquer valor bem maior que a metade do menor lado já fecha o pill/círculo — 100vmax evita o número mágico em px fixo */
   --radius:       var(--radius-md); /* alias legado, usado nos componentes existentes */
 
   /* ── Sombra ── */
@@ -312,6 +314,7 @@
   --color-surface: #1d1f34;
 
   --color-success:        #34d399;
+  --color-success-hover:  #10b981;
   --color-success-bg:     #052e1c;
   --color-success-text:   #86efac;
   --color-success-border: #15803d;
@@ -323,6 +326,7 @@
   --color-warning-border: #92400e;
 
   --color-danger:         #f87171;
+  --color-danger-hover:   #ef4444;
   --color-danger-bg:      #450a0a;
   --color-danger-text:    #fca5a5;
   --color-danger-border:  #b91c1c;
@@ -1460,10 +1464,8 @@ body {
   align-items: center;
   gap: .2rem;
   font-size: var(--font-size-3xs);
-  font-weight: 600;
   color: var(--color-on-primary);
   padding: .1rem .35rem;
-  border-radius: var(--radius-full);
 }
 
 .cal-chip-text {
@@ -1747,13 +1749,16 @@ textarea { resize: vertical; }
 }
 .btn-outline:hover:not(:disabled) { background: var(--color-info-bg); }
 
-/* Danger */
-.btn-danger { background: var(--color-danger-bg); color: var(--color-danger-text); }
-.btn-danger:hover:not(:disabled) { background: var(--color-danger-bg-strong); }
+/* Danger — mesma hierarquia sólida de .btn-primary (fundo cheio +
+   --color-on-primary), não mais um preenchimento tinta clara: essa
+   variante fica reservada a estados inline (badge, texto de erro), não
+   à ação destrutiva em si. */
+.btn-danger { background: var(--color-danger); color: var(--color-on-primary); }
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-hover); }
 
 /* Success */
-.btn-success { background: var(--color-success-bg); color: var(--color-success-text); }
-.btn-success:hover:not(:disabled) { background: var(--color-success-bg-strong); }
+.btn-success { background: var(--color-success); color: var(--color-on-primary); }
+.btn-success:hover:not(:disabled) { background: var(--color-success-hover); }
 
 /* Tamanhos */
 .btn-sm { padding: .4rem .85rem; font-size: var(--font-size-sm); }
@@ -3507,12 +3512,25 @@ textarea { resize: vertical; }
   padding: 1rem 0;
 }
 
+/* ── Rótulo em pastilha (Fase 6) — .badge, .cal-chip e .wk-allday-chip são
+   a mesma ideia de rótulo em pastilha (radius-full + peso 600), só variando
+   no que já variava de propósito antes: .badge é um rótulo de categoria
+   inline (fundo neutro fixo, tamanho de texto normal); os chips do
+   calendário (.cal-chip/.wk-allday-chip) carregam a cor do evento (definida
+   inline via JS) e ficam menores por precisarem caber num slot da grade.
+   Só a declaração idêntica nos três é agrupada aqui; padding/font-size/
+   background continuam em cada regra, onde a diferença é real. ── */
+.badge,
+.cal-chip,
+.wk-allday-chip {
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
 .badge {
   display: inline-block;
   padding: .15rem .6rem;
-  border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
-  font-weight: 600;
   background: var(--gray-100);
   color: var(--gray-600);
   text-transform: capitalize;
@@ -5337,13 +5355,11 @@ textarea { resize: vertical; }
   font-size: var(--font-size-3xs);
   line-height: 1.3;
   padding: 1px 4px;
-  border-radius: var(--radius-full);
   color: var(--color-on-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  font-weight: 600;
 }
 
 .wk-allday-chip:hover { filter: brightness(1.1); }
