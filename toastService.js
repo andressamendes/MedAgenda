@@ -1,4 +1,5 @@
 import { iconCheck, iconX, iconAlertTriangle, iconInfo } from './icons.js';
+import { attachSwipeToDismiss } from './gestureUtils.js';
 
 const TYPES = {
   success: { icon: iconCheck,        label: 'Sucesso' },
@@ -42,6 +43,9 @@ export function showToast(message, type = 'info', duration = 4500, { milestone =
   };
 
   el.querySelector('.toast-close').addEventListener('click', dismiss);
+  // Fase 7 — swipe para os lados dispensa o toast; o botão "Fechar" acima
+  // continua sendo o fallback acessível, sempre visível.
+  attachSwipeToDismiss(el, { onDismiss: dismiss });
   c.appendChild(el);
 
   requestAnimationFrame(() => el.classList.add('toast-in'));

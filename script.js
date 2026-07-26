@@ -75,6 +75,7 @@ import { resetAIContextService } from "./aiContextService.js";
 import { iconMoreHorizontal, illustrationEmptyAgenda, injectStaticIcons } from "./icons.js";
 import { initStaticDisclosureToggles } from "./disclosureToggle.js";
 import { initTheme } from "./themeService.js";
+import { attachSwipeActions, attachLongPress, attachPullToRefresh } from "./gestureUtils.js";
 
 // F11 E4 — sinaliza para boot-watchdog.js (script clássico, carregado antes
 // deste em index.html) que o grafo de módulos ES linkou com sucesso. Só
@@ -200,6 +201,12 @@ async function safeInit(label, fn) {
 // _modalOverlay em academicCalendarView.js/initAcademicModal(): o listener
 // deve existir uma única vez por carregamento de página, não por sessão.
 let _academicCalsButtonBound = false;
+
+// Fase 7 — mesmo motivo/padrão de _academicCalsButtonBound acima: #app-content
+// é o único container de scroll compartilhado por todas as páginas e nunca é
+// recriado entre logins, então o pull-to-refresh só deve ser anexado uma vez
+// por carregamento de página, não uma vez por login.
+let _pullToRefreshBound = false;
 
 // ── P0 — Proteção contra Divergência de Schema ────────────────────────────
 // Primeiro passo de todo _initApp: confirma que o banco já recebeu as
@@ -347,6 +354,20 @@ async function _initApp(session) {
     if (!_academicCalsButtonBound) {
       document.getElementById("btn-academic-cals")?.addEventListener("click", openAcademicCalendarModal);
       _academicCalsButtonBound = true;
+    }
+
+    // Fase 7 — pull-to-refresh na Agenda: só age quando a página "Agenda"
+    // está visível (isActive), reaproveitando refreshAll() (mesma função do
+    // botão de sincronização manual — não é a única forma de atualizar).
+    if (!_pullToRefreshBound) {
+      const appContent = document.getElementById("app-content");
+      if (appContent) {
+        attachPullToRefresh(appContent, {
+          onRefresh: refreshAll,
+          isActive: () => !document.getElementById("page-agenda")?.hidden,
+        });
+      }
+      _pullToRefreshBound = true;
     }
 
     // Categorias devem estar prontas antes do calendário e da lista
@@ -557,6 +578,20 @@ function renderList(events) {
     card.querySelector(".btn-edit").addEventListener("click", () => { _closeAllCardMenus(); handleEventClick(ev); });
     card.querySelector(".btn-delete").addEventListener("click", () => { _closeAllCardMenus(); handleDelete(ev, card); });
     card.querySelector(".btn-start-session").addEventListener("click", (e) => handleStartSession(ev, e.currentTarget));
+
+    // Fase 7 — swipe para a esquerda revela os mesmos "Editar"/"Excluir" já
+    // acessíveis pelo menu "⋯" (nunca a única forma de disparar a ação);
+    // long-press é um atalho de toque para abrir esse mesmo menu.
+    attachSwipeActions(card, {
+      actions: [
+        { label: "Editar", className: "swipe-action-edit", onTrigger: () => handleEventClick(ev) },
+        { label: "Excluir", className: "swipe-action-delete", onTrigger: () => handleDelete(ev, card) },
+      ],
+    });
+    attachLongPress(card, {
+      onLongPress: () => card.querySelector(".event-card-menu-btn")?.click(),
+    });
+
     eventList.appendChild(card);
   });
 }

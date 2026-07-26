@@ -73,6 +73,7 @@ function loadView(t, overrides = {}) {
     namedExports: {
       initActivityHistoryView: overrides.initActivityHistoryView ?? (async () => {}),
       setHistoryStatus: overrides.setHistoryStatus ?? ((status) => { setHistoryStatusCalls.push(status); }),
+      refreshActivityHistoryView: overrides.refreshActivityHistoryView ?? (async () => {}),
     },
   });
 

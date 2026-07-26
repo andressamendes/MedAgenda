@@ -129,11 +129,12 @@ import { buildMilestones } from "./studyMilestoneService.js";
 import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, illustrationEmptyJournal } from "./icons.js";
 import { disclosureToggleContent } from "./disclosureToggle.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
-import { setHistoryStatus } from "./activityHistoryView.js";
+import { setHistoryStatus, refreshActivityHistoryView } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { getUserQuestionStatistics, summarizeSessionQuestions, accuracyIndicator } from "./studyStatisticsService.js";
 import { getCategories } from "./categoryService.js";
 import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
+import { attachLongPress, attachPullToRefresh } from "./gestureUtils.js";
 
 const PAGE_SIZE = 10;
 
@@ -681,6 +682,10 @@ function _buildEntryEl(entry) {
   _renderDetail(detailEl, s, meta, questions, reviews, query);
   _renderReflectionView(detailEl.querySelector(".sj-reflection"), entry, reflection, query);
   toggleBtn.addEventListener("click", () => _toggleEntry(toggleBtn, detailEl));
+
+  // Fase 7 — long-press na entrada é atalho de toque para o mesmo
+  // toggleBtn (chevron), que continua sendo o fallback acessível por botão.
+  attachLongPress(li, { onLongPress: () => toggleBtn.click() });
 
   return li;
 }
@@ -1236,6 +1241,18 @@ export async function initStudyJournalView() {
     loadMoreBtn?.addEventListener("click", () => _loadPage(false));
     _bindFilters();
     _updateQuickFilterActive();
+
+    // Fase 7 — pull-to-refresh no Diário: só age com a página "Diário"
+    // visível, recarregando a aba atualmente ativa (Concluídas ou
+    // Histórico) — mesmas funções que "Carregar mais"/troca de aba já usam,
+    // não é a única forma de atualizar a lista.
+    const appContent = document.getElementById("app-content");
+    if (appContent) {
+      attachPullToRefresh(appContent, {
+        onRefresh: () => (finishedViewEl?.hidden ? refreshActivityHistoryView() : _loadPage(true)),
+        isActive: () => !document.getElementById("page-journal")?.hidden,
+      });
+    }
   }
 
   let savedStatusTab;

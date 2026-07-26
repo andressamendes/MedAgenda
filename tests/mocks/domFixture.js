@@ -38,6 +38,7 @@ function patchOffsetParent(window) {
 const GLOBALS = [
   "window", "document", "navigator", "localStorage", "sessionStorage",
   "HTMLElement", "Event", "KeyboardEvent", "MouseEvent", "CustomEvent",
+  "PointerEvent",
   "requestAnimationFrame", "cancelAnimationFrame", "getComputedStyle",
 ];
 
