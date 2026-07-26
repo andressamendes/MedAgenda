@@ -336,7 +336,7 @@ function _bindEvents() {
     if (_busy || !_session) return;
     const shouldCancel = await confirmDialog({
       title:       "Cancelar sessão",
-      message:     "A sessão será encerrada como cancelada e não entrará nas suas estatísticas de execução. Deseja continuar?",
+      message:     "A sessão será encerrada como cancelada e não entrará nas suas estatísticas de execução. Ainda quer cancelar?",
       confirmText: "Cancelar sessão",
       cancelText:  "Voltar",
     });
@@ -1615,7 +1615,7 @@ export async function startSessionForEvent(event) {
       const runningLabel = _eventMeta?.title ? `"${_eventMeta.title}"` : "outra atividade";
       const shouldFinish = await confirmDialog({
         title:       "Sessão em andamento",
-        message:     `Já existe uma sessão em andamento para ${runningLabel}. Finalize-a antes de iniciar uma nova sessão.`,
+        message:     `Você já tem uma sessão rolando para ${runningLabel}. Finalize-a antes de começar uma nova.`,
         confirmText: "Finalizar sessão atual",
         cancelText:  "Cancelar",
       });

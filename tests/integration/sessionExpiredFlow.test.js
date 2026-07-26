@@ -82,7 +82,7 @@ test("Revisões: a real refresh-token-expired error from Supabase, hitting both 
   const errorEl = document.getElementById("insights-revisoes-error");
   assert.strictEqual(errorEl.hidden, false);
   assert.match(errorEl.textContent, /Sessão expirada/);
-  assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
+  assert.match(errorEl.textContent, /Sua sessão expirou\. Entre de novo para continuar\./);
   assert.doesNotMatch(errorEl.textContent, /Erro ao comunicar com o servidor/);
   assert.strictEqual(errorEl.querySelector(".state-block-action").textContent, "Entrar novamente");
 

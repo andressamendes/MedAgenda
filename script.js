@@ -134,8 +134,8 @@ const listEmpty = document.getElementById("list-empty");
 // antigo LIST_EMPTY_TEXT capturado do próprio HTML.
 const LIST_EMPTY_MARKUP = emptyIllustrationMarkup({
   illustration: illustrationEmptyAgenda,
-  title: "Nenhum compromisso encontrado",
-  desc: "Toque em “+ Novo compromisso” para agendar o primeiro.",
+  title: "Sua agenda está livre por aqui",
+  desc: "Toque em “+ Novo compromisso” para marcar seu próximo horário de estudo.",
 });
 
 // ── Indicador de sincronização ─────────────────────────────────────────────
@@ -678,7 +678,7 @@ async function handleDelete(ev, card) {
   } else {
     const ok = await confirmDialog({
       title:   'Excluir compromisso',
-      message: 'Tem certeza que deseja excluir este compromisso?',
+      message: 'Esse compromisso vai sumir da sua agenda para sempre. Excluir mesmo assim?',
       danger:  true,
     });
     if (!ok) return;

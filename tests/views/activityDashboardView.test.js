@@ -458,7 +458,7 @@ test("a session-expired error (auth category) shows 'Sessão expirada' with an '
   const { mod } = await loadView(t, {
     getDashboardData: async () => { throw new Error("JWT expired"); },
     category: "auth",
-    friendlyMessage: "Sua sessão expirou. Faça login novamente.",
+    friendlyMessage: "Sua sessão expirou. Entre de novo para continuar.",
   });
 
   await mod.initActivityDashboardView();
@@ -466,7 +466,7 @@ test("a session-expired error (auth category) shows 'Sessão expirada' with an '
   const errorEl = document.getElementById("dash-error");
   assert.strictEqual(errorEl.hidden, false);
   assert.match(errorEl.textContent, /Sessão expirada/);
-  assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
+  assert.match(errorEl.textContent, /Sua sessão expirou\. Entre de novo para continuar\./);
   const actionBtn = errorEl.querySelector(".state-block-action");
   assert.strictEqual(actionBtn.textContent, "Entrar novamente");
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, true));
@@ -807,7 +807,7 @@ test("V5.3 — a failure fetching achievements never breaks the other execution 
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
   assert.strictEqual(totalCardsCount(), 11);
   assert.match(allCardsText(), /Tempo estudado hoje/); // demais cards seguem de pé
-  assert.match(achievementsListEl().textContent, /Não foi possível carregar as conquistas\./);
+  assert.match(achievementsListEl().textContent, /Não conseguimos carregar suas conquistas agora\. Tente de novo em instantes\./);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
 });
 

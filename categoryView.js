@@ -229,7 +229,7 @@ function _enterEditMode(row, cat) {
 async function _handleCatDelete(cat, row) {
   const ok = await confirmDialog({
     title:   'Excluir categoria',
-    message: `Excluir a categoria "${cat.name}"?`,
+    message: `A categoria "${cat.name}" será removida de todos os compromissos vinculados a ela. Excluir mesmo assim?`,
     danger:  true,
   });
   if (!ok) return;

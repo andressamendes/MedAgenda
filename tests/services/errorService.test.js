@@ -95,7 +95,7 @@ test("a real Supabase refresh-token-invalid error is categorized as auth, even t
   const { category, friendly } = mod.handleError(err, { silent: true });
 
   assert.strictEqual(category, "auth");
-  assert.strictEqual(friendly, "Sua sessão expirou. Faça login novamente.");
+  assert.strictEqual(friendly, "Sua sessão expirou. Entre de novo para continuar.");
 });
 
 test("AuthSessionMissingError ('Auth session missing!') is categorized as auth despite not containing 'session' literally as expected by the old heuristic", async (t) => {
@@ -128,7 +128,7 @@ test("supabase.currentUserId()'s no-session case (AuthError, see authError.js) i
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "auth");
-  assert.strictEqual(friendly, "Sua sessão expirou. Faça login novamente.");
+  assert.strictEqual(friendly, "Sua sessão expirou. Entre de novo para continuar.");
 });
 
 test("a plain Error with an auth-sounding message but no __isAuthError/code contract is NOT classified as auth (proves message text alone no longer drives auth classification)", async (t) => {
@@ -144,7 +144,7 @@ test("a genuine database/RLS error (no __isAuthError, code 42501) is still categ
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "database");
-  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+  assert.strictEqual(friendly, "Não conseguimos falar com o servidor agora. Tente de novo em instantes.");
 });
 
 test("a network error (failed to fetch) is categorized as network, not auth", async (t) => {
@@ -179,7 +179,7 @@ test("a rate-limited Supabase auth request (status 429) is categorized as rate_l
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "rate_limit");
-  assert.strictEqual(friendly, "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.");
+  assert.strictEqual(friendly, "Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo.");
 });
 
 test("a plain error whose message mentions 'rate limit' is also categorized as rate_limit", async (t) => {
@@ -203,17 +203,17 @@ test("email_not_confirmed code maps to the unconfirmed-email message, decided by
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "auth");
-  assert.strictEqual(friendly, "Confirme seu e-mail antes de fazer login.");
+  assert.strictEqual(friendly, "Falta confirmar seu e-mail antes de entrar — dá uma olhada na sua caixa de entrada.");
 });
 
 test("invalid_credentials code maps to the invalid-credentials message, decided by code — not by the message text ('Invalid Refresh Token...' also contains 'invalid' but must not match)", async (t) => {
   const { mod } = await loadErrorService(t);
 
   const invalidLogin = authApiError("Invalid login credentials", { code: "invalid_credentials" });
-  assert.strictEqual(mod.handleError(invalidLogin, { silent: true }).friendly, "E-mail ou senha incorretos. Verifique suas credenciais.");
+  assert.strictEqual(mod.handleError(invalidLogin, { silent: true }).friendly, "E-mail ou senha não conferem. Confira e tente de novo.");
 
   const refreshInvalid = authApiError("Invalid Refresh Token: Refresh Token Not Found", { code: "refresh_token_not_found" });
-  assert.strictEqual(mod.handleError(refreshInvalid, { silent: true }).friendly, "Sua sessão expirou. Faça login novamente.");
+  assert.strictEqual(mod.handleError(refreshInvalid, { silent: true }).friendly, "Sua sessão expirou. Entre de novo para continuar.");
 });
 
 // ── A1.4 — Fluxo Completo de Recuperação de Senha ───────────────────────────
@@ -233,7 +233,7 @@ test("recovery_link_expired code (link de reset expirado ou já utilizado) maps 
   assert.strictEqual(category, "auth");
   assert.strictEqual(
     friendly,
-    "Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar."
+    "Este link de redefinição de senha não vale mais — expirou ou já foi usado. Solicite um novo link para continuar."
   );
 });
 
@@ -248,7 +248,7 @@ test("recovery_link_invalid code (token ausente/corrompido) maps to its own mess
   assert.strictEqual(category, "auth");
   assert.strictEqual(
     friendly,
-    "Este link de redefinição de senha é inválido. Solicite um novo link para continuar."
+    "Este link de redefinição de senha não é válido. Solicite um novo link para continuar."
   );
 });
 
@@ -263,7 +263,7 @@ test("current_password_incorrect code (reautenticação para troca de senha) map
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "auth");
-  assert.strictEqual(friendly, "Senha atual incorreta. Verifique e tente novamente.");
+  assert.strictEqual(friendly, "Essa não é sua senha atual. Confira e tente de novo.");
 });
 
 // ── A1.6 — Hardening do Login (Rate Limit + Classificação de Erros) ────────
@@ -288,7 +288,7 @@ test("HTTP 429 during login (AuthApiError with status 429) is categorized as rat
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "rate_limit");
-  assert.strictEqual(friendly, "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.");
+  assert.strictEqual(friendly, "Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo.");
 });
 
 test("offline/no-network during login (AuthRetryableFetchError with no HTTP status) is categorized as network, not auth — the session was never evaluated", async (t) => {
@@ -306,7 +306,7 @@ test("a request timeout during login (AuthRetryableFetchError wrapping an aborte
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "network");
-  assert.strictEqual(friendly, "A conexão demorou mais que o esperado. Verifique sua internet e tente novamente.");
+  assert.strictEqual(friendly, "A conexão demorou mais que o esperado. Verifique sua internet e tente de novo.");
 });
 
 test("a native AbortError (fetch aborted by a timeout controller) is categorized as network with the timeout message", async (t) => {
@@ -315,7 +315,7 @@ test("a native AbortError (fetch aborted by a timeout controller) is categorized
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "network");
-  assert.strictEqual(friendly, "A conexão demorou mais que o esperado. Verifique sua internet e tente novamente.");
+  assert.strictEqual(friendly, "A conexão demorou mais que o esperado. Verifique sua internet e tente de novo.");
 });
 
 test("the Supabase Auth server itself being unavailable (AuthRetryableFetchError with status 503) is categorized as server_unavailable, never masked as 'sessão expirada'", async (t) => {
@@ -324,7 +324,7 @@ test("the Supabase Auth server itself being unavailable (AuthRetryableFetchError
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "server_unavailable");
-  assert.strictEqual(friendly, "Servidor indisponível no momento. Tente novamente em instantes.");
+  assert.strictEqual(friendly, "O servidor está fora do ar no momento. Tente de novo em instantes.");
 });
 
 test("a generic 5xx error with no auth/database code is categorized as server_unavailable, not database or unknown", async (t) => {
@@ -333,7 +333,7 @@ test("a generic 5xx error with no auth/database code is categorized as server_un
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "server_unavailable");
-  assert.strictEqual(friendly, "Servidor indisponível no momento. Tente novamente em instantes.");
+  assert.strictEqual(friendly, "O servidor está fora do ar no momento. Tente de novo em instantes.");
 });
 
 test("invalid login credentials (autenticação inválida) keeps its own dedicated message, distinct from session-expired/rate-limit/network/server-unavailable", async (t) => {
@@ -342,7 +342,7 @@ test("invalid login credentials (autenticação inválida) keeps its own dedicat
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "auth");
-  assert.strictEqual(friendly, "E-mail ou senha incorretos. Verifique suas credenciais.");
+  assert.strictEqual(friendly, "E-mail ou senha não conferem. Confira e tente de novo.");
 });
 
 test("an expired/dead session (refresh token invalid, no dedicated code) is categorized as auth with the session-expired message, distinct from invalid-credentials", async (t) => {
@@ -351,7 +351,7 @@ test("an expired/dead session (refresh token invalid, no dedicated code) is cate
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "auth");
-  assert.strictEqual(friendly, "Sua sessão expirou. Faça login novamente.");
+  assert.strictEqual(friendly, "Sua sessão expirou. Entre de novo para continuar.");
 });
 
 test("the database being unavailable (PostgREST/Postgres error, no __isAuthError) is categorized as database, distinct from server_unavailable and never shown as a login/session error", async (t) => {
@@ -360,7 +360,7 @@ test("the database being unavailable (PostgREST/Postgres error, no __isAuthError
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "database");
-  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+  assert.strictEqual(friendly, "Não conseguimos falar com o servidor agora. Tente de novo em instantes.");
 });
 
 test("ETAPA 3 — the seven scenarios never collapse into each other: each maps to its own distinct friendly message", async (t) => {
@@ -418,7 +418,7 @@ test("a genuine database error (code 42P01, no __schemaMismatch flag) is still c
 
   const { category, friendly } = mod.handleError(err, { silent: true });
   assert.strictEqual(category, "database");
-  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+  assert.strictEqual(friendly, "Não conseguimos falar com o servidor agora. Tente de novo em instantes.");
 });
 
 test("handleError()'s fallbackMessage option only replaces the true catch-all (unknown) message, never a specific classified message", async (t) => {
@@ -431,7 +431,7 @@ test("handleError()'s fallbackMessage option only replaces the true catch-all (u
     silent: true,
     fallbackMessage: "tela X: algo falhou.",
   });
-  assert.strictEqual(invalidLogin.friendly, "E-mail ou senha incorretos. Verifique suas credenciais.");
+  assert.strictEqual(invalidLogin.friendly, "E-mail ou senha não conferem. Confira e tente de novo.");
 
   const network = mod.handleError(new Error("Failed to fetch"), {
     silent: true,
@@ -522,7 +522,7 @@ test("F15.3 — a failing insert never breaks handleError(): the friendly result
 
   assert.strictEqual(inserts.length, 1);
   assert.strictEqual(category, "database");
-  assert.strictEqual(friendly, "Erro ao comunicar com o servidor. Tente novamente em instantes.");
+  assert.strictEqual(friendly, "Não conseguimos falar com o servidor agora. Tente de novo em instantes.");
   assert.strictEqual(mod.getRecentErrors(1).length, 1);
 });
 

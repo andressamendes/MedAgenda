@@ -270,7 +270,7 @@ function _achievementItemMarkup(achievement) {
 
 function _achievementsMarkup(achievements) {
   if (!achievements) {
-    return `<p class="list-empty">Não foi possível carregar as conquistas.</p>`;
+    return `<p class="list-empty">Não conseguimos carregar suas conquistas agora. Tente de novo em instantes.</p>`;
   }
   return `<ul class="achievements-list">${achievements.map(_achievementItemMarkup).join("")}</ul>`;
 }

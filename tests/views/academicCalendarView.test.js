@@ -189,7 +189,7 @@ test("UX #37 — creating a calendar while offline shows the network-specific me
 
   assert.strictEqual(
     document.getElementById("acal-error").textContent,
-    "Sem conexão com a internet. Verifique sua rede e tente novamente.",
+    "Sem conexão com a internet. Verifique sua rede e tente de novo.",
     "shows errorService's categorized network message instead of the raw 'Failed to fetch' error"
   );
 });

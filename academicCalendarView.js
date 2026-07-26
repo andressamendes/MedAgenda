@@ -334,7 +334,7 @@ async function handleCalendarDelete(calId) {
   if (!cal) return;
   const ok = await confirmDialog({
     title:   'Excluir calendário',
-    message: `Excluir o calendário "${cal.name}" e todos os seus eventos?`,
+    message: `O calendário "${cal.name}" e todos os seus eventos vão sumir para sempre. Excluir mesmo assim?`,
     danger:  true,
   });
   if (!ok) return;

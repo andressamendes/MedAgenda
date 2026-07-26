@@ -152,7 +152,7 @@ test("a block failing with a session-expired (auth) error shows 'Sessão expirad
       produtividade: { status: "error", data: null, error: new Error("JWT expired") },
     }),
     category: "auth",
-    friendlyMessage: "Sua sessão expirou. Faça login novamente.",
+    friendlyMessage: "Sua sessão expirou. Entre de novo para continuar.",
   });
 
   await mod.initInsightsView();
@@ -160,7 +160,7 @@ test("a block failing with a session-expired (auth) error shows 'Sessão expirad
   const errorEl = document.getElementById("insights-produtividade-error");
   assert.strictEqual(errorEl.hidden, false);
   assert.match(errorEl.textContent, /Sessão expirada/);
-  assert.match(errorEl.textContent, /Sua sessão expirou\. Faça login novamente\./);
+  assert.match(errorEl.textContent, /Sua sessão expirou\. Entre de novo para continuar\./);
   const actionBtn = errorEl.querySelector(".state-block-action");
   assert.strictEqual(actionBtn.textContent, "Entrar novamente");
 
@@ -233,7 +233,7 @@ test("Revisões: when only one of its two sources fails with a session-expired e
       produtividade: OK_PRODUTIVIDADE,
     }),
     category: "auth",
-    friendlyMessage: "Sua sessão expirou. Faça login novamente.",
+    friendlyMessage: "Sua sessão expirou. Entre de novo para continuar.",
   });
 
   await mod.initInsightsView();
@@ -261,7 +261,7 @@ test("a 'partial' block whose failing source is NOT a session issue (e.g. real R
       produtividade: OK_PRODUTIVIDADE,
     }),
     category: "database",
-    friendlyMessage: "Erro ao comunicar com o servidor. Tente novamente em instantes.",
+    friendlyMessage: "Não conseguimos falar com o servidor agora. Tente de novo em instantes.",
   });
 
   await mod.initInsightsView();

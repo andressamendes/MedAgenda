@@ -113,8 +113,8 @@ function buildShell() {
     <div class="wk-error" id="wk-error" hidden></div>
     <div id="wk-empty-tip" class="state-block wk-empty-tip" hidden>
       <span class="state-block-icon" aria-hidden="true">${iconCalendarWeek}</span>
-      <strong class="state-block-title">Sua semana está vazia</strong>
-      <span class="state-block-desc">Clique em qualquer horário da grade abaixo para criar um compromisso, ou use "+ Novo compromisso".</span>
+      <strong class="state-block-title">Sua semana está livre</strong>
+      <span class="state-block-desc">Clique em qualquer horário da grade abaixo para marcar um estudo, ou use "+ Novo compromisso".</span>
       <button type="button" class="btn btn-sm btn-ghost state-block-action" id="wk-empty-tip-dismiss">Entendi</button>
     </div>
     <div id="wk-tip" class="smart-cards" hidden></div>
@@ -603,8 +603,8 @@ function buildDayShell() {
     <div class="dv-error" id="dv-error" hidden></div>
     <div id="dv-empty-tip" class="state-block wk-empty-tip" hidden>
       <span class="state-block-icon" aria-hidden="true">${iconCalendarWeek}</span>
-      <strong class="state-block-title">Seu dia está vazio</strong>
-      <span class="state-block-desc">Toque em qualquer horário abaixo para criar um compromisso, ou use "+ Novo compromisso".</span>
+      <strong class="state-block-title">Seu dia está livre</strong>
+      <span class="state-block-desc">Toque em qualquer horário abaixo para marcar um estudo, ou use "+ Novo compromisso".</span>
     </div>
     <div class="dv-wrap">
       <div class="dv-scroll" id="dv-scroll">
