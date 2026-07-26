@@ -1,4 +1,4 @@
-import { initModal } from './modalController.js';
+import { initModal, hapticConfirm } from './modalController.js';
 
 let overlay, titleEl, messageEl, confirmBtn, cancelBtn, modal;
 let _resolve = null;
@@ -33,7 +33,7 @@ function init() {
   cancelBtn  = overlay.querySelector('#cd-cancel');
 
   cancelBtn.addEventListener('click',  () => _settle(false));
-  confirmBtn.addEventListener('click', () => _settle(true));
+  confirmBtn.addEventListener('click', () => { hapticConfirm(); _settle(true); });
 
   modal = initModal(overlay, () => _settle(false));
 }
