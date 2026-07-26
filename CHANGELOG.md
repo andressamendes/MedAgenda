@@ -2,6 +2,24 @@
 
 ---
 
+## [Unreleased] — Fase 11: Calibração de risco e consolidação de feedback
+
+- **Confirmação ao remover uma questão ou revisão da sessão** (`studySessionView.js`
+  `_removeQuestionEntry`/`_removeReviewEntry`) — a única remoção de dado do
+  produto que ainda não passava por `confirmDialog`. Remover uma questão
+  apaga o registro de verdade (`removeQuestion()` exclui a linha no banco),
+  então o diálogo usa `danger: true`; remover uma revisão só desfaz o
+  vínculo com a sessão (`unlinkReview()` — a revisão continua existindo e
+  pode ser associada de novo), então o diálogo fica neutro.
+- Auditoria confirmou que os demais pontos da Fase D (calibração de perigo)
+  já estavam corrigidos em fases anteriores e não precisaram de mudança
+  nesta: "Cancelar sessão" já usa peso neutro, exclusão de recorrência já
+  oferece o mesmo escopo (esta/próximas/série) nos três pontos de entrada
+  (modal de edição, card da lista, evento acadêmico), e toda exclusão —
+  inclusive a de conta — já dispara `toast.success` com o mesmo tom.
+
+---
+
 ## [Unreleased] — Fase 9: Movimento diferenciado por peso emocional
 
 - Fechamento do Dia e Celebração de Conquista ganham um "respiro"
