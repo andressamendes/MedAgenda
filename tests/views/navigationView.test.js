@@ -206,28 +206,30 @@ test("F18.1 — clicking the 'Progresso' sidebar item navigates to #page-progres
   assert.strictEqual(progressBtn.classList.contains("nav-item--active"), true);
 });
 
-test("UX #09 — os itens que abrem modais (Calendários/Categorias) ficam num grupo 'Gerenciar' separado, sem misturar com páginas", () => {
-  const manageGroup = document.querySelector('.sidebar-nav-group[aria-label="Gerenciar"]');
-  assert.ok(manageGroup, "grupo 'Gerenciar' existe na sidebar");
-  assert.ok(manageGroup.querySelector(".sidebar-group-label"), "grupo tem rótulo visível");
-  assert.ok(manageGroup.querySelector("#btn-academic-cals"), "'Calendários' está no grupo Gerenciar");
-  assert.ok(manageGroup.querySelector("#btn-categories"), "'Categorias' está no grupo Gerenciar");
-  // Nenhum destino de navegação (data-page) convive no grupo de modais.
-  assert.strictEqual(manageGroup.querySelector(".nav-item[data-page]"), null);
+// Fase 12 — a sidebar deixou de ter um grupo "Gerenciar": ela lia como menu
+// de administração de sistema, não como as âncoras de um app focado.
+// "Calendários Acadêmicos" e "Categorias" (ações que abrem modal, nunca foram
+// destinos de navegação) migraram para dentro de Configurações — ver
+// settingsModal.js/index.html#settings-overlay. A sidebar em si só tem
+// destinos reais (data-page).
+test("Fase 12 — a sidebar não tem mais grupo 'Gerenciar': só restam destinos de navegação (data-page)", () => {
+  assert.strictEqual(document.querySelector('.sidebar-nav-group[aria-label="Gerenciar"]'), null, "grupo 'Gerenciar' não existe mais na sidebar");
+  assert.strictEqual(document.querySelector("#app-sidebar #btn-academic-cals"), null, "'Calendários Acadêmicos' não está mais na sidebar");
+  assert.strictEqual(document.querySelector("#app-sidebar #btn-categories"), null, "'Categorias' não está mais na sidebar");
+
+  const sidebarItems = Array.from(document.querySelectorAll("#app-sidebar .nav-item[data-page]"));
+  assert.ok(sidebarItems.length <= 5, "sidebar tem no máximo 5 destinos de navegação visíveis");
+  assert.ok(sidebarItems.length > 0, "sidebar continua com destinos de navegação");
 });
 
-// F10 #4.1 supersedes UX #10 ("rótulos 'Semana'/'Mês' não se confundem mais
-// entre si"): não há mais dois rótulos de nav distintos para se confundir —
-// Semana e Mês são abas dentro da mesma página "Agenda" (ver teste F10 #4.1
-// acima), então o que resta a verificar é que "Agenda" e "Calendários
-// Acadêmicos" (que abre um modal, não uma página) continuam claramente
-// distintos.
-test("UX #10 — rótulo 'Agenda' não se confunde com 'Calendários Acadêmicos'", () => {
-  const agendaLabel = document.querySelector('.nav-item[data-page="agenda"] .nav-label').textContent;
-  const academicLabel = document.getElementById("btn-academic-cals").querySelector(".nav-label").textContent;
+test("Fase 12 — 'Calendários Acadêmicos' e 'Categorias' estão em Configurações, cada um a 1 clique de distância", () => {
+  const academicBtn = document.getElementById("btn-academic-cals");
+  const categoriesBtn = document.getElementById("btn-categories");
+  assert.ok(document.getElementById("settings-overlay").contains(academicBtn), "'Calendários Acadêmicos' está dentro do modal de Configurações");
+  assert.ok(document.getElementById("settings-overlay").contains(categoriesBtn), "'Categorias' está dentro do modal de Configurações");
 
+  const agendaLabel = document.querySelector('.nav-item[data-page="agenda"] .nav-label').textContent;
   assert.strictEqual(agendaLabel, "Agenda");
-  assert.strictEqual(academicLabel, "Calendários Acadêmicos");
   assert.strictEqual(document.getElementById("page-agenda").querySelector(".page-title").textContent, "Agenda");
 });
 
@@ -244,16 +246,20 @@ test("UX #18 — o bottom nav do mobile abre a Sessão de Estudo diretamente", (
 // F14.7 — "Compromissos" deixou de ser um destino próprio (virou a aba
 // "Lista" da Agenda); o lugar que ocupava no bottom nav (F10 #4.4) passa
 // para "Hoje" (F14.1), a nova porta de entrada do app.
-test("F14.7 — o bottom nav do mobile reflete Hoje/Agenda/Sessão/Diário/Mais, sem destacar Mês, Compromissos ou o Assistente IA", () => {
+// Fase 12 — "Mais" (que só abria a sidebar, sem ser ele mesmo um destino) deu
+// lugar a "Progresso": os 5 itens do bottom nav agora espelham exatamente os
+// 5 destinos reais de navegação (APP_PAGES), nenhum "ver tudo o mais".
+test("Fase 12 — o bottom nav do mobile reflete Hoje/Agenda/Sessão/Diário/Progresso, sem 'Mais' nem destacar Mês, Compromissos ou o Assistente IA", () => {
   const items = Array.from(document.querySelectorAll(".bottom-nav-item"));
   const labels = items.map(el => el.querySelector(".bottom-nav-label").textContent);
   // F10 #4.1 — o rótulo "Semana" virou "Agenda" (Semana/Mês agora são abas
   // da mesma página, ver testes F10 #4.1 acima).
-  assert.deepStrictEqual(labels, ["Hoje", "Agenda", "Sessão", "Diário", "Mais"]);
+  assert.deepStrictEqual(labels, ["Hoje", "Agenda", "Sessão", "Diário", "Progresso"]);
 
   assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="calendar"]'), null, "Mês não ocupa mais um lugar fixo no bottom nav");
   assert.strictEqual(document.querySelector('.bottom-nav-item[data-page="appointments"]'), null, "Compromissos não ocupa mais um lugar fixo no bottom nav");
   assert.strictEqual(document.getElementById("bottom-nav-ai"), null, "o Assistente IA não ocupa mais um lugar fixo no bottom nav");
+  assert.strictEqual(document.getElementById("bottom-nav-more"), null, "'Mais' não existe mais: cada item do bottom nav é um destino real");
 
   const agendaBtn = document.querySelector('.bottom-nav-item[data-page="agenda"]');
   agendaBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -264,6 +270,11 @@ test("F14.7 — o bottom nav do mobile reflete Hoje/Agenda/Sessão/Diário/Mais,
   journalBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("page-journal").hidden, false);
   assert.strictEqual(journalBtn.classList.contains("bottom-nav-item--active"), true);
+
+  const progressBtn = document.querySelector('.bottom-nav-item[data-page="progress"]');
+  progressBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("page-progress").hidden, false);
+  assert.strictEqual(progressBtn.classList.contains("bottom-nav-item--active"), true);
 });
 
 // F14.1 — "Hoje" é o primeiro item da sidebar e o destino inicial do app.

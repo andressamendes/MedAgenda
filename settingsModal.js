@@ -45,6 +45,14 @@ export function initSettingsModal() {
     openDiagnosticModal();
   });
 
+  // Fase 12 — "Calendários Acadêmicos" e "Categorias" migraram da sidebar para
+  // cá (deixaram de ser destinos de navegação, sempre foram ações que abrem
+  // modal); os cliques que de fato abrem cada modal continuam registrados em
+  // script.js/categoryView.js, sem nenhuma mudança de comportamento — só
+  // fechamos Configurações antes para não empilhar dois modais na tela.
+  document.getElementById("btn-academic-cals")?.addEventListener("click", closeSettings);
+  document.getElementById("btn-categories")?.addEventListener("click", closeSettings);
+
   btnRemindersToggle.addEventListener("click", async () => {
     const perm    = permissionStatus();
     const enabled = (isEnabled() || isPushEnabled()) && perm === "granted";

@@ -9,15 +9,14 @@ import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.
 // (#page-calendar, "Mês") foi absorvida como aba dentro de 'agenda' (ver
 // #agenda-view-tabs em script.js/_setAgendaView). showPage('calendar') cai
 // no mesmo fallback 'agenda'.
-// 'progress' (F13.4) — página "Progresso" (#page-progress). F18.1: até aqui
-// não existia nenhum item de navegação apontando para ela (nem sidebar, nem
-// bottom nav, nem atalho) — showPage("progress") funcionava, mas nenhum
-// usuário real tinha como chamá-lo; a página inteira estava morta em
-// produção. Agora tem item próprio no grupo secundário da sidebar (ver
-// index.html), alcançável também em mobile pelo botão "Mais" (que abre a
-// mesma sidebar). F14.5 removeu 'dashboard': sua única seção ("Hoje") foi
-// absorvida por 'today' (ver index.html/page-today) — nenhum destino a
-// menos de fato, só um nome de página que deixou de existir.
+// 'progress' (F13.4) — página "Progresso" (#page-progress). F18.1 deu a ela
+// item próprio no grupo secundário da sidebar; F22 (Fase 12) deu a ela
+// também o item de bottom nav que antes era "Mais" (botão que só abria a
+// sidebar, sem ser ele mesmo um destino) — os 5 itens do bottom nav agora
+// espelham exatamente os 5 de APP_PAGES, nenhum atalho para "todo o resto".
+// F14.5 removeu 'dashboard': sua única seção ("Hoje") foi absorvida por
+// 'today' (ver index.html/page-today) — nenhum destino a menos de fato, só
+// um nome de página que deixou de existir.
 // 'today' (F14.1) — nova porta de entrada (ver todayView.js): primeiro item
 // da lista, novo destino padrão de showPage()/restoreLastPage() (ver abaixo)
 // e novo fallback para qualquer nome de página inválido/removido, no lugar de
@@ -82,10 +81,6 @@ export function initNavigation() {
       userMenuDropdown.hidden = true;
       userMenuBtn?.setAttribute('aria-expanded', 'false');
     }
-  });
-
-  document.getElementById('bottom-nav-more')?.addEventListener('click', () => {
-    openSidebar();
   });
 }
 
