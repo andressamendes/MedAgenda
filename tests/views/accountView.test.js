@@ -265,7 +265,7 @@ test("change password: wrong current password shows a dedicated friendly message
 
   assert.strictEqual(
     document.getElementById("pwd-error").textContent,
-    "Senha atual incorreta. Verifique e tente novamente."
+    "Essa não é sua senha atual. Confira e tente de novo."
   );
   // Current-password field is cleared (force retype); the new password the
   // user already typed is never lost.
@@ -322,7 +322,7 @@ test("change password: a generic server error during updatePassword() (after suc
 
   assert.strictEqual(
     document.getElementById("pwd-error").textContent,
-    "Erro ao comunicar com o servidor. Tente novamente em instantes."
+    "Não conseguimos falar com o servidor agora. Tente de novo em instantes."
   );
 });
 
@@ -465,7 +465,7 @@ test("a failed account deletion shows the pipeline's friendly message, never the
 
   await openAccountAndConfirmDelete();
 
-  assert.strictEqual(toastErrorMsg, "Sem conexão com a internet. Verifique sua rede e tente novamente.");
+  assert.strictEqual(toastErrorMsg, "Sem conexão com a internet. Verifique sua rede e tente de novo.");
 });
 
 // ── D3 — Igualar a fricção de exclusão de conta à de troca de senha ────────
@@ -537,7 +537,7 @@ test("D3 — wrong password during account-deletion reauthentication shows a fri
 
   assert.strictEqual(
     document.getElementById("delete-error").textContent,
-    "Senha atual incorreta. Verifique e tente novamente."
+    "Essa não é sua senha atual. Confira e tente de novo."
   );
   assert.strictEqual(document.getElementById("acc-delete-pwd").value, "");
   assert.strictEqual(deleteInvoked, false);

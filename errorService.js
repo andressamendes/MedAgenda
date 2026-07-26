@@ -228,45 +228,50 @@ function categorize(err) {
   return CATEGORIES.UNKNOWN;
 }
 
+// Fase 10 — mesma voz autoral do onboarding/login (ver authView.js,
+// onboardingTourView.js): fala diretamente com "você", em primeira pessoa do
+// plural quando o problema é nosso ("não conseguimos"), sem gíria nem tom de
+// piada — um erro real (rede caiu, servidor fora do ar) continua sério, só
+// deixa de soar como texto de framework de validação.
 const FRIENDLY = {
   [CATEGORIES.AUTH]: {
-    default:      'Sua sessão expirou. Faça login novamente.',
-    invalid:      'E-mail ou senha incorretos. Verifique suas credenciais.',
-    unconfirmed:  'Confirme seu e-mail antes de fazer login.',
+    default:      'Sua sessão expirou. Entre de novo para continuar.',
+    invalid:      'E-mail ou senha não conferem. Confira e tente de novo.',
+    unconfirmed:  'Falta confirmar seu e-mail antes de entrar — dá uma olhada na sua caixa de entrada.',
     duplicate:    'Este e-mail já está cadastrado. Faça login.',
     // A1.4 — link de recuperação de senha inválido/expirado/reutilizado
     // (ver authError.js AUTH_REASONS.LINK_EXPIRED/LINK_INVALID). Nunca reusar
     // a mensagem de "sessão expirada": aqui o problema é o link de e-mail,
     // não uma sessão que já existia, e a ação correta é pedir um novo link,
     // nunca "entrar novamente".
-    linkExpired:  'Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar.',
-    linkInvalid:  'Este link de redefinição de senha é inválido. Solicite um novo link para continuar.',
+    linkExpired:  'Este link de redefinição de senha não vale mais — expirou ou já foi usado. Solicite um novo link para continuar.',
+    linkInvalid:  'Este link de redefinição de senha não é válido. Solicite um novo link para continuar.',
     // A1.5 — reautenticação obrigatória para alterar a senha (ver
     // auth.js#reauthenticate). Mensagem própria, nunca a de login
     // ("E-mail ou senha incorretos"): esta tela só tem um campo de senha.
-    currentPasswordIncorrect: 'Senha atual incorreta. Verifique e tente novamente.',
+    currentPasswordIncorrect: 'Essa não é sua senha atual. Confira e tente de novo.',
   },
   [CATEGORIES.NETWORK]: {
-    default: 'Sem conexão com a internet. Verifique sua rede e tente novamente.',
+    default: 'Sem conexão com a internet. Verifique sua rede e tente de novo.',
     // A1.6 — timeout/abort ainda são um problema de conectividade (mesma
     // ação do usuário: tentar de novo), mas "sem conexão" seria impreciso
     // quando a rede está de pé e só a resposta demorou demais.
-    timeout: 'A conexão demorou mais que o esperado. Verifique sua internet e tente novamente.',
+    timeout: 'A conexão demorou mais que o esperado. Verifique sua internet e tente de novo.',
   },
   [CATEGORIES.DATABASE]: {
-    default:  'Erro ao comunicar com o servidor. Tente novamente em instantes.',
+    default:  'Não conseguimos falar com o servidor agora. Tente de novo em instantes.',
     duplicate:'Já existe um registro com essas informações.',
   },
-  [CATEGORIES.STORAGE]:    'Serviço de armazenamento indisponível. Tente novamente mais tarde.',
-  [CATEGORIES.PUSH]:      'Erro ao configurar notificações. Verifique as permissões do navegador.',
-  [CATEGORIES.SW]:        'Erro no serviço em segundo plano. Recarregue a página.',
-  [CATEGORIES.RATE_LIMIT]:'Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente.',
+  [CATEGORIES.STORAGE]:    'O armazenamento está indisponível agora. Tente de novo mais tarde.',
+  [CATEGORIES.PUSH]:      'Não conseguimos configurar suas notificações. Verifique as permissões do navegador.',
+  [CATEGORIES.SW]:        'Algo travou no serviço em segundo plano. Recarregue a página.',
+  [CATEGORIES.RATE_LIMIT]:'Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo.',
   // A1.6 — distinto de DATABASE: aqui o problema é o servidor/serviço em si
   // (5xx), não uma falha específica de consulta ao banco; nunca mostrar como
   // "sessão expirada" (categoria auth) nem misturar com a mensagem de rede.
-  [CATEGORIES.SERVER_UNAVAILABLE]: 'Servidor indisponível no momento. Tente novamente em instantes.',
+  [CATEGORIES.SERVER_UNAVAILABLE]: 'O servidor está fora do ar no momento. Tente de novo em instantes.',
   [CATEGORIES.SCHEMA_MISMATCH]: 'Esta versão do sistema requer uma atualização do banco de dados antes de poder ser utilizada.',
-  [CATEGORIES.UNKNOWN]:   'Algo deu errado. Tente novamente.',
+  [CATEGORIES.UNKNOWN]:   'Algo deu errado por aqui. Tente de novo.',
 };
 
 /**

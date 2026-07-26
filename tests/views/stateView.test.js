@@ -18,9 +18,9 @@ function importStateView() {
 
 test("errorToState maps the 'auth' category to session_expired", async () => {
   const { errorToState, STATES } = await importStateView();
-  const result = errorToState({ category: "auth", friendly: "Sua sessão expirou. Faça login novamente." });
+  const result = errorToState({ category: "auth", friendly: "Sua sessão expirou. Entre de novo para continuar." });
   assert.strictEqual(result.state, STATES.SESSION_EXPIRED);
-  assert.strictEqual(result.message, "Sua sessão expirou. Faça login novamente.");
+  assert.strictEqual(result.message, "Sua sessão expirou. Entre de novo para continuar.");
 });
 
 test("errorToState maps the 'network' category to network", async () => {
@@ -44,13 +44,13 @@ test("renderStateBlock renders icon, title, description and action for session_e
   let retried = false;
   renderStateBlock(container, {
     state: STATES.SESSION_EXPIRED,
-    message: "Sua sessão expirou. Faça login novamente.",
+    message: "Sua sessão expirou. Entre de novo para continuar.",
     onRetry: () => { retried = true; },
   });
 
   assert.ok(container.querySelector(".state-block-icon svg"), "session_expired renders a lock icon (SVG, auditoria UX #33)");
   assert.strictEqual(container.querySelector(".state-block-title").textContent, "Sessão expirada");
-  assert.strictEqual(container.querySelector(".state-block-desc").textContent, "Sua sessão expirou. Faça login novamente.");
+  assert.strictEqual(container.querySelector(".state-block-desc").textContent, "Sua sessão expirou. Entre de novo para continuar.");
   const btn = container.querySelector(".state-block-action");
   assert.strictEqual(btn.textContent, "Entrar novamente");
 

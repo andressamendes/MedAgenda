@@ -303,7 +303,7 @@ async function _handleAvatarChange(e) {
 async function _handleRemoveAvatar() {
   const ok = await confirmDialog({
     title:   'Remover foto de perfil',
-    message: 'Tem certeza que deseja remover sua foto de perfil?',
+    message: 'Sua foto de perfil vai ser removida. Quer continuar?',
     danger:  true,
   });
   if (!ok) return;
@@ -496,12 +496,12 @@ async function _handleDeleteAccount() {
 
   const confirmed = await confirmDialog({
     title:       'Excluir conta',
-    message:     'ATENÇÃO: Esta ação é irreversível.\n\n' +
-                 'Todos os seus dados serão excluídos permanentemente:\n' +
+    message:     'Não tem volta: sua conta e tudo que você registrou aqui somem para sempre.\n\n' +
+                 'Isso inclui:\n' +
                  '• Compromissos e categorias\n' +
                  '• Notificações e assinaturas\n' +
                  '• Foto de perfil\n\n' +
-                 'Tem certeza que deseja excluir sua conta?',
+                 'Ainda assim, quer excluir sua conta?',
     confirmText: 'Excluir conta',
     danger:      true,
   });

@@ -88,7 +88,7 @@ test("login: invalid credentials shows the friendly 'wrong email or password' me
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "E-mail ou senha incorretos. Verifique suas credenciais."
+    "E-mail ou senha não conferem. Confira e tente de novo."
   );
 });
 
@@ -104,7 +104,7 @@ test("login: nonexistent user — Supabase returns the same generic invalid-cred
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "E-mail ou senha incorretos. Verifique suas credenciais."
+    "E-mail ou senha não conferem. Confira e tente de novo."
   );
 });
 
@@ -120,7 +120,7 @@ test("login: unconfirmed email shows the friendly confirmation message", async (
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Confirme seu e-mail antes de fazer login."
+    "Falta confirmar seu e-mail antes de entrar — dá uma olhada na sua caixa de entrada."
   );
 });
 
@@ -149,7 +149,7 @@ test("login: a generic server/database error shows the shared server message", a
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Erro ao comunicar com o servidor. Tente novamente em instantes."
+    "Não conseguimos falar com o servidor agora. Tente de novo em instantes."
   );
 });
 
@@ -165,7 +165,7 @@ test("login: an auth-flagged error that isn't invalid-credentials/unconfirmed st
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Sua sessão expirou. Faça login novamente."
+    "Sua sessão expirou. Entre de novo para continuar."
   );
 });
 
@@ -207,7 +207,7 @@ test("login: HTTP 429 (rate limit) shows the friendly rate-limit message telling
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente."
+    "Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo."
   );
 });
 
@@ -236,7 +236,7 @@ test("login: a request timeout shows a timeout-specific message, distinct from b
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "A conexão demorou mais que o esperado. Verifique sua internet e tente novamente."
+    "A conexão demorou mais que o esperado. Verifique sua internet e tente de novo."
   );
 });
 
@@ -252,7 +252,7 @@ test("login: the Supabase Auth server itself unavailable (503) shows a server-un
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Servidor indisponível no momento. Tente novamente em instantes."
+    "O servidor está fora do ar no momento. Tente de novo em instantes."
   );
 });
 
@@ -268,7 +268,7 @@ test("login: the database being unavailable (Postgres error surfaced during logi
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "Erro ao comunicar com o servidor. Tente novamente em instantes."
+    "Não conseguimos falar com o servidor agora. Tente de novo em instantes."
   );
 });
 
@@ -306,7 +306,7 @@ test("signup: rate limit error shows the shared rate-limit message instead of a 
 
   assert.strictEqual(
     document.getElementById("register-error").textContent,
-    "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente."
+    "Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo."
   );
 });
 
@@ -349,7 +349,7 @@ test("password recovery (forgot password): rate limit error shows the shared rat
 
   assert.strictEqual(
     document.getElementById("forgot-error").textContent,
-    "Muitas tentativas em pouco tempo. Aguarde alguns instantes e tente novamente."
+    "Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo."
   );
 });
 
@@ -392,7 +392,7 @@ test("set new password (troca de senha): expired/invalid recovery link (refresh 
 
   assert.strictEqual(
     document.getElementById("new-pwd-error").textContent,
-    "Sua sessão expirou. Faça login novamente."
+    "Sua sessão expirou. Entre de novo para continuar."
   );
 });
 
@@ -408,7 +408,7 @@ test("set new password (troca de senha): server error shows the shared server me
 
   assert.strictEqual(
     document.getElementById("new-pwd-error").textContent,
-    "Erro ao comunicar com o servidor. Tente novamente em instantes."
+    "Não conseguimos falar com o servidor agora. Tente de novo em instantes."
   );
 });
 
@@ -433,7 +433,7 @@ test("recovery link expired or already used (error_code=otp_expired in the URL):
   assert.strictEqual(document.getElementById("view-login").hidden, true);
   assert.strictEqual(
     document.getElementById("link-invalid-msg").textContent,
-    "Este link de redefinição de senha não é mais válido. Ele pode ter expirado ou já ter sido utilizado. Solicite um novo link para continuar."
+    "Este link de redefinição de senha não vale mais — expirou ou já foi usado. Solicite um novo link para continuar."
   );
 });
 
@@ -447,7 +447,7 @@ test("recovery link with an unrecognized error (not otp_expired): shows the link
   assert.strictEqual(document.getElementById("view-link-invalid").hidden, false);
   assert.strictEqual(
     document.getElementById("link-invalid-msg").textContent,
-    "Este link de redefinição de senha é inválido. Solicite um novo link para continuar."
+    "Este link de redefinição de senha não é válido. Solicite um novo link para continuar."
   );
 });
 
@@ -505,7 +505,7 @@ test("recovery link with type=recovery in the URL but no PASSWORD_RECOVERY event
   assert.strictEqual(document.getElementById("view-link-invalid").hidden, false);
   assert.strictEqual(
     document.getElementById("link-invalid-msg").textContent,
-    "Este link de redefinição de senha é inválido. Solicite um novo link para continuar."
+    "Este link de redefinição de senha não é válido. Solicite um novo link para continuar."
   );
 });
 

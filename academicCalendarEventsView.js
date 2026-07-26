@@ -128,7 +128,7 @@ export async function showEventList(calId) {
       } else {
         const ok = await confirmDialog({
           title:   'Excluir evento',
-          message: `Excluir "${ev.title}"?`,
+          message: `O evento "${ev.title}" será removido do calendário. Excluir mesmo assim?`,
           danger:  true,
         });
         if (!ok) return;

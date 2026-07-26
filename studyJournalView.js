@@ -175,8 +175,8 @@ const REVIEW_STATUS_LABELS = {
 // tem contexto suficiente na própria toolbar de filtros aberta.
 const SJ_EMPTY_MARKUP = emptyIllustrationMarkup({
   illustration: illustrationEmptyJournal,
-  title: "Nenhuma sessão de estudo registrada ainda",
-  desc: "Inicie uma sessão em “Sessão” para começar a construir seu diário de estudos.",
+  title: "Seu diário ainda está em branco",
+  desc: "Inicie uma sessão em “Sessão” para começar a registrar sua constância.",
 });
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
@@ -1046,7 +1046,7 @@ function _render() {
     if (_allEntries.length === 0) {
       emptyEl.innerHTML = SJ_EMPTY_MARKUP;
     } else {
-      emptyEl.textContent = "Nenhuma sessão encontrada para esta pesquisa.";
+      emptyEl.textContent = "Nenhuma sessão bate com essa busca. Tente outro termo ou filtro.";
     }
     return;
   }

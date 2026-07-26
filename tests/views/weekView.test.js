@@ -383,7 +383,7 @@ test("F10 #1.6 — first visit with an empty week shows the didactic empty-state
 
   const tip = container.querySelector("#wk-empty-tip");
   assert.strictEqual(tip.hidden, false);
-  assert.match(tip.textContent, /Sua semana está vazia/);
+  assert.match(tip.textContent, /Sua semana está livre/);
 });
 
 test("F10 #1.6 — a week with events never shows the didactic empty-state tip", async (t) => {

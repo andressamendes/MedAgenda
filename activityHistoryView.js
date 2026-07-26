@@ -278,7 +278,7 @@ async function _loadPage(reset) {
 
     if (reset && sessions.length === 0) {
       emptyEl.hidden = false;
-      emptyEl.textContent = "Nenhuma sessão encontrada.";
+      emptyEl.textContent = "Nenhuma sessão por aqui ainda para este filtro.";
     } else {
       emptyEl.hidden = true;
       _renderSessions(sessions);

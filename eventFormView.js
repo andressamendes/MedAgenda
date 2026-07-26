@@ -222,8 +222,8 @@ export function initEventForm(onSave) {
       const ok = await confirmDialog({
         title:   "Excluir compromisso",
         message: isRecurring(_editingEvent)
-          ? "Este é um evento recorrente. Isso excluirá toda a série. Deseja continuar?"
-          : "Tem certeza que deseja excluir este compromisso?",
+          ? "Este é um evento recorrente — excluir apaga a série inteira, não só esta data. Ainda quer excluir?"
+          : "Esse compromisso vai sumir da sua agenda para sempre. Excluir mesmo assim?",
         danger:  true,
       });
       if (!ok) return;

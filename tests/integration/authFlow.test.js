@@ -109,7 +109,7 @@ test("failed login shows a friendly error and re-enables the login button", asyn
 
   assert.strictEqual(
     document.getElementById("error-msg").textContent,
-    "E-mail ou senha incorretos. Verifique suas credenciais."
+    "E-mail ou senha não conferem. Confira e tente de novo."
   );
   assert.strictEqual(document.getElementById("btn-login").disabled, false);
   assert.strictEqual(document.getElementById("app-screen").hidden, true);
