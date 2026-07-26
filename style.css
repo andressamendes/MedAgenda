@@ -1948,6 +1948,10 @@ textarea { resize: vertical; }
   .btn:active:not(:disabled):not(.btn-loading),
   .btn-primary:active:not(:disabled):not(.btn-loading),
   .close-day-actions .btn-primary:active:not(:disabled):not(.btn-loading) { transform: none; }
+  /* Fase 8 — bottom sheet mobile: some sem deslizar e o arraste-para-fechar
+     não anima o retorno (o gesto em si continua funcionando, só o "sobe do
+     rodapé" e o "snap-back" que dependem de animation/transition somem). */
+  .modal-card { animation: none; transition: none; }
 }
 
 /* ── Estado unificado (F4.1) — sessão expirada / rede / servidor indisponível.
@@ -3360,6 +3364,69 @@ textarea { resize: vertical; }
 .modal-footer .btn { flex: 1; }
 
 .modal-lg { max-width: 480px; }
+
+/* ── Bottom sheet mobile (Fase 8) ──
+   Abaixo de 767px, a mesma moldura `.modal-overlay`/`.modal-card` usada por
+   todo modal do produto (quick-add, confirmação, categorias, configurações,
+   evento, conta, diagnóstico, calendário acadêmico, sessão) sobe do rodapé
+   em vez de aparecer encolhida no centro — o sinal de "adaptado" vs.
+   "nativo" desta auditoria. A paleta de comando (`.command-palette-overlay`,
+   V5.10) fica de fora: segue o padrão Spotlight/Raycast, ancorada ao topo,
+   não é um diálogo de confirmação/formulário.
+   `display:flex; flex-direction:column` + `.modal-body{overflow-y:auto}`
+   generaliza para qualquer modal, mesmo os que não previam scroll interno
+   (`.modal-session`/`.modal-event` já tinham essa moldura antes; aqui vira
+   o padrão de todos, sem quebrar os que já a declaravam). */
+@media (max-width: 767px) {
+  .modal-overlay:not(.command-palette-overlay) {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-overlay:not(.command-palette-overlay) .modal-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-top: var(--space-3);
+    animation: modal-sheet-in var(--transition-slow);
+    transition: transform var(--transition-base);
+  }
+
+  /* Alça de arraste — só decorativa (o gesto reage a qualquer toque na
+     faixa superior do card, ver DRAG_HANDLE_ZONE_PX em modalController.js),
+     por isso ::before em vez de um elemento real repetido em 8+ modais. */
+  .modal-overlay:not(.command-palette-overlay) .modal-card::before {
+    content: "";
+    display: block;
+    flex-shrink: 0;
+    width: 36px;
+    height: 4px;
+    margin: 0 auto var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--gray-300);
+  }
+
+  .modal-overlay:not(.command-palette-overlay) .modal-card.modal-dragging {
+    transition: none;
+  }
+
+  .modal-overlay:not(.command-palette-overlay) .modal-body {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .modal-overlay:not(.command-palette-overlay) .modal-footer {
+    padding-bottom: calc(1rem + var(--safe-bottom));
+  }
+}
+
+@keyframes modal-sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
 
 /* ── Paleta de comando (V5.10, Ctrl/Cmd+K) ──
    Mesma moldura `.modal-overlay`/`.modal-card` de todo modal do produto —
