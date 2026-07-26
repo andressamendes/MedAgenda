@@ -201,6 +201,14 @@
   --transition-base: .18s var(--ease-anoti);
   --transition-slow: .3s var(--ease-anoti);
 
+  /* Fase 9 — "respiro" entre a ação do usuário (fechar o dia / desbloquear
+     conquista) e a resposta visual: uma pequena pausa antes do fade do
+     ritual em tela cheia começar, para que ele se sinta um momento
+     reconhecido, não um modal que só trocou de moldura. Só os dois
+     rituais (.close-day-screen/.achv-celebration-screen) usam esta
+     variável — o resto do produto responde imediatamente. */
+  --emotional-pause: .18s;
+
   /* ── Anel de foco (F5.2) — acessibilidade consistente em botões, inputs,
      itens de navegação e cartões clicáveis ── */
   --focus-ring: 0 0 0 3px rgba(73, 84, 168, .32);
@@ -1937,6 +1945,11 @@ textarea { resize: vertical; }
   .disclosure-chevron svg { transition: none; }
   .toast.toast-milestone { transition: opacity var(--transition-slow); }
   .toast.toast-milestone .toast-icon { animation: none; }
+  /* Fase 9 — o "respiro" (--emotional-pause) é só motion: sob redução de
+     movimento os dois rituais aparecem de uma vez, sem a espera nem o
+     fade de entrada da moldura. */
+  .close-day-screen,
+  .achv-celebration-screen { animation: none; }
   .close-day-eyebrow,
   .close-day-title,
   .close-day-stat,
@@ -5032,7 +5045,7 @@ textarea { resize: vertical; }
            calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
   background: linear-gradient(160deg, var(--color-celebration) 0%, var(--color-celebration-hover) 100%);
   color: var(--color-on-primary);
-  animation: modal-overlay-in var(--transition-base);
+  animation: modal-overlay-in var(--transition-base) var(--emotional-pause) backwards;
 }
 
 .achv-celebration-screen[hidden] { display: none; }
@@ -5058,7 +5071,7 @@ textarea { resize: vertical; }
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, .18);
   margin-bottom: var(--space-2);
-  animation: achv-badge-pop .5s var(--ease-anoti) both;
+  animation: achv-badge-pop .5s var(--ease-anoti) var(--emotional-pause) both;
 }
 
 .achv-celebration-badge::before,
@@ -5068,10 +5081,10 @@ textarea { resize: vertical; }
   inset: 0;
   border-radius: var(--radius-full);
   border: 2px solid rgba(255, 255, 255, .6);
-  animation: achv-ring-burst 1s ease-out both;
+  animation: achv-ring-burst 1s ease-out var(--emotional-pause) both;
 }
 
-.achv-celebration-badge::after { animation-delay: .15s; }
+.achv-celebration-badge::after { animation-delay: calc(var(--emotional-pause) + .15s); }
 
 .achv-celebration-icon svg { width: var(--icon-xl); height: var(--icon-xl); color: var(--color-on-primary); }
 
@@ -5125,7 +5138,7 @@ textarea { resize: vertical; }
            calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
   background: linear-gradient(160deg, var(--blue) 0%, var(--blue-d) 100%);
   color: var(--color-on-primary);
-  animation: modal-overlay-in var(--transition-base);
+  animation: modal-overlay-in var(--transition-base) var(--emotional-pause) backwards;
 }
 
 .close-day-screen[hidden] { display: none; }
@@ -5214,7 +5227,9 @@ textarea { resize: vertical; }
 
 /* Sequência de revelação (F19 "momento citável"): cada elemento entra com
    um fade + leve subida, escalonado por `--cd-delay` (0 a 7, um passo por
-   elemento do recap). Roda sozinha ao abrir — `.close-day-screen[hidden]`
+   elemento do recap), e só começa depois do "respiro" (--emotional-pause,
+   Fase 9) que também atrasa o fundo — o recap nunca aparece antes da
+   moldura que o contém. Roda sozinha ao abrir — `.close-day-screen[hidden]`
    vira `display:none`, então a troca para visível reinicia a animação de
    cada descendente do zero, sem nenhum JS extra. */
 .close-day-eyebrow,
@@ -5224,7 +5239,7 @@ textarea { resize: vertical; }
 .close-day-actions {
   opacity: 0;
   animation: close-day-reveal .5s var(--ease-anoti) both;
-  animation-delay: calc(var(--cd-delay, 0) * 90ms);
+  animation-delay: calc(var(--emotional-pause) + var(--cd-delay, 0) * 90ms);
 }
 
 @keyframes close-day-reveal {
