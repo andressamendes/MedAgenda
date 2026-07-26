@@ -308,6 +308,13 @@ export function setHistoryStatus(status) {
   _loadPage(true);
 }
 
+// Fase 7 — recarga sob demanda (pull-to-refresh na aba "Histórico" do
+// Diário, ver studyJournalView.js); mesma _loadPage(true) já usada por
+// setHistoryStatus() e pelo retry de erro, nenhuma lógica nova.
+export function refreshActivityHistoryView() {
+  return _loadPage(true);
+}
+
 /**
  * Monta a tela (uma única vez) e carrega a primeira página do histórico.
  * Chamada a cada login (ver script.js/_initApp) — sempre recarrega do zero,

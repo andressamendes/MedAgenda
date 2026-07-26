@@ -54,6 +54,7 @@ const APP_SHELL = [
   './errorService.js',
   './eventFormView.js',
   './eventService.js',
+  './gestureUtils.js',
   './healthService.js',
   './icons.js',
   './icsExporter.js',

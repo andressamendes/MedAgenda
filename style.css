@@ -944,6 +944,35 @@ body {
   height: 100%;
   padding: var(--space-5) calc(var(--space-6) + var(--safe-right)) var(--space-5) calc(var(--space-6) + var(--safe-left));
   background: var(--gray-50);
+  /* Fase 7 — contêiner de posicionamento de .ptr-indicator (pull-to-refresh,
+     ver gestureUtils.js/attachPullToRefresh); não afeta o layout normal, só
+     estabelece um bloco de referência para o indicador absoluto. */
+  position: relative;
+}
+
+/* Fase 7 — indicador de pull-to-refresh (gestureUtils.js/attachPullToRefresh).
+   Fica oculto (opacity 0) até o usuário puxar a lista para baixo já no topo
+   do scroll; a mesma ação de sincronização é sempre alcançável pelo botão de
+   sincronização manual existente, isto é só um atalho de gesto. */
+.ptr-indicator {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 160px;
+  margin-left: -80px;
+  text-align: center;
+  padding: .35rem .9rem;
+  border-radius: var(--radius-full, 999px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-600);
+  opacity: 0;
+  transform: translateY(0);
+  z-index: 5;
+  pointer-events: none;
 }
 
 /* ── Sidebar collapsed (desktop) ── */
@@ -2088,6 +2117,50 @@ textarea { resize: vertical; }
   display: flex;
   flex-wrap: wrap;
   gap: .4rem .9rem;
+}
+
+/* ── Fase 7 — swipe-to-actions (gestureUtils.js/attachSwipeActions) ──
+   .swipe-reveal fica atrás, encostado nas bordas do card (inset: 0 relativo
+   ao próprio .event-card); .swipe-surface — que recebeu todo o conteúdo
+   original do card, incluindo o menu "⋯" — desliza por cima e o cobre
+   inteiramente em repouso. O padding do card se move para .swipe-surface
+   (em vez de ficar em .event-card) só para que as duas caixas tenham
+   exatamente o mesmo tamanho; sem isso .swipe-reveal, maior que
+   .swipe-surface, apareceria como uma faixa colorida ao redor do conteúdo
+   mesmo sem gesto nenhum. Nenhum overflow:hidden no card em si — os botões
+   revelados cabem dentro da própria caixa, e o dropdown "⋯" (que também
+   vive dentro de .swipe-surface) continua podendo transbordar normalmente. */
+.event-card.swipe-item { padding: 0; touch-action: pan-y; }
+
+.swipe-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  z-index: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.swipe-action-btn {
+  border: none;
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  padding: 0 1.1rem;
+  cursor: pointer;
+}
+
+.swipe-action-edit   { background: var(--color-primary); }
+.swipe-action-delete { background: var(--color-danger); }
+
+.swipe-surface {
+  position: relative;
+  z-index: 1;
+  background: var(--color-surface);
+  border-radius: inherit;
+  padding: .9rem 1rem;
 }
 
 /* ── Histórico de Sessões do compromisso (F1.5) ── */
@@ -5119,6 +5192,10 @@ textarea { resize: vertical; }
   transition: opacity var(--transition-slow), transform var(--transition-slow);
   font-size: var(--font-size-md);
   line-height: 1.4;
+  /* Fase 7 — swipe horizontal dispensa o toast (gestureUtils.js/
+     attachSwipeToDismiss); pan-y preserva o comportamento nativo de scroll
+     vertical da página por trás dele. */
+  touch-action: pan-y;
 }
 
 .toast.toast-in  { opacity: 1; transform: translateX(0) scale(1); }
