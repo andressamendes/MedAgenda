@@ -2,6 +2,23 @@
 
 ---
 
+## [Unreleased] — Fase 9: Movimento diferenciado por peso emocional
+
+- Fechamento do Dia e Celebração de Conquista ganham um "respiro"
+  (`--emotional-pause`, 180ms) entre a ação do usuário e o início da
+  animação do ritual — a moldura em tela cheia (`.close-day-screen`/
+  `.achv-celebration-screen`) e o conteúdo escalonado (`close-day-reveal`,
+  `achv-badge-pop`/`achv-ring-burst`) agora esperam essa pausa antes de
+  entrar, em vez de reagir instantaneamente ao clique. As duas composições
+  de movimento continuam distintas entre si (revelação em sequência do
+  recap vs. pop do emblema + anéis em expansão), e o toast de marco
+  (`toast.milestone`, "Dia encerrado...") continua com o "pop" próprio que
+  o diferencia do slide padrão dos toasts de rotina. `prefers-reduced-
+  motion` passa a suprimir também a pausa e o fade da moldura de ambos os
+  rituais, além das animações internas já cobertas.
+
+---
+
 ## [Unreleased] — Restringir "Iniciar sessão" às categorias de estudo
 
 - Na tela "Hoje", o botão "Iniciar sessão" em "Compromissos de hoje" agora só
