@@ -1241,6 +1241,14 @@ function _editQuestion(questionId) {
 
 async function _removeQuestionEntry(questionId) {
   if (_qrBusy) return;
+  const confirmed = await confirmDialog({
+    title:       "Remover questão",
+    message:     "Essa questão será removida do registro da sessão. Remover mesmo assim?",
+    confirmText: "Remover",
+    cancelText:  "Voltar",
+    danger:      true,
+  });
+  if (!confirmed) return;
   _qrBusy = true;
   try {
     await removeQuestion(questionId);
@@ -1307,6 +1315,13 @@ function _renderReviewsList() {
 // lista na hora, o que já confirma a ação sem precisar de outro sinal.
 async function _removeReviewEntry(reviewId) {
   if (_qrBusy) return;
+  const confirmed = await confirmDialog({
+    title:       "Remover revisão",
+    message:     "A revisão será desvinculada desta sessão — ela continua existindo e pode ser associada de novo depois. Remover mesmo assim?",
+    confirmText: "Remover",
+    cancelText:  "Voltar",
+  });
+  if (!confirmed) return;
   _qrBusy = true;
   try {
     await unlinkReview(reviewId);

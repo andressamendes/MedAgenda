@@ -1225,9 +1225,10 @@ test("UX #25 — after adding a question, focus returns to the first field (Tipo
   assert.strictEqual(document.activeElement, document.getElementById("ss-q-type"));
 });
 
-test("removing a question calls removeQuestion() immediately and drops it from the list", async (t) => {
-  const { mod, removeQuestionCalls } = await loadStudySessionView(t, {
+test("removing a question asks for confirmation, then calls removeQuestion() and drops it from the list", async (t) => {
+  const { mod, removeQuestionCalls, confirmDialogCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    confirmDialogResolvesTo: true,
   });
   await mod.initStudySessionView();
 
@@ -1242,9 +1243,31 @@ test("removing a question calls removeQuestion() immediately and drops it from t
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
+  assert.strictEqual(confirmDialogCalls.length, 1);
+  assert.strictEqual(confirmDialogCalls[0].danger, true);
   assert.deepStrictEqual(removeQuestionCalls, [questionId]);
   assert.strictEqual(document.getElementById("ss-questions-list").children.length, 0);
   assert.strictEqual(document.getElementById("ss-questions-empty").hidden, false);
+});
+
+test("declining the confirmation keeps the question in the list", async (t) => {
+  const { mod, removeQuestionCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    confirmDialogResolvesTo: false,
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-btn-toggle-question-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-btn-add-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
+
+  document.getElementById("ss-questions-list").querySelector("[data-question-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(removeQuestionCalls, []);
+  assert.strictEqual(document.getElementById("ss-questions-list").children.length, 1);
 });
 
 test("editing a question calls updateQuestion() with the right id instead of duplicating it locally", async (t) => {
@@ -1832,13 +1855,14 @@ test("associating an existing pending review calls associateReview() immediately
   assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
 });
 
-test("removing a review calls unlinkReview() immediately, drops it from the list, and refreshes the associate dropdown", async (t) => {
+test("removing a review asks for confirmation, then calls unlinkReview(), drops it from the list, and refreshes the associate dropdown", async (t) => {
   let pendingCallCount = 0;
-  const { mod, unlinkReviewCalls } = await loadStudySessionView(t, {
+  const { mod, unlinkReviewCalls, confirmDialogCalls } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     createReview: async (fields) => ({ id: "rev-new", status: "pending", ...fields }),
     associateReview: async (reviewId, sessionId) => ({ id: reviewId, session_id: sessionId, scheduled_date: "2026-07-14" }),
     listPendingReviews: async () => { pendingCallCount++; return []; },
+    confirmDialogResolvesTo: true,
   });
   await mod.initStudySessionView();
   await new Promise(r => setTimeout(r, 0));
@@ -1854,12 +1878,39 @@ test("removing a review calls unlinkReview() immediately, drops it from the list
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
+  assert.strictEqual(confirmDialogCalls.length, 1);
+  assert.strictEqual(confirmDialogCalls[0].danger, undefined);
   assert.deepStrictEqual(unlinkReviewCalls, ["rev-new"]);
   assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 0);
   assert.strictEqual(document.getElementById("ss-reviews-empty").hidden, false);
   // listPendingReviews() is called again after removal so the unlinked review
   // can be offered for re-association.
   assert.ok(pendingCallCount > callsAfterInit, "listPendingReviews must be refreshed after removing a review");
+});
+
+test("declining the confirmation keeps the review linked", async (t) => {
+  const { mod, unlinkReviewCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    createReview: async (fields) => ({ id: "rev-new", status: "pending", ...fields }),
+    associateReview: async (reviewId, sessionId) => ({ id: reviewId, session_id: sessionId, scheduled_date: "2026-07-14" }),
+    listPendingReviews: async () => [],
+    confirmDialogResolvesTo: false,
+  });
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-toggle-review-form").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  document.getElementById("ss-r-date").value = "2026-07-14";
+  document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
+
+  document.getElementById("ss-reviews-list").querySelector("[data-review-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(unlinkReviewCalls, []);
+  assert.strictEqual(document.getElementById("ss-reviews-list").children.length, 1);
 });
 
 test("ignoring the Revisões step is valid — confirming finishes the session without any review call", async (t) => {
@@ -2374,6 +2425,7 @@ test("UX #04 — o contador no título reflete questões/revisões adicionadas s
   const { mod } = await loadStudySessionView(t, {
     getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
     getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+    confirmDialogResolvesTo: true,
   });
   await mod.initStudySessionView();
   await new Promise(r => setTimeout(r, 0));
