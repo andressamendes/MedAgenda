@@ -588,15 +588,23 @@ function _renderMilestonesPanel(filteredEntries) {
   }
 
   milestonesPanelEl.hidden = false;
+  // F14 — mesma composição de timeline (linha + marcador) já usada na aba
+  // Histórico (.ah-timeline*, activityHistoryView.js); severidade
+  // (success/info/warning) migrou do border-left do cartão para a cor do
+  // marcador, ver .ah-timeline-item--{severity} em style.css.
+  milestonesListEl.classList.add("ah-timeline");
   milestonesListEl.innerHTML = milestones.map(m => `
-    <li class="sj-milestone-item sj-milestone-item--${escapeHtml(m.severity)}">
-      <span class="sj-milestone-icon" aria-hidden="true">${MILESTONE_ICON_GLYPHS[m.icon] || ""}</span>
-      <div class="sj-milestone-body">
-        <div class="sj-milestone-header">
-          <span class="sj-milestone-item-title">${escapeHtml(m.title)}</span>
-          <span class="sj-milestone-date">${_formatDate(m.date)}</span>
+    <li class="sj-milestone-item ah-timeline-item ah-timeline-item--${escapeHtml(m.severity)}">
+      <span class="ah-timeline-dot" aria-hidden="true"></span>
+      <div class="ah-timeline-body sj-milestone-row">
+        <span class="sj-milestone-icon" aria-hidden="true">${MILESTONE_ICON_GLYPHS[m.icon] || ""}</span>
+        <div class="sj-milestone-body">
+          <div class="sj-milestone-header">
+            <span class="sj-milestone-item-title">${escapeHtml(m.title)}</span>
+            <span class="sj-milestone-date">${_formatDate(m.date)}</span>
+          </div>
+          <p class="sj-milestone-description">${escapeHtml(m.description)}</p>
         </div>
-        <p class="sj-milestone-description">${escapeHtml(m.description)}</p>
       </div>
     </li>
   `).join("");

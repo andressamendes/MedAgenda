@@ -546,6 +546,27 @@ body {
   margin-bottom: var(--space-5);
 }
 
+/* F14 — Cadastro ganha a mesma diferenciação visual que o Login já tinha
+   (painel de marca): antes o painel era um texto fixo, idêntico em toda
+   view de auth, inclusive no Cadastro — copy de "bem-vindo de volta" numa
+   tela de quem ainda não tem conta. O eyebrow + tagline/pontos agora
+   variam por view (ver BRAND_CONTENT em authView.js/_applyBrandContent),
+   mesma moldura visual, conteúdo que reconhece o momento do usuário. */
+.auth-brand-eyebrow {
+  display: block;
+  width: fit-content;
+  margin: 0 0 var(--space-3);
+  padding: .25rem .65rem;
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  letter-spacing: var(--eyebrow-letter-spacing);
+  text-transform: uppercase;
+  color: var(--color-on-primary);
+  background: rgba(255, 255, 255, .18);
+  border-radius: var(--radius-full);
+}
+.auth-brand-eyebrow[hidden] { display: none; }
+
 .auth-brand-tagline {
   font-size: var(--font-size-lg);
   font-weight: 600;
@@ -1367,7 +1388,18 @@ body {
 }
 .ss-quick-question-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
 
-/* ── Calendário ── */
+/* ── Calendário — visão de Mês (F14) ──────────────────────────────────────
+   Antes: grade genérica de biblioteca open-source (linhas 3px de gap sobre
+   fundo cinza uniforme, cabeçalho de texto solto) — a mesma composição de
+   qualquer date-picker de terceiros. Composição própria mantendo 100% da
+   densidade de informação (nenhum dado deixou de aparecer, ver
+   MAX_VISIBLE_CHIPS/calendar.js para o resumo "+N" que substitui o corte
+   silencioso por overflow:hidden de antes): grade emoldurada como um único
+   cartão (`.cal-shell`), cabeçalho de dia da semana em pastilha, fim de
+   semana com fundo diferenciado, célula de hoje com borda de cor sólida em
+   vez de só o círculo do número, e leve elevação ao passar o mouse nas
+   células clicáveis — o mesmo vocabulário de cartão (`--shadow-sm`,
+   `--radius-lg`) já usado no resto do produto. */
 .cal-header {
   display: flex;
   align-items: center;
@@ -1382,6 +1414,14 @@ body {
   font-weight: 700;
 }
 
+.cal-shell {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+}
+
 .cal-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -1392,26 +1432,50 @@ body {
   text-transform: uppercase;
   letter-spacing: var(--eyebrow-letter-spacing);
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--gray-200);
-  margin-bottom: .4rem;
+  margin-bottom: var(--space-2);
+}
+
+.cal-weekdays > div {
+  padding: .3rem 0;
+}
+
+.cal-weekdays > div:first-child,
+.cal-weekdays > div:last-child {
+  color: var(--color-primary);
 }
 
 .cal-body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
+  gap: 5px;
 }
 
 .cal-cell {
-  min-height: 76px;
-  padding: .3rem .35rem;
-  border-radius: var(--radius-sm);
+  min-height: 92px;
+  padding: .35rem .4rem;
+  border-radius: var(--radius-md);
   background: var(--gray-50);
+  border: 1px solid transparent;
   overflow: hidden;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+/* Sábado/domingo (1ª e última coluna da grade) — fundo levemente
+   diferenciado, o mesmo sinal de "fim de semana" que qualquer calendário
+   nativo (Apple/Google) dá sem precisar de rótulo extra. */
+.cal-cell:nth-child(7n + 1),
+.cal-cell:nth-child(7n) {
+  background: var(--color-primary-50);
 }
 
 .cal-cell.cal-other {
   opacity: .35;
+}
+
+.cal-cell.cal-today {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary) inset;
 }
 
 /* ── Anel de assiduidade do dia (Fase J3) ─────────────────────────────────
@@ -1475,10 +1539,11 @@ body {
 .cal-chip {
   display: flex;
   align-items: center;
-  gap: .2rem;
+  gap: .25rem;
   font-size: var(--font-size-3xs);
   color: var(--color-on-primary);
-  padding: .1rem .35rem;
+  padding: .12rem .4rem;
+  border-radius: var(--radius-full);
 }
 
 .cal-chip-text {
@@ -1488,13 +1553,28 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Resumo "+N mais" (F14) — mesma pastilha do chip, sem cor de evento
+   nenhuma (nada foi omitido, só resumido) e sem affordance de clique: o
+   título (tooltip) já lista os compromissos escondidos por extenso. */
+.cal-chip-more {
+  background: var(--gray-200);
+  color: var(--gray-600);
+  font-weight: 600;
+  justify-content: center;
+}
+
 .cal-clickable {
   cursor: pointer;
 }
 
 .cal-clickable:hover {
-  background: var(--color-info-bg);
-  outline: 1px solid var(--color-info-border);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-primary-100);
+}
+
+.cal-cell.cal-today.cal-clickable:hover {
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-primary) inset;
+  border-color: var(--color-primary);
 }
 
 .cal-chip-clickable {
@@ -2325,6 +2405,12 @@ textarea { resize: vertical; }
 .ah-timeline-item--cancelled .ah-timeline-dot { background: var(--color-danger);  box-shadow: 0 0 0 2px var(--color-danger-bg); }
 .ah-timeline-item--running   .ah-timeline-dot { background: var(--color-success); box-shadow: 0 0 0 2px var(--color-success-bg-strong); }
 .ah-timeline-item--paused    .ah-timeline-dot { background: var(--color-warning); box-shadow: 0 0 0 2px var(--color-warning-bg); }
+
+/* Marcos da Evolução (F14) — mesmos três níveis de severidade que antes
+   viviam no border-left de .sj-milestone-item, agora no marcador. */
+.ah-timeline-item--success .ah-timeline-dot { background: var(--color-success); box-shadow: 0 0 0 2px var(--color-success-bg-strong); }
+.ah-timeline-item--info    .ah-timeline-dot { background: var(--color-info);    box-shadow: 0 0 0 2px var(--color-info-bg); }
+.ah-timeline-item--warning .ah-timeline-dot { background: var(--color-warning); box-shadow: 0 0 0 2px var(--color-warning-bg); }
 
 .ah-timeline-body {
   flex: 1 1 auto;
@@ -3162,17 +3248,20 @@ textarea { resize: vertical; }
   gap: var(--space-2);
 }
 
-.sj-milestone-item {
+/* F14 — Marcos passou a usar a mesma composição de timeline (linha +
+   marcador colorido) já implementada para a aba Histórico do Diário
+   (.ah-timeline*, style.css:2283+): a lista ganha `.ah-timeline` além de
+   `.sj-milestones-list` (herda a linha vertical via ::before e o
+   espaçamento), e cada item vira `.ah-timeline-item` (marcador + corpo em
+   cartão) em vez de um cartão com borda lateral solto — mesmas cores de
+   severidade de antes, só que no marcador (`.ah-timeline-dot`) em vez do
+   `border-left`. `.sj-milestone-row` recria o layout ícone+texto lado a
+   lado de antes dentro do novo corpo `.ah-timeline-body`. */
+.sj-milestone-row {
   display: flex;
   gap: .6rem;
   align-items: flex-start;
-  border-left: 3px solid var(--gray-300);
-  padding-left: .6rem;
 }
-
-.sj-milestone-item--success { border-left-color: var(--color-success); }
-.sj-milestone-item--info    { border-left-color: var(--color-info); }
-.sj-milestone-item--warning { border-left-color: var(--color-warning); }
 
 .sj-milestone-icon {
   display: flex;
@@ -3400,6 +3489,15 @@ textarea { resize: vertical; }
 
   .modal-overlay:not(.command-palette-overlay) .modal-card.modal-dragging {
     transition: none;
+  }
+
+  /* F14 — o formulário de novo compromisso (`.modal-event`) é o mais longo
+     do produto (10+ campos, recorrência, histórico); os 86vh genéricos do
+     sheet (bons para confirmação/quick-add, formulários curtos) sobram
+     pouco espaço de rolagem útil aqui. Só este modal ganha mais altura —
+     o resto do produto continua exatamente com o sheet genérico de antes. */
+  .modal-overlay:not(.command-palette-overlay) .modal-card.modal-event {
+    max-height: 94vh;
   }
 
   .modal-overlay:not(.command-palette-overlay) .modal-body {

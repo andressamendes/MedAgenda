@@ -13,6 +13,55 @@ import { AuthError, AUTH_REASONS } from "./authError.js";
 
 const AUTH_VIEWS = ['login', 'register', 'email-sent', 'forgot', 'reset-sent', 'new-password', 'link-invalid'];
 
+// F14 — o painel de marca (`.auth-brand-panel`) é compartilhado por toda
+// view de auth (moldura em index.html), mas até aqui exibia sempre o
+// mesmo texto de "bem-vindo de volta" — inclusive no Cadastro, para quem
+// ainda não tem conta nenhuma. Cada entrada abaixo é o conteúdo do painel
+// quando aquela view está ativa; views sem entrada própria (recuperação de
+// senha, links de confirmação etc.) caem no conteúdo padrão de `login`,
+// que é o mesmo texto usado antes desta mudança.
+const BRAND_CONTENT = {
+  login: {
+    eyebrow: null,
+    tagline: "A agenda de compromissos feita para estudantes de Medicina.",
+    points: [
+      "Constância à vista, com heatmap e sequência de dias estudando",
+      "Sessões de estudo com cronômetro e metas diárias",
+      "Compromissos e conquistas num só lugar, sem ruído",
+    ],
+  },
+  register: {
+    eyebrow: "Comece grátis",
+    tagline: "Sua rotina de estudos organizada em poucos minutos.",
+    points: [
+      "Crie sua agenda de compromissos em segundos",
+      "Sessões de estudo com cronômetro, sem precisar de outro app",
+      "Acompanhe sua constância com heatmap e sequência de dias",
+    ],
+  },
+};
+
+function _applyBrandContent(name) {
+  const content = BRAND_CONTENT[name] || BRAND_CONTENT.login;
+  const eyebrowEl = document.getElementById('auth-brand-eyebrow');
+  const taglineEl = document.getElementById('auth-brand-tagline');
+  const pointsEl  = document.getElementById('auth-brand-points');
+
+  if (eyebrowEl) {
+    eyebrowEl.hidden = !content.eyebrow;
+    eyebrowEl.textContent = content.eyebrow || "";
+  }
+  if (taglineEl) taglineEl.textContent = content.tagline;
+  if (pointsEl) {
+    pointsEl.innerHTML = "";
+    content.points.forEach(p => {
+      const li = document.createElement('li');
+      li.textContent = p;
+      pointsEl.appendChild(li);
+    });
+  }
+}
+
 // A1.4 — quando a URL carrega `type=recovery` mas nem PASSWORD_RECOVERY nem
 // um erro explícito (parseAuthRedirectError) chegam a aparecer, o token do
 // link estava ausente/corrompido de um jeito que o próprio Supabase não
@@ -54,6 +103,7 @@ export function showAuthView(name) {
     const el = document.getElementById(`view-${v}`);
     if (el) el.hidden = (v !== name);
   });
+  _applyBrandContent(name);
 }
 
 export function showLogin() {
