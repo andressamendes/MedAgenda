@@ -25,7 +25,8 @@ import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
-import { escapeHtml, isoToday, formatDuration } from "./utils.js";
+import { categoryColor } from "./categoryView.js";
+import { escapeHtml, isoToday, formatDuration, readableTextColor } from "./utils.js";
 
 let tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
@@ -231,6 +232,17 @@ function _isStudyCategory(category) {
   return STUDY_CATEGORIES.includes((category || "").trim().toLowerCase());
 }
 
+// Selo de categoria — mesmo par .badge + cor inline que script.js já usa nos
+// cards da Agenda (categoryColor()/readableTextColor()), reaproveitado aqui
+// para que "que tipo de compromisso é este" seja lido pela cor sem precisar
+// abrir o card: plantão, ambulatório e aula não competem entre si por peso
+// visual, cada um carrega a cor que o usuário já escolheu em Categorias.
+function _categoryBadgeHtml(category) {
+  if (!category) return "";
+  const color = categoryColor(category);
+  return `<span class="badge today-appt-category" style="background:${escapeHtml(color)};color:${readableTextColor(color)}">${escapeHtml(category)}</span>`;
+}
+
 function _buildApptItem(ev, isConflict) {
   const li = document.createElement("li");
   li.className = isConflict ? "today-appt-item today-appt-item--conflict" : "today-appt-item";
@@ -243,6 +255,7 @@ function _buildApptItem(ev, isConflict) {
   li.innerHTML = `
     <span class="today-appt-time">${ev.start_time.slice(0, 5)}</span>
     <span class="today-appt-title">${escapeHtml(ev.title)}</span>
+    ${_categoryBadgeHtml(ev.category)}
     ${conflictBadgeHtml}
     ${startBtnHtml}
   `;

@@ -1,9 +1,10 @@
 /**
  * Tests for todayView.js — tela "Hoje", nova porta de entrada do app (F14.1).
  * activitySessionService.js, eventService.js, studySessionView.js,
- * navigationView.js, academicCalendarView.js and decisionEngine.js are
- * mocked; sessionEventBus.js and smartCardView.js are used for real (pure,
- * no DOM/I/O) — same pattern as tests/views/activeSessionIndicatorView.test.js.
+ * navigationView.js, academicCalendarView.js, decisionEngine.js and
+ * categoryView.js are mocked; sessionEventBus.js and smartCardView.js are
+ * used for real (pure, no DOM/I/O) — same pattern as
+ * tests/views/activeSessionIndicatorView.test.js.
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -30,6 +31,7 @@ const NAVIGATION_SPECIFIER       = new URL("../../navigationView.js", import.met
 const DECISION_ENGINE_SPECIFIER  = new URL("../../decisionEngine.js", import.meta.url).href;
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
+const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
 
 let showPageCalls;
 let startSessionForEventCalls;
@@ -85,6 +87,11 @@ function loadView(t, overrides = {}) {
     namedExports: {
       getDayRecap: overrides.getDayRecap ?? (async () => ({ minutes: 0, sessionsCount: 0, questionsCount: 0, currentStreak: 0 })),
       setNextStudyPlan: overrides.setNextStudyPlan ?? (async (fields) => { setNextStudyPlanCalls.push(fields); }),
+    },
+  });
+  t.mock.module(CATEGORY_VIEW_SPECIFIER, {
+    namedExports: {
+      categoryColor: overrides.categoryColor ?? (() => "#6b7280"),
     },
   });
 
@@ -255,6 +262,27 @@ test("appointments without overlapping times show no conflict badge", async (t) 
   const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
   assert.ok(!items[0].classList.contains("today-appt-item--conflict"));
   assert.ok(!items[1].classList.contains("today-appt-item--conflict"));
+});
+
+test("each appointment shows a category badge colored from categoryColor()", async (t) => {
+  const events = [
+    { id: "e1", title: "Plantão UPA", start_time: "08:00:00", category: "Plantão" },
+    { id: "e2", title: "Aniversário", start_time: "18:00:00", category: null },
+  ];
+  const colors = { "Plantão": "#ef4444" };
+  const { initTodayView } = await loadView(t, {
+    getEventsByRange: async () => events,
+    categoryColor: (name) => colors[name] || "#6b7280",
+  });
+  await initTodayView();
+
+  const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
+  const badge1 = items[0].querySelector(".today-appt-category");
+  assert.ok(badge1);
+  assert.strictEqual(badge1.textContent, "Plantão");
+  assert.ok(badge1.getAttribute("style").includes("#ef4444"));
+
+  assert.strictEqual(items[1].querySelector(".today-appt-category"), null);
 });
 
 test("no appointments today shows the empty message", async (t) => {
