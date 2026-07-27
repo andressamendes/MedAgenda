@@ -225,6 +225,38 @@ test("today's appointments are listed, sorted by start time", async (t) => {
   assert.strictEqual(document.getElementById("today-appointments-empty").hidden, true);
 });
 
+test("overlapping appointments today are flagged with a conflict badge", async (t) => {
+  const events = [
+    { id: "e1", title: "Plantão UPA", start_time: "08:00:00", duration_minutes: 240, category: "Ambulatório" },
+    { id: "e2", title: "Aula de Cardiologia", start_time: "09:00:00", duration_minutes: 60, category: "Aula" },
+    { id: "e3", title: "Corrida", start_time: "18:00:00", duration_minutes: 30, category: "Atividade Física" },
+  ];
+  const { initTodayView } = await loadView(t, { getEventsByRange: async () => events });
+  await initTodayView();
+
+  const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
+  assert.strictEqual(items.length, 3);
+  assert.ok(items[0].classList.contains("today-appt-item--conflict"));
+  assert.ok(items[1].classList.contains("today-appt-item--conflict"));
+  assert.ok(!items[2].classList.contains("today-appt-item--conflict"));
+  assert.ok(items[0].querySelector(".today-appt-conflict-badge"));
+  assert.ok(items[1].querySelector(".today-appt-conflict-badge"));
+  assert.strictEqual(items[2].querySelector(".today-appt-conflict-badge"), null);
+});
+
+test("appointments without overlapping times show no conflict badge", async (t) => {
+  const events = [
+    { id: "e1", title: "Plantão UPA", start_time: "08:00:00", duration_minutes: 60, category: "Ambulatório" },
+    { id: "e2", title: "Aula de Cardiologia", start_time: "10:00:00", duration_minutes: 60, category: "Aula" },
+  ];
+  const { initTodayView } = await loadView(t, { getEventsByRange: async () => events });
+  await initTodayView();
+
+  const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
+  assert.ok(!items[0].classList.contains("today-appt-item--conflict"));
+  assert.ok(!items[1].classList.contains("today-appt-item--conflict"));
+});
+
 test("no appointments today shows the empty message", async (t) => {
   const { initTodayView } = await loadView(t);
   await initTodayView();
