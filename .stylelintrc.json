@@ -4,8 +4,8 @@
     "scale-unlimited/declaration-strict-value": [
       ["/^font-size$/", "/^border-radius$/", "/^box-shadow$/", "color", "background-color", "border-color"],
       {
-        "ignoreValues": ["inherit", "initial", "unset", "none", "currentColor", "transparent"],
-        "severity": "warning"
+        "ignoreValues": ["inherit", "initial", "unset", "none", "currentColor", "transparent", "0", "inset"],
+        "severity": "error"
       }
     ]
   }
