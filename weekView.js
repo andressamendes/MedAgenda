@@ -400,43 +400,114 @@ function bindActivate(el, handler) {
   });
 }
 
+// Layout de eventos sobrepostos — hoje um bloco (.wk-event) sempre ocupa
+// left:2/right:2 (largura cheia da coluna), então dois compromissos que
+// colidem no horário (ex.: plantão e aula marcados por engano na mesma hora)
+// ficam um por cima do outro, sem nenhum sinal — a mesma colisão que
+// todayView.js já sinaliza na tela Hoje (F14.1), invisível aqui na grade.
+// Algoritmo clássico de "meeting rooms": agrupa por cadeia de sobreposição
+// (cluster), atribui cada evento à primeira coluna livre dentro do cluster e
+// devolve, por evento, sua coluna e o total de colunas do cluster — só
+// eventos que realmente colidem dividem a largura; os demais continuam
+// ocupando a coluna inteira (numCols === 1 não recebe estilo inline algum).
+function _layoutOverlaps(events) {
+  const withRange = events
+    .filter(ev => ev.start_time)
+    .map(ev => {
+      const [h, m] = ev.start_time.split(":").map(Number);
+      const start = h * 60 + m;
+      return { ev, start, end: start + (ev.duration_minutes || 30) };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const layout = new Map();
+  let columns = [];
+  let cluster = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    if (!cluster.length) return;
+    const numCols = Math.max(...cluster.map(item => item.col)) + 1;
+    cluster.forEach(item => layout.set(item.ev, { col: item.col, numCols }));
+    cluster = [];
+    columns = [];
+  };
+
+  for (const item of withRange) {
+    if (item.start >= clusterEnd) {
+      flush();
+      clusterEnd = -Infinity;
+    }
+    let col = columns.findIndex(end => end <= item.start);
+    if (col === -1) {
+      columns.push(item.end);
+      col = columns.length - 1;
+    } else {
+      columns[col] = item.end;
+    }
+    item.col = col;
+    cluster.push(item);
+    clusterEnd = Math.max(clusterEnd, item.end);
+  }
+  flush();
+
+  return layout;
+}
+
+function _applyOverlapStyle(block, layout, ev) {
+  const placement = layout.get(ev);
+  if (!placement || placement.numCols <= 1) return;
+  const widthPct = 100 / placement.numCols;
+  block.style.left  = `calc(${placement.col * widthPct}% + 2px)`;
+  block.style.width = `calc(${widthPct}% - 4px)`;
+  block.style.right = "auto";
+}
+
 function renderEvents(events, summaries = {}) {
+  const byCol = new Map();
   events.forEach(ev => {
     if (!ev.start_time) return;
-
     const colIdx = dateToCol(ev.event_date);
     if (colIdx < 0) return;
+    if (!byCol.has(colIdx)) byCol.set(colIdx, []);
+    byCol.get(colIdx).push(ev);
+  });
 
-    const [h, m] = ev.start_time.split(":").map(Number);
-    const totalMin = h * 60 + m;
-    const top    = (totalMin / 30) * ROW_H;
-    const dur    = ev.duration_minutes || 30;
-    const height = Math.max((dur / 30) * ROW_H - 2, 22);
+  byCol.forEach((dayEvents, colIdx) => {
+    const layout = _layoutOverlaps(dayEvents);
+    dayEvents.forEach(ev => {
+      const [h, m] = ev.start_time.split(":").map(Number);
+      const totalMin = h * 60 + m;
+      const top    = (totalMin / 30) * ROW_H;
+      const dur    = ev.duration_minutes || 30;
+      const height = Math.max((dur / 30) * ROW_H - 2, 22);
 
-    const indicator = describeExecutionIndicator(summaries[ev.id]);
+      const indicator = describeExecutionIndicator(summaries[ev.id]);
 
-    const block = document.createElement("div");
-    block.className = indicator ? `wk-event wk-event-${indicator.state}` : "wk-event";
-    block.style.top      = `${top}px`;
-    block.style.height   = `${height}px`;
-    const bgColor = ev.color || "#3b82f6";
-    block.style.background = bgColor;
-    block.style.color      = readableTextColor(bgColor);
-    block.innerHTML = `
-      <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
-      ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
-      <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
-      ${indicator ? `<span class="wk-ev-indicator">${executionRingHTML(indicator)}<span>${escapeHtml(indicator.text)}</span></span>` : ""}
-    `;
+      const block = document.createElement("div");
+      block.className = indicator ? `wk-event wk-event-${indicator.state}` : "wk-event";
+      block.style.top      = `${top}px`;
+      block.style.height   = `${height}px`;
+      _applyOverlapStyle(block, layout, ev);
+      const bgColor = ev.color || "#3b82f6";
+      block.style.background = bgColor;
+      block.style.color      = readableTextColor(bgColor);
+      block.innerHTML = `
+        <span class="wk-ev-title">${escapeHtml(ev.title)}</span>
+        ${ev.category ? `<span class="wk-ev-cat">${escapeHtml(ev.category)}</span>` : ""}
+        <span class="wk-ev-time">${ev.start_time.slice(0, 5)}</span>
+        ${indicator ? `<span class="wk-ev-indicator">${executionRingHTML(indicator)}<span>${escapeHtml(indicator.text)}</span></span>` : ""}
+      `;
 
-    if (_cbs.onEventClick) {
-      bindActivate(block, e => {
-        e.stopPropagation();
-        _cbs.onEventClick(ev);
-      });
-    }
+      if (_cbs.onEventClick) {
+        bindActivate(block, e => {
+          e.stopPropagation();
+          _cbs.onEventClick(ev);
+        });
+      }
 
-    _el.querySelector(`#wk-col-${colIdx}`).appendChild(block);
+      _el.querySelector(`#wk-col-${colIdx}`).appendChild(block);
+    });
   });
 }
 
@@ -734,6 +805,7 @@ function clearDayEvents() {
 function renderDayEvents(events, summaries = {}) {
   const col = _dEl.querySelector("#dv-day-col");
   if (!col) return;
+  const layout = _layoutOverlaps(events);
   events.forEach(ev => {
     if (!ev.start_time) return;
 
@@ -749,6 +821,7 @@ function renderDayEvents(events, summaries = {}) {
     block.className = indicator ? `wk-event wk-event-${indicator.state}` : "wk-event";
     block.style.top      = `${top}px`;
     block.style.height   = `${height}px`;
+    _applyOverlapStyle(block, layout, ev);
     const bgColor = ev.color || "#3b82f6";
     block.style.background = bgColor;
     block.style.color      = readableTextColor(bgColor);
