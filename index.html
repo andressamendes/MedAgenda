@@ -307,23 +307,6 @@
           </button>
         </div>
 
-        <div class="sidebar-divider"></div>
-
-        <!-- Ações de gerenciamento (auditoria UX #09) — abrem modais, não
-             trocam de página: ficam agrupadas sob um rótulo próprio para não
-             se misturarem com os destinos de navegação acima. -->
-        <div class="sidebar-nav-group sidebar-nav-group--secondary" aria-label="Gerenciar">
-          <span class="sidebar-group-label" aria-hidden="true">Gerenciar</span>
-          <button class="nav-item" id="btn-academic-cals">
-            <span class="nav-icon" aria-hidden="true" data-icon="layers"></span>
-            <span class="nav-label">Calendários Acadêmicos</span>
-          </button>
-          <button class="nav-item" id="btn-categories">
-            <span class="nav-icon" aria-hidden="true" data-icon="tag"></span>
-            <span class="nav-label">Categorias</span>
-          </button>
-        </div>
-
       </nav>
 
       <!-- Content area -->
@@ -1201,9 +1184,9 @@
         <span class="bottom-nav-icon" aria-hidden="true" data-icon="book-open"></span>
         <span class="bottom-nav-label">Diário</span>
       </button>
-      <button class="bottom-nav-item" id="bottom-nav-more">
-        <span class="bottom-nav-icon" aria-hidden="true" data-icon="more-horizontal"></span>
-        <span class="bottom-nav-label">Mais</span>
+      <button class="bottom-nav-item" data-page="progress">
+        <span class="bottom-nav-icon" aria-hidden="true" data-icon="trending-up"></span>
+        <span class="bottom-nav-label">Progresso</span>
       </button>
     </nav>
 
@@ -1591,6 +1574,24 @@
           <button id="btn-reminders-toggle" class="btn btn-sm btn-secondary">Ativar</button>
         </div>
         <p id="reminders-hint" class="settings-hint" hidden role="alert"></p>
+
+        <hr class="settings-divider" />
+
+        <div class="settings-section-title">Organização</div>
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">Calendários Acadêmicos</div>
+            <div class="settings-desc">Gerencie os calendários da sua instituição e importe eventos.</div>
+          </div>
+          <button id="btn-academic-cals" class="btn btn-sm btn-secondary">Abrir</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">Categorias</div>
+            <div class="settings-desc">Crie, edite e organize as categorias dos seus compromissos.</div>
+          </div>
+          <button id="btn-categories" class="btn btn-sm btn-secondary">Abrir</button>
+        </div>
 
         <hr class="settings-divider" />
 

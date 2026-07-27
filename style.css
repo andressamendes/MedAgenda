@@ -863,30 +863,6 @@ body {
   margin: .4rem .25rem;
 }
 
-/* Rótulo do grupo de ações de gerenciamento (auditoria UX #09) — separa
-   visualmente os itens que abrem modais dos que trocam de página. */
-.sidebar-group-label {
-  padding: .25rem .85rem .1rem;
-  font-size: var(--eyebrow-font-size);
-  font-weight: 600;
-  color: var(--gray-500);
-  text-transform: uppercase;
-  letter-spacing: var(--eyebrow-letter-spacing);
-}
-
-/* F13.2 — Agenda e Compromissos são duas visões do mesmo dado; o subgrupo
-   reaproveita .sidebar-group-label para deixar esse parentesco visível sem
-   fundir as duas páginas em uma só. */
-.sidebar-nav-subgroup {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.app-sidebar.sidebar-collapsed .sidebar-nav-subgroup .sidebar-group-label {
-  display: none;
-}
-
 /* ── Nav items ── */
 .nav-item {
   display: flex;
@@ -4529,7 +4505,7 @@ textarea { resize: vertical; }
 }
 
 /* Mobile: bottom-nav ocupa a mesma faixa inferior — o mini-timer sobe acima
-   dela para nunca cobrir "Mais"/"Sessão" (ver .bottom-nav, mesmo breakpoint). */
+   dela para nunca cobrir "Progresso"/"Sessão" (ver .bottom-nav, mesmo breakpoint). */
 @media (max-width: 767px) {
   .active-session-chip {
     bottom: calc(var(--bottom-nav-total-h) + var(--space-3));
