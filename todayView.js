@@ -185,11 +185,39 @@ async function _refreshAppointments() {
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
     apptEmptyEl.hidden = events.length > 0;
-    events.forEach(ev => apptListEl.appendChild(_buildApptItem(ev)));
+    const conflicts = _findConflictIndexes(events);
+    events.forEach((ev, i) => apptListEl.appendChild(_buildApptItem(ev, conflicts.has(i))));
   } catch (err) {
     handleError(err, { context: "todayView.appointments", silent: true });
     apptEmptyEl.hidden = false;
   }
+}
+
+// Conflito de horário: dois compromissos de hoje cujos intervalos se cruzam.
+// Só usa dado já carregado (start_time/duration_minutes) — nenhuma consulta
+// nova. duration_minutes ausente vira um ponto de 1 minuto só para efeito de
+// comparação (F14.1 §1: a tela responde "o que colide agora", e um horário
+// sem duração ainda pode colidir com o intervalo de outro compromisso).
+function _timeToMinutes(hhmmss) {
+  const [h, m] = hhmmss.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function _findConflictIndexes(events) {
+  const ranges = events.map(ev => {
+    const start = _timeToMinutes(ev.start_time);
+    return { start, end: start + (ev.duration_minutes || 1) };
+  });
+  const conflicts = new Set();
+  for (let i = 0; i < ranges.length; i++) {
+    for (let j = i + 1; j < ranges.length; j++) {
+      if (ranges[i].start < ranges[j].end && ranges[j].start < ranges[i].end) {
+        conflicts.add(i);
+        conflicts.add(j);
+      }
+    }
+  }
+  return conflicts;
 }
 
 // Categorias que representam estudo de fato — a única razão de existir de
@@ -203,15 +231,19 @@ function _isStudyCategory(category) {
   return STUDY_CATEGORIES.includes((category || "").trim().toLowerCase());
 }
 
-function _buildApptItem(ev) {
+function _buildApptItem(ev, isConflict) {
   const li = document.createElement("li");
-  li.className = "today-appt-item";
+  li.className = isConflict ? "today-appt-item today-appt-item--conflict" : "today-appt-item";
   const startBtnHtml = _isStudyCategory(ev.category)
     ? `<button type="button" class="btn btn-sm btn-secondary today-appt-start">Iniciar sessão</button>`
+    : "";
+  const conflictBadgeHtml = isConflict
+    ? `<span class="badge today-appt-conflict-badge">Conflito de horário</span>`
     : "";
   li.innerHTML = `
     <span class="today-appt-time">${ev.start_time.slice(0, 5)}</span>
     <span class="today-appt-title">${escapeHtml(ev.title)}</span>
+    ${conflictBadgeHtml}
     ${startBtnHtml}
   `;
   const startBtn = li.querySelector(".today-appt-start");

@@ -2768,6 +2768,19 @@ textarea { resize: vertical; }
   white-space: nowrap;
 }
 
+/* Conflito de horário — mesmo tratamento de aviso já usado em .smart-card--atencao
+   e .ai-plan-item--média: borda esquerda em --color-warning, sem vermelho e sem
+   ícone alarmista. É informação disponível, não um erro do usuário. */
+.today-appt-item--conflict {
+  border-left: 3px solid var(--color-warning-border);
+}
+
+.today-appt-conflict-badge {
+  flex-shrink: 0;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
 /* F14.5 — seção "Hoje em números" (Meta diária, Tempo estudado hoje, Sessões
    hoje), absorvida aqui da antiga página Dashboard: fica abaixo do convite
    principal ("Começar a estudar") e dos compromissos, para não competir com
