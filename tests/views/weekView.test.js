@@ -156,6 +156,46 @@ test("F11 E18 — an event with the default color keeps white text (unchanged be
   assert.strictEqual(block.style.color, "rgb(255, 255, 255)");
 });
 
+// Antes desta task, dois compromissos que colidem no horário se sobrepunham
+// visualmente sem nenhum sinal (ambos com left:2/right:2 da grade — um
+// escondia o outro). Agora dividem a coluna lado a lado.
+test("two overlapping events on the same day are laid out side by side, not stacked invisibly", async (t) => {
+  const { mon } = currentWeekRange();
+  const evA = { id: "evt-a", title: "Plantão UPA", event_date: isoDate(mon), start_time: "08:00:00", duration_minutes: 240, recurrence_type: "none" };
+  const evB = { id: "evt-b", title: "Aula de Cardiologia", event_date: isoDate(mon), start_time: "09:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [evA, evB] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  await initWeekView(container, {});
+
+  const blocks = Array.from(container.querySelectorAll("#wk-col-0 .wk-event"));
+  assert.strictEqual(blocks.length, 2);
+  const blockA = blocks.find(b => b.textContent.includes("Plantão UPA"));
+  const blockB = blocks.find(b => b.textContent.includes("Aula de Cardiologia"));
+  assert.ok(blockA.style.left, "overlapping block should get an explicit left offset");
+  assert.ok(blockB.style.left, "overlapping block should get an explicit left offset");
+  assert.notStrictEqual(blockA.style.left, blockB.style.left);
+  assert.ok(blockA.style.width.includes("50%"));
+  assert.ok(blockB.style.width.includes("50%"));
+});
+
+test("non-overlapping events on the same day keep full width (no inline left/width)", async (t) => {
+  const { mon } = currentWeekRange();
+  const evA = { id: "evt-a", title: "Plantão UPA", event_date: isoDate(mon), start_time: "08:00:00", duration_minutes: 60, recurrence_type: "none" };
+  const evB = { id: "evt-b", title: "Aula de Cardiologia", event_date: isoDate(mon), start_time: "10:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [evA, evB] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  await initWeekView(container, {});
+
+  const blocks = Array.from(container.querySelectorAll("#wk-col-0 .wk-event"));
+  assert.strictEqual(blocks.length, 2);
+  blocks.forEach(b => {
+    assert.strictEqual(b.style.left, "");
+    assert.strictEqual(b.style.width, "");
+  });
+});
+
 test("clicking an empty slot triggers onSlotClick with the slot's date and time", async (t) => {
   mockEventService(t, { events: [] });
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
