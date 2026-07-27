@@ -11,6 +11,14 @@ let _showPersonal = () => true;
 const MONTHS   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
+// F14 — antes, todo compromisso do dia virava um chip empilhado dentro de
+// uma célula de altura fixa com `overflow: hidden`: um dia com muitos
+// compromissos simplesmente cortava os últimos chips, invisíveis sem
+// nenhum aviso. Agora a célula mostra no máximo isto e resume o resto num
+// chip "+N mais" só informativo (ver .cal-chip-more abaixo) — nenhum
+// compromisso deixa de existir, só deixa de ser cortado silenciosamente.
+const MAX_VISIBLE_CHIPS = 3;
+
 let container, calYear, calMonth, callbacks;
 let _academicProvider = null;
 let _fetchGeneration = 0; // AUD-007: descarta respostas de fetchAndRender() obsoletas em navegações rápidas
@@ -68,10 +76,12 @@ function buildShell() {
       <button class="btn btn-sm btn-ghost" id="cal-next" aria-label="Próximo mês">›</button>
       <button class="btn btn-sm btn-ghost" id="cal-today">Hoje</button>
     </div>
-    <div class="cal-weekdays">
-      ${WEEKDAYS.map(d => `<div>${d}</div>`).join("")}
+    <div class="cal-shell">
+      <div class="cal-weekdays">
+        ${WEEKDAYS.map(d => `<div>${d}</div>`).join("")}
+      </div>
+      <div class="cal-body" id="cal-body"></div>
     </div>
-    <div class="cal-body" id="cal-body"></div>
   `;
 
   container.querySelector("#cal-prev").addEventListener("click",  () => navigate(-1));
@@ -235,7 +245,9 @@ function renderGrid(byDate, summaries = {}) {
 
     const chipsEl = document.createElement("div");
     chipsEl.className = "cal-chips";
-    dayEvents.forEach(ev => {
+    const visibleEvents = dayEvents.slice(0, MAX_VISIBLE_CHIPS);
+    const hiddenCount    = dayEvents.length - visibleEvents.length;
+    visibleEvents.forEach(ev => {
       const chip = document.createElement("div");
       const isAcademic = !!ev._isAcademic;
       chip.className = isAcademic ? "cal-chip cal-chip-academic" : "cal-chip";
@@ -273,6 +285,18 @@ function renderGrid(byDate, summaries = {}) {
 
       chipsEl.appendChild(chip);
     });
+
+    if (hiddenCount > 0) {
+      // Só um resumo textual — não usa onDayClick (abre "novo compromisso",
+      // não uma lista) nem onEventClick (não há um único evento associado).
+      // Sem ação própria, o título lista os compromissos escondidos por
+      // extenso para quem passa o mouse/foca.
+      const moreEl = document.createElement("div");
+      moreEl.className = "cal-chip cal-chip-more";
+      moreEl.textContent = `+${hiddenCount} mais`;
+      moreEl.title = dayEvents.slice(MAX_VISIBLE_CHIPS).map(ev => ev.title).join(", ");
+      chipsEl.appendChild(moreEl);
+    }
     cell.appendChild(chipsEl);
 
     body.appendChild(cell);
