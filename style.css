@@ -2768,6 +2768,10 @@ textarea { resize: vertical; }
   white-space: nowrap;
 }
 
+.today-appt-category {
+  flex-shrink: 0;
+}
+
 /* Conflito de horário — mesmo tratamento de aviso já usado em .smart-card--atencao
    e .ai-plan-item--média: borda esquerda em --color-warning, sem vermelho e sem
    ícone alarmista. É informação disponível, não um erro do usuário. */
