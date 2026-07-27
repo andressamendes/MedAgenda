@@ -1,6 +1,7 @@
 // ── eventFormView.js — Modal de criação e edição de compromissos ─────────────
 
-import { createEvent } from "./eventService.js";
+import { createEvent, getEventsByRange } from "./eventService.js";
+import { expandEvents } from "./recurrence.js";
 import { listByEvent } from "./activitySessionService.js";
 import { computeSessionStats } from "./activitySessionStats.js";
 import { confirmDialog } from "./confirmDialog.js";
@@ -88,7 +89,13 @@ let fDesc              = null;
 let fReminder          = null;
 let fReminderCustom    = null;
 let reminderCustomWrap = null;
+let fConflictWarning   = null;
 let modal              = null;
+
+// Descarta uma checagem de conflito que ainda estava em rede quando o
+// usuário já mudou data/hora de novo (ou fechou o formulário) — mesmo
+// racional de generation usado em _historyRequestId/_formGeneration acima.
+let _conflictCheckId = 0;
 
 // Painel "Histórico e estatísticas" (F13.4) — session-history saiu do corpo
 // do modal de edição para este painel lateral sob demanda, mesmo padrão de
@@ -135,6 +142,7 @@ export function initEventForm(onSave) {
   fReminder           = document.getElementById("f-reminder");
   fReminderCustom     = document.getElementById("f-reminder-custom");
   reminderCustomWrap  = document.getElementById("reminder-custom-wrap");
+  fConflictWarning    = document.getElementById("f-conflict-warning");
   bindRecurrenceFields("f");
 
   eventDetailOverlay  = document.getElementById("event-detail-overlay");
@@ -162,6 +170,15 @@ export function initEventForm(onSave) {
   fReminder?.addEventListener("change", () => {
     reminderCustomWrap.hidden = fReminder.value !== "custom";
   });
+
+  // Aviso não-bloqueante de conflito de horário (mesma ideia de
+  // todayView.js/_findConflictIndexes e weekView.js/_layoutOverlaps, agora
+  // no momento de cadastrar/editar, antes do compromisso existir na agenda).
+  // "change" (não "input") — só recalcula quando o usuário termina de
+  // escolher a data/hora, não a cada dígito.
+  fDate?.addEventListener("change", () => _checkConflict());
+  fStart?.addEventListener("change", () => _checkConflict());
+  fDuration?.addEventListener("change", () => _checkConflict());
 
   // Auditoria UX F10 #1.1: repetição nasce escondida atrás de um toggle —
   // a maioria dos compromissos não é recorrente, então o select não precisa
@@ -459,6 +476,8 @@ function _clearForm() {
   saveBtn.textContent   = "Salvar compromisso";
   cancelBtn.hidden      = false;
   formError.textContent = "";
+  _conflictCheckId++; // descarta qualquer checagem de conflito ainda em rede
+  fConflictWarning.hidden = true;
 }
 
 function _populateForm(ev) {
@@ -491,6 +510,54 @@ function _populateForm(ev) {
   saveBtn.textContent   = "Atualizar compromisso";
   cancelBtn.hidden      = false;
   formError.textContent = "";
+}
+
+// Aviso não-bloqueante de conflito de horário no formulário (mesma lógica de
+// intervalo que todayView.js/_findConflictIndexes e weekView.js/
+// _layoutOverlaps: duration_minutes ausente vira um ponto de 1 minuto só
+// para efeito de comparação). Nunca impede o salvamento — só informa; quem
+// decide se o conflito é aceitável (ex.: uma ligação rápida durante um
+// plantão longo) é o usuário, não o formulário.
+function _timeToMinutes(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+async function _checkConflict() {
+  if (!fConflictWarning || !fDate.value || !fStart.value) {
+    if (fConflictWarning) fConflictWarning.hidden = true;
+    return;
+  }
+
+  const checkId  = ++_conflictCheckId;
+  const date     = fDate.value;
+  const start    = _timeToMinutes(fStart.value);
+  const duration = fDuration.value ? parseInt(fDuration.value) : null;
+  const end      = start + (duration || 1);
+  const excludeId = editingId;
+
+  try {
+    const raw = await getEventsByRange(date, date);
+    if (checkId !== _conflictCheckId) return; // resposta obsoleta — data/hora já mudou de novo
+
+    const hit = expandEvents(raw, date, date).find(ev => {
+      if (!ev.start_time || ev.id === excludeId) return false;
+      const evStart = _timeToMinutes(ev.start_time.slice(0, 5));
+      const evEnd   = evStart + (ev.duration_minutes || 1);
+      return start < evEnd && evStart < end;
+    });
+
+    if (hit) {
+      fConflictWarning.textContent = `Conflita com "${hit.title}" às ${hit.start_time.slice(0, 5)}.`;
+      fConflictWarning.hidden = false;
+    } else {
+      fConflictWarning.hidden = true;
+    }
+  } catch (err) {
+    if (checkId !== _conflictCheckId) return;
+    handleError(err, { context: "eventFormView.checkConflict", silent: true });
+    fConflictWarning.hidden = true;
+  }
 }
 
 function _populateReminder(minutes) {

@@ -2785,6 +2785,17 @@ textarea { resize: vertical; }
   color: var(--color-warning-text);
 }
 
+/* Aviso de conflito no formulário de compromisso (não bloqueia o salvamento
+   — só informa, mesmo tom âmbar dos demais avisos do produto). */
+.field-warning {
+  margin: -.4rem 0 .8rem;
+  padding: .5rem .7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  font-size: var(--font-size-sm);
+}
+
 /* F14.5 — seção "Hoje em números" (Meta diária, Tempo estudado hoje, Sessões
    hoje), absorvida aqui da antiga página Dashboard: fica abaixo do convite
    principal ("Começar a estudar") e dos compromissos, para não competir com
