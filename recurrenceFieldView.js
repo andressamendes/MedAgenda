@@ -133,10 +133,14 @@ export function bindRecurrenceFields(prefix) {
 
   e.toggleBtn?.addEventListener("click", () => showRecurrenceField(prefix, { focus: true }));
 
+  // F13 — "Fim da recorrência" deixou de ser um 3º nível revelado só depois
+  // de escolher uma frequência: mostrar sempre junto do <select>, assim que
+  // o bloco é aberto (ver showRecurrenceField), achata "+ Repetir" → seleção
+  // + fim da recorrência para 2 níveis. "Personalizada" continua sendo o
+  // único gatilho para os campos de intervalo/dias — inerente a essa opção,
+  // não um nível novo de disclosure.
   e.select.addEventListener("change", () => {
-    const v = e.select.value;
-    if (e.extra)  e.extra.hidden  = v === "none";
-    if (e.custom) e.custom.hidden = v !== "custom";
+    if (e.custom) e.custom.hidden = e.select.value !== "custom";
   });
 
   [e.endNever, e.endUntil, e.endCount].forEach(radio => {
@@ -158,6 +162,7 @@ export function showRecurrenceField(prefix, { focus = false } = {}) {
   const e = els(prefix);
   if (!e.wrap) return;
   e.wrap.hidden = false;
+  if (e.extra) e.extra.hidden = false;
   if (e.toggleBtn) e.toggleBtn.hidden = true;
   if (focus) e.select?.focus();
 }

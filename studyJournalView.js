@@ -208,7 +208,7 @@ let periodSelect, categorySelect, searchInput;
 let quickFilterButtons = [];
 let searchToggleBtn, searchWrapEl;
 let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
-let advancedToggleBtn, advancedFiltersEl, advancedCountEl;
+let advancedFiltersEl, advancedCountEl;
 
 let _offset  = 0;
 let _loading = false;
@@ -891,13 +891,6 @@ function _closeSjPanel() {
   _sjPanelPrevFocus = null;
 }
 
-function _toggleAdvancedFilters() {
-  const expand = advancedFiltersEl.hidden;
-  advancedFiltersEl.hidden = !expand;
-  advancedToggleBtn.setAttribute("aria-expanded", String(expand));
-  if (expand) revealWithAnimation(advancedFiltersEl);
-}
-
 // F17 — chips "Hoje"/"Semana"/"Todas" (.sj-quick-filters) são só uma face
 // mais rápida do mesmo #sj-filter-period de sempre: clicar num chip ajusta
 // o <select> e reusa _onFilterChange, nenhuma regra de período nova. Fica
@@ -926,7 +919,6 @@ function _bindFilters() {
   durationSelect?.addEventListener("change", _onFilterChange);
   [reflectionCheck, notesCheck, reviewsCheck]
     .forEach(el => el?.addEventListener("change", _onFilterChange));
-  advancedToggleBtn?.addEventListener("click", _toggleAdvancedFilters);
   quickFilterButtons.forEach(btn => {
     btn.addEventListener("click", () => _setQuickPeriod(btn.dataset.period));
   });
@@ -1224,7 +1216,6 @@ export async function initStudyJournalView() {
     questionsSelect = document.getElementById("sj-filter-questions");
     durationSelect  = document.getElementById("sj-filter-duration");
 
-    advancedToggleBtn = document.getElementById("sj-advanced-filters-toggle");
     advancedFiltersEl = document.getElementById("sj-advanced-filters");
     advancedCountEl   = document.getElementById("sj-advanced-filters-count");
 
@@ -1323,7 +1314,5 @@ export function resetStudyJournalView() {
   [reflectionCheck, notesCheck, reviewsCheck]
     .forEach(el => { if (el) el.checked = false; });
   _updateAdvancedFiltersCount();
-  if (advancedFiltersEl)  advancedFiltersEl.hidden = true;
-  if (advancedToggleBtn)  advancedToggleBtn.setAttribute("aria-expanded", "false");
   if (sjPanelEl && !sjPanelEl.hidden) _closeSjPanel();
 }
