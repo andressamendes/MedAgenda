@@ -71,7 +71,7 @@ function mockRecurrenceServicePassthrough(t, { updateEvent, deleteEvent }) {
   });
 }
 
-function mockEventService(t, { createResult, createError, updateResult, updateError, deleteError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext } = {}) {
+function mockEventService(t, { createResult, createError, updateResult, updateError, deleteError, startSessionResult = true, sessionHistory = [], sessionHistoryError, aiContext = EMPTY_AI_CONTEXT, getAIContext, getEventsByRange } = {}) {
   serviceCalls = [];
   const updateEvent = async (id, fields) => {
     serviceCalls.push({ fn: "updateEvent", id, fields });
@@ -91,6 +91,10 @@ function mockEventService(t, { createResult, createError, updateResult, updateEr
       },
       updateEvent,
       deleteEvent,
+      // Checagem de conflito de horário no formulário (F14.1-adjacent) — sem
+      // compromissos existentes por padrão, para não exigir que todo teste
+      // que dispara "change" em data/hora precise saber sobre ela.
+      getEventsByRange: getEventsByRange ?? (async () => []),
     },
   });
 
@@ -425,6 +429,76 @@ test("openEventForm(event) populates the fields for editing, and submitting call
   assert.strictEqual(serviceCalls[0].fn, "updateEvent");
   assert.strictEqual(serviceCalls[0].id, "evt-1");
   assert.strictEqual(serviceCalls[0].fields.title, "Plantão UPA");
+});
+
+// ── Aviso não-bloqueante de conflito de horário ─────────────────────────────
+// Mesma direção de "não deixar a rotina colidir sem avisar" já aplicada na
+// tela Hoje (todayView.js) e na grade de Semana/Dia (weekView.js), agora no
+// momento de cadastrar/editar — antes do compromisso existir na agenda.
+
+test("choosing a time that overlaps an existing appointment shows a non-blocking warning, without preventing the save", async (t) => {
+  const existing = { id: "evt-existing", title: "Plantão UPA", event_date: "2026-08-10", start_time: "08:00:00", duration_minutes: 240, recurrence_type: "none" };
+  mockEventService(t, { getEventsByRange: async () => [existing] });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm();
+  fillRequiredFields({ date: "2026-08-10", start: "09:00" });
+  document.getElementById("f-start").dispatchEvent(new window.Event("change"));
+  await flush();
+
+  const warning = document.getElementById("f-conflict-warning");
+  assert.strictEqual(warning.hidden, false);
+  assert.ok(warning.textContent.includes("Plantão UPA"));
+  assert.ok(warning.textContent.includes("08:00"));
+
+  document.getElementById("btn-save").click();
+  await flush();
+  assert.strictEqual(serviceCalls.length, 1, "the warning must not block the save");
+  assert.strictEqual(serviceCalls[0].fn, "createEvent");
+});
+
+test("choosing a time that does not overlap any existing appointment shows no warning", async (t) => {
+  const existing = { id: "evt-existing", title: "Plantão UPA", event_date: "2026-08-10", start_time: "08:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { getEventsByRange: async () => [existing] });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm();
+  fillRequiredFields({ date: "2026-08-10", start: "10:00" });
+  document.getElementById("f-start").dispatchEvent(new window.Event("change"));
+  await flush();
+
+  assert.strictEqual(document.getElementById("f-conflict-warning").hidden, true);
+});
+
+test("editing an event does not treat overlapping with its own (unmodified) time as a conflict", async (t) => {
+  const event = { id: "evt-1", title: "Aula de Cardiologia", event_date: "2026-08-10", start_time: "09:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { getEventsByRange: async () => [event] });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm(event);
+  document.getElementById("f-start").dispatchEvent(new window.Event("change"));
+  await flush();
+
+  assert.strictEqual(document.getElementById("f-conflict-warning").hidden, true);
+});
+
+test("closing the form (cancel) hides any conflict warning left over from the previous edit", async (t) => {
+  const existing = { id: "evt-existing", title: "Plantão UPA", event_date: "2026-08-10", start_time: "08:00:00", duration_minutes: 240, recurrence_type: "none" };
+  mockEventService(t, { getEventsByRange: async () => [existing] });
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm();
+  fillRequiredFields({ date: "2026-08-10", start: "09:00" });
+  document.getElementById("f-start").dispatchEvent(new window.Event("change"));
+  await flush();
+  assert.strictEqual(document.getElementById("f-conflict-warning").hidden, false);
+
+  document.getElementById("btn-cancel").click();
+  assert.strictEqual(document.getElementById("f-conflict-warning").hidden, true);
 });
 
 // ── Auditoria UX #12: excluir a partir do modal de edição ──────────────────
@@ -936,6 +1010,7 @@ test("a save still in flight when the user cancels and opens a different event d
       createEvent: async (fields) => { serviceCalls.push({ fn: "createEvent", fields }); return { id: "evt-new", ...fields }; },
       updateEvent,
       deleteEvent,
+      getEventsByRange: async () => [],
     },
   });
   mockRecurrenceServicePassthrough(t, { updateEvent, deleteEvent });
@@ -1047,7 +1122,7 @@ test("resetEventForm() (called on logout / user switch) closes the modal and cle
 test("resetEventForm() invalidates any in-flight session-history/insights request from the event being edited at logout time", async (t) => {
   let resolveHistory;
   serviceCalls = [];
-  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { createEvent: async () => {}, updateEvent: async () => {}, deleteEvent: async () => {} } });
+  t.mock.module(EVENT_SERVICE_SPECIFIER, { namedExports: { createEvent: async () => {}, updateEvent: async () => {}, deleteEvent: async () => {}, getEventsByRange: async () => [] } });
   mockRecurrenceServicePassthrough(t, { updateEvent: async () => {}, deleteEvent: async () => {} });
   t.mock.module(ACTIVITY_SESSION_VIEW_SPECIFIER, { namedExports: { startSessionForEvent: async () => true } });
   t.mock.module(ACTIVITY_SESSION_SERVICE_SPECIFIER, {
