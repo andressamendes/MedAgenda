@@ -1100,24 +1100,20 @@
           <!-- Auditoria UX #21: a tela narrativa ("diário") abria como um
                formulário de BI, com 11 controles extras sempre visíveis
                acima do conteúdo. Busca + período continuam visíveis; o
-               restante fica atrás de "Filtros avançados", com um contador
-               do que está ativo — mesmo padrão aria-expanded + hidden já
-               usado em "Mostrar"/"Ocultar" (abaixo, _toggleEntry) e no resumo
-               da Sessão (UX #04). F11 E8: chevron rotativo (.disclosure-toggle)
-               padroniza o mesmo par rótulo+ícone em todos os toggles. -->
-          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="sj-advanced-filters-toggle" aria-expanded="false" aria-controls="sj-advanced-filters" data-disclosure-label="Filtros avançados"></button>
-          <div id="sj-advanced-filters" hidden>
+               restante consolidou no painel "Analisar" (sob demanda, atrás
+               de #sj-btn-open-panel), com um contador do que está ativo —
+               mesmo badge de sempre, só que agora no gatilho do painel, não
+               mais num segundo disclosure interno. F13 — "Filtros avançados"
+               era um 3º nível aninhado dentro do próprio painel (que já é,
+               em si, o nível de disclosure); o painel agora mostra
+               categoria + filtros "Somente" direto, sem esse toggle extra —
+               achata para 2 níveis (painel fechado → painel aberto). -->
+          <div id="sj-advanced-filters">
             <div class="toolbar-filters">
               <select id="sj-filter-category" class="toolbar-select">
                 <option value="">Todas as categorias</option>
               </select>
             </div>
-            <!-- F10 PR11: "+ Mais filtros" era um segundo nível de disclosure
-                 aninhado dentro de "Filtros avançados" — que já é, em si, um
-                 disclosure opt-in. Esconder parte dos filtros atrás de um
-                 segundo clique, depois do primeiro já ter sido dado, só
-                 adiciona indireção sem reduzir carga cognitiva. Os 5 filtros
-                 "Somente" agora vivem juntos, num único nível. -->
             <div class="filter-bar" id="sj-filter-flags">
               <span class="filter-label">Somente:</span>
               <label class="filter-toggle">
