@@ -118,6 +118,70 @@ test("with no data at all, blocks render their zero/empty values instead of brea
   assert.strictEqual(document.getElementById("insights-produtividade-cards").hidden, false);
 });
 
+// ── Etapa 3 — legendas movidas da narrativa do topo de Progresso ───────────
+// (ver activityDashboardView.js): as frases de Revisões/Produtividade que
+// antes eram introduzidas na narrativa (Fase J4) viraram legenda do próprio
+// bloco, sempre que houver dado real ("ok"/"partial") — mesmos dados de
+// getInsightsData() já buscados por esta view, nenhuma consulta nova.
+
+test("Etapa 3 — a pending review count becomes the Revisões block's summary legend", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 3, completedCount: 5 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  const summary = document.getElementById("insights-revisoes-summary");
+  assert.strictEqual(summary.hidden, false);
+  assert.match(summary.textContent, /3 revisões pendentes aguardando\./);
+});
+
+test("Etapa 3 — zero pending reviews with some completed reads as a reassuring legend, not a blank", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 0, completedCount: 4 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  assert.match(document.getElementById("insights-revisoes-summary").textContent, /Nenhuma revisão pendente — 4 já concluídas\./);
+});
+
+test("Etapa 3 — appointments never studied become the Produtividade block's summary legend", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      produtividade: { status: "ok", data: { totalEvents: 10, executedCount: 6, neverExecutedCount: 4 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  const summary = document.getElementById("insights-produtividade-summary");
+  assert.strictEqual(summary.hidden, false);
+  assert.match(summary.textContent, /6 de 10 compromissos já foram estudados\./);
+});
+
+test("Etapa 3 — a block in 'error' state hides its summary legend along with its cards", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "error", data: null, error: new Error("down") },
+      produtividade: { status: "error", data: null, error: new Error("down") },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  assert.strictEqual(document.getElementById("insights-revisoes-summary").hidden, true);
+  assert.strictEqual(document.getElementById("insights-produtividade-summary").hidden, true);
+});
+
 test("a block in 'error' state hides its cards and shows the friendly message with retry", async (t) => {
   const { mod } = await loadView(t, {
     getInsightsData: async () => ({

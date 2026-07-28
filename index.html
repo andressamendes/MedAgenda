@@ -863,13 +863,19 @@
              "Dashboard" (#page-dashboard, removida — sua seção "Hoje" foi
              absorvida por #page-today) e transforma a superfície de BI que
              esta página era (12+ stat-cards soltos) numa interpretação em
-             frases: "Você estudou 6h30 esta semana — 1h a mais que a
-             anterior. Cardiologia concentrou metade do tempo." (auditoria F14
-             §10, modelo Apple Health). Os números completos continuam todos
-             aqui, intactos — só atrás de um único disclosure "Ver números"
-             (progressNarrativeService.js não substitui nenhum cálculo
-             existente, só compara duas semanas e resolve a matéria dominante,
-             que nenhuma função anterior fazia). -->
+             frases (auditoria F14 §10, modelo Apple Health). Os números
+             completos continuam todos aqui, intactos — só atrás de um único
+             disclosure "Ver números" (progressNarrativeService.js não
+             substitui nenhum cálculo existente, só compara duas semanas e
+             resolve a matéria dominante, que nenhuma função anterior fazia).
+             Etapa 3 — a narrativa deixou de ser uma "parede" de 2-4 frases
+             iguais: só 1 frase de destaque (a comparação com a semana
+             anterior, priorizando alerta > tendência > neutro) fica fora do
+             disclosure; matéria dominante, revisões e produtividade viraram
+             legenda dos próprios blocos correspondentes, dentro da camada
+             expandida (ver #dash-cards-weekmonth/desc e
+             #insights-revisoes-summary/#insights-produtividade-summary
+             abaixo). -->
         <div id="page-progress" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Progresso</h1>
@@ -923,6 +929,7 @@
                  mudança em insightsView.js. -->
             <section class="insights-block" aria-labelledby="insights-revisoes-title">
               <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
+              <p id="insights-revisoes-summary" class="insights-block-summary" hidden></p>
               <p id="insights-revisoes-notice" class="insights-block-notice" hidden></p>
               <p id="insights-revisoes-error" class="list-empty list-error" hidden></p>
               <div id="insights-revisoes-cards" class="stat-cards" hidden></div>
@@ -930,6 +937,7 @@
 
             <section class="insights-block" aria-labelledby="insights-produtividade-title">
               <h2 id="insights-produtividade-title" class="insights-block-title">Produtividade</h2>
+              <p id="insights-produtividade-summary" class="insights-block-summary" hidden></p>
               <p id="insights-produtividade-notice" class="insights-block-notice" hidden></p>
               <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
               <div id="insights-produtividade-cards" class="stat-cards" hidden></div>

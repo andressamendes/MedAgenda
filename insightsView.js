@@ -50,9 +50,40 @@ const PRODUTIVIDADE_CARD_DEFS = [
   { title: "Compromissos sem sessão registrada",   value: d => String(d.neverExecutedCount), desc: () => "Compromissos sem nenhuma sessão finalizada." },
 ];
 
+// Etapa 3 (activityDashboardView.js) — estas duas frases moraram na
+// narrativa do topo da página Progresso (Fase J4) e foram movidas para cá:
+// a narrativa passou a mostrar só 1 frase de destaque, e as demais frases
+// viraram legenda do próprio bloco a que se referem, dentro da camada
+// expandida ("Ver detalhes") — mesmos dados de getInsightsData(), nenhuma
+// consulta nova. Cada função só recebe block.data (nunca o bloco inteiro):
+// um bloco em erro nunca chega a ser lido aqui (ver _renderBlock abaixo).
+function _reviewsSentence(data) {
+  if (!data) return null;
+  const { pendingCount, completedCount } = data;
+  if (pendingCount === null && completedCount === null) return null;
+  if (pendingCount === null) {
+    return `${completedCount} ${completedCount === 1 ? "revisão concluída" : "revisões concluídas"} até agora.`;
+  }
+  if (pendingCount === 0) {
+    return completedCount
+      ? `Nenhuma revisão pendente — ${completedCount} ${completedCount === 1 ? "já concluída" : "já concluídas"}.`
+      : "Nenhuma revisão pendente no momento.";
+  }
+  return `${pendingCount} ${pendingCount === 1 ? "revisão pendente" : "revisões pendentes"} aguardando.`;
+}
+
+function _productivitySentence(data) {
+  if (!data) return null;
+  const { executedCount, neverExecutedCount } = data;
+  const total = executedCount + neverExecutedCount;
+  if (total === 0) return null;
+  if (neverExecutedCount === 0) return "Todos os compromissos já tiveram ao menos uma sessão de estudo.";
+  return `${executedCount} de ${total} compromissos já foram estudados.`;
+}
+
 const BLOCK_DEFS = [
-  { key: "revisoes",      cardDefs: REVISOES_CARD_DEFS,      cardsId: "insights-revisoes-cards",      errorId: "insights-revisoes-error",      noticeId: "insights-revisoes-notice" },
-  { key: "produtividade", cardDefs: PRODUTIVIDADE_CARD_DEFS, cardsId: "insights-produtividade-cards", errorId: "insights-produtividade-error", noticeId: "insights-produtividade-notice" },
+  { key: "revisoes",      cardDefs: REVISOES_CARD_DEFS,      cardsId: "insights-revisoes-cards",      errorId: "insights-revisoes-error",      noticeId: "insights-revisoes-notice",      summaryId: "insights-revisoes-summary",      sentence: _reviewsSentence },
+  { key: "produtividade", cardDefs: PRODUTIVIDADE_CARD_DEFS, cardsId: "insights-produtividade-cards", errorId: "insights-produtividade-error", noticeId: "insights-produtividade-notice", summaryId: "insights-produtividade-summary", sentence: _productivitySentence },
 ];
 
 let _unsubscribeReview  = null;
@@ -102,9 +133,10 @@ function _subscribeToEventBus() {
 // Usa sempre o mesmo componente único de estados (F4.1, ETAPA 6): nenhum
 // bloco decide mensagem, ícone ou ação por conta própria.
 function _renderBlock(blockDef, block) {
-  const cardsEl  = document.getElementById(blockDef.cardsId);
-  const errorEl  = document.getElementById(blockDef.errorId);
-  const noticeEl = document.getElementById(blockDef.noticeId);
+  const cardsEl   = document.getElementById(blockDef.cardsId);
+  const errorEl   = document.getElementById(blockDef.errorId);
+  const noticeEl  = document.getElementById(blockDef.noticeId);
+  const summaryEl = document.getElementById(blockDef.summaryId);
 
   // F4.2 (causa raiz — ETAPA 4): sessão expirada nunca pode ser mascarada
   // como "dados parciais". O bloco de Revisões combina duas fontes
@@ -129,6 +161,7 @@ function _renderBlock(blockDef, block) {
     cardsEl.hidden = true;
     cardsEl.innerHTML = "";
     if (noticeEl) noticeEl.hidden = true;
+    if (summaryEl) { summaryEl.hidden = true; summaryEl.textContent = ""; }
     errorEl.hidden = false;
     renderStateBlock(errorEl, { ...errorState, onRetry: () => _load() });
     return;
@@ -152,6 +185,15 @@ function _renderBlock(blockDef, block) {
     if (status === "partial" && errorState) {
       noticeEl.textContent = `Alguns dados deste bloco não puderam ser carregados: ${errorState.message}`;
     }
+  }
+
+  // Etapa 3 — legenda movida da narrativa do topo de Progresso (ver
+  // activityDashboardView.js); só aparece quando há frase a mostrar (ex.:
+  // pendingCount/completedCount ambos null, ou nenhum compromisso ainda).
+  if (summaryEl) {
+    const sentence = blockDef.sentence ? blockDef.sentence(block.data) : null;
+    summaryEl.hidden = !sentence;
+    summaryEl.textContent = sentence || "";
   }
 }
 
@@ -219,12 +261,14 @@ export function resetInsightsView() {
   if (_unsubscribeReview)  { _unsubscribeReview();  _unsubscribeReview  = null; }
   if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
   for (const blockDef of BLOCK_DEFS) {
-    const cardsEl  = document.getElementById(blockDef.cardsId);
-    const errorEl  = document.getElementById(blockDef.errorId);
-    const noticeEl = document.getElementById(blockDef.noticeId);
+    const cardsEl   = document.getElementById(blockDef.cardsId);
+    const errorEl   = document.getElementById(blockDef.errorId);
+    const noticeEl  = document.getElementById(blockDef.noticeId);
+    const summaryEl = document.getElementById(blockDef.summaryId);
     if (cardsEl) cardsEl.innerHTML = "";
     if (errorEl) { errorEl.hidden = true; errorEl.innerHTML = ""; clearStateBlock(errorEl); }
     if (noticeEl) { noticeEl.hidden = true; noticeEl.textContent = ""; }
+    if (summaryEl) { summaryEl.hidden = true; summaryEl.textContent = ""; }
   }
   _loading = false;
 }
