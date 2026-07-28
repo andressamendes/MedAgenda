@@ -2646,7 +2646,8 @@ textarea { resize: vertical; }
 .achievement-item--completed {
   background: linear-gradient(160deg, var(--color-celebration-bg, var(--color-warning-bg)) 0%, var(--gray-50) 100%);
   border-color: var(--color-celebration);
-  box-shadow: 0 0 0 1px var(--color-celebration) inset, 0 4px 12px -6px var(--color-celebration);
+  /* stylelint-disable-next-line scale-unlimited/declaration-strict-value -- já 100% tokens; o plugin não interpreta box-shadow multi-camada (separado por vírgula) */
+  box-shadow: var(--shadow-md), var(--ring-1) var(--color-celebration) inset;
 }
 
 .achievement-item--completed .achievement-icon {
