@@ -897,6 +897,20 @@
 
           <div id="progress-narrative" class="progress-narrative" aria-live="polite"></div>
 
+          <!-- Etapa 4 — as conquistas saem de dentro do disclosure "Ver
+               detalhes" e passam a viver logo após a frase de destaque, na
+               primeira dobra: é o elemento de maior carga emocional
+               positiva da tela e por isso aparece antes de qualquer bloco
+               de números frios (Períodos/Recordes, que continuam atrás do
+               disclosure). V5.3 — as 5 conquistas de achievementService.js
+               (já calculadas e testadas) renderizadas individualmente, com
+               ícone e estado (bloqueada/em progresso/concluída) —
+               substitui o card único "3/5" da auditoria UX #23
+               (activityDashboardView.js/_load()). Mesmo id/módulo de
+               sempre; só a posição no DOM muda. -->
+          <h2 class="dash-tier-title">Conquistas</h2>
+          <div id="achievements-list"></div>
+
           <div class="progress-numbers-toggle-row">
             <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body" data-disclosure-label="Ver detalhes"></button>
           </div>
@@ -912,14 +926,6 @@
 
             <h2 class="dash-tier-title">Recordes</h2>
             <div id="dash-cards-records" class="stat-cards" hidden></div>
-
-            <!-- V5.3 — as 5 conquistas de achievementService.js (já
-                 calculadas e testadas) renderizadas individualmente, com
-                 ícone e estado (bloqueada/em progresso/concluída) —
-                 substitui o card único "3/5" da auditoria UX #23
-                 (activityDashboardView.js/_load()). -->
-            <h2 class="dash-tier-title">Conquistas</h2>
-            <div id="achievements-list"></div>
 
             <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
                  renderizados por insightsView.js. Execução e Metas não existem
