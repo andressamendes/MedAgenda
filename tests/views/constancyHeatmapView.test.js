@@ -26,6 +26,7 @@ function loadView(t, overrides = {}) {
   t.mock.module(STREAK_SERVICE_SPECIFIER, {
     namedExports: {
       getStudyCalendar: overrides.getStudyCalendar ?? (async () => ({})),
+      getStreakSummary: overrides.getStreakSummary ?? (async () => ({ currentStreak: 0 })),
     },
   });
 
@@ -52,6 +53,44 @@ test("initConstancyHeatmapView renders 84 cells and a legend from an empty calen
   assert.strictEqual(grid.querySelectorAll(".heatmap-cell").length, 84);
   assert.strictEqual(grid.querySelectorAll(".heatmap-cell--studied").length, 0);
   assert.ok(document.querySelector("#constancy-heatmap .heatmap-legend"));
+
+  mod.resetConstancyHeatmapView();
+});
+
+// ── Etapa 2 — streak numérico junto do heatmap ──────────────────────────────
+
+test("renders the current streak count from getStreakSummary() next to the grid", async (t) => {
+  const { mod } = await loadView(t, { getStreakSummary: async () => ({ currentStreak: 5 }) });
+  await mod.initConstancyHeatmapView();
+
+  const streakEl = document.querySelector("#constancy-heatmap .heatmap-streak");
+  assert.ok(streakEl, "streak element should be rendered");
+  assert.match(streakEl.textContent, /5/);
+  assert.match(streakEl.textContent, /dias seguidos/);
+  assert.match(document.querySelector("#constancy-heatmap .heatmap-grid").getAttribute("aria-label"), /Sequência atual: 5 dias seguidos estudando/);
+
+  mod.resetConstancyHeatmapView();
+});
+
+test("uses singular wording for a 1-day streak", async (t) => {
+  const { mod } = await loadView(t, { getStreakSummary: async () => ({ currentStreak: 1 }) });
+  await mod.initConstancyHeatmapView();
+
+  const streakEl = document.querySelector("#constancy-heatmap .heatmap-streak");
+  assert.match(streakEl.textContent, /1/);
+  assert.match(streakEl.textContent, /dia seguido/);
+  assert.doesNotMatch(streakEl.textContent, /dias seguidos/);
+
+  mod.resetConstancyHeatmapView();
+});
+
+test("a zero streak renders a neutral message instead of '0 dias seguidos'", async (t) => {
+  const { mod } = await loadView(t, { getStreakSummary: async () => ({ currentStreak: 0 }) });
+  await mod.initConstancyHeatmapView();
+
+  const streakEl = document.querySelector("#constancy-heatmap .heatmap-streak");
+  assert.match(streakEl.textContent, /Nenhuma sequência ativa/);
+  assert.match(document.querySelector("#constancy-heatmap .heatmap-grid").getAttribute("aria-label"), /Sequência atual: Nenhuma sequência ativa estudando/);
 
   mod.resetConstancyHeatmapView();
 });
