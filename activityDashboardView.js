@@ -11,9 +11,11 @@
 // de um disclosure ("Ver detalhes", V5.17). V5.17 também soma o anel de meta
 // diária (V5.2) ao topo da página, ao lado do heatmap de constância (V5.1):
 // as três peças (anel + heatmap + narrativa) formam a composição visual
-// primária de Progresso — nenhum cálculo novo, só uma segunda renderização
-// do mesmo data.dailyGoal fora do stat-card "Meta diária" (que continua
-// existindo, sem mudança, na página "Hoje").
+// primária de Progresso — nenhum cálculo novo, só uma segunda leitura do
+// mesmo data.dailyGoal. Etapa 1 removeu a duplicata: o stat-card "Meta
+// diária" (na página "Hoje") não repete mais o anel, só o texto — a meta
+// diária aparece visualmente uma única vez, no hero. Semanal/mensal usam o
+// mesmo anel (mesma metáfora visual), cada um só no seu próprio stat-card.
 //
 // F14.5 — a antiga página "Dashboard" (#page-dashboard) foi removida: sua
 // única seção ("Hoje") passou a viver dentro da página "Hoje" (#page-today,
@@ -63,27 +65,12 @@ function _formatGoalDesc(progress) {
   return `Meta: ${meta} · Realizado: ${realizado}. ${GOAL_STATE_LABEL[progress.state]}`;
 }
 
-// F11 E11 — barra de progresso visual para as metas de tempo, complementando
-// o percentual já escrito em _formatGoalDesc() (nunca o substitui — a barra é
-// puramente decorativa/redundante, então nenhuma leitora de tela perde
-// informação: role="progressbar" + aria-valuenow espelham o mesmo percentual
-// já lido no parágrafo). Sem meta configurada, nenhuma barra é desenhada.
-function _progressBarMarkup(progress) {
-  if (!progress.configured) return "";
-  const pct = Math.max(0, Math.min(100, progress.percentage));
-  const stateClass = progress.state === "exceeded" ? " dashboard-progress-bar--exceeded"
-    : progress.state === "achieved" ? " dashboard-progress-bar--achieved" : "";
-  return `
-    <div class="dashboard-progress" role="progressbar" aria-valuenow="${progress.percentage}" aria-valuemin="0" aria-valuemax="100">
-      <div class="dashboard-progress-bar${stateClass}" style="width: ${pct}%"></div>
-    </div>`;
-}
-
-// V5.2 — anel circular (SVG puro) para o card de meta diária, substituindo a
-// barra linear acima só ali (o "primeiro momento Apple Health" do produto,
-// F19 roadmap). Mesmo contrato de acessibilidade de _progressBarMarkup(): o
-// percentual continua escrito em _formatGoalDesc() e em .stat-card-value —
-// o anel é só uma segunda representação do mesmo dado, nunca a única.
+// V5.2 — anel circular (SVG puro), a única metáfora visual de "% de meta
+// cumprida" no produto (Etapa 1: substituiu de vez a antiga barra linear
+// também nas metas semanal/mensal, ver GOAL_CARD_DEFS). O percentual
+// continua escrito em _formatGoalDesc() e em .stat-card-value — o anel é só
+// uma segunda representação do mesmo dado, nunca a única: role="progressbar"
+// + aria-valuenow espelham o mesmo percentual já lido no parágrafo.
 const RING_RADIUS = 26;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
@@ -135,23 +122,26 @@ const GOAL_CARD_DEFS = [
     title: "Meta diária",
     value: d => _formatGoalValue(d.dailyGoal),
     desc:  d => _formatGoalDesc(d.dailyGoal),
-    // V5.2 — só a meta diária ganha o anel (o "primeiro momento Apple
-    // Health"); semanal/mensal continuam com a barra linear de sempre.
-    extra: d => _progressRingMarkup(d.dailyGoal),
+    // Etapa 1 — o anel da meta diária já vive no hero da página Progresso
+    // (_goalRingHeroMarkup/_renderGoalRingHero); este card não repete o
+    // mesmo anel, só o texto (valor + descrição), evitando a mesma meta
+    // aparecer duas vezes na tela.
     goalKey: "dailyGoal",
   },
   {
     title: "Meta semanal",
     value: d => _formatGoalValue(d.weeklyGoal),
     desc:  d => _formatGoalDesc(d.weeklyGoal),
-    extra: d => _progressBarMarkup(d.weeklyGoal),
+    // Etapa 1 — mesma metáfora visual do anel da meta diária, em vez da
+    // barra linear (uma única linguagem visual de "% de meta cumprida").
+    extra: d => _progressRingMarkup(d.weeklyGoal),
     goalKey: "weeklyGoal",
   },
   {
     title: "Meta mensal",
     value: d => _formatGoalValue(d.monthlyGoal),
     desc:  d => _formatGoalDesc(d.monthlyGoal),
-    extra: d => _progressBarMarkup(d.monthlyGoal),
+    extra: d => _progressRingMarkup(d.monthlyGoal),
     goalKey: "monthlyGoal",
   },
 ];

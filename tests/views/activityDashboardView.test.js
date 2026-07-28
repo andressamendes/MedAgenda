@@ -276,10 +276,11 @@ test("a goal exceeded shows 'Meta ultrapassada'", async (t) => {
   assert.match(text, /Meta ultrapassada/);
 });
 
-// V5.2 — a meta diária ganhou um anel circular (SVG) no lugar da barra
-// linear, único card com essa variante; percentual continua em texto/
-// aria-valuenow, nunca só na cor do traço.
-test("V5.2 — a configured daily goal renders a progress ring reflecting its percentage", async (t) => {
+// Etapa 1 — o anel da meta diária já vive no hero da página Progresso
+// (_goalRingHeroMarkup), então o stat-card "Meta diária" (página "Hoje")
+// não repete mais o anel: a mesma meta não pode aparecer duas vezes na
+// tela. O card continua só com texto (valor + descrição).
+test("Etapa 1 — the daily goal stat-card renders no progress ring (it only lives in the hero)", async (t) => {
   const { mod } = await loadView(t, {
     getDashboardData: async () => ({
       ...EMPTY_DATA,
@@ -289,42 +290,41 @@ test("V5.2 — a configured daily goal renders a progress ring reflecting its pe
 
   await mod.initActivityDashboardView();
 
-  const ring = document.querySelector("#dash-cards-today .dashboard-progress-ring");
-  assert.ok(ring, "o anel de progresso deve existir para uma meta diária configurada");
+  assert.strictEqual(document.querySelector("#dash-cards-today .dashboard-progress-ring"), null);
+});
+
+// V5.2 — a meta semanal/mensal usa o mesmo anel circular (SVG) da meta
+// diária (Etapa 1: única metáfora visual de "% de meta cumprida" no
+// produto); percentual continua em texto/aria-valuenow, nunca só na cor do
+// traço.
+test("Etapa 1 — a configured weekly/monthly goal renders a progress ring reflecting its percentage", async (t) => {
+  const { mod } = await loadView(t, {
+    getDashboardData: async () => ({
+      ...EMPTY_DATA,
+      weeklyGoal: { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" },
+    }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const ring = document.querySelector("#dash-cards-weekmonth .dashboard-progress-ring");
+  assert.ok(ring, "o anel de progresso deve existir para uma meta semanal configurada");
   assert.strictEqual(ring.getAttribute("aria-valuenow"), "50");
   const fg = ring.querySelector(".dashboard-progress-ring-fg");
   assert.ok(fg, "o traço de progresso do anel deve existir");
   const circumference = 2 * Math.PI * 26;
   assert.strictEqual(fg.getAttribute("stroke-dasharray"), circumference.toFixed(2));
   assert.strictEqual(fg.getAttribute("stroke-dashoffset"), (circumference / 2).toFixed(2));
-  assert.strictEqual(document.querySelector("#dash-cards-today .dashboard-progress-bar"), null);
 });
 
-test("V5.2 — an unconfigured daily goal renders no progress ring", async (t) => {
+test("Etapa 1 — an unconfigured goal renders no progress ring", async (t) => {
   const { mod } = await loadView(t);
   await mod.initActivityDashboardView();
 
-  assert.strictEqual(document.querySelector("#dash-cards-today .dashboard-progress-ring"), null);
+  assert.strictEqual(document.querySelector("#dash-cards-weekmonth .dashboard-progress-ring"), null);
 });
 
-test("V5.2 — an exceeded daily goal's ring is capped at 100% offset but keeps the uncapped percentage in aria-valuenow", async (t) => {
-  const { mod } = await loadView(t, {
-    getDashboardData: async () => ({
-      ...EMPTY_DATA,
-      dailyGoal: { configured: true, goalMinutes: 60, actualMinutes: 90, percentage: 150, remainingMinutes: 0, state: "exceeded" },
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-
-  const ring = document.querySelector("#dash-cards-today .dashboard-progress-ring");
-  assert.strictEqual(ring.getAttribute("aria-valuenow"), "150");
-  const fg = ring.querySelector(".dashboard-progress-ring-fg--exceeded");
-  assert.ok(fg, "o traço deve marcar visualmente o estado 'exceeded'");
-  assert.strictEqual(fg.getAttribute("stroke-dashoffset"), "0.00");
-});
-
-test("F11 E11 — an exceeded goal's progress bar is capped at 100% width even though the percentage text exceeds it", async (t) => {
+test("F11 E11 — an exceeded goal's ring is capped at 100% offset but keeps the uncapped percentage in aria-valuenow", async (t) => {
   const { mod } = await loadView(t, {
     getDashboardData: async () => ({
       ...EMPTY_DATA,
@@ -334,9 +334,11 @@ test("F11 E11 — an exceeded goal's progress bar is capped at 100% width even t
 
   await mod.initActivityDashboardView();
 
-  const bar = document.querySelector("#dash-cards-weekmonth .dashboard-progress-bar--exceeded");
-  assert.ok(bar, "a barra deve marcar visualmente o estado 'exceeded'");
-  assert.strictEqual(bar.style.width, "100%");
+  const ring = document.querySelector("#dash-cards-weekmonth .dashboard-progress-ring");
+  assert.strictEqual(ring.getAttribute("aria-valuenow"), "125");
+  const fg = ring.querySelector(".dashboard-progress-ring-fg--exceeded");
+  assert.ok(fg, "o traço deve marcar visualmente o estado 'exceeded'");
+  assert.strictEqual(fg.getAttribute("stroke-dashoffset"), "0.00");
 });
 
 test("today's indicator renders the formatted duration and count", async (t) => {
