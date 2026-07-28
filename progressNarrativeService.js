@@ -12,7 +12,10 @@
  * matéria dominante recortada à semana) são as únicas calculadas aqui.
  *
  * Função pura de agregação — sem DOM. A view (activityDashboardView.js) só
- * formata as frases a partir do que aqui é devolvido pronto.
+ * formata as frases a partir do que aqui é devolvido pronto: Etapa 3 passou
+ * a usar weekMinutes/previousWeekMinutes só para a única frase de destaque
+ * do topo, e dominantCategory para a legenda do card "Tempo estudado esta
+ * semana" — mesmo retorno de sempre, nenhum campo novo.
  */
 
 import { listByDateRange } from "./activitySessionService.js";

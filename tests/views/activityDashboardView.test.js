@@ -13,7 +13,6 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 const DASHBOARD_SERVICE_SPECIFIER  = new URL("../../activityDashboardService.js", import.meta.url).href;
 const ACHIEVEMENT_SERVICE_SPECIFIER = new URL("../../achievementService.js", import.meta.url).href;
 const NARRATIVE_SERVICE_SPECIFIER  = new URL("../../progressNarrativeService.js", import.meta.url).href;
-const INSIGHTS_SERVICE_SPECIFIER   = new URL("../../insightsService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER    = new URL("../../profileService.js", import.meta.url).href;
 const ACCOUNT_VIEW_SPECIFIER       = new URL("../../accountView.js", import.meta.url).href;
 const ERROR_SPECIFIER              = new URL("../../errorService.js", import.meta.url).href;
@@ -21,17 +20,6 @@ const ERROR_SPECIFIER              = new URL("../../errorService.js", import.met
 // F14.5 — dados neutros (sem sessões, sem sequência) para o resumo
 // narrativo, mesmo padrão de EMPTY_DATA/EMPTY_ACHIEVEMENTS acima.
 const EMPTY_NARRATIVE = { weekMinutes: 0, previousWeekMinutes: 0, dominantCategory: null, currentStreak: 0 };
-
-// Fase J4 — a narrativa passou a acrescentar frases de Revisões/Produtividade
-// (insightsService.getInsightsData(), a mesma fonte já usada pelas grades de
-// insightsView.js atrás do disclosure "Ver detalhes"). Estado neutro para os
-// testes que não exercitam essas frases especificamente.
-const EMPTY_INSIGHTS = {
-  execucao:      { status: "ok", data: {}, error: null },
-  metas:         { status: "ok", data: {}, error: null },
-  revisoes:      { status: "ok", data: { pendingCount: 0, completedCount: 0 }, error: null },
-  produtividade: { status: "ok", data: { totalEvents: 0, executedCount: 0, neverExecutedCount: 0 }, error: null },
-};
 
 const NO_GOAL = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
@@ -101,10 +89,6 @@ function loadView(t, overrides = {}) {
 
   t.mock.module(NARRATIVE_SERVICE_SPECIFIER, {
     namedExports: { getProgressNarrativeData: overrides.getProgressNarrativeData ?? (async () => EMPTY_NARRATIVE) },
-  });
-
-  t.mock.module(INSIGHTS_SERVICE_SPECIFIER, {
-    namedExports: { getInsightsData: overrides.getInsightsData ?? (async () => EMPTY_INSIGHTS) },
   });
 
   const openAccountCalls = [];
@@ -893,9 +877,9 @@ test("F13.4/F14.5 — 'Períodos' and 'Progresso e Conquistas' cards render on t
   assert.match(achievementsListEl().textContent, /Tempo de estudo/);
 });
 
-// ── F14.5 — Progresso narrativo ─────────────────────────────────────────────
+// ── F14.5 / Etapa 3 — Progresso narrativo ───────────────────────────────────
 
-test("F14.5 — the Progresso page opens with a narrative summary and no number grid visible", async (t) => {
+test("Etapa 3 — the Progresso page opens with a single highlight sentence and no number grid visible", async (t) => {
   const { mod } = await loadView(t, {
     getProgressNarrativeData: async () => ({ weekMinutes: 90, previousWeekMinutes: 60, dominantCategory: { name: "Cardiologia", minutes: 60 }, currentStreak: 3 }),
   });
@@ -905,7 +889,11 @@ test("F14.5 — the Progresso page opens with a narrative summary and no number 
   const narrative = document.getElementById("progress-narrative");
   assert.match(narrative.textContent, /1h 30min esta semana/);
   assert.match(narrative.textContent, /30min a mais que a semana anterior/);
-  assert.match(narrative.textContent, /Cardiologia concentrou 67% do tempo/);
+  // Etapa 3 — matéria dominante saiu da narrativa: agora só na legenda do
+  // card "Tempo estudado esta semana" (ver teste abaixo).
+  assert.doesNotMatch(narrative.textContent, /Cardiologia/);
+  assert.strictEqual(narrative.querySelectorAll("p").length, 1, "only 1 highlight sentence outside the disclosure");
+  assert.ok(narrative.querySelector("p").classList.contains("progress-narrative-highlight"));
   // Etapa 2 — a sequência saiu da narrativa em frase: agora só o número
   // junto do heatmap (constancyHeatmapView.js).
   assert.doesNotMatch(narrative.textContent, /Sequência atual/);
@@ -913,6 +901,29 @@ test("F14.5 — the Progresso page opens with a narrative summary and no number 
   assert.strictEqual(document.getElementById("progress-numbers-body").hidden, true, "the number grid must start collapsed");
   const toggle = document.getElementById("progress-numbers-toggle");
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
+});
+
+test("Etapa 3 — the dominant category sentence appears as legend of the 'Tempo estudado esta semana' card, inside the disclosure", async (t) => {
+  const { mod } = await loadView(t, {
+    getProgressNarrativeData: async () => ({ weekMinutes: 90, previousWeekMinutes: 60, dominantCategory: { name: "Cardiologia", minutes: 60 }, currentStreak: 3 }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const weekMonth = document.getElementById("dash-cards-weekmonth");
+  assert.match(weekMonth.textContent, /Cardiologia concentrou 67% do tempo\./);
+});
+
+test("Etapa 3 — no dominant category (e.g. only untracked sessions this week) leaves the card's base description untouched", async (t) => {
+  const { mod } = await loadView(t, {
+    getProgressNarrativeData: async () => ({ weekMinutes: 90, previousWeekMinutes: 0, dominantCategory: null, currentStreak: 0 }),
+  });
+
+  await mod.initActivityDashboardView();
+
+  const weekMonth = document.getElementById("dash-cards-weekmonth");
+  assert.match(weekMonth.textContent, /Soma das sessões finalizadas desde segunda-feira\./);
+  assert.doesNotMatch(weekMonth.textContent, /concentrou/);
 });
 
 test("V5.17 — clicking 'Ver detalhes' reveals the number grid behind the disclosure", async (t) => {
@@ -980,7 +991,7 @@ test("V5.17 — an unconfigured daily goal shows a 'Configurar meta' link instea
   assert.deepStrictEqual(openAccountCalls[0], { focusSection: "goals" });
 });
 
-test("F15.1 — a category name containing HTML renders as literal text in the narrative (stored XSS, M1)", async (t) => {
+test("F15.1 — a category name containing HTML renders as literal text in the card legend (stored XSS, M1)", async (t) => {
   const payload = `<img src=x onerror="window.__xss = true">`;
   const { mod } = await loadView(t, {
     getProgressNarrativeData: async () => ({ weekMinutes: 90, previousWeekMinutes: 0, dominantCategory: { name: payload, minutes: 60 }, currentStreak: 0 }),
@@ -988,10 +999,10 @@ test("F15.1 — a category name containing HTML renders as literal text in the n
 
   await mod.initActivityDashboardView();
 
-  const narrative = document.getElementById("progress-narrative");
-  assert.strictEqual(narrative.querySelector("img"), null, "the payload must never become a DOM element");
-  assert.ok(narrative.textContent.includes(payload), "the payload must appear escaped, as literal text");
-  assert.match(narrative.textContent, /concentrou 67% do tempo\./);
+  const weekMonth = document.getElementById("dash-cards-weekmonth");
+  assert.strictEqual(weekMonth.querySelector("img"), null, "the payload must never become a DOM element");
+  assert.ok(weekMonth.textContent.includes(payload), "the payload must appear escaped, as literal text");
+  assert.match(weekMonth.textContent, /concentrou 67% do tempo\./);
   assert.strictEqual(window.__xss, undefined);
 });
 
@@ -1016,79 +1027,11 @@ test("F14.5 — a failure building the narrative falls back to a neutral message
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.narrative" && c.context.silent === true));
 });
 
-// ── Fase J4 — a narrativa absorve os insights de Revisões/Produtividade ─────
-// que antes só existiam nas grades de insightsView.js atrás do disclosure
-// "Ver detalhes". A grade continua lá (nenhuma grade de stat-cards passou a
-// existir fora de disclosure); a narrativa só ganhou frases equivalentes.
+// Fase J4 movia frases de Revisões/Produtividade para dentro da narrativa;
+// Etapa 3 as devolveu para dentro dos próprios blocos, como legenda (ver
+// tests/views/insightsView.test.js — "Etapa 3").
 
-test("J4 — a pending review count becomes a narrative sentence", async (t) => {
-  const { mod } = await loadView(t, {
-    getInsightsData: async () => ({
-      ...EMPTY_INSIGHTS,
-      revisoes: { status: "ok", data: { pendingCount: 3, completedCount: 5 }, error: null },
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-
-  assert.match(document.getElementById("progress-narrative").textContent, /3 revisões pendentes aguardando\./);
-});
-
-test("J4 — zero pending reviews with some completed reads as a reassuring sentence, not a blank", async (t) => {
-  const { mod } = await loadView(t, {
-    getInsightsData: async () => ({
-      ...EMPTY_INSIGHTS,
-      revisoes: { status: "ok", data: { pendingCount: 0, completedCount: 4 }, error: null },
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-
-  assert.match(document.getElementById("progress-narrative").textContent, /Nenhuma revisão pendente — 4 já concluídas\./);
-});
-
-test("J4 — appointments never studied become a productivity sentence", async (t) => {
-  const { mod } = await loadView(t, {
-    getInsightsData: async () => ({
-      ...EMPTY_INSIGHTS,
-      produtividade: { status: "ok", data: { totalEvents: 10, executedCount: 6, neverExecutedCount: 4 }, error: null },
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-
-  assert.match(document.getElementById("progress-narrative").textContent, /6 de 10 compromissos já foram estudados\./);
-});
-
-test("J4 — a block that failed to load (status error) is left out of the narrative instead of narrating null data", async (t) => {
-  const { mod } = await loadView(t, {
-    getInsightsData: async () => ({
-      ...EMPTY_INSIGHTS,
-      revisoes: { status: "error", data: null, error: new Error("down") },
-      produtividade: { status: "error", data: null, error: new Error("down") },
-    }),
-  });
-
-  await mod.initActivityDashboardView();
-
-  const text = document.getElementById("progress-narrative").textContent;
-  assert.doesNotMatch(text, /revis/i);
-  assert.doesNotMatch(text, /compromissos já foram estudados/);
-});
-
-test("J4 — a catastrophic failure fetching insights never breaks the rest of the narrative", async (t) => {
-  const { mod, handleErrorCalls } = await loadView(t, {
-    getInsightsData: async () => { throw new Error("network down"); },
-  });
-
-  await assert.doesNotReject(() => mod.initActivityDashboardView());
-
-  const text = document.getElementById("progress-narrative").textContent;
-  assert.match(text, /Você ainda não estudou esta semana\./);
-  assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.insights" && c.context.silent === true));
-});
-
-test("J4 — the stat-card grids (Períodos/Recordes/Revisões/Produtividade) never render outside the 'Ver detalhes' disclosure", async (t) => {
+test("the stat-card grids (Períodos/Recordes/Revisões/Produtividade) never render outside the 'Ver detalhes' disclosure", async (t) => {
   const { mod } = await loadView(t);
   await mod.initActivityDashboardView();
 

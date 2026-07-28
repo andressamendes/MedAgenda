@@ -6,8 +6,10 @@
 //
 // Sem gráficos, sem barras, sem animações: só números para leitura rápida —
 // os cards, ao menos. F14.5 acrescenta, no topo da página Progresso, um
-// resumo narrativo (2-3 frases) que interpreta os mesmos números em vez de
-// só listá-los (ver _narrativeSentences() abaixo); os cards recuam para trás
+// resumo narrativo que interpreta os mesmos números em vez de só listá-los;
+// Etapa 3 reduziu esse resumo a 1 única frase de destaque (ver
+// _highlightSentence() abaixo) — as demais frases viraram legenda dos cards
+// correspondentes, dentro do disclosure. Os cards recuam para trás
 // de um disclosure ("Ver detalhes", V5.17). V5.17 também soma o anel de meta
 // diária (V5.2) ao topo da página, ao lado do heatmap de constância (V5.1):
 // as três peças (anel + heatmap + narrativa) formam a composição visual
@@ -27,7 +29,6 @@ import { getDashboardData } from "./activityDashboardService.js";
 import { listAchievements, consumeNewlyCompleted } from "./achievementService.js";
 import { setAchievementIcons, celebrateAchievements, initAchievementCelebrationView, resetAchievementCelebrationView } from "./achievementCelebrationView.js";
 import { getProgressNarrativeData } from "./progressNarrativeService.js";
-import { getInsightsData } from "./insightsService.js";
 import { open as openAccountModal } from "./accountView.js";
 import { onProfileUpdated } from "./profileService.js";
 import { handleError } from "./errorService.js";
@@ -176,7 +177,15 @@ const WEEK_MONTH_CARD_DEFS = [
   {
     title: "Tempo estudado esta semana",
     value: d => formatDuration(d.weekMinutes),
-    desc:  () => "Soma das sessões finalizadas desde segunda-feira.",
+    // Etapa 3 — a frase de matéria dominante ("Cardiologia concentrou 67% do
+    // tempo") saiu da narrativa do topo e virou a segunda linha da descrição
+    // deste card, que já é sobre "esta semana": mesmo dado, mesma leitura,
+    // só sem competir com a frase de destaque lá em cima.
+    desc:  d => {
+      const base = "Soma das sessões finalizadas desde segunda-feira.";
+      const sentence = _dominantCategorySentence(d.narrative);
+      return sentence ? `${base} ${sentence}` : base;
+    },
     extra: d => _sparklineMarkup(d.weekSparkline),
   },
   {
@@ -284,97 +293,65 @@ let todayStatsToggleEl, todayStatsBodyEl;
 let _unsubscribeProfile = null;
 let _loading = false;
 
-// ── Progresso narrativo (F14.5) ──────────────────────────────────────────────
+// ── Progresso narrativo (F14.5, reduzida na Etapa 3) ─────────────────────────
 // Substitui a superfície de BI (grades de stat-cards) por uma interpretação
-// em frases, no topo da página Progresso (auditoria F14 §10, modelo Apple
+// em frase, no topo da página Progresso (auditoria F14 §10, modelo Apple
 // Health: "uma frase que interpreta, não uma grade que reporta"). Os dados já
 // vêm prontos de progressNarrativeService.getProgressNarrativeData() — esta
 // função só decide a redação, nunca recalcula nada.
+//
+// Etapa 3 — a narrativa virou 1 única frase de destaque em vez de até 4
+// frases de mesmo peso ("parede de texto", auditoria de Progresso). Critério
+// de prioridade, da mais para a menos urgente: alerta (nenhum estudo esta
+// semana) > tendência (comparação com a semana anterior) > neutro (só o
+// tempo desta semana, sem semana anterior para comparar) — os três ramos do
+// if/else abaixo já são mutuamente exclusivos, então a ordem de checagem é a
+// própria regra de prioridade. As demais frases de antes (matéria dominante,
+// revisões, produtividade) não desaparecem: matéria dominante virou a
+// segunda linha da descrição do card "Tempo estudado esta semana"
+// (_dominantCategorySentence, usado em WEEK_MONTH_CARD_DEFS acima); revisões
+// e produtividade viram legenda dos próprios blocos em insightsView.js
+// (_reviewsSentence/_productivitySentence lá) — mesmos dados de sempre, só
+// mais perto do card a que se referem.
+function _highlightSentence(data) {
+  const { weekMinutes, previousWeekMinutes } = data;
+
+  if (weekMinutes <= 0) {
+    return "Você ainda não estudou esta semana.";
+  }
+
+  const duration = formatDuration(weekMinutes);
+  if (previousWeekMinutes > 0) {
+    const diff = weekMinutes - previousWeekMinutes;
+    if (Math.abs(diff) < 5) {
+      return `Você estudou ${duration} esta semana — praticamente o mesmo tempo que a semana anterior.`;
+    }
+    const diffDuration = formatDuration(Math.abs(diff));
+    const comparison = diff > 0 ? "a mais" : "a menos";
+    return `Você estudou ${duration} esta semana — ${diffDuration} ${comparison} que a semana anterior.`;
+  }
+
+  return `Você estudou ${duration} esta semana.`;
+}
 
 function _formatCategoryPercentage(category, weekMinutes) {
   if (!weekMinutes) return 0;
   return Math.round((category.minutes / weekMinutes) * 100);
 }
 
-// F19 (Fase J4) — a antiga Central de Insights (insightsView.js) sobrevivia
-// como duas grades de stat-cards à parte (Revisões/Produtividade), já atrás
-// do mesmo disclosure "Ver detalhes" de Períodos/Recordes/Conquistas — mas
-// só ali, nunca na narrativa. Quem lia só as 2-3 frases do topo (a leitura
-// mais comum, é o próprio objetivo do F14.5) nunca sabia se havia revisão
-// pendente ou compromisso nunca estudado. `getInsightsData()`
-// (insightsService.js) é a mesma função que insightsView.js já chama para as
-// grades atrás do disclosure — nenhuma consulta nova, só uma segunda leitura
-// do mesmo resultado (mesmo padrão do anel de meta diária, V5.17). Cada
-// bloco só vira frase quando chegou "ok"/"partial" com dado real: um bloco
-// em erro fica de fora da narrativa (fica só no aviso do próprio disclosure),
-// nunca uma frase quebrada ou "null revisões".
-function _reviewsSentence(revisoesBlock) {
-  const data = revisoesBlock?.data;
-  if (!data) return null;
-  const { pendingCount, completedCount } = data;
-  if (pendingCount === null && completedCount === null) return null;
-  if (pendingCount === null) {
-    return `${completedCount} ${completedCount === 1 ? "revisão concluída" : "revisões concluídas"} até agora.`;
-  }
-  if (pendingCount === 0) {
-    return completedCount
-      ? `Nenhuma revisão pendente — ${completedCount} ${completedCount === 1 ? "já concluída" : "já concluídas"}.`
-      : "Nenhuma revisão pendente no momento.";
-  }
-  return `${pendingCount} ${pendingCount === 1 ? "revisão pendente" : "revisões pendentes"} aguardando.`;
-}
-
-function _productivitySentence(produtividadeBlock) {
-  const data = produtividadeBlock?.data;
-  if (!data) return null;
-  const { executedCount, neverExecutedCount } = data;
-  const total = executedCount + neverExecutedCount;
-  if (total === 0) return null;
-  if (neverExecutedCount === 0) return "Todos os compromissos já tiveram ao menos uma sessão de estudo.";
-  return `${executedCount} de ${total} compromissos já foram estudados.`;
-}
-
-function _narrativeSentences(data, insights) {
-  const { weekMinutes, previousWeekMinutes, dominantCategory } = data;
-  const sentences = [];
-
-  if (weekMinutes <= 0) {
-    sentences.push("Você ainda não estudou esta semana.");
-  } else {
-    const duration = formatDuration(weekMinutes);
-    if (previousWeekMinutes > 0) {
-      const diff = weekMinutes - previousWeekMinutes;
-      if (Math.abs(diff) < 5) {
-        sentences.push(`Você estudou ${duration} esta semana — praticamente o mesmo tempo que a semana anterior.`);
-      } else {
-        const diffDuration = formatDuration(Math.abs(diff));
-        const comparison = diff > 0 ? "a mais" : "a menos";
-        sentences.push(`Você estudou ${duration} esta semana — ${diffDuration} ${comparison} que a semana anterior.`);
-      }
-    } else {
-      sentences.push(`Você estudou ${duration} esta semana.`);
-    }
-
-    if (dominantCategory) {
-      const pct = _formatCategoryPercentage(dominantCategory, weekMinutes);
-      // F15.1 — dominantCategory.name é texto livre de events.category (também
-      // gravável via importação .ics de terceiros) e o resultado entra em
-      // narrativeEl.innerHTML: escape obrigatório (XSS armazenado, M1).
-      sentences.push(`${escapeHtml(dominantCategory.name)} concentrou ${pct}% do tempo.`);
-    }
-  }
-
-  // Etapa 2 — a sequência atual saiu da narrativa em frase: agora vive como
-  // número junto do heatmap de constância (constancyHeatmapView.js), a
-  // mesma métrica, só visualmente conectada à sua representação em grade.
-
-  const reviewsSentence = _reviewsSentence(insights?.revisoes);
-  if (reviewsSentence) sentences.push(reviewsSentence);
-
-  const productivitySentence = _productivitySentence(insights?.produtividade);
-  if (productivitySentence) sentences.push(productivitySentence);
-
-  return sentences;
+// Etapa 3 — antes uma frase da narrativa do topo, agora a segunda linha da
+// descrição do card "Tempo estudado esta semana" (ver WEEK_MONTH_CARD_DEFS).
+// `narrative` é o mesmo objeto de getProgressNarrativeData() já buscado em
+// _load(); nenhuma consulta nova.
+function _dominantCategorySentence(narrative) {
+  const category = narrative?.dominantCategory;
+  if (!category) return null;
+  const pct = _formatCategoryPercentage(category, narrative.weekMinutes);
+  // F15.1 — dominantCategory.name é texto livre de events.category (também
+  // gravável via importação .ics de terceiros) e o resultado entra em
+  // innerHTML (via def.desc() em _cardsMarkup): escape obrigatório (XSS
+  // armazenado, M1).
+  return `${escapeHtml(category.name)} concentrou ${pct}% do tempo.`;
 }
 
 // V5.17 — mesmo anel de _progressRingMarkup() (meta diária), agora também
@@ -398,13 +375,13 @@ function _renderGoalRingHero(data) {
   goalRingHeroEl.innerHTML = _goalRingHeroMarkup(data.dailyGoal);
 }
 
-function _renderNarrative(data, insights) {
+function _renderNarrative(data) {
   if (!narrativeEl) return;
   if (!data) {
     narrativeEl.innerHTML = `<p class="progress-narrative-fallback">Não foi possível carregar o resumo desta semana.</p>`;
     return;
   }
-  narrativeEl.innerHTML = _narrativeSentences(data, insights).map(s => `<p>${s}</p>`).join("");
+  narrativeEl.innerHTML = `<p class="progress-narrative-highlight">${_highlightSentence(data)}</p>`;
 }
 
 function _toggleNumbers() {
@@ -541,7 +518,7 @@ async function _load() {
   });
   if (narrativeEl) narrativeEl.innerHTML = `<p class="progress-narrative-loading">Carregando…</p>`;
   try {
-    const [data, achievements, narrative, insights] = await Promise.all([
+    const [data, achievements, narrative] = await Promise.all([
       getDashboardData(),
       // Isolado do carregamento principal: uma falha aqui vira uma mensagem
       // de fallback na lista de Conquistas (mesmo padrão de fallback parcial
@@ -557,20 +534,16 @@ async function _load() {
         handleError(err, { context: "activityDashboardView.narrative", silent: true });
         return null;
       }),
-      // Fase J4 — mesma função que insightsView.js já chama para as grades de
-      // Revisões/Produtividade atrás do disclosure "Ver detalhes" (nenhuma
-      // consulta nova): aqui só alimenta duas frases a mais na narrativa (ver
-      // _reviewsSentence/_productivitySentence). getInsightsData() nunca
-      // rejeita (cada bloco carrega seu próprio status), mas o .catch é a
-      // mesma rede de segurança das outras duas fontes isoladas acima.
-      getInsightsData().catch(err => {
-        handleError(err, { context: "activityDashboardView.insights", silent: true });
-        return null;
-      }),
     ]);
+    // Etapa 3 — a frase de matéria dominante (antes na narrativa) agora vive
+    // na descrição do card "Tempo estudado esta semana" (ver
+    // WEEK_MONTH_CARD_DEFS/_dominantCategorySentence); `data` é só
+    // enriquecido com o mesmo `narrative` já buscado acima, nenhuma consulta
+    // nova.
+    data.narrative = narrative;
     _renderCards(data);
     _renderGoalRingHero(data);
-    _renderNarrative(narrative, insights);
+    _renderNarrative(narrative);
     _renderAchievements(achievements);
     // V5.7 — celebração de conquista desbloqueada: só dispara para o que
     // achievementService.consumeNewlyCompleted() determinar como recém-

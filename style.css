@@ -2949,24 +2949,30 @@ textarea { resize: vertical; }
 }
 
 /* ── Progresso narrativo (F14.5) ──
-   Substitui a leitura de grades de stat-cards por 2-3 frases interpretadas
-   (auditoria F14 §10, modelo Apple Health): tipografia maior que o resto do
-   corpo, sem nenhum card/borda ao redor — texto puro, para não competir
-   visualmente com os números que continuam disponíveis atrás do disclosure
-   logo abaixo. */
+   Substitui a leitura de grades de stat-cards por uma interpretação em
+   texto (auditoria F14 §10, modelo Apple Health): tipografia maior que o
+   resto do corpo, sem nenhum card/borda ao redor — texto puro, para não
+   competir visualmente com os números que continuam disponíveis atrás do
+   disclosure logo abaixo.
+   Etapa 3 — a narrativa passou a mostrar só 1 frase de destaque (em vez de
+   2-4 frases de mesmo peso, a "parede de texto" apontada na auditoria):
+   peso tipográfico maior (font-weight) reforça que é a única leitura
+   obrigatória da dobra; as demais frases (matéria dominante, revisões,
+   produtividade) viraram legenda dos próprios blocos, atrás do disclosure
+   (.stat-card-desc e .insights-block-summary abaixo). */
 .progress-narrative {
   margin-bottom: var(--space-5);
 }
 
 .progress-narrative p {
-  margin: 0 0 .4rem;
+  margin: 0;
   font-size: var(--font-size-lg);
   line-height: 1.5;
   color: var(--gray-800);
 }
 
-.progress-narrative p:last-child {
-  margin-bottom: 0;
+.progress-narrative-highlight {
+  font-weight: 600;
 }
 
 .progress-narrative-loading,
@@ -3002,6 +3008,15 @@ textarea { resize: vertical; }
   background: var(--gray-100);
   border-radius: var(--radius);
   padding: .5rem .7rem;
+  margin: 0 0 .6rem;
+}
+
+/* Etapa 3 — legenda do bloco (frase que antes vivia na narrativa do topo,
+   ver activityDashboardView.js/_renderNarrative): texto puro, sem caixa,
+   distinto do aviso de dado parcial (.insights-block-notice) acima. */
+.insights-block-summary {
+  font-size: var(--font-size-sm);
+  color: var(--gray-700);
   margin: 0 0 .6rem;
 }
 
