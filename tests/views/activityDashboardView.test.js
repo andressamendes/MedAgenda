@@ -906,7 +906,9 @@ test("F14.5 — the Progresso page opens with a narrative summary and no number 
   assert.match(narrative.textContent, /1h 30min esta semana/);
   assert.match(narrative.textContent, /30min a mais que a semana anterior/);
   assert.match(narrative.textContent, /Cardiologia concentrou 67% do tempo/);
-  assert.match(narrative.textContent, /Sequência atual: 3 dias seguidos estudando/);
+  // Etapa 2 — a sequência saiu da narrativa em frase: agora só o número
+  // junto do heatmap (constancyHeatmapView.js).
+  assert.doesNotMatch(narrative.textContent, /Sequência atual/);
 
   assert.strictEqual(document.getElementById("progress-numbers-body").hidden, true, "the number grid must start collapsed");
   const toggle = document.getElementById("progress-numbers-toggle");
@@ -1000,7 +1002,6 @@ test("F14.5 — with no sessions this week, the narrative says so instead of com
 
   const text = document.getElementById("progress-narrative").textContent;
   assert.match(text, /Você ainda não estudou esta semana\./);
-  assert.match(text, /Nenhuma sequência ativa no momento\./);
 });
 
 test("F14.5 — a failure building the narrative falls back to a neutral message without breaking the cards", async (t) => {
@@ -1083,7 +1084,7 @@ test("J4 — a catastrophic failure fetching insights never breaks the rest of t
   await assert.doesNotReject(() => mod.initActivityDashboardView());
 
   const text = document.getElementById("progress-narrative").textContent;
-  assert.match(text, /Nenhuma sequência ativa no momento\./);
+  assert.match(text, /Você ainda não estudou esta semana\./);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.insights" && c.context.silent === true));
 });
 

@@ -11,7 +11,7 @@
 // contas antigas de uma grade enorme (a única leitura relevante de "como
 // tenho sido" é recente, não o histórico completo).
 
-import { getStudyCalendar } from "./studyStreakService.js";
+import { getStudyCalendar, getStreakSummary } from "./studyStreakService.js";
 import { handleError } from "./errorService.js";
 import { pad } from "./utils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
@@ -78,10 +78,37 @@ function _summaryLabel(days) {
   return `Heatmap de constância: ${studiedCount} de ${totalPastDays} dias estudados nas últimas ${WEEKS} semanas.`;
 }
 
-function _markup(calendar) {
+// Etapa 2 — mesmo texto já usado pela frase de streak da narrativa
+// (activityDashboardView._narrativeSentences), agora junto do heatmap em vez
+// de só em texto solto: as duas representações da mesma métrica (constância)
+// ficam visualmente conectadas.
+function _streakText(currentStreak) {
+  return currentStreak > 0
+    ? `${currentStreak} ${currentStreak === 1 ? "dia seguido" : "dias seguidos"}`
+    : "Nenhuma sequência ativa";
+}
+
+// aria-hidden: a leitura por leitor de tela já vem do aria-label do
+// .heatmap-grid logo abaixo (mesmo texto, por extenso) — sem isso, o número
+// seria lido duas vezes.
+function _streakMarkup(currentStreak) {
+  if (currentStreak <= 0) {
+    return `<div class="heatmap-streak heatmap-streak--empty" aria-hidden="true">${_streakText(currentStreak)}</div>`;
+  }
+  const unit = currentStreak === 1 ? "dia seguido" : "dias seguidos";
+  return `
+    <div class="heatmap-streak" aria-hidden="true">
+      <span class="heatmap-streak-value">${currentStreak}</span>
+      <span class="heatmap-streak-label">${unit}</span>
+    </div>
+  `;
+}
+
+function _markup(calendar, currentStreak) {
   const days = _buildDays(calendar, new Date());
   return `
-    <div class="heatmap-grid" role="img" aria-label="${_summaryLabel(days)}">
+    ${_streakMarkup(currentStreak)}
+    <div class="heatmap-grid" role="img" aria-label="Sequência atual: ${_streakText(currentStreak)} estudando. ${_summaryLabel(days)}">
       ${_cellsMarkup(days)}
     </div>
     <div class="heatmap-legend">
@@ -102,8 +129,8 @@ async function _load() {
   if (!heatmapEl || _loading) return;
   _loading = true;
   try {
-    const calendar = await getStudyCalendar();
-    heatmapEl.innerHTML = _markup(calendar);
+    const [calendar, streak] = await Promise.all([getStudyCalendar(), getStreakSummary()]);
+    heatmapEl.innerHTML = _markup(calendar, streak.currentStreak);
   } catch (err) {
     handleError(err, { context: "constancyHeatmapView.load", silent: true });
     heatmapEl.innerHTML = `<p class="progress-narrative-fallback">Não foi possível carregar o heatmap de constância.</p>`;

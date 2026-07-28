@@ -335,7 +335,7 @@ function _productivitySentence(produtividadeBlock) {
 }
 
 function _narrativeSentences(data, insights) {
-  const { weekMinutes, previousWeekMinutes, dominantCategory, currentStreak } = data;
+  const { weekMinutes, previousWeekMinutes, dominantCategory } = data;
   const sentences = [];
 
   if (weekMinutes <= 0) {
@@ -364,9 +364,9 @@ function _narrativeSentences(data, insights) {
     }
   }
 
-  sentences.push(currentStreak > 0
-    ? `Sequência atual: ${currentStreak} ${currentStreak === 1 ? "dia seguido" : "dias seguidos"} estudando.`
-    : "Nenhuma sequência ativa no momento.");
+  // Etapa 2 — a sequência atual saiu da narrativa em frase: agora vive como
+  // número junto do heatmap de constância (constancyHeatmapView.js), a
+  // mesma métrica, só visualmente conectada à sua representação em grade.
 
   const reviewsSentence = _reviewsSentence(insights?.revisoes);
   if (reviewsSentence) sentences.push(reviewsSentence);
