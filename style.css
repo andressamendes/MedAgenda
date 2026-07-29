@@ -3322,9 +3322,10 @@ textarea { resize: vertical; }
 }
 
 /* ── Marcos da Evolução (F8.7) ── */
-/* F10 #3.2 — painel <details> separado da lista de sessões (ver
-   studyJournalView.js), recolhido por padrão; marcador nativo do
-   <summary>, sem toggle próprio. */
+/* F10 #3.2 — painel separado da lista de sessões (ver studyJournalView.js).
+   Auditoria UX Etapa 1 — deixou de ser um <details> recolhido por padrão;
+   agora é um contêiner sempre expandido quando há marcos (oculto só via
+   [hidden], ligado a milestones.length === 0 em _renderMilestonesPanel). */
 .sj-milestones-panel {
   border-radius: var(--radius);
   padding: .7rem .9rem;
@@ -3332,17 +3333,11 @@ textarea { resize: vertical; }
   margin: 0 0 var(--space-3);
 }
 
-.sj-milestones-panel[open] .sj-milestones-panel-title {
-  margin-bottom: var(--space-2);
-}
-
 .sj-milestones-panel-title {
-  margin: 0;
+  margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--gray-800);
-  cursor: pointer;
-  list-style: revert;
 }
 
 .sj-milestones-list {
@@ -3352,6 +3347,8 @@ textarea { resize: vertical; }
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  max-height: 15rem;
+  overflow-y: auto;
 }
 
 /* F14 — Marcos passou a usar a mesma composição de timeline (linha +

@@ -66,10 +66,12 @@
 //
 // F10 #3.2 — Movido para fora da lista de sessões: antes era o primeiro
 // <li> de #sj-list, competindo visualmente com a própria timeline de
-// sessões logo abaixo dele. Agora vive em #sj-milestones-panel, um
-// <details> recolhido por padrão, separado da lista e sem concorrer pela
-// atenção do usuário ao abrir o Diário. buildMilestones() e os dados
-// considerados não mudaram.
+// sessões logo abaixo dele. Agora vive em #sj-milestones-panel, separado
+// da lista e sem concorrer pela atenção do usuário ao abrir o Diário.
+// buildMilestones() e os dados considerados não mudaram.
+//
+// Auditoria UX Etapa 1 — #sj-milestones-panel deixou de ser um <details>
+// recolhido por padrão: agora é sempre exibido quando há marcos.
 //
 // F18.15 — #sj-milestones-panel deixou de viver dentro do painel "Analisar"
 // (que misturava leitura com filtro) e voltou para perto de #sj-list, como
@@ -574,7 +576,8 @@ const MILESTONE_ICON_GLYPHS = {
   book:           iconLayers,    // mesmo ícone do nav "Calendários Acadêmicos"
 };
 
-// Preenche o painel recolhível #sj-milestones-panel, separado de #sj-list —
+// Preenche o painel #sj-milestones-panel (sempre expandido quando há
+// conteúdo), separado de #sj-list —
 // somente leitura, recalculado a cada _render() a partir de `filtered` (o
 // mesmo array já filtrado pelo F8.4) via buildMilestones()
 // (studyMilestoneService.js, função pura). Sem marcos, o painel fica oculto.
@@ -1054,8 +1057,9 @@ function _render() {
   emptyEl.hidden = true;
   _renderSearchStats(filtered);
 
-  // F8.7 — Marcos da Evolução: painel recolhível separado da lista,
-  // derivado das mesmas entradas filtradas (ver F10 #3.2 acima).
+  // F8.7 — Marcos da Evolução: painel separado da lista, sempre expandido
+  // quando há marcos, derivado das mesmas entradas filtradas (ver F10 #3.2
+  // acima).
   _renderMilestonesPanel(filtered);
 
   // Primeiro passo: agrupa as entradas filtradas por dia, na mesma ordem

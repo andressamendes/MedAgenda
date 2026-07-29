@@ -2,6 +2,20 @@
 
 ---
 
+## [Unreleased] — Auditoria UX Diário, Etapa 1: Marcos da Evolução sempre visíveis
+
+- Marcos da Evolução (`#sj-milestones-panel`, aba Diário) deixou de ser um
+  `<details>`/`<summary>` recolhido por padrão e virou um contêiner sempre
+  expandido quando há ao menos um marco. É o componente de maior potencial
+  emocional da tela e vivia atrás de um clique, com a menor prioridade
+  visual — mudança de layout, sem alterar `buildMilestones()` nem nenhum
+  cálculo. O painel continua completamente oculto (`hidden`) quando não há
+  marcos, mesmo critério de antes. `.sj-milestones-list` ganhou
+  `max-height`/`overflow-y: auto` para não estourar a tela quando há muitos
+  marcos.
+
+---
+
 ## [Unreleased] — Etapa 9: Sinais de alerta acionáveis
 
 - Os cards "Revisões pendentes" e "Compromissos sem sessão registrada"
