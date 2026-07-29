@@ -1036,11 +1036,16 @@
                Nenhuma lógica muda — mesmo elemento, mesmo
                _renderMilestonesPanel(), só de lugar. F18.16 — "Resumos
                Semanais" (segunda geração de texto narrativo formulaico,
-               redundante com o Progresso narrativo) foi removido. -->
-          <details id="sj-milestones-panel" class="sj-milestones-panel" hidden>
-            <summary class="sj-milestones-panel-title">Marcos da Evolução</summary>
+               redundante com o Progresso narrativo) foi removido.
+               Auditoria UX Etapa 1 — deixou de ser um <details> recolhido
+               por padrão: é o componente de maior potencial emocional da
+               tela e vivia atrás de um clique. Vira contêiner sempre
+               expandido; oculto só quando não há marcos
+               (milestones.length === 0), critério que já existia. -->
+          <section id="sj-milestones-panel" class="sj-milestones-panel" hidden aria-labelledby="sj-milestones-panel-title">
+            <h2 id="sj-milestones-panel-title" class="sj-milestones-panel-title">Marcos da Evolução</h2>
             <ul id="sj-milestones-list" class="sj-milestones-list"></ul>
-          </details>
+          </section>
 
           <h2 class="sr-only">Sessões e resumos</h2>
           <p id="sj-list-empty" class="list-empty" hidden></p>
