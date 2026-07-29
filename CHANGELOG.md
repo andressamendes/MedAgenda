@@ -2,6 +2,20 @@
 
 ---
 
+## [Unreleased] — Etapa 9: Sinais de alerta acionáveis
+
+- Os cards "Revisões pendentes" e "Compromissos sem sessão registrada"
+  (Progresso → bloco de Insights, `insightsView.js`) ganham um atalho direto
+  para a tela onde a pendência se resolve — sem nenhuma tela nova. "Revisões
+  pendentes" leva à página Sessão (`showPage("study-session")`), que já lista
+  e resolve revisões pendentes; "Compromissos sem sessão registrada" leva à
+  aba "Lista" da Agenda (mesmo clique real na aba já usado por
+  `commandPaletteView.js`, em vez de duplicar a lógica de troca de aba de
+  `script.js`). Cada ação só aparece quando há de fato algo a resolver
+  (`pendingCount`/`neverExecutedCount` > 0).
+
+---
+
 ## [Unreleased] — Fase 11: Calibração de risco e consolidação de feedback
 
 - **Confirmação ao remover uma questão ou revisão da sessão** (`studySessionView.js`

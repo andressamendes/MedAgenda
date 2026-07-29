@@ -26,17 +26,45 @@ import { revealWithAnimation } from "./transitionUtils.js";
 import { errorToState, renderStateBlock, clearStateBlock, STATES } from "./stateView.js";
 import { skeletonCardsMarkup } from "./skeletonView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
+import { showPage } from "./navigationView.js";
+
+// ── ETAPA 9 — sinais de alerta acionáveis ────────────────────────────────
+// "Revisões pendentes" e "Compromissos sem sessão registrada" deixam de ser
+// só leitura passiva: cada um ganha um atalho para a tela/lista real onde a
+// pendência se resolve, sem nenhuma tela nova. "Revisões pendentes" leva à
+// página Sessão (#page-study-session) — o único lugar do produto que já lista
+// e resolve revisões pendentes (ver studySessionView.js/_loadStartSuggestions,
+// chip "Revisar: <compromisso>"). "Compromissos sem sessão registrada" leva à
+// aba "Lista" da Agenda (#appointments-list-container), a mesma lista de
+// compromissos já usada em toda a Agenda — clicar na aba real (em vez de
+// duplicar a lógica de troca de aba, que mora em script.js/_setAgendaView)
+// mantém uma única fonte de verdade para qual aba fica visível.
+function _goToPendingReviews() {
+  showPage("study-session");
+}
+
+function _goToAppointmentsWithoutSession() {
+  showPage("agenda");
+  document.querySelector('#agenda-view-tabs .tab[data-view="list"]')?.click();
+}
 
 // ── Definição dos blocos (ETAPA 4) — Execução e Metas não são mais
 // renderizados aqui: seus cards eram idênticos aos do Dashboard
 // (activityDashboardView.js), que agora é a única fonte visual deles
 // (auditoria UX #01). ──────────────────────────────────────────────────────
 
+// ETAPA 9 — `action` é opcional e só aparece quando há de fato algo a
+// resolver (pendingCount/neverExecutedCount > 0): um link para uma pendência
+// zerada seria uma ação sem destino útil, mesmo critério já usado por
+// `goalKey`/"Configurar meta" em activityDashboardView.js.
 const REVISOES_CARD_DEFS = [
   {
     title: "Revisões pendentes",
     value: d => d.pendingCount === null ? "—" : String(d.pendingCount),
     desc:  d => d.pendingCount === null ? "Não foi possível carregar este indicador." : "Revisões aguardando conclusão.",
+    action: d => d.pendingCount > 0
+      ? '<button type="button" class="link-btn" data-action="go-to-pending-reviews">Resolver agora</button>'
+      : "",
   },
   {
     title: "Revisões concluídas",
@@ -47,7 +75,14 @@ const REVISOES_CARD_DEFS = [
 
 const PRODUTIVIDADE_CARD_DEFS = [
   { title: "Compromissos executados",         value: d => String(d.executedCount),      desc: () => "Compromissos com ao menos uma sessão finalizada." },
-  { title: "Compromissos sem sessão registrada",   value: d => String(d.neverExecutedCount), desc: () => "Compromissos sem nenhuma sessão finalizada." },
+  {
+    title: "Compromissos sem sessão registrada",
+    value: d => String(d.neverExecutedCount),
+    desc:  () => "Compromissos sem nenhuma sessão finalizada.",
+    action: d => d.neverExecutedCount > 0
+      ? '<button type="button" class="link-btn" data-action="go-to-appointments-without-session">Ver compromissos</button>'
+      : "",
+  },
 ];
 
 // Etapa 3 (activityDashboardView.js) — estas duas frases moraram na
@@ -89,6 +124,19 @@ const BLOCK_DEFS = [
 let _unsubscribeReview  = null;
 let _unsubscribeProfile = null;
 let _loading = false;
+let _cardsClickBound = false;
+
+// ETAPA 9 — um único listener delegado por container de cards, montado uma
+// vez em initInsightsView() (mesmo padrão de _onCardsClick em
+// activityDashboardView.js): os cards são recriados via innerHTML a cada
+// _load(), então um listener por botão se perderia a cada recarga.
+function _onCardsClick(ev) {
+  if (ev.target.closest('[data-action="go-to-pending-reviews"]')) {
+    _goToPendingReviews();
+  } else if (ev.target.closest('[data-action="go-to-appointments-without-session"]')) {
+    _goToAppointmentsWithoutSession();
+  }
+}
 
 // ── Sincronização com o barramento de eventos (F6.5) ────────────────────────
 // Esta view assina SessionFinished/Cancelled/Updated diretamente no
@@ -176,6 +224,7 @@ function _renderBlock(blockDef, block) {
       <span class="stat-card-title">${def.title}</span>
       <span class="stat-card-value">${def.value(block.data)}</span>
       <p class="stat-card-desc">${def.desc(block.data)}</p>
+      ${def.action ? def.action(block.data) : ""}
     </div>
   `).join("");
   revealWithAnimation(cardsEl);
@@ -235,6 +284,12 @@ async function _load() {
  * nem polling.
  */
 export async function initInsightsView() {
+  if (!_cardsClickBound) {
+    _cardsClickBound = true;
+    for (const blockDef of BLOCK_DEFS) {
+      document.getElementById(blockDef.cardsId)?.addEventListener("click", _onCardsClick);
+    }
+  }
   _subscribeToEventBus();
   if (!_unsubscribeReview)  _unsubscribeReview  = onReviewStatusChanged(() => _load());
   if (!_unsubscribeProfile) _unsubscribeProfile = onProfileUpdated(() => _load());
