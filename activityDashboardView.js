@@ -185,8 +185,12 @@ const WEEK_MONTH_CARD_DEFS = [
     // tempo") saiu da narrativa do topo e virou a segunda linha da descrição
     // deste card, que já é sobre "esta semana": mesmo dado, mesma leitura,
     // só sem competir com a frase de destaque lá em cima.
+    // Etapa 7 — "Sessões na semana" deixou de ser um card isolado (uma
+    // contagem bruta que sozinha não ajuda a decidir nada); a mesma contagem
+    // agora é a primeira frase desta descrição, contextualizada ao "tempo
+    // estudado esta semana" a que se refere.
     desc:  d => {
-      const base = "Soma das sessões finalizadas desde segunda-feira.";
+      const base = _sessionsCountSentence(d.weekSessionsCount, "desde segunda-feira");
       const sentence = _dominantCategorySentence(d.narrative);
       return sentence ? `${base} ${sentence}` : base;
     },
@@ -195,19 +199,16 @@ const WEEK_MONTH_CARD_DEFS = [
   {
     title: "Tempo estudado este mês",
     value: d => formatDuration(d.monthMinutes),
-  },
-  {
-    title: "Sessões na semana",
-    value: d => String(d.weekSessionsCount),
-  },
-  {
-    title: "Sessões no mês",
-    value: d => String(d.monthSessionsCount),
-  },
-  {
-    title: "Tempo médio por sessão",
-    value: d => formatDuration(d.averageMinutes),
-    desc:  () => "Média de duração das sessões finalizadas neste mês.",
+    // Etapa 7 — mesmo tratamento do card da semana acima: "Sessões no mês" e
+    // "Tempo médio por sessão" eram dois cards próprios só de números brutos;
+    // viram uma única frase secundária aqui, dentro do card de tempo a que
+    // já se referiam (mesmos dados, sem cálculo novo).
+    desc:  d => {
+      const base = _sessionsCountSentence(d.monthSessionsCount, "neste mês");
+      return d.monthSessionsCount > 0
+        ? `${base} Média de ${formatDuration(d.averageMinutes)} por sessão.`
+        : base;
+    },
   },
 ];
 
@@ -337,6 +338,16 @@ function _highlightSentence(data) {
   }
 
   return `Você estudou ${duration} esta semana.`;
+}
+
+// Etapa 7 — sentença compartilhada pelos cards "Tempo estudado esta
+// semana"/"este mês": transforma a contagem bruta de sessões (antes um card
+// próprio, "Sessões na semana"/"Sessões no mês") numa frase com contexto
+// ("5 sessões finalizadas desde segunda-feira"), em vez de um número solto.
+function _sessionsCountSentence(count, periodLabel) {
+  if (count <= 0) return `Nenhuma sessão finalizada ${periodLabel}.`;
+  const noun = count === 1 ? "sessão finalizada" : "sessões finalizadas";
+  return `${count} ${noun} ${periodLabel}.`;
 }
 
 function _formatCategoryPercentage(category, weekMinutes) {

@@ -159,16 +159,17 @@ afterEach(() => {
   clearEventBus();
 });
 
-test("with no sessions, all eleven cards render with empty/zero/no-goal values", async (t) => {
+test("with no sessions, all eight cards render with empty/zero/no-goal values", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 
   await mod.initActivityDashboardView();
 
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
-  assert.strictEqual(totalCardsCount(), 11);
+  assert.strictEqual(totalCardsCount(), 8);
   const text = allCardsText();
   assert.match(text, /Tempo estudado hoje/);
-  assert.match(text, /Sessões no mês/);
+  assert.match(text, /Tempo estudado este mês/);
+  assert.match(text, /Nenhuma sessão finalizada neste mês/);
   assert.match(text, /Maior sessão/);
   assert.match(text, /—/); // sem sessão mais longa
   assert.strictEqual(document.getElementById("dash-error").hidden, true);
@@ -352,7 +353,11 @@ test("week's indicator renders the formatted duration and count", async (t) => {
 
   await mod.initActivityDashboardView();
 
-  assert.match(allCardsText(), /4h 5min/);
+  const text = allCardsText();
+  assert.match(text, /4h 5min/);
+  // Etapa 7 — "Sessões na semana" não é mais um card próprio: a contagem
+  // vira a frase secundária deste mesmo card de tempo.
+  assert.match(text, /5 sessões finalizadas desde segunda-feira/);
 });
 
 // F11 E11 — minigráfico semanal (SVG puro, sem lib externa) no card "Tempo
@@ -395,17 +400,23 @@ test("month's indicator renders the formatted duration and count", async (t) => 
 
   await mod.initActivityDashboardView();
 
-  assert.match(allCardsText(), /20h 30min/);
+  const text = allCardsText();
+  assert.match(text, /20h 30min/);
+  // Etapa 7 — "Sessões no mês" não é mais um card próprio: a contagem vira
+  // a frase secundária deste mesmo card de tempo.
+  assert.match(text, /20 sessões finalizadas neste mês/);
 });
 
-test("average duration renders the average minutes formatted", async (t) => {
+test("average duration renders as secondary text inside the month card, not its own card", async (t) => {
   const { mod } = await loadView(t, {
-    getDashboardData: async () => ({ ...EMPTY_DATA, averageMinutes: 42 }),
+    getDashboardData: async () => ({ ...EMPTY_DATA, monthSessionsCount: 3, averageMinutes: 42 }),
   });
 
   await mod.initActivityDashboardView();
 
-  assert.match(allCardsText(), /42min/);
+  const text = allCardsText();
+  assert.match(text, /Média de 42min por sessão/);
+  assert.doesNotMatch(text, /Tempo médio por sessão/);
 });
 
 test("longest session renders its duration and date", async (t) => {
@@ -729,7 +740,7 @@ test("UX #20 — shows a 'Carregando…' indicator while the dashboard data is b
   resolveData(EMPTY_DATA);
   await pending;
 
-  assert.strictEqual(totalCardsCount(), 11, "the real cards replace the loading indicator once data arrives");
+  assert.strictEqual(totalCardsCount(), 8, "the real cards replace the loading indicator once data arrives");
 });
 
 // ── Auditoria UX #23 / V5.3: Conquistas construídas e invisíveis — antes um
@@ -791,7 +802,7 @@ test("V5.3 — a failure fetching achievements never breaks the other execution 
   await assert.doesNotReject(() => mod.initActivityDashboardView());
 
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
-  assert.strictEqual(totalCardsCount(), 11);
+  assert.strictEqual(totalCardsCount(), 8);
   assert.match(allCardsText(), /Tempo estudado hoje/); // demais cards seguem de pé
   assert.match(achievementsListEl().textContent, /Não conseguimos carregar suas conquistas agora\. Tente de novo em instantes\./);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
@@ -864,9 +875,9 @@ test("F13.4/F14.5 — 'Períodos' and 'Progresso e Conquistas' cards render on t
 
   const weekMonth = document.getElementById("dash-cards-weekmonth");
   assert.strictEqual(weekMonth.hidden, false);
-  assert.strictEqual(weekMonth.children.length, 7);
+  assert.strictEqual(weekMonth.children.length, 4);
   assert.match(weekMonth.textContent, /Meta semanal/);
-  assert.match(weekMonth.textContent, /Tempo médio por sessão/);
+  assert.match(weekMonth.textContent, /Tempo estudado este mês/);
 
   const records = document.getElementById("dash-cards-records");
   assert.strictEqual(records.hidden, false);
@@ -922,7 +933,7 @@ test("Etapa 3 — no dominant category (e.g. only untracked sessions this week) 
   await mod.initActivityDashboardView();
 
   const weekMonth = document.getElementById("dash-cards-weekmonth");
-  assert.match(weekMonth.textContent, /Soma das sessões finalizadas desde segunda-feira\./);
+  assert.match(weekMonth.textContent, /Nenhuma sessão finalizada desde segunda-feira\./);
   assert.doesNotMatch(weekMonth.textContent, /concentrou/);
 });
 
