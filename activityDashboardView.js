@@ -217,11 +217,14 @@ const RECORDS_CARD_DEFS = [
   },
 ];
 
-// ── Conquistas (V5.3) ────────────────────────────────────────────────────
+// ── Conquistas (V5.3, vitrine na Etapa 5) ────────────────────────────────
 // Auditoria UX #23 já tinha exposto achievementService.js como um único card
 // resumido ("3/5"). V5.3 renderiza as 5 conquistas individualmente — mesmo
 // domínio, mesmos dados de listAchievements(), nenhum cálculo novo: só forma
-// visual (ícone + estado) para o que já existia pronto e testado.
+// visual (ícone + estado) para o que já existia pronto e testado. Etapa 5
+// troca o card horizontal por um "troféu" vertical em grade (.achievements-shelf,
+// style.css), sem mexer em classe/estrutura que os testes já cobrem
+// (achievement-item, achievement-item--{state}, achievement-icon svg).
 const ACHIEVEMENT_ICONS = {
   clock: iconClock,
   "check-circle": iconCheckCircle,
@@ -253,11 +256,9 @@ function _achievementItemMarkup(achievement) {
   return `
     <li class="achievement-item achievement-item--${state}">
       <span class="achievement-icon" aria-hidden="true">${icon}</span>
+      <span class="achievement-state achievement-state--${state}">${ACHIEVEMENT_STATE_LABEL[state]}</span>
       <div class="achievement-body">
-        <div class="achievement-header">
-          <span class="achievement-title">${escapeHtml(achievement.title)}</span>
-          <span class="achievement-state achievement-state--${state}">${ACHIEVEMENT_STATE_LABEL[state]}</span>
-        </div>
+        <span class="achievement-title">${escapeHtml(achievement.title)}</span>
         <p class="achievement-desc">${escapeHtml(achievement.description)}</p>
         <div class="achievement-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
           <div class="achievement-progress-bar achievement-progress-bar--${state}" style="width: ${pct}%"></div>
@@ -271,7 +272,7 @@ function _achievementsMarkup(achievements) {
   if (!achievements) {
     return `<p class="list-empty">Não conseguimos carregar suas conquistas agora. Tente de novo em instantes.</p>`;
   }
-  return `<ul class="achievements-list">${achievements.map(_achievementItemMarkup).join("")}</ul>`;
+  return `<ul class="achievements-list achievements-shelf">${achievements.map(_achievementItemMarkup).join("")}</ul>`;
 }
 
 const CARD_GROUPS = [
