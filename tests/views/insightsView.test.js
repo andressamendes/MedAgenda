@@ -675,3 +675,97 @@ test("UX #20 — both blocks show a 'Carregando…' indicator while insights dat
   assert.strictEqual(revisoesCards.children.length, 2, "the real cards replace the loading indicator once data arrives");
   assert.strictEqual(produtividadeCards.children.length, 2);
 });
+
+// ── ETAPA 9 — sinais de alerta acionáveis ────────────────────────────────
+
+test("ETAPA 9 — 'Revisões pendentes' shows a 'Resolver agora' action when there are pending reviews, and clicking it navigates to Sessão", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 2, completedCount: 5 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  const btn = document.querySelector('#insights-revisoes-cards [data-action="go-to-pending-reviews"]');
+  assert.ok(btn, "action button is rendered when pendingCount > 0");
+
+  document.getElementById("page-agenda").hidden = false;
+  document.getElementById("page-study-session").hidden = true;
+
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("page-study-session").hidden, false);
+  assert.strictEqual(document.getElementById("page-agenda").hidden, true);
+});
+
+test("ETAPA 9 — 'Revisões pendentes' hides the action when there is nothing pending to resolve", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 0, completedCount: 5 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  assert.strictEqual(document.querySelector('#insights-revisoes-cards [data-action="go-to-pending-reviews"]'), null);
+});
+
+test("ETAPA 9 — 'Compromissos sem sessão registrada' shows a 'Ver compromissos' action when there are any, and clicking it navigates to the Agenda's Lista tab", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      produtividade: { status: "ok", data: { totalEvents: 4, executedCount: 3, neverExecutedCount: 1 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  const btn = document.querySelector('#insights-produtividade-cards [data-action="go-to-appointments-without-session"]');
+  assert.ok(btn, "action button is rendered when neverExecutedCount > 0");
+
+  let listTabClicks = 0;
+  document.querySelector('#agenda-view-tabs .tab[data-view="list"]').addEventListener("click", () => { listTabClicks++; });
+  document.getElementById("page-study-session").hidden = false;
+  document.getElementById("page-agenda").hidden = true;
+
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("page-agenda").hidden, false);
+  assert.strictEqual(document.getElementById("page-study-session").hidden, true);
+  assert.strictEqual(listTabClicks, 1, "it clicks the real Lista tab instead of duplicating _setAgendaView's logic");
+});
+
+test("ETAPA 9 — 'Compromissos sem sessão registrada' hides the action when every compromisso already has a session", async (t) => {
+  const { mod } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      produtividade: { status: "ok", data: { totalEvents: 3, executedCount: 3, neverExecutedCount: 0 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+
+  assert.strictEqual(document.querySelector('#insights-produtividade-cards [data-action="go-to-appointments-without-session"]'), null);
+});
+
+test("ETAPA 9 — the action click listeners survive a reload (bound once, not lost when cards are re-rendered)", async (t) => {
+  const { mod, triggerReviewStatusChanged } = await loadView(t, {
+    getInsightsData: async () => ({
+      ...EMPTY_INSIGHTS,
+      revisoes: { status: "ok", data: { pendingCount: 1, completedCount: 0 }, error: null },
+    }),
+  });
+
+  await mod.initInsightsView();
+  triggerReviewStatusChanged({});
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  document.getElementById("page-study-session").hidden = true;
+  const btn = document.querySelector('#insights-revisoes-cards [data-action="go-to-pending-reviews"]');
+  btn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("page-study-session").hidden, false);
+});
