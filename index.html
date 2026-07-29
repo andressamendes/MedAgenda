@@ -915,24 +915,21 @@
             <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="progress-numbers-toggle" aria-expanded="false" aria-controls="progress-numbers-body" data-disclosure-label="Ver detalhes"></button>
           </div>
 
-          <!-- Mesmos containers/ids de sempre (dash-cards-weekmonth,
-               dash-cards-records, insights-revisoes-*, insights-
-               produtividade-*) — só passam a viver atrás do disclosure acima;
-               activityDashboardView.js/insightsView.js continuam
+          <!-- Etapa 6 — os mesmos 5 blocos de sempre (Períodos/Recordes da
+               activityDashboardView.js + Revisões/Produtividade da
+               insightsView.js) deixam de ser agrupados pela origem técnica do
+               dado e passam a responder à pergunta do estudante: "Sua
+               semana" (ritmo atual), "Seu foco" (onde prestar atenção agora)
+               e "Seus recordes" (marcas pessoais). Mesmos containers/ids de
+               sempre (dash-cards-weekmonth, dash-cards-records, insights-
+               revisoes-*, insights-produtividade-*) — só a posição no DOM
+               muda; activityDashboardView.js/insightsView.js continuam
                renderizando exatamente como antes, sem nenhum cálculo novo. -->
           <div id="progress-numbers-body" class="progress-numbers-body" hidden>
-            <h2 class="dash-tier-title">Períodos</h2>
+            <h2 class="dash-tier-title">Sua semana</h2>
             <div id="dash-cards-weekmonth" class="stat-cards" hidden></div>
 
-            <h2 class="dash-tier-title">Recordes</h2>
-            <div id="dash-cards-records" class="stat-cards" hidden></div>
-
-            <!-- Blocos consolidados da antiga Central de Insights (F2.4) —
-                 renderizados por insightsView.js. Execução e Metas não existem
-                 mais lá: eram cards idênticos aos do Dashboard acima (auditoria
-                 UX #01); só os blocos exclusivos (Revisões e Produtividade)
-                 foram incorporados aqui. Mesmo id, mesmo módulo, nenhuma
-                 mudança em insightsView.js. -->
+            <h2 class="dash-tier-title">Seu foco</h2>
             <section class="insights-block" aria-labelledby="insights-revisoes-title">
               <h2 id="insights-revisoes-title" class="insights-block-title">Revisões</h2>
               <p id="insights-revisoes-summary" class="insights-block-summary" hidden></p>
@@ -948,6 +945,9 @@
               <p id="insights-produtividade-error" class="list-empty list-error" hidden></p>
               <div id="insights-produtividade-cards" class="stat-cards" hidden></div>
             </section>
+
+            <h2 class="dash-tier-title">Seus recordes</h2>
+            <div id="dash-cards-records" class="stat-cards" hidden></div>
           </div>
         </div>
 

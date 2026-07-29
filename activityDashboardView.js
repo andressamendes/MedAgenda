@@ -153,12 +153,16 @@ const GOAL_CARD_DEFS = [
 // só reagrupados em três níveis (cada card continua definido uma única vez,
 // nenhuma duplicação):
 //   - TODAY: sempre visível — o nível 1, o que se consulta com mais frequência.
-//   - WEEK_MONTH / RECORDS: nível 2, atrás das abas "Períodos" e "Progresso
-//     e Conquistas" (ver initActivityDashboardView) — mesmos dados de
-//     sempre, só não competem visualmente com "Hoje" a cada carregamento.
+//   - WEEK_MONTH / RECORDS: nível 2, atrás do disclosure "Ver detalhes" (ver
+//     initActivityDashboardView) — mesmos dados de sempre, só não competem
+//     visualmente com "Hoje" a cada carregamento.
 //     F11 E12: nomes atualizados (eram "Semana/Mês"/"Recordes e
 //     Conquistas") para anunciar que Revisões e Produtividade também vivem
-//     na segunda aba (auditoria #12, #29).
+//     ali dentro (auditoria #12, #29). Etapa 6: os títulos visíveis desses
+//     blocos (index.html, #progress-numbers-body) viraram "Sua semana",
+//     "Seu foco" (Revisões+Produtividade) e "Seus recordes" — agrupados pela
+//     pergunta do estudante, não pela origem técnica do dado; WEEK_MONTH_CARD_DEFS
+//     e RECORDS_CARD_DEFS abaixo não mudaram.
 const TODAY_CARD_DEFS = [
   GOAL_CARD_DEFS[0], // Meta diária
   {
