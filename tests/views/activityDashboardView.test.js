@@ -804,8 +804,33 @@ test("V5.3 — a failure fetching achievements never breaks the other execution 
   cardGroupEls().forEach(el => assert.strictEqual(el.hidden, false));
   assert.strictEqual(totalCardsCount(), 8);
   assert.match(allCardsText(), /Tempo estudado hoje/); // demais cards seguem de pé
-  assert.match(achievementsListEl().textContent, /Não conseguimos carregar suas conquistas agora\. Tente de novo em instantes\./);
+  assert.match(achievementsListEl().textContent, /Não conseguimos carregar suas conquistas agora\./);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.achievements" && c.context.silent === true));
+});
+
+// Etapa 8 — a falha real de carregamento das conquistas (diferente de "aluno
+// novo", que já vem com as 5 conquistas bloqueadas, nunca lista vazia) agora
+// oferece uma ação de nova tentativa, igual às demais falhas do produto.
+test("Etapa 8 — the achievements failure message offers a retry action that reloads the dashboard", async (t) => {
+  let attempt = 0;
+  const { mod } = await loadView(t, {
+    listAchievements: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("network down");
+      return EMPTY_ACHIEVEMENTS;
+    },
+  });
+
+  await mod.initActivityDashboardView();
+  assert.match(achievementsListEl().textContent, /Não conseguimos carregar suas conquistas agora\./);
+
+  const retryBtn = achievementsListEl().querySelector('[data-action="retry-achievements"]');
+  assert.ok(retryBtn, "expected a retry button in the achievements failure message");
+  retryBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.strictEqual(attempt, 2, "expected the retry button to trigger a reload");
+  assert.doesNotMatch(achievementsListEl().textContent, /Não conseguimos carregar suas conquistas agora\./);
 });
 
 // F13.4/F14.5 — "Hoje" (as três cards de sempre) vive agora dentro da página
@@ -1036,6 +1061,34 @@ test("F14.5 — a failure building the narrative falls back to a neutral message
   assert.match(document.getElementById("progress-narrative").textContent, /Não foi possível carregar o resumo desta semana\./);
   assert.strictEqual(document.getElementById("dash-cards-weekmonth").hidden, false);
   assert.ok(handleErrorCalls.some(c => c.context.context === "activityDashboardView.narrative" && c.context.silent === true));
+});
+
+// Etapa 8 — a mensagem de falha real da narrativa (ver acima) nunca deve ser
+// confundida com o texto de "aluno novo"/"sem estudo esta semana" (já
+// coberto por "F14.5 — with no sessions this week..."): esta cobre só o caso
+// de falha real, e garante que ela oferece a mesma ação de retry das demais
+// falhas do produto.
+test("Etapa 8 — the narrative failure message offers a retry action that reloads the dashboard", async (t) => {
+  let attempt = 0;
+  const { mod } = await loadView(t, {
+    getProgressNarrativeData: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("network down");
+      return EMPTY_NARRATIVE;
+    },
+  });
+
+  await mod.initActivityDashboardView();
+  const narrativeEl = document.getElementById("progress-narrative");
+  assert.match(narrativeEl.textContent, /Não foi possível carregar o resumo desta semana\./);
+
+  const retryBtn = narrativeEl.querySelector('[data-action="retry-narrative"]');
+  assert.ok(retryBtn, "expected a retry button in the narrative failure message");
+  retryBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.strictEqual(attempt, 2, "expected the retry button to trigger a reload");
+  assert.match(narrativeEl.textContent, /Você ainda não estudou esta semana\./);
 });
 
 // Fase J4 movia frases de Revisões/Produtividade para dentro da narrativa;
