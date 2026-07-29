@@ -273,9 +273,16 @@ function _achievementItemMarkup(achievement) {
     </li>`;
 }
 
+// Etapa 8 — esta mensagem só aparece quando listAchievements() de fato
+// rejeitou (falha real de carregamento, ver o .catch() em _load()): a lista
+// de conquistas nunca vem vazia por "aluno novo" (ACHIEVEMENT_DEFINITIONS
+// sempre gera as 5 entradas, bloqueadas quando ainda não há progresso — ver
+// _achievementState()). Por isso o tom aqui é neutro (falha, não convite) e
+// sempre com uma ação de nova tentativa, igual às demais falhas reais do
+// produto (stateView.js).
 function _achievementsMarkup(achievements) {
   if (!achievements) {
-    return `<p class="list-empty">Não conseguimos carregar suas conquistas agora. Tente de novo em instantes.</p>`;
+    return `<p class="list-empty list-empty--error">Não conseguimos carregar suas conquistas agora. <button type="button" class="link-btn" data-action="retry-achievements">Tentar de novo</button></p>`;
   }
   return `<ul class="achievements-list achievements-shelf">${achievements.map(_achievementItemMarkup).join("")}</ul>`;
 }
@@ -391,10 +398,17 @@ function _renderGoalRingHero(data) {
   goalRingHeroEl.innerHTML = _goalRingHeroMarkup(data.dailyGoal);
 }
 
+// Etapa 8 — `data` só vem null quando getProgressNarrativeData() de fato
+// rejeitou (falha real de carregamento, ver o .catch() em _load()): o caso
+// de "aluno novo"/"sem estudo esta semana" já é dado válido (weekMinutes <=
+// 0) e cai em _highlightSentence(), com tom de convite ("Você ainda não
+// estudou esta semana."), nunca aqui. Por isso esta mensagem é sempre a de
+// falha real — tom neutro + ação de nova tentativa, nunca confundida com a
+// de estado vazio legítimo.
 function _renderNarrative(data) {
   if (!narrativeEl) return;
   if (!data) {
-    narrativeEl.innerHTML = `<p class="progress-narrative-fallback">Não foi possível carregar o resumo desta semana.</p>`;
+    narrativeEl.innerHTML = `<p class="progress-narrative-fallback">Não foi possível carregar o resumo desta semana. <button type="button" class="link-btn" data-action="retry-narrative">Tentar de novo</button></p>`;
     return;
   }
   narrativeEl.innerHTML = `<p class="progress-narrative-highlight">${_highlightSentence(data)}</p>`;
@@ -506,6 +520,18 @@ function _onCardsClick(ev) {
   }
 }
 
+// Etapa 8 — retry das duas falhas reais isoladas de _load() (narrativa e
+// conquistas): mesmo botão "Tentar de novo" recarrega o dashboard inteiro
+// (_load() já é seguro para chamar de novo — reentrância bloqueada por
+// `_loading`), igual ao onRetry dos demais estados de erro do produto.
+function _onNarrativeClick(ev) {
+  if (ev.target.closest('[data-action="retry-narrative"]')) _load();
+}
+
+function _onAchievementsClick(ev) {
+  if (ev.target.closest('[data-action="retry-achievements"]')) _load();
+}
+
 function _renderAchievements(achievements) {
   if (!achievementsEl) return;
   achievementsEl.innerHTML = _achievementsMarkup(achievements);
@@ -587,9 +613,11 @@ export async function initActivityDashboardView() {
       document.getElementById("dash-error"),
     ].filter(Boolean);
     narrativeEl     = document.getElementById("progress-narrative");
+    narrativeEl?.addEventListener("click", _onNarrativeClick);
     goalRingHeroEl  = document.getElementById("progress-goal-ring");
     goalRingHeroEl?.addEventListener("click", _onCardsClick);
     achievementsEl  = document.getElementById("achievements-list");
+    achievementsEl?.addEventListener("click", _onAchievementsClick);
     numbersToggleEl = document.getElementById("progress-numbers-toggle");
     numbersBodyEl   = document.getElementById("progress-numbers-body");
     numbersToggleEl?.addEventListener("click", _toggleNumbers);
