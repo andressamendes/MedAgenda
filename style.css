@@ -2748,8 +2748,8 @@ textarea { resize: vertical; }
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: .6rem;
-  margin: 1rem 0 1.6rem;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-6);
 }
 
 .today-cta {
@@ -2760,7 +2760,7 @@ textarea { resize: vertical; }
   font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--gray-700);
-  margin: 0 0 .6rem;
+  margin: 0 0 var(--space-2);
 }
 
 .today-appointments-list {
@@ -2769,14 +2769,14 @@ textarea { resize: vertical; }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: var(--space-2);
 }
 
 .today-appt-item {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: .6rem .8rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -2829,7 +2829,7 @@ textarea { resize: vertical; }
    principal ("Começar a estudar") e dos compromissos, para não competir com
    eles pela atenção de quem acabou de abrir o app. */
 .today-stats {
-  margin-top: 1.6rem;
+  margin-top: var(--space-6);
 }
 
 /* F15.13 — mesmo padrão de disclosure do Progresso (.progress-numbers-*):
@@ -2850,7 +2850,7 @@ textarea { resize: vertical; }
 .today-close-day {
   display: flex;
   justify-content: center;
-  margin-top: 2rem;
+  margin-top: var(--space-7);
 }
 
 /* ── Heatmap de Constância (V5.1) ──
