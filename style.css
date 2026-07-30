@@ -2147,6 +2147,13 @@ textarea { resize: vertical; }
   color: var(--color-danger);
 }
 
+/* Estado vazio da Agenda (Hoje) — tom positivo em vez de neutro/genérico
+   (auditoria UX #4): reforça "dia livre" como algo bom, não uma ausência. */
+.list-empty--today {
+  color: var(--color-success, var(--gray-500));
+  font-weight: 500;
+}
+
 .list-empty .list-error-retry {
   display: block;
   margin: .6rem auto 0;
