@@ -3305,14 +3305,15 @@ textarea { resize: vertical; }
   gap: var(--space-2);
 }
 
-/* ── Linha do Tempo da Evolução (F8.5) ── */
+/* ── Linha do Tempo da Evolução (F8.5, humanizada na Etapa 2) ── */
 .sj-summary-comparison-label {
   color: var(--gray-500);
 }
 
-.sj-summary-badge {
+/* Etapa 2 — destaca a frase quando o dia supera o anterior (compareDailySummaries()); ver _dayComparisonSentence em studyJournalView.js */
+.sj-summary-comparison-label--positive {
+  color: var(--color-success-text);
   font-weight: 600;
-  color: var(--gray-700);
 }
 
 .sj-reflection-error {

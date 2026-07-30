@@ -1254,12 +1254,46 @@ test("a day's summary shows evolution indicators compared to the previous day: s
 
   const [todayComparison, prevComparison] = comparisons;
   assert.strictEqual(todayComparison.hidden, false);
-  assert.match(todayComparison.textContent, /Em relação ao dia anterior/);
-  assert.match(todayComparison.textContent, /↓ −1 sessão/);
-  assert.match(todayComparison.textContent, /↓ −35 minutos/);
-  assert.match(todayComparison.textContent, /↓ −2 questões/);
+  assert.match(todayComparison.textContent, /Hoje você estudou 35 minutos a menos do que ontem\./);
+  assert.strictEqual(todayComparison.querySelector(".sj-summary-comparison-label--positive"), null, "menos tempo que ontem não é destacado como melhora");
 
   assert.strictEqual(prevComparison.hidden, true, "o dia mais antigo da linha do tempo não tem dia anterior para comparar");
+});
+
+test("the comparison sentence prioritizes minutes over sessions/questions and highlights when the day improved", async (t) => {
+  const sessions = [
+    // dia mais recente: 2 sessões somando 40min (menos tempo, porém mais sessões que ontem)
+    { id: "sess-today-a", status: "finished", started_at: "2026-03-11T08:00:00.000Z", ended_at: "2026-03-11T08:20:00.000Z", duration_minutes: 20 },
+    { id: "sess-today-b", status: "finished", started_at: "2026-03-11T09:00:00.000Z", ended_at: "2026-03-11T09:20:00.000Z", duration_minutes: 20 },
+    // dia anterior: 1 sessão de 60min
+    { id: "sess-prev", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:00:00.000Z", duration_minutes: 60 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 3, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  const [todayComparison] = dayComparisons();
+  // sessionsDelta = +1, minutesDelta = -20 — minutos vence a prioridade e evita a ambiguidade de "mais sessões, porém menos tempo"
+  assert.match(todayComparison.textContent, /Hoje você estudou 20 minutos a menos do que ontem\./);
+  assert.strictEqual(todayComparison.querySelector(".sj-summary-comparison-label--positive"), null);
+});
+
+test("the comparison sentence highlights the label when today studied more minutes than the previous day", async (t) => {
+  const sessions = [
+    { id: "sess-today", status: "finished", started_at: "2026-03-11T08:00:00.000Z", ended_at: "2026-03-11T09:00:00.000Z", duration_minutes: 60 },
+    { id: "sess-prev", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },
+  ];
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions, total: 2, hasMore: false }),
+  });
+
+  await mod.initStudyJournalView();
+
+  const [todayComparison] = dayComparisons();
+  assert.match(todayComparison.textContent, /Hoje você estudou 30 minutos a mais do que ontem\./);
+  assert.ok(todayComparison.querySelector(".sj-summary-comparison-label--positive"), "dia melhor que o anterior recebe destaque de cor");
 });
 
 test("a lone visible day shows no comparison indicators", async (t) => {
