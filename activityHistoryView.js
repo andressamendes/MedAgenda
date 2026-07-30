@@ -29,6 +29,18 @@
 // started_at desc, uma nova página só pode continuar o último grupo já
 // aberto ou abrir grupos novos depois dele — nunca precisa reabrir um grupo
 // anterior.
+//
+// Etapa 10 — o corpo de cada marcador (.ah-timeline-body) usava um markup
+// próprio (.session-history-row/-meta/-notes), visualmente incompatível com
+// o cartão .sj-entry da aba "Concluídas" (mesmo conteúdo — sessão de
+// atividade — em duas linguagens visuais diferentes). Agora reaproveita a
+// classe .sj-entry e sua tipografia (.sj-entry-time/-summary/-content): a
+// densidade mais compacta desta aba vem de mostrar menos campos (sem
+// detalhe expansível, já que aqui não há questões/reflexão carregadas), não
+// de uma estrutura de cartão à parte. O único elemento que .sj-entry não
+// tinha é o selo de status (múltiplos status coexistem aqui, contra o único
+// "concluída" da outra aba) — ocupa o lugar do botão de expansão na mesma
+// linha de cabeçalho.
 
 import { listSessions } from "./activitySessionService.js";
 import { getEvents, getEventById } from "./eventService.js";
@@ -225,23 +237,22 @@ function _renderSessions(sessions) {
     group.count += 1;
     _updateDayGroupSummary(group);
 
+    const summaryParts = [formatDuration(s.duration_minutes), SESSION_SOURCE_LABELS[s.source] || s.source];
+
     const li = document.createElement("li");
     li.className = `ah-timeline-item ah-timeline-item--${s.status}`;
     li.innerHTML = `
       <span class="ah-timeline-dot" aria-hidden="true"></span>
-      <div class="ah-timeline-body">
-        <div class="session-history-row">
+      <div class="ah-timeline-body sj-entry">
+        <div class="sj-entry-header">
           <span class="ah-item-title">${escapeHtml(meta.title)}${
             meta.category ? ` <span class="ah-item-category">· ${escapeHtml(meta.category)}</span>` : ""
           }</span>
           <span class="session-history-status session-history-status--${s.status}">${SESSION_STATUS_LABELS[s.status] || s.status}</span>
         </div>
-        <div class="session-history-row session-history-meta">
-          <span>${formatClockTime(s.started_at)} – ${formatClockTime(s.ended_at)}</span>
-          <span>${formatDuration(s.duration_minutes)}</span>
-          <span>${SESSION_SOURCE_LABELS[s.source] || s.source}</span>
-        </div>
-        ${s.notes ? `<p class="session-history-notes">${escapeHtml(s.notes)}</p>` : ""}
+        <div class="sj-entry-time">${formatClockTime(s.started_at)}–${formatClockTime(s.ended_at)}</div>
+        <div class="sj-entry-summary">${escapeHtml(summaryParts.join(" • "))}</div>
+        ${s.notes ? `<div class="sj-entry-content">${escapeHtml(s.notes)}</div>` : ""}
       </div>
     `;
     group.timelineEl.appendChild(li);
