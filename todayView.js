@@ -22,6 +22,7 @@ import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
+import { getDashboardData } from "./activityDashboardService.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
@@ -104,12 +105,14 @@ async function _refreshHero() {
     startBtn.hidden    = true;
     continueBtn.hidden = true;
     closeDayBtn.hidden = true; // fechar o dia não faz sentido com uma sessão em andamento
+    closeDayBtn.closest(".today-close-day")?.classList.remove("today-close-day--goal-met");
     return;
   }
 
   resumeBtn.hidden   = true;
   startBtn.hidden    = false;
   closeDayBtn.hidden = false;
+  _refreshCloseDayGoalState();
 
   _continueSuggestion = await _loadContinueSuggestion();
   if (_continueSuggestion) {
@@ -117,6 +120,26 @@ async function _refreshHero() {
     continueBtn.textContent = `Continuar: ${_continueSuggestion.title}`;
   } else {
     continueBtn.hidden = true;
+  }
+}
+
+// Etapa 10 (auditoria UX/UI de Hoje) — reforço visual condicional de "Fechar
+// o dia": reaproveita o mesmo dailyGoal já calculado por
+// activityDashboardService.js/getDashboardData() (Etapa 2, seção "Hoje em
+// números") para saber se a meta diária foi atingida hoje, sem nenhum
+// cálculo de meta novo. Só liga a variante em achieved/exceeded — dias sem
+// meta configurada ou ainda em andamento (partial) mantêm o botão neutro,
+// para o tom nunca soar punitivo.
+async function _refreshCloseDayGoalState() {
+  const wrapper = closeDayBtn?.closest(".today-close-day");
+  if (!wrapper) return;
+  try {
+    const { dailyGoal } = await getDashboardData();
+    const goalMet = dailyGoal?.configured
+      && (dailyGoal.state === "achieved" || dailyGoal.state === "exceeded");
+    wrapper.classList.toggle("today-close-day--goal-met", !!goalMet);
+  } catch (err) {
+    handleError(err, { context: "todayView.closeDayGoalState", silent: true });
   }
 }
 
