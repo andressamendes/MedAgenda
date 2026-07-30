@@ -2800,6 +2800,29 @@ textarea { resize: vertical; }
   max-width: 100%;
 }
 
+/* Prioridade visual única do hero (F14.1 audit, UI #3 / UX #3): Resume e
+   Start nunca coexistem — os dois usam .btn-primary sem modificação, sempre
+   a mesma cor/peso/tamanho de "ação recomendada". Continue só aparece ao
+   lado de Start, então precisa ficar inequivocamente abaixo dele na escala:
+   sem caixa própria (nada de fundo/borda competindo pela mesma atenção),
+   texto menor e mais leve — lido como "alternativa", não como um segundo
+   botão de mesmo peso. */
+.today-cta--alt {
+  min-width: 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: .35rem .3rem;
+}
+.today-cta--alt:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
 .today-section-title {
   font-size: var(--font-size-lg);
   font-weight: 700;
