@@ -32,6 +32,9 @@ const DECISION_ENGINE_SPECIFIER  = new URL("../../decisionEngine.js", import.met
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
+const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
+
+const NO_GOAL_PROGRESS = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
 let showPageCalls;
 let startSessionForEventCalls;
@@ -94,6 +97,11 @@ function loadView(t, overrides = {}) {
       categoryColor: overrides.categoryColor ?? (() => "#6b7280"),
     },
   });
+  t.mock.module(DASHBOARD_SERVICE_SPECIFIER, {
+    namedExports: {
+      getDashboardData: overrides.getDashboardData ?? (async () => ({ dailyGoal: NO_GOAL_PROGRESS })),
+    },
+  });
 
   return import(`../../todayView.js?t=${Math.random()}`);
 }
@@ -115,6 +123,27 @@ test("with no active session and no history, only 'Começar a estudar' is shown"
   assert.strictEqual(document.getElementById("today-btn-start").hidden, false);
   assert.strictEqual(document.getElementById("today-btn-resume").hidden, true);
   assert.strictEqual(document.getElementById("today-btn-continue").hidden, true);
+});
+
+test("the hero progress sentence is always visible, reusing the same dailyGoal data as the stats disclosure", async (t) => {
+  const progress = { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" };
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: progress }),
+  });
+  await initTodayView();
+
+  const text = document.getElementById("today-hero-progress").textContent;
+  assert.match(text, /50%/);
+});
+
+test("the hero progress sentence shows an appropriate tone even with 0 minutes studied", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: NO_GOAL_PROGRESS }),
+  });
+  await initTodayView();
+
+  const text = document.getElementById("today-hero-progress").textContent;
+  assert.match(text, /Nenhum minuto estudado hoje ainda/);
 });
 
 test("clicking 'Começar a estudar' navigates to the study session page and opens the start modal", async (t) => {

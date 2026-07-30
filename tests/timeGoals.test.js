@@ -10,6 +10,7 @@ import {
   calculateGoalPercentage,
   calculateRemainingTime,
   calculateGoalProgress,
+  formatGoalSentence,
 } from "../timeGoals.js";
 
 // ── calculateGoalPercentage() ───────────────────────────────────────────────
@@ -150,4 +151,36 @@ test("validateGoalMinutes accepts the largest valid monthly value (44640, acima 
 test("validateGoalMinutes rejects a monthly value above the limit", () => {
   const result = validateGoalMinutes(GOAL_LIMITS.monthly.max + 1, "monthly");
   assert.strictEqual(result.valid, false);
+});
+
+// ── formatGoalSentence() — Etapa 2 (resumo de progresso sempre visível) ────
+
+test("formatGoalSentence: no goal, nothing studied yet", () => {
+  const sentence = formatGoalSentence(calculateGoalProgress(0, null));
+  assert.match(sentence, /Nenhum minuto estudado hoje ainda/);
+});
+
+test("formatGoalSentence: no goal, some time already studied", () => {
+  const sentence = formatGoalSentence(calculateGoalProgress(45, null));
+  assert.match(sentence, /já estudou/);
+});
+
+test("formatGoalSentence: goal configured, nothing studied yet", () => {
+  const sentence = formatGoalSentence(calculateGoalProgress(0, 120));
+  assert.match(sentence, /ainda não começou/);
+});
+
+test("formatGoalSentence: goal partially reached", () => {
+  const sentence = formatGoalSentence(calculateGoalProgress(60, 120));
+  assert.match(sentence, /50%/);
+});
+
+test("formatGoalSentence: goal exactly reached", () => {
+  const sentence = formatGoalSentence(calculateGoalProgress(120, 120));
+  assert.match(sentence, /Meta diária batida/);
+});
+
+test("formatGoalSentence: goal exceeded", () => {
+  const sentence = formatGoalSentence(calculateGoalProgress(150, 120));
+  assert.match(sentence, /ultrapassada/);
 });

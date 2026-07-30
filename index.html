@@ -329,6 +329,11 @@
           <div id="today-tip" class="smart-cards" hidden></div>
 
           <div class="today-hero">
+            <!-- Etapa 2 (auditoria UX #2) — resumo de progresso sempre
+                 visível, sem exigir o clique em "Ver números de hoje"
+                 (#today-stats-toggle). Mesmo dado do card "Meta diária" do
+                 disclosure abaixo — ver todayView.js/_refreshHeroProgress. -->
+            <p id="today-hero-progress" class="today-hero-progress"></p>
             <button type="button" id="today-btn-resume" class="btn btn-primary today-cta" hidden>Continuar sessão em andamento</button>
             <button type="button" id="today-btn-start" class="btn btn-primary today-cta">Começar a estudar</button>
             <button type="button" id="today-btn-continue" class="btn btn-secondary today-cta" hidden></button>
