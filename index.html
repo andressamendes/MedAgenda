@@ -1024,7 +1024,7 @@
             <div id="sj-search-wrap" class="sj-search-wrap" hidden>
               <input type="search" id="sj-filter-search" class="search-input" placeholder="Buscar em compromisso, conteúdo, observações, reflexão&#8230;" maxlength="120" />
             </div>
-            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: estatísticas e filtros" title="Analisar" data-icon="sliders-horizontal">
+            <button type="button" class="btn-icon sj-toolbar-filter-btn" id="sj-btn-open-panel" aria-haspopup="dialog" aria-controls="sj-panel" aria-label="Analisar: estatísticas e filtros" title="Estatísticas e filtros" data-icon="bar-chart">
               <span id="sj-advanced-filters-count" class="sj-toolbar-badge" hidden></span>
             </button>
           </div>
@@ -1086,7 +1086,13 @@
                timeline como um dashboard) para dentro do painel "Analisar",
                reagindo aos mesmos filtros de Período/Categoria de sempre
                (sj-filter-period/sj-filter-category) — nenhum controle novo,
-               mesmo componente .stat-cards/.stat-card, só de lugar. -->
+               mesmo componente .stat-cards/.stat-card, só de lugar.
+               Etapa 6 — o painel misturava consulta (estatísticas) e ação
+               (filtros) sob um único rótulo "Analisar", sem nenhuma pista
+               visual de que eram duas coisas diferentes. Cada metade ganha
+               um cabeçalho de subseção; nenhum filtro/estatística muda de
+               comportamento, só a divisão visual entre elas. -->
+          <h3 class="ai-panel-group-title" id="sj-panel-stats-title">Seus números</h3>
           <div class="stat-cards sj-stats" id="sj-stats" aria-label="Estatísticas de questões">
             <div class="stat-card stat-card--sm">
               <span class="stat-card-title">Questões respondidas</span>
@@ -1110,6 +1116,7 @@
                valores de sempre) para os períodos mais granulares (7/30
                dias) — os chips "Hoje"/"Semana"/"Todas" do toolbar principal
                (.sj-quick-filters) só ajustam este mesmo controle. -->
+          <h3 class="ai-panel-group-title" id="sj-panel-filters-title">Filtrar lista</h3>
           <div class="toolbar-filters">
             <select id="sj-filter-period" class="toolbar-select">
               <option value="all">Todo o período</option>
