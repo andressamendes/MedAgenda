@@ -3286,6 +3286,27 @@ textarea { resize: vertical; }
   white-space: pre-wrap;
 }
 
+/* Etapa 3 (reflexão como 1ª seção do detalhe) — única escrita pessoal da
+   tela; recebe tratamento visual próprio (fundo suave + tipografia
+   serifada de destaque, mesma pilha de `--font-display` usada na marca)
+   para se diferenciar das seções técnicas (Questões/Revisões/Observações)
+   que a seguem no detalhe expandido. */
+.sj-detail-section--reflection {
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-100);
+  border-radius: var(--radius-md);
+  padding: .7rem .8rem;
+}
+
+.sj-detail-title--reflection {
+  font-family: var(--font-display);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-sm);
+  color: var(--color-primary-hover);
+}
+
 /* ── Reflexão da Sessão (F8.2) ── */
 .sj-reflection {
   display: flex;
