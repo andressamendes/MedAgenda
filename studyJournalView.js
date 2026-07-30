@@ -128,7 +128,7 @@ import {
   compareDailySummaries,
 } from "./studyTimelineService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconClipboard, iconClock, iconBarChart, iconSparkle, iconLayers, illustrationEmptyJournal } from "./icons.js";
+import { iconCheckCircle, iconClock, iconTarget, iconFlame, iconBookOpen, illustrationEmptyJournal } from "./icons.js";
 import { disclosureToggleContent } from "./disclosureToggle.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { setHistoryStatus, refreshActivityHistoryView } from "./activityHistoryView.js";
@@ -565,15 +565,16 @@ function _createDayGroup(iso) {
 }
 
 // ── Marcos da Evolução (F8.7) ────────────────────────────────────────────
-// Ícones SVG já usados na navegação (icons.js, auditoria UX #33)
-// reaproveitados como "ícone" de cada marco — mesma fonte, sem duplicar
-// desenhos novos por marco.
+// Ícones SVG já existentes no acervo (icons.js), escolhidos por semântica
+// (Etapa 7): cada chave usa o ícone já associado a esse mesmo conceito em
+// achievementService.js ("check-circle" → check num círculo, "flame" →
+// chama de constância), sem desenhar SVGs novos.
 const MILESTONE_ICON_GLYPHS = {
-  "check-circle": iconClipboard, // mesmo ícone do nav "Compromissos"
-  clock:          iconClock,     // mesmo ícone do nav "Sessão de Estudo"
-  target:         iconBarChart,  // mesmo ícone do nav "Dashboard"
-  flame:          iconSparkle,   // mesmo ícone do nav "Assistente IA"
-  book:           iconLayers,    // mesmo ícone do nav "Calendários Acadêmicos"
+  "check-circle": iconCheckCircle,
+  clock:          iconClock,
+  target:         iconTarget,
+  flame:          iconFlame,
+  book:           iconBookOpen,
 };
 
 // Preenche o painel #sj-milestones-panel (sempre expandido quando há
