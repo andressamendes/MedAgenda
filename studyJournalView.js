@@ -630,22 +630,43 @@ function _renderMilestonesPanel(filteredEntries) {
 // comparação com o dia anterior, que não tinha outro lugar para morar; ela
 // vira uma linha opcional dentro do próprio cabeçalho do dia — some quando
 // não há dia anterior para comparar (mesmo critério de antes).
-function _comparisonBadge(delta, unitSingular, unitPlural) {
-  const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "•";
-  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+//
+// Auditoria UX Etapa 2 — os três badges técnicos (↑ +2 sessão, ↓ −15
+// minuto...) viravam decodificação de símbolos; compareDailySummaries()
+// não muda, mas exibimos só o sinal mais representativo do dia como uma
+// frase única. Prioridade minutos > sessões > questões (tempo estudado é o
+// sinal mais direto de dedicação); o primeiro delta não-zero nessa ordem
+// vira a frase — assim um dia com "mais sessões, porém menos tempo" não
+// fica ambíguo, ele fala do tempo.
+const _COMPARISON_METRICS = [
+  { key: "minutesDelta", verb: "estudou", singular: "minuto", plural: "minutos" },
+  { key: "sessionsDelta", verb: "fez", singular: "sessão", plural: "sessões" },
+  { key: "questionsDelta", verb: "respondeu", singular: "questão", plural: "questões" },
+];
+
+function _dayComparisonSentence(comparison) {
+  const metric = _COMPARISON_METRICS.find(m => comparison[m.key] !== 0);
+  if (!metric) {
+    return { text: "Hoje o ritmo foi igual ao de ontem.", isBetter: false };
+  }
+  const delta = comparison[metric.key];
   const abs = Math.abs(delta);
-  const unit = abs === 1 ? unitSingular : unitPlural;
-  return `<span class="sj-summary-badge">${arrow} ${sign}${abs} ${unit}</span>`;
+  const unit = abs === 1 ? metric.singular : metric.plural;
+  const isBetter = delta > 0;
+  const comparativo = isBetter ? "a mais" : "a menos";
+  return {
+    text: `Hoje você ${metric.verb} ${abs} ${unit} ${comparativo} do que ontem.`,
+    isBetter,
+  };
 }
 
 function _renderDayComparison(dayGroup, comparison) {
   if (!comparison) return;
   dayGroup.comparisonEl.hidden = false;
+  const { text, isBetter } = _dayComparisonSentence(comparison);
+  const modifier = isBetter ? " sj-summary-comparison-label--positive" : "";
   dayGroup.comparisonEl.innerHTML = `
-    <span class="sj-summary-comparison-label">Em relação ao dia anterior:</span>
-    ${_comparisonBadge(comparison.sessionsDelta, "sessão", "sessões")}
-    ${_comparisonBadge(comparison.minutesDelta, "minuto", "minutos")}
-    ${_comparisonBadge(comparison.questionsDelta, "questão", "questões")}
+    <span class="sj-summary-comparison-label${modifier}">${escapeHtml(text)}</span>
   `;
 }
 
