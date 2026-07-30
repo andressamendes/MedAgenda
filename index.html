@@ -354,15 +354,23 @@
           <!-- F14.5 — página "Dashboard" (#page-dashboard) removida: sua
                única seção ("Hoje" — meta diária, tempo estudado hoje, sessões
                hoje) é absorvida aqui, abaixo do convite principal, para não
-               competir com ele. Mesmos ids de sempre (dash-cards-today) —
-               activityDashboardView.js continua renderizando exatamente como
-               antes, sem nenhum cálculo novo; só o destino no DOM mudou.
+               competir com ele. Mesmo id de sempre (dash-cards-today) —
+               activityDashboardView.js continua renderizando a partir dos
+               mesmos dados, sem nenhum cálculo novo; só o destino no DOM
+               mudou.
 
                F15.13 — a grade nascia visível no primeiro olhar do dia, em
                tensão com "mede em silêncio, fala em frases" (mesmo princípio
                que levou o Progresso a esconder seus números atrás de um
                disclosure em F14.5). Mesmo padrão aqui: nasce colapsada, 1
-               clique revela os mesmos cards de sempre. -->
+               clique revela os mesmos indicadores de sempre.
+
+               Etapa 6 — as 3 métricas (meta, tempo, sessões), antes 3 cards
+               `.stat-cards`/`.stat-card` separados, viram um único bloco
+               compacto (`.stat-summary`, ver _summaryMarkup() em
+               activityDashboardView.js) — mesmos dados, escopado só a este
+               container: a página Progresso (dash-cards-weekmonth/-records)
+               continua com a grade de cards de sempre. -->
           <section class="today-stats" aria-labelledby="today-stats-toggle">
             <div class="today-stats-toggle-row">
               <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="today-stats-toggle" aria-expanded="false" aria-controls="today-stats-body" data-disclosure-label="Ver números de hoje"></button>
@@ -370,7 +378,7 @@
             <div id="today-stats-body" class="today-stats-body" hidden>
               <h2 id="today-stats-title" class="today-section-title">Hoje em números</h2>
               <p id="dash-error-today" class="list-empty list-error" hidden></p>
-              <div id="dash-cards-today" class="stat-cards" hidden></div>
+              <div id="dash-cards-today" hidden></div>
             </div>
           </section>
 
