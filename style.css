@@ -3156,6 +3156,14 @@ textarea { resize: vertical; }
   color: var(--gray-800);
 }
 
+/* Etapa 4 (auditoria UX radical) — "Hoje" ganha destaque cromático/tipográfico
+   sobre "Ontem" e datas antigas, reforçando a leitura de presente/hábito
+   diário ao abrir a tela. Sem mudança de agrupamento ou dado. */
+.sj-day-header--today .sj-day-header-date {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .sj-day-header-summary {
   font-weight: 400;
   color: var(--gray-500);

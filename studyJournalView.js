@@ -551,9 +551,11 @@ function _updateGroupHeader(group) {
 function _createDayGroup(iso) {
   const li = document.createElement("li");
   li.className = "sj-day-group";
+  const label = _dayLabel(iso);
+  const headerClass = label === "Hoje" ? "sj-day-header sj-day-header--today" : "sj-day-header";
   li.innerHTML = `
-    <div class="sj-day-header">
-      <span class="sj-day-header-date">${escapeHtml(_dayLabel(iso))}</span>
+    <div class="${headerClass}">
+      <span class="sj-day-header-date">${escapeHtml(label)}</span>
       <span class="sj-day-header-summary"></span>
     </div>
     <p class="sj-day-header-comparison" hidden></p>
