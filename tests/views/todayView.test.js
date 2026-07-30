@@ -34,8 +34,6 @@ const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.me
 const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
 const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
 
-const NO_GOAL_PROGRESS = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
-
 let showPageCalls;
 let startSessionForEventCalls;
 let openStartModalCalls;
@@ -99,7 +97,8 @@ function loadView(t, overrides = {}) {
   });
   t.mock.module(DASHBOARD_SERVICE_SPECIFIER, {
     namedExports: {
-      getDashboardData: overrides.getDashboardData ?? (async () => ({ dailyGoal: NO_GOAL_PROGRESS })),
+      getDashboardData: overrides.getDashboardData
+        ?? (async () => ({ dailyGoal: { configured: false, state: "no_goal" } })),
     },
   });
 
@@ -569,4 +568,50 @@ test("F14.8 — confirming 'Fechar o dia' with an empty plan field still closes 
 
   assert.deepStrictEqual(setNextStudyPlanCalls, [{ title: "" }]);
   assert.strictEqual(document.getElementById("close-day-modal").hidden, true);
+});
+
+// ── Reforço visual condicional de "Fechar o dia" (Etapa 10) ────────────────
+
+test("Etapa 10 — 'Fechar o dia' stays neutral when there's no daily goal configured", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: { configured: false, state: "no_goal" } }),
+  });
+  await initTodayView();
+  await new Promise(r => setTimeout(r, 0));
+
+  const wrapper = document.getElementById("today-btn-close-day").closest(".today-close-day");
+  assert.strictEqual(wrapper.classList.contains("today-close-day--goal-met"), false);
+});
+
+test("Etapa 10 — 'Fechar o dia' stays neutral while the daily goal is still partial", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: { configured: true, state: "partial" } }),
+  });
+  await initTodayView();
+  await new Promise(r => setTimeout(r, 0));
+
+  const wrapper = document.getElementById("today-btn-close-day").closest(".today-close-day");
+  assert.strictEqual(wrapper.classList.contains("today-close-day--goal-met"), false);
+});
+
+test("Etapa 10 — 'Fechar o dia' gains the goal-met reinforcement once the daily goal is achieved", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: { configured: true, state: "achieved" } }),
+  });
+  await initTodayView();
+  await new Promise(r => setTimeout(r, 0));
+
+  const wrapper = document.getElementById("today-btn-close-day").closest(".today-close-day");
+  assert.strictEqual(wrapper.classList.contains("today-close-day--goal-met"), true);
+});
+
+test("Etapa 10 — 'Fechar o dia' also gains the goal-met reinforcement when the daily goal is exceeded", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: { configured: true, state: "exceeded" } }),
+  });
+  await initTodayView();
+  await new Promise(r => setTimeout(r, 0));
+
+  const wrapper = document.getElementById("today-btn-close-day").closest(".today-close-day");
+  assert.strictEqual(wrapper.classList.contains("today-close-day--goal-met"), true);
 });

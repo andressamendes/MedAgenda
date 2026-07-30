@@ -2999,6 +2999,24 @@ textarea { resize: vertical; }
   margin-top: var(--space-7);
 }
 
+/* Etapa 10 (auditoria UX/UI de Hoje) — reforço visual condicional: quando a
+   meta diária já foi atingida (todayView.js/_refreshCloseDayGoalState(), a
+   partir do mesmo dailyGoal de activityDashboardService.js), o botão troca o
+   cinza neutro de .btn-ghost por um contorno sutil em --color-success — a
+   mesma cor que já marca "meta cumprida" no anel de Progresso. Não é um
+   estado festivo (sem preenchimento sólido, sem ícone novo): dias sem meta
+   configurada ou ainda em andamento continuam com o botão neutro de sempre,
+   para o reforço nunca soar como cobrança nos dias em que a meta não foi
+   batida. */
+.today-close-day--goal-met #today-btn-close-day {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  box-shadow: var(--ring-1) var(--color-success-border) inset;
+}
+.today-close-day--goal-met #today-btn-close-day:hover:not(:disabled) {
+  background: var(--color-success-bg-strong);
+}
+
 /* ── Heatmap de Constância (V5.1) ──
    84 células (12 semanas × 7 dias), desenhadas como uma grade só via
    grid-auto-flow: column — o markup é uma lista plana de spans (dia 1..7 da

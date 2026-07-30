@@ -390,7 +390,12 @@
           <!-- F14.8 — desfecho do dia: só faz sentido sem uma sessão em
                andamento (mesma condição de today-btn-start/continue, ver
                todayView.js/_refreshHero). Abre um recap de 15 segundos, não
-               um relatório — ver #close-day-modal e todayView.js. -->
+               um relatório — ver #close-day-modal e todayView.js.
+               Etapa 10 (auditoria UX/UI de Hoje): a classe
+               .today-close-day--goal-met é ligada/desligada por
+               todayView.js/_refreshCloseDayGoalState() quando a meta diária
+               já foi atingida — nenhum markup novo, só o modificador de
+               estado (ver style.css). -->
           <div class="today-close-day">
             <button type="button" id="today-btn-close-day" class="btn btn-ghost">Fechar o dia</button>
           </div>

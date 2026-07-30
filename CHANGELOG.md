@@ -2,6 +2,22 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI de Hoje, Etapa 10: reforço visual condicional do "Fechar o dia"
+
+- O botão "Fechar o dia" (`#today-btn-close-day`) ganha a classe
+  `.today-close-day--goal-met` quando a meta diária já foi atingida —
+  reaproveitando o mesmo `dailyGoal` que `activityDashboardService.js`/
+  `getDashboardData()` já calcula para "Hoje em números" (`achieved`/
+  `exceeded`), sem nenhum cálculo de meta novo (`todayView.js`/
+  `_refreshCloseDayGoalState()`). Visualmente troca o cinza neutro de
+  `.btn-ghost` por um contorno sutil em `--color-success`, a mesma cor que já
+  marca "meta cumprida" no anel de Progresso — sem preenchimento sólido nem
+  ícone novo, para não soar festivo. Dias sem meta configurada ou ainda
+  `partial` mantêm o botão neutro de sempre, para o reforço nunca soar como
+  cobrança.
+
+---
+
 ## [Unreleased] — Auditoria UX Diário, Etapa 1: Marcos da Evolução sempre visíveis
 
 - Marcos da Evolução (`#sj-milestones-panel`, aba Diário) deixou de ser um
