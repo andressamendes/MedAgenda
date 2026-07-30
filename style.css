@@ -2437,6 +2437,12 @@ textarea { resize: vertical; }
 .ah-timeline-body {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Marcos da Evolução (F14) é o único consumidor de .ah-timeline-body sem
+   .sj-entry (aba Histórico, Etapa 10, reaproveita o cartão de .sj-entry
+   abaixo) — mantém aqui o cartão com borda que os dois já compartilhavam. */
+.sj-milestones-list .ah-timeline-body {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: .6rem .8rem;
@@ -3196,7 +3202,8 @@ textarea { resize: vertical; }
   min-width: 0;
 }
 
-.sj-entry-header .sj-toggle {
+.sj-entry-header .sj-toggle,
+.sj-entry-header .session-history-status {
   flex-shrink: 0;
 }
 
