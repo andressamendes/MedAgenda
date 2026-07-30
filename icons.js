@@ -339,6 +339,7 @@ const STATIC_ICON_REGISTRY = {
   "alert-triangle": iconAlertTriangle,
   "search": iconSearch,
   "sliders-horizontal": iconSlidersHorizontal,
+  "bar-chart": iconBarChart, // Etapa 6 — botão "Analisar" (estatísticas + filtros)
   "more-horizontal": iconMoreHorizontal,
   "clipboard": iconClipboard,
   "history": iconHistory,
