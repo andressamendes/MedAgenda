@@ -2863,8 +2863,14 @@ textarea { resize: vertical; }
   white-space: nowrap;
 }
 
+/* Faixa de cor da categoria — .badge de texto vira este traço vertical
+   discreto (Etapa 5, #9/#15): a cor por si só nunca é a única pista, o
+   nome da categoria segue disponível via title/aria-label no elemento. */
 .today-appt-category {
   flex-shrink: 0;
+  width: .3rem;
+  align-self: stretch;
+  border-radius: var(--radius-full);
 }
 
 /* Conflito de horário — mesmo tratamento de aviso já usado em .smart-card--atencao
