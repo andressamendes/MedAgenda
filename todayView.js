@@ -27,17 +27,20 @@ import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
 import { categoryColor } from "./categoryView.js";
-import { escapeHtml, isoToday, formatDuration, readableTextColor } from "./utils.js";
+import { escapeHtml, isoToday, formatDuration } from "./utils.js";
 
-let tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
+let heroProgressEl, tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
 let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
 let _bound = false; // AUD-005: a página não é reconstruída entre logins na mesma sessão do app — sem esta guarda, cada login empilharia mais um listener nos mesmos botões
 let _unsubscribers = [];
 let _continueSuggestion = null; // { title, category_id, event } | null — ver _loadContinueSuggestion()
 let _closingDay = false;
+let _apptItemsCache = []; // [{ ev, li }] da última _refreshAppointments — reclassificado a cada minuto sem refazer a consulta (F14 hierarquia temporal)
+let _apptStateTimer = null;
 
 export async function initTodayView() {
+  heroProgressEl = document.getElementById("today-hero-progress");
   tipEl       = document.getElementById("today-tip");
   resumeBtn   = document.getElementById("today-btn-resume");
   startBtn    = document.getElementById("today-btn-start");
@@ -71,6 +74,13 @@ export async function initTodayView() {
     cdBtnConfirm.addEventListener("click", () => _confirmCloseDay());
   }
 
+  // "Agora" muda ao longo do dia — reclassifica passado/próximo a cada minuto
+  // sem refazer a consulta (só troca classes nos <li> já montados).
+  if (!_apptStateTimer) {
+    _apptStateTimer = setInterval(_applyApptTemporalStates, 60000);
+    _apptStateTimer.unref?.(); // não deve manter o processo (ou os testes) vivo sozinho
+  }
+
   if (_unsubscribers.length === 0) {
     _unsubscribers = [
       subscribe(SESSION_EVENTS.STARTED,   _refreshHero),
@@ -85,13 +95,51 @@ export async function initTodayView() {
 }
 
 export async function refreshTodayView() {
-  await Promise.all([_refreshHero(), _refreshAppointments(), _refreshTip()]);
+  await Promise.all([_refreshGreeting(), _refreshHero(), _refreshAppointments(), _refreshTip()]);
+}
+
+// ── Cabeçalho vivo: saudação por horário + nome do usuário + data por
+// extenso (Etapa 1, diagnóstico #1 — ausência de acolhimento na chegada). Só
+// leitura (getProfile()), nenhum dado novo: mesmo full_name que
+// accountView.js já exibe em "Minha Conta". Sem perfil ou sem full_name
+// preenchido, a saudação fica sem nome ("Bom dia" em vez de "Bom dia, ").
+function _greetingByHour(hour) {
+  if (hour < 5)  return "Boa noite";
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+async function _refreshGreeting() {
+  if (!greetingTextEl) return;
+
+  const now = new Date();
+  const greeting = _greetingByHour(now.getHours());
+
+  let firstName = "";
+  try {
+    const profile = await getProfile();
+    firstName = (profile?.full_name || "").trim().split(/\s+/)[0] || "";
+  } catch (err) {
+    handleError(err, { context: "todayView.greetingProfile", silent: true });
+  }
+
+  greetingTextEl.textContent = firstName ? `${greeting}, ${firstName}` : greeting;
+
+  const dateLabel = now.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  greetingDateEl.textContent = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
 }
 
 // ── Hero: sessão ativa > "Começar a estudar" (+ "Continuar: {título}") ──────
 
 async function _refreshHero() {
   if (!resumeBtn) return;
+
+  _refreshHeroProgress();
 
   let active = null;
   try {
@@ -210,11 +258,53 @@ async function _refreshAppointments() {
 
     apptEmptyEl.hidden = events.length > 0;
     const conflicts = _findConflictIndexes(events);
-    events.forEach((ev, i) => apptListEl.appendChild(_buildApptItem(ev, conflicts.has(i))));
+    _apptItemsCache = events.map((ev, i) => {
+      const li = _buildApptItem(ev, conflicts.has(i));
+      apptListEl.appendChild(li);
+      return { ev, li };
+    });
+    _applyApptTemporalStates();
   } catch (err) {
     handleError(err, { context: "todayView.appointments", silent: true });
     apptEmptyEl.hidden = false;
+    _apptItemsCache = [];
   }
+}
+
+// Hierarquia temporal (F14 diagnóstico #3/#20): entre os compromissos ainda
+// não encerrados, o primeiro (mais próximo/em andamento) ganha destaque; os
+// já encerrados recebem tratamento visual reduzido (sem sumir da lista). O
+// estado de conflito (_today-appt-item--conflict_) é independente e nunca é
+// tocado aqui. Reclassifica só as classes dos <li> já montados — nenhuma
+// consulta nova, seguro para rodar a cada minuto mesmo com listas longas.
+function _nowMinutes() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function _applyApptTemporalStates() {
+  if (!_apptItemsCache.length) return;
+  const now = _nowMinutes();
+
+  let nextIndex = -1;
+  for (let i = 0; i < _apptItemsCache.length; i++) {
+    const { ev } = _apptItemsCache[i];
+    const end = _timeToMinutes(ev.start_time) + (ev.duration_minutes || 1);
+    if (end > now) {
+      nextIndex = i;
+      break;
+    }
+  }
+
+  _apptItemsCache.forEach(({ ev, li }, i) => {
+    li.classList.remove("today-appt-item--past", "today-appt-item--next");
+    const end = _timeToMinutes(ev.start_time) + (ev.duration_minutes || 1);
+    if (end <= now) {
+      li.classList.add("today-appt-item--past");
+    } else if (i === nextIndex) {
+      li.classList.add("today-appt-item--next");
+    }
+  });
 }
 
 // Conflito de horário: dois compromissos de hoje cujos intervalos se cruzam.
@@ -255,15 +345,16 @@ function _isStudyCategory(category) {
   return STUDY_CATEGORIES.includes((category || "").trim().toLowerCase());
 }
 
-// Selo de categoria — mesmo par .badge + cor inline que script.js já usa nos
-// cards da Agenda (categoryColor()/readableTextColor()), reaproveitado aqui
-// para que "que tipo de compromisso é este" seja lido pela cor sem precisar
-// abrir o card: plantão, ambulatório e aula não competem entre si por peso
-// visual, cada um carrega a cor que o usuário já escolheu em Categorias.
+// Faixa de categoria — antes um pill de texto (.badge), agora um traço de cor
+// discreto: a lista de Hoje não precisa de mais um bloco textual competindo
+// com título/horário/conflito por atenção (auditoria #9/#15, excesso de
+// badges). A cor ainda é a mesma que o usuário escolheu em Categorias
+// (categoryColor()), só que lida de relance como faixa — e continua
+// disponível como texto via title/aria-label, para quem não distingue cor.
 function _categoryBadgeHtml(category) {
   if (!category) return "";
   const color = categoryColor(category);
-  return `<span class="badge today-appt-category" style="background:${escapeHtml(color)};color:${readableTextColor(color)}">${escapeHtml(category)}</span>`;
+  return `<span class="today-appt-category" style="background:${escapeHtml(color)}" title="${escapeHtml(category)}" aria-label="Categoria: ${escapeHtml(category)}"></span>`;
 }
 
 function _buildApptItem(ev, isConflict) {
@@ -276,9 +367,9 @@ function _buildApptItem(ev, isConflict) {
     ? `<span class="badge today-appt-conflict-badge">Conflito de horário</span>`
     : "";
   li.innerHTML = `
+    ${_categoryBadgeHtml(ev.category)}
     <span class="today-appt-time">${ev.start_time.slice(0, 5)}</span>
     <span class="today-appt-title">${escapeHtml(ev.title)}</span>
-    ${_categoryBadgeHtml(ev.category)}
     ${conflictBadgeHtml}
     ${startBtnHtml}
   `;
@@ -386,4 +477,9 @@ export function resetTodayView() {
   _unsubscribers.forEach(off => off());
   _unsubscribers = [];
   _continueSuggestion = null;
+  if (_apptStateTimer) {
+    clearInterval(_apptStateTimer);
+    _apptStateTimer = null;
+  }
+  _apptItemsCache = [];
 }

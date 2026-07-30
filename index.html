@@ -319,8 +319,19 @@
              caminho para estudar). Ver todayView.js. A Agenda permanece
              intocada como segunda tela, alcançável pelo item de baixo. -->
         <div id="page-today" class="app-page">
-          <div class="page-header">
-            <h1 class="page-title">Hoje</h1>
+          <!-- Etapa 1 (cabeçalho vivo) — saudação contextual por horário +
+               nome do usuário substituem o título estático "Hoje": primeira
+               coisa que a tela diz deixa de ser um rótulo de navegação e
+               passa a reconhecer quem chegou e quando. Nome vem de
+               profileService.getProfile() (full_name); sem perfil carregado
+               ou sem nome preenchido, cai para "Olá" sem nome (ver
+               todayView.js/_refreshGreeting). Data por extenso no mesmo
+               cabeçalho, sem consulta nova. -->
+          <div class="page-header page-header--today">
+            <div class="today-greeting">
+              <h1 class="today-greeting-text" id="today-greeting-text">Olá</h1>
+              <p class="today-greeting-date" id="today-greeting-date"></p>
+            </div>
           </div>
 
           <!-- No máximo 1 card, só se houver uma decisão acionável para hoje
@@ -329,29 +340,42 @@
           <div id="today-tip" class="smart-cards" hidden></div>
 
           <div class="today-hero">
+            <!-- Etapa 2 (auditoria UX #2) — resumo de progresso sempre
+                 visível, sem exigir o clique em "Ver números de hoje"
+                 (#today-stats-toggle). Mesmo dado do card "Meta diária" do
+                 disclosure abaixo — ver todayView.js/_refreshHeroProgress. -->
+            <p id="today-hero-progress" class="today-hero-progress"></p>
             <button type="button" id="today-btn-resume" class="btn btn-primary today-cta" hidden>Continuar sessão em andamento</button>
             <button type="button" id="today-btn-start" class="btn btn-primary today-cta">Começar a estudar</button>
-            <button type="button" id="today-btn-continue" class="btn btn-secondary today-cta" hidden></button>
+            <button type="button" id="today-btn-continue" class="btn btn-secondary today-cta today-cta--alt" hidden></button>
           </div>
 
           <section class="today-appointments" aria-labelledby="today-appointments-title">
             <h2 id="today-appointments-title" class="today-section-title">Compromissos de hoje</h2>
-            <p id="today-appointments-empty" class="list-empty" hidden>Seu dia está livre — nenhum compromisso marcado por aqui.</p>
+            <p id="today-appointments-empty" class="list-empty list-empty--today" hidden>Nenhum compromisso por aqui. Seu dia está livre para focar nos estudos ✨</p>
             <ul id="today-appointments-list" class="today-appointments-list"></ul>
           </section>
 
           <!-- F14.5 — página "Dashboard" (#page-dashboard) removida: sua
                única seção ("Hoje" — meta diária, tempo estudado hoje, sessões
                hoje) é absorvida aqui, abaixo do convite principal, para não
-               competir com ele. Mesmos ids de sempre (dash-cards-today) —
-               activityDashboardView.js continua renderizando exatamente como
-               antes, sem nenhum cálculo novo; só o destino no DOM mudou.
+               competir com ele. Mesmo id de sempre (dash-cards-today) —
+               activityDashboardView.js continua renderizando a partir dos
+               mesmos dados, sem nenhum cálculo novo; só o destino no DOM
+               mudou.
 
                F15.13 — a grade nascia visível no primeiro olhar do dia, em
                tensão com "mede em silêncio, fala em frases" (mesmo princípio
                que levou o Progresso a esconder seus números atrás de um
                disclosure em F14.5). Mesmo padrão aqui: nasce colapsada, 1
-               clique revela os mesmos cards de sempre. -->
+               clique revela os mesmos indicadores de sempre.
+
+               Etapa 6 — as 3 métricas (meta, tempo, sessões), antes 3 cards
+               `.stat-cards`/`.stat-card` separados, viram um único bloco
+               compacto (`.stat-summary`, ver _summaryMarkup() em
+               activityDashboardView.js) — mesmos dados, escopado só a este
+               container: a página Progresso (dash-cards-weekmonth/-records)
+               continua com a grade de cards de sempre. -->
           <section class="today-stats" aria-labelledby="today-stats-toggle">
             <div class="today-stats-toggle-row">
               <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="today-stats-toggle" aria-expanded="false" aria-controls="today-stats-body" data-disclosure-label="Ver números de hoje"></button>
@@ -359,7 +383,7 @@
             <div id="today-stats-body" class="today-stats-body" hidden>
               <h2 id="today-stats-title" class="today-section-title">Hoje em números</h2>
               <p id="dash-error-today" class="list-empty list-error" hidden></p>
-              <div id="dash-cards-today" class="stat-cards" hidden></div>
+              <div id="dash-cards-today" hidden></div>
             </div>
           </section>
 

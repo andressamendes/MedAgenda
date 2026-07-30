@@ -11,6 +11,8 @@
  * sugestão automática é derivada daqui.
  */
 
+import { formatDuration } from "./utils.js";
+
 export const GOAL_LIMITS = {
   daily:   { min: 5, max: 1440 },   // até 24h
   weekly:  { min: 5, max: 10080 },  // até 7 dias
@@ -86,4 +88,28 @@ export function calculateGoalProgress(actualMinutes, goalMinutes) {
     remainingMinutes,
     state,
   };
+}
+
+/**
+ * Frase de 1 linha resumindo o progresso da meta diária — mesmo `progress`
+ * de calculateGoalProgress(), nenhum cálculo novo. Usada pelo hero da tela
+ * "Hoje" (Etapa 2: resumo sempre visível, sem exigir clique) e mantém o
+ * mesmo dado do card "Meta diária" no disclosure de números
+ * (activityDashboardView.js), só com fraseado diferente para caber numa
+ * linha só.
+ */
+export function formatGoalSentence(progress) {
+  const tempo = formatDuration(progress.actualMinutes);
+
+  if (!progress.configured) {
+    return progress.actualMinutes > 0
+      ? `Você já estudou ${tempo} hoje.`
+      : "Nenhum minuto estudado hoje ainda.";
+  }
+
+  const meta = formatDuration(progress.goalMinutes);
+  if (progress.state === "exceeded") return `Meta diária ultrapassada: ${tempo} estudados hoje (meta era ${meta}).`;
+  if (progress.state === "achieved") return `Meta diária batida: ${tempo} estudados hoje.`;
+  if (progress.actualMinutes === 0)  return `Você ainda não começou a estudar hoje. Meta: ${meta}.`;
+  return `${tempo} de ${meta} estudados hoje (${progress.percentage}%).`;
 }

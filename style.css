@@ -1039,6 +1039,36 @@ body {
   color: var(--gray-800);
 }
 
+/* ── Cabeçalho vivo da tela "Hoje" (Etapa 1) — variante de .page-header sem
+   ação à direita (só título+data): mantém align-items/gap da base, dispensa
+   justify-content: space-between (nenhum irmão para empurrar). ── */
+.page-header--today {
+  justify-content: flex-start;
+}
+
+.today-greeting {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  min-width: 0;
+}
+
+.today-greeting-text {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--gray-800);
+  overflow-wrap: break-word;
+}
+
+.today-greeting-date {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+}
+
+@media (max-width: 480px) {
+  .today-greeting-text { font-size: var(--font-size-xl); }
+}
+
 /* Etapa 8 (F8) — frase de abertura contextual do Diário, logo abaixo do
    título: tom de "abrindo um diário pessoal", não de legenda de sistema. */
 .page-subtitle {
@@ -2147,6 +2177,13 @@ textarea { resize: vertical; }
   color: var(--color-danger);
 }
 
+/* Estado vazio da Agenda (Hoje) — tom positivo em vez de neutro/genérico
+   (auditoria UX #4): reforça "dia livre" como algo bom, não uma ausência. */
+.list-empty--today {
+  color: var(--color-success, var(--gray-500));
+  font-weight: 500;
+}
+
 .list-empty .list-error-retry {
   display: block;
   margin: .6rem auto 0;
@@ -2165,7 +2202,8 @@ textarea { resize: vertical; }
    mesmo radius-base, ver F18.8) e continuam com suas próprias regras, sem
    forçar uma unificação que mudaria como aparecem hoje. ── */
 .event-card,
-.stat-card {
+.stat-card,
+.stat-summary {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -2503,11 +2541,6 @@ textarea { resize: vertical; }
   gap: .3rem;
 }
 
-.stat-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
 .stat-card-title {
   font-size: var(--eyebrow-font-size);
   font-weight: 600;
@@ -2535,9 +2568,51 @@ textarea { resize: vertical; }
   padding: 0;
   gap: .15rem;
 }
-.stat-card--sm:hover { box-shadow: none; transform: none; }
 .stat-card--sm .stat-card-title { font-size: var(--font-size-2xs); }
 .stat-card--sm .stat-card-value { font-family: inherit; font-size: var(--font-size-lg); color: var(--gray-800); }
+
+/* Etapa 6 — fusão dos 3 stat-cards de "Hoje" (meta/tempo/sessões) num único
+   bloco compacto (#dash-cards-today, ver _summaryMarkup() em
+   activityDashboardView.js): mesma leitura de valor+rótulo do .stat-card,
+   só em faixa lado a lado dentro de um único cartão, sem repetir sombra/
+   hover por item. Escopado a este bloco — a página Progresso segue com
+   .stat-cards/.stat-card de sempre. */
+.stat-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-summary-item {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+}
+
+.stat-summary-label {
+  font-size: var(--eyebrow-font-size);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+}
+
+.stat-summary-value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.stat-summary-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+}
 
 /* V5.2 — anel circular das metas de tempo (dailyGoal/weeklyGoal/
    monthlyGoal), a única metáfora visual de "% de meta cumprida" no produto
@@ -2743,24 +2818,67 @@ textarea { resize: vertical; }
 /* ── Tela "Hoje" (F14.1) — porta de entrada do app ──
    Botão primário único ("Começar a estudar"/"Continuar sessão em
    andamento"), com "Continuar: {último estudo}" como ação secundária — nunca
-   os três ao mesmo tempo (ver todayView.js/_refreshHero). */
+   os três ao mesmo tempo (ver todayView.js/_refreshHero).
+
+   Elevação estrutural (problema #4 — hierarquia visual): fundo + sombra
+   maior que a de `.card` (`--shadow-lg` vs `--shadow-md`), para que este
+   bloco continue sendo o elemento de maior destaque da tela mesmo ao lado
+   de superfícies elevadas como `.today-appt-item`. Padding/gap generosos
+   o bastante para respirar em 360px sem quebrar o botão de 220px. */
 .today-hero {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: .6rem;
-  margin: 1rem 0 1.6rem;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-6);
 }
 
 .today-cta {
   min-width: 220px;
+  max-width: 100%;
+}
+
+/* Prioridade visual única do hero (F14.1 audit, UI #3 / UX #3): Resume e
+   Start nunca coexistem — os dois usam .btn-primary sem modificação, sempre
+   a mesma cor/peso/tamanho de "ação recomendada". Continue só aparece ao
+   lado de Start, então precisa ficar inequivocamente abaixo dele na escala:
+   sem caixa própria (nada de fundo/borda competindo pela mesma atenção),
+   texto menor e mais leve — lido como "alternativa", não como um segundo
+   botão de mesmo peso. */
+.today-cta--alt {
+  min-width: 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: .35rem .3rem;
+}
+.today-cta--alt:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+/* Etapa 2 (auditoria UX #2) — frase de progresso sempre visível, sem exigir
+   clique no disclosure "Ver números de hoje"; mesma linguagem visual da
+   frase de destaque em Progresso (.progress-narrative-highlight). */
+.today-hero-progress {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--gray-600);
+}
+
+.today-hero-progress:empty {
+  display: none;
 }
 
 .today-section-title {
   font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--gray-700);
-  margin: 0 0 .6rem;
+  margin: 0 0 var(--space-2);
 }
 
 .today-appointments-list {
@@ -2769,14 +2887,14 @@ textarea { resize: vertical; }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: var(--space-2);
 }
 
 .today-appt-item {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: .6rem .8rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -2796,8 +2914,14 @@ textarea { resize: vertical; }
   white-space: nowrap;
 }
 
+/* Faixa de cor da categoria — .badge de texto vira este traço vertical
+   discreto (Etapa 5, #9/#15): a cor por si só nunca é a única pista, o
+   nome da categoria segue disponível via title/aria-label no elemento. */
 .today-appt-category {
   flex-shrink: 0;
+  width: .3rem;
+  align-self: stretch;
+  border-radius: var(--radius-full);
 }
 
 /* Conflito de horário — mesmo tratamento de aviso já usado em .smart-card--atencao
@@ -2805,6 +2929,28 @@ textarea { resize: vertical; }
    ícone alarmista. É informação disponível, não um erro do usuário. */
 .today-appt-item--conflict {
   border-left: 3px solid var(--color-warning-border);
+}
+
+/* Hierarquia temporal (F14 diagnóstico #3/#20) — o próximo compromisso (ou o
+   que está em andamento) se destaca; o conflito acima continua independente
+   e pode se somar a qualquer um dos dois estados abaixo. */
+.today-appt-item--next {
+  border-color: var(--color-primary-300);
+  background: var(--color-primary-50);
+}
+
+.today-appt-item--next .today-appt-time {
+  color: var(--color-primary-700);
+}
+
+/* Já encerrado — reduzido, não escondido: ainda é histórico do dia. */
+.today-appt-item--past {
+  opacity: .6;
+}
+
+.today-appt-item--past .today-appt-time,
+.today-appt-item--past .today-appt-title {
+  color: var(--gray-500);
 }
 
 .today-appt-conflict-badge {
@@ -2829,7 +2975,7 @@ textarea { resize: vertical; }
    principal ("Começar a estudar") e dos compromissos, para não competir com
    eles pela atenção de quem acabou de abrir o app. */
 .today-stats {
-  margin-top: 1.6rem;
+  margin-top: var(--space-6);
 }
 
 /* F15.13 — mesmo padrão de disclosure do Progresso (.progress-numbers-*):
@@ -2850,7 +2996,7 @@ textarea { resize: vertical; }
 .today-close-day {
   display: flex;
   justify-content: center;
-  margin-top: 2rem;
+  margin-top: var(--space-7);
 }
 
 /* Etapa 10 (auditoria UX/UI de Hoje) — reforço visual condicional: quando a
