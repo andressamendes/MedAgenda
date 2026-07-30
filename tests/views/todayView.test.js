@@ -32,6 +32,7 @@ const DECISION_ENGINE_SPECIFIER  = new URL("../../decisionEngine.js", import.met
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
+const PROFILE_SPECIFIER          = new URL("../../profileService.js", import.meta.url).href;
 
 let showPageCalls;
 let startSessionForEventCalls;
@@ -94,6 +95,11 @@ function loadView(t, overrides = {}) {
       categoryColor: overrides.categoryColor ?? (() => "#6b7280"),
     },
   });
+  t.mock.module(PROFILE_SPECIFIER, {
+    namedExports: {
+      getProfile: overrides.getProfile ?? (async () => ({ full_name: "Aluna Teste" })),
+    },
+  });
 
   return import(`../../todayView.js?t=${Math.random()}`);
 }
@@ -115,6 +121,27 @@ test("with no active session and no history, only 'Começar a estudar' is shown"
   assert.strictEqual(document.getElementById("today-btn-start").hidden, false);
   assert.strictEqual(document.getElementById("today-btn-resume").hidden, true);
   assert.strictEqual(document.getElementById("today-btn-continue").hidden, true);
+});
+
+test("greeting shows the user's first name and a date label", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getProfile: async () => ({ full_name: "Maria Souza" }),
+  });
+  await initTodayView();
+
+  const text = document.getElementById("today-greeting-text").textContent;
+  assert.match(text, /^(Bom dia|Boa tarde|Boa noite), Maria$/);
+  assert.notStrictEqual(document.getElementById("today-greeting-date").textContent, "");
+});
+
+test("greeting falls back to no name when the profile has none", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getProfile: async () => null,
+  });
+  await initTodayView();
+
+  const text = document.getElementById("today-greeting-text").textContent;
+  assert.match(text, /^(Bom dia|Boa tarde|Boa noite)$/);
 });
 
 test("clicking 'Começar a estudar' navigates to the study session page and opens the start modal", async (t) => {

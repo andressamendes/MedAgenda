@@ -22,12 +22,14 @@ import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
+import { getProfile } from "./profileService.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
 import { categoryColor } from "./categoryView.js";
 import { escapeHtml, isoToday, formatDuration, readableTextColor } from "./utils.js";
 
+let greetingTextEl, greetingDateEl;
 let tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
 let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
@@ -37,6 +39,8 @@ let _continueSuggestion = null; // { title, category_id, event } | null — ver 
 let _closingDay = false;
 
 export async function initTodayView() {
+  greetingTextEl = document.getElementById("today-greeting-text");
+  greetingDateEl = document.getElementById("today-greeting-date");
   tipEl       = document.getElementById("today-tip");
   resumeBtn   = document.getElementById("today-btn-resume");
   startBtn    = document.getElementById("today-btn-start");
@@ -84,7 +88,43 @@ export async function initTodayView() {
 }
 
 export async function refreshTodayView() {
-  await Promise.all([_refreshHero(), _refreshAppointments(), _refreshTip()]);
+  await Promise.all([_refreshGreeting(), _refreshHero(), _refreshAppointments(), _refreshTip()]);
+}
+
+// ── Cabeçalho vivo: saudação por horário + nome do usuário + data por
+// extenso (Etapa 1, diagnóstico #1 — ausência de acolhimento na chegada). Só
+// leitura (getProfile()), nenhum dado novo: mesmo full_name que
+// accountView.js já exibe em "Minha Conta". Sem perfil ou sem full_name
+// preenchido, a saudação fica sem nome ("Bom dia" em vez de "Bom dia, ").
+function _greetingByHour(hour) {
+  if (hour < 5)  return "Boa noite";
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+async function _refreshGreeting() {
+  if (!greetingTextEl) return;
+
+  const now = new Date();
+  const greeting = _greetingByHour(now.getHours());
+
+  let firstName = "";
+  try {
+    const profile = await getProfile();
+    firstName = (profile?.full_name || "").trim().split(/\s+/)[0] || "";
+  } catch (err) {
+    handleError(err, { context: "todayView.greetingProfile", silent: true });
+  }
+
+  greetingTextEl.textContent = firstName ? `${greeting}, ${firstName}` : greeting;
+
+  const dateLabel = now.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  greetingDateEl.textContent = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
 }
 
 // ── Hero: sessão ativa > "Começar a estudar" (+ "Continuar: {título}") ──────

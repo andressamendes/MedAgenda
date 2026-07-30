@@ -319,8 +319,19 @@
              caminho para estudar). Ver todayView.js. A Agenda permanece
              intocada como segunda tela, alcançável pelo item de baixo. -->
         <div id="page-today" class="app-page">
-          <div class="page-header">
-            <h1 class="page-title">Hoje</h1>
+          <!-- Etapa 1 (cabeçalho vivo) — saudação contextual por horário +
+               nome do usuário substituem o título estático "Hoje": primeira
+               coisa que a tela diz deixa de ser um rótulo de navegação e
+               passa a reconhecer quem chegou e quando. Nome vem de
+               profileService.getProfile() (full_name); sem perfil carregado
+               ou sem nome preenchido, cai para "Olá" sem nome (ver
+               todayView.js/_refreshGreeting). Data por extenso no mesmo
+               cabeçalho, sem consulta nova. -->
+          <div class="page-header page-header--today">
+            <div class="today-greeting">
+              <h1 class="today-greeting-text" id="today-greeting-text">Olá</h1>
+              <p class="today-greeting-date" id="today-greeting-date"></p>
+            </div>
           </div>
 
           <!-- No máximo 1 card, só se houver uma decisão acionável para hoje
