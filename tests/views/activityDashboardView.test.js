@@ -128,8 +128,11 @@ function allCardsHtml() {
   return cardGroupEls().map(el => el.innerHTML).join("");
 }
 
+// Etapa 6 — #dash-cards-today funde suas 3 métricas num único bloco
+// `.stat-summary` (1 filho), em vez de 3 `.stat-card` separados; os outros
+// dois níveis (página Progresso) continuam com um filho por card de sempre.
 function totalCardsCount() {
-  return cardGroupEls().reduce((sum, el) => sum + el.children.length, 0);
+  return cardGroupEls().reduce((sum, el) => sum + el.querySelectorAll(".stat-card, .stat-summary-item").length, 0);
 }
 
 function allConfigureLinks() {
@@ -847,7 +850,7 @@ test("F10 #3.1/F14.5 — 'Hoje' has exactly the three today-scoped cards, render
 
   const today = document.getElementById("dash-cards-today");
   assert.strictEqual(today.hidden, false);
-  assert.strictEqual(today.children.length, 3);
+  assert.strictEqual(today.querySelectorAll(".stat-summary-item").length, 3);
   assert.match(today.textContent, /Meta diária/);
   assert.match(today.textContent, /Tempo estudado hoje/);
   assert.match(today.textContent, /Sessões hoje/);
@@ -884,7 +887,7 @@ test("F15.13 — clicking 'Ver números de hoje' reveals the same three cards as
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
   assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar números de hoje");
   const today = document.getElementById("dash-cards-today");
-  assert.strictEqual(today.children.length, 3);
+  assert.strictEqual(today.querySelectorAll(".stat-summary-item").length, 3);
   assert.match(today.textContent, /Meta diária/);
 
   toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));

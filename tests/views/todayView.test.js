@@ -293,7 +293,7 @@ test("appointments without overlapping times show no conflict badge", async (t) 
   assert.ok(!items[1].classList.contains("today-appt-item--conflict"));
 });
 
-test("each appointment shows a category badge colored from categoryColor()", async (t) => {
+test("each appointment shows a category color stripe from categoryColor(), not a text pill", async (t) => {
   const events = [
     { id: "e1", title: "Plantão UPA", start_time: "08:00:00", category: "Plantão" },
     { id: "e2", title: "Aniversário", start_time: "18:00:00", category: null },
@@ -306,10 +306,12 @@ test("each appointment shows a category badge colored from categoryColor()", asy
   await initTodayView();
 
   const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
-  const badge1 = items[0].querySelector(".today-appt-category");
-  assert.ok(badge1);
-  assert.strictEqual(badge1.textContent, "Plantão");
-  assert.ok(badge1.getAttribute("style").includes("#ef4444"));
+  const stripe = items[0].querySelector(".today-appt-category");
+  assert.ok(stripe);
+  assert.strictEqual(stripe.textContent, "");
+  assert.ok(stripe.getAttribute("style").includes("#ef4444"));
+  assert.strictEqual(stripe.getAttribute("title"), "Plantão");
+  assert.ok(stripe.getAttribute("aria-label").includes("Plantão"));
 
   assert.strictEqual(items[1].querySelector(".today-appt-category"), null);
 });
@@ -359,6 +361,67 @@ test("appointments outside Estudo/Simulado categories show no 'Iniciar sessão' 
     .filter(li => li.querySelector(".today-appt-start"))
     .map(li => li.querySelector(".today-appt-title").textContent);
   assert.deepStrictEqual(titlesWithButton, ["Revisão de Farmaco", "Simulado ENARE"]);
+});
+
+// ── Hierarquia temporal (F14 diagnóstico #3/#20) ─────────────────────────
+
+test("the next/current appointment is highlighted and past ones get reduced treatment", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date(2026, 6, 30, 10, 0, 0) }); // 10:00 local
+  const events = [
+    { id: "e1", title: "Já passou", start_time: "08:00:00", duration_minutes: 60, category: "Aula" },
+    { id: "e2", title: "Em andamento", start_time: "09:30:00", duration_minutes: 60, category: "Aula" },
+    { id: "e3", title: "Ainda vai começar", start_time: "12:00:00", duration_minutes: 60, category: "Aula" },
+  ];
+  const { initTodayView } = await loadView(t, { getEventsByRange: async () => events });
+  await initTodayView();
+
+  const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
+  assert.ok(items[0].classList.contains("today-appt-item--past"));
+  assert.ok(!items[0].classList.contains("today-appt-item--next"));
+
+  assert.ok(!items[1].classList.contains("today-appt-item--past"));
+  assert.ok(items[1].classList.contains("today-appt-item--next"), "the ongoing appointment is the highlighted one");
+
+  assert.ok(!items[2].classList.contains("today-appt-item--past"));
+  assert.ok(!items[2].classList.contains("today-appt-item--next"), "only the nearest upcoming/ongoing item is highlighted");
+});
+
+test("a conflicted appointment keeps its conflict badge regardless of temporal state", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date(2026, 6, 30, 20, 0, 0) }); // 20:00 local — both already past
+  const events = [
+    { id: "e1", title: "Plantão UPA", start_time: "08:00:00", duration_minutes: 240, category: "Ambulatório" },
+    { id: "e2", title: "Aula de Cardiologia", start_time: "09:00:00", duration_minutes: 60, category: "Aula" },
+  ];
+  const { initTodayView } = await loadView(t, { getEventsByRange: async () => events });
+  await initTodayView();
+
+  const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
+  assert.ok(items[0].classList.contains("today-appt-item--conflict"));
+  assert.ok(items[0].classList.contains("today-appt-item--past"), "conflict and past-state are independent and can combine");
+  assert.ok(items[1].classList.contains("today-appt-item--conflict"));
+  assert.ok(items[1].classList.contains("today-appt-item--past"));
+});
+
+test("appointment classification updates as time passes, without refetching", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: new Date(2026, 6, 30, 7, 0, 0) }); // 07:00 local
+  let fetchCount = 0;
+  const events = [{ id: "e1", title: "Revisão", start_time: "08:00:00", duration_minutes: 30, category: "Aula" }];
+  const { initTodayView } = await loadView(t, {
+    getEventsByRange: async () => { fetchCount++; return events; },
+  });
+  await initTodayView();
+
+  let item = document.querySelector("#today-appointments-list .today-appt-item");
+  assert.ok(item.classList.contains("today-appt-item--next"));
+  assert.ok(!item.classList.contains("today-appt-item--past"));
+  assert.strictEqual(fetchCount, 1);
+
+  t.mock.timers.tick(90 * 60 * 1000); // avança 90min → agora 08:30, o compromisso já encerrou às 08:30
+
+  item = document.querySelector("#today-appointments-list .today-appt-item");
+  assert.ok(item.classList.contains("today-appt-item--past"));
+  assert.ok(!item.classList.contains("today-appt-item--next"));
+  assert.strictEqual(fetchCount, 1, "reclassification must not refetch appointment data");
 });
 
 test("personal events hidden (isPersonalVisible() false) show no appointments", async (t) => {
