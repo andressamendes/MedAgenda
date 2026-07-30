@@ -460,6 +460,19 @@ function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
   // `questions` já veio carregado em lote por _fetchPageExtras().
   const sections = [];
 
+  // Etapa 3 (reflexão como 1ª seção) — Reflexão abre o detalhe, antes das
+  // seções técnicas (Questões/Revisões/Observações): é a única escrita
+  // pessoal da tela, o elemento mais próximo do conceito de "diário".
+  // Classe própria (.sj-detail-section--reflection) dá o tratamento visual
+  // diferenciado; o mecanismo de salvar/editar (_renderReflectionView,
+  // chamado por _buildEntryEl logo após este render) não muda.
+  sections.push(`
+    <div class="sj-detail-section sj-detail-section--reflection">
+      <h3 class="sj-detail-title sj-detail-title--reflection">Reflexão</h3>
+      <div class="sj-reflection"></div>
+    </div>
+  `);
+
   if (questions.length) {
     const summary = summarizeSessionQuestions(questions);
     const summaryHtml = summary.total > 0
@@ -506,13 +519,6 @@ function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
       </div>
     `);
   }
-
-  sections.push(`
-    <div class="sj-detail-section">
-      <h3 class="sj-detail-title">Reflexão</h3>
-      <div class="sj-reflection"></div>
-    </div>
-  `);
 
   detailEl.innerHTML = sections.join("");
 }
