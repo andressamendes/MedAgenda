@@ -2503,11 +2503,6 @@ textarea { resize: vertical; }
   gap: .3rem;
 }
 
-.stat-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
 .stat-card-title {
   font-size: var(--eyebrow-font-size);
   font-weight: 600;
@@ -2535,7 +2530,6 @@ textarea { resize: vertical; }
   padding: 0;
   gap: .15rem;
 }
-.stat-card--sm:hover { box-shadow: none; transform: none; }
 .stat-card--sm .stat-card-title { font-size: var(--font-size-2xs); }
 .stat-card--sm .stat-card-value { font-family: inherit; font-size: var(--font-size-lg); color: var(--gray-800); }
 
