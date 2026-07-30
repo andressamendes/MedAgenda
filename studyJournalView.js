@@ -111,6 +111,7 @@
 // continua "all" (sem mudança de lógica).
 
 import { listSessions } from "./activitySessionService.js";
+import { getCurrentStreak } from "./studyStreakService.js";
 import { getEvents } from "./eventService.js";
 import { listQuestionsBySessions } from "./sessionQuestionsService.js";
 import { listBySessions as listReviewsBySessions } from "./reviewSessionService.js";
@@ -181,7 +182,7 @@ const SJ_EMPTY_MARKUP = emptyIllustrationMarkup({
   desc: "Inicie uma sessão em “Sessão” para começar a registrar sua constância.",
 });
 
-let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl;
+let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl, openingLineEl;
 // F17 — Estatísticas de questões (seção fixa, distinta de statsEl/
 // sj-search-stats acima, que é a contagem de sessões filtradas).
 let questionStatsTotalEl, questionStatsCorrectEl, questionStatsIncorrectEl,
@@ -707,6 +708,34 @@ function _renderLoadError({ state, message }) {
   renderStateBlock(emptyEl, { state, message, onRetry: () => _loadPage(true) });
 }
 
+// ── Frase de abertura contextual (Etapa 8) ──────────────────────────────
+// Reaproveita a mesma constância já calculada por studyStreakService.js
+// (F6.11, consumida pelo Progresso/close-day) — nenhum cálculo novo, só uma
+// redação própria do contexto "abrir o Diário" (nunca a mesma frase do
+// resumo do Progresso, que fala de tempo semanal). Sempre tem fallback: um
+// estudante sem sequência ainda vê uma frase de convite, nunca um espaço
+// vazio.
+function _journalOpeningLine(currentStreak) {
+  if (currentStreak >= 2) {
+    return `${currentStreak} dias seguidos de estudo, registrados aqui.`;
+  }
+  if (currentStreak === 1) {
+    return "Você estudou hoje — o começo de um novo registro.";
+  }
+  return "Cada sessão concluída vira um registro nesta linha do tempo.";
+}
+
+async function _loadOpeningLine() {
+  if (!openingLineEl) return;
+  try {
+    const streak = await getCurrentStreak();
+    openingLineEl.textContent = _journalOpeningLine(streak);
+  } catch (err) {
+    handleError(err, { context: "studyJournalView.loadOpeningLine", silent: true });
+    openingLineEl.textContent = _journalOpeningLine(0);
+  }
+}
+
 // ── Filtros (F8.4) ───────────────────────────────────────────────────────
 // Tudo abaixo opera exclusivamente sobre `_allEntries` (já em memória) —
 // trocar um filtro nunca chama nenhum dos services novamente.
@@ -1195,6 +1224,7 @@ export async function initStudyJournalView() {
     emptyEl     = document.getElementById("sj-list-empty");
     loadMoreBtn = document.getElementById("sj-load-more");
     statsEl     = document.getElementById("sj-search-stats");
+    openingLineEl = document.getElementById("sj-opening-line");
     questionStatsTotalEl      = document.getElementById("sj-stats-total");
     questionStatsCorrectEl    = document.getElementById("sj-stats-correct");
     questionStatsIncorrectEl  = document.getElementById("sj-stats-incorrect");
@@ -1262,6 +1292,10 @@ export async function initStudyJournalView() {
   try { savedStatusTab = localStorage.getItem(JOURNAL_STATUS_TAB_KEY); } catch { /* storage unavailable */ }
   _setStatusTab(JOURNAL_STATUS_TAB_VALUES.has(savedStatusTab) ? savedStatusTab : "finished");
   _subscribeToEventBus();
+  // Independente do carregamento das sessões — mesmo isolamento de
+  // _loadEventsLookup(): uma falha aqui não deve atrasar nem esconder o
+  // resto do Diário.
+  _loadOpeningLine();
   await _loadEventsLookup();
   await _loadPage(true);
 }
@@ -1300,6 +1334,7 @@ export function resetStudyJournalView() {
     clearStateBlock(emptyEl);
   }
   if (statsEl) statsEl.hidden = true;
+  if (openingLineEl) openingLineEl.textContent = "";
   _categoriesByName = null;
   [questionStatsTotalEl, questionStatsCorrectEl, questionStatsIncorrectEl].forEach(el => {
     if (el) el.textContent = "0";
