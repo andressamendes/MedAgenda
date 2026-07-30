@@ -34,6 +34,10 @@ const ERROR_SPECIFIER    = new URL("../../errorService.js", import.meta.url).hre
 // activityHistoryView.js.
 const STATISTICS_SPECIFIER = new URL("../../studyStatisticsService.js", import.meta.url).href;
 const CATEGORY_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
+// Etapa 8 — frase de abertura contextual (#sj-opening-line), reaproveita
+// studyStreakService.getCurrentStreak(); mockado como qualquer outra
+// dependência para não arrastar activitySessionService/supabase de verdade.
+const STREAK_SPECIFIER = new URL("../../studyStreakService.js", import.meta.url).href;
 
 // Constrói uma versão em lote { [sessionId]: value } a partir de uma função
 // por sessão (o estilo antigo, ainda usado pela maioria dos testes abaixo) —
@@ -142,6 +146,12 @@ function loadView(t, overrides = {}) {
     },
   });
 
+  t.mock.module(STREAK_SPECIFIER, {
+    namedExports: {
+      getCurrentStreak: overrides.getCurrentStreak ?? (async () => 0),
+    },
+  });
+
   return import(`../../studyJournalView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls,
@@ -180,6 +190,32 @@ test("empty journal shows the empty-state message and no entries", async (t) => 
   assert.strictEqual(document.getElementById("sj-list-empty").hidden, false);
   assert.strictEqual(document.getElementById("sj-list").children.length, 0);
   assert.strictEqual(document.getElementById("sj-load-more").hidden, true);
+});
+
+test("Etapa 8 — opening line falls back to an inviting sentence for a student with no streak", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+    getCurrentStreak: async () => 0,
+  });
+
+  await mod.initStudyJournalView();
+  await tick();
+
+  const text = document.getElementById("sj-opening-line").textContent;
+  assert.ok(text.length > 0);
+  assert.doesNotMatch(text, /undefined|NaN/);
+});
+
+test("Etapa 8 — opening line reuses studyStreakService's current streak, no new calculation", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+    getCurrentStreak: async () => 5,
+  });
+
+  await mod.initStudyJournalView();
+  await tick();
+
+  assert.match(document.getElementById("sj-opening-line").textContent, /5/);
 });
 
 test("a single session renders compromisso, conteúdo, horário, tempo líquido e contagem de questões", async (t) => {

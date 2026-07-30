@@ -1039,6 +1039,14 @@ body {
   color: var(--gray-800);
 }
 
+/* Etapa 8 (F8) — frase de abertura contextual do Diário, logo abaixo do
+   título: tom de "abrindo um diário pessoal", não de legenda de sistema. */
+.page-subtitle {
+  margin-top: calc(var(--space-1) * -1);
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
 .filter-section {
   margin-bottom: var(--space-1);
 }
