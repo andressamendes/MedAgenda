@@ -264,7 +264,7 @@ test("appointments without overlapping times show no conflict badge", async (t) 
   assert.ok(!items[1].classList.contains("today-appt-item--conflict"));
 });
 
-test("each appointment shows a category badge colored from categoryColor()", async (t) => {
+test("each appointment shows a category color stripe from categoryColor(), not a text pill", async (t) => {
   const events = [
     { id: "e1", title: "Plantão UPA", start_time: "08:00:00", category: "Plantão" },
     { id: "e2", title: "Aniversário", start_time: "18:00:00", category: null },
@@ -277,10 +277,12 @@ test("each appointment shows a category badge colored from categoryColor()", asy
   await initTodayView();
 
   const items = Array.from(document.querySelectorAll("#today-appointments-list .today-appt-item"));
-  const badge1 = items[0].querySelector(".today-appt-category");
-  assert.ok(badge1);
-  assert.strictEqual(badge1.textContent, "Plantão");
-  assert.ok(badge1.getAttribute("style").includes("#ef4444"));
+  const stripe = items[0].querySelector(".today-appt-category");
+  assert.ok(stripe);
+  assert.strictEqual(stripe.textContent, "");
+  assert.ok(stripe.getAttribute("style").includes("#ef4444"));
+  assert.strictEqual(stripe.getAttribute("title"), "Plantão");
+  assert.ok(stripe.getAttribute("aria-label").includes("Plantão"));
 
   assert.strictEqual(items[1].querySelector(".today-appt-category"), null);
 });
