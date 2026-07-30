@@ -2165,7 +2165,8 @@ textarea { resize: vertical; }
    mesmo radius-base, ver F18.8) e continuam com suas próprias regras, sem
    forçar uma unificação que mudaria como aparecem hoje. ── */
 .event-card,
-.stat-card {
+.stat-card,
+.stat-summary {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -2538,6 +2539,49 @@ textarea { resize: vertical; }
 .stat-card--sm:hover { box-shadow: none; transform: none; }
 .stat-card--sm .stat-card-title { font-size: var(--font-size-2xs); }
 .stat-card--sm .stat-card-value { font-family: inherit; font-size: var(--font-size-lg); color: var(--gray-800); }
+
+/* Etapa 6 — fusão dos 3 stat-cards de "Hoje" (meta/tempo/sessões) num único
+   bloco compacto (#dash-cards-today, ver _summaryMarkup() em
+   activityDashboardView.js): mesma leitura de valor+rótulo do .stat-card,
+   só em faixa lado a lado dentro de um único cartão, sem repetir sombra/
+   hover por item. Escopado a este bloco — a página Progresso segue com
+   .stat-cards/.stat-card de sempre. */
+.stat-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-summary-item {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+}
+
+.stat-summary-label {
+  font-size: var(--eyebrow-font-size);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+}
+
+.stat-summary-value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.stat-summary-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+}
 
 /* V5.2 — anel circular das metas de tempo (dailyGoal/weeklyGoal/
    monthlyGoal), a única metáfora visual de "% de meta cumprida" no produto

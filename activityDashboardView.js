@@ -287,8 +287,14 @@ function _achievementsMarkup(achievements) {
   return `<ul class="achievements-list achievements-shelf">${achievements.map(_achievementItemMarkup).join("")}</ul>`;
 }
 
+// Etapa 6 — o nível "Hoje" (dash-cards-today) funde suas 3 métricas num único
+// bloco compacto em vez de 3 cartões separados (auditoria de Progresso §10:
+// "os 3 cards duplicam o que a página Progresso já mostra melhor" — a fusão
+// reduz peso visual sem remover nenhum dado). `compact: true` escopa a
+// mudança só a este grupo: WEEK_MONTH_CARD_DEFS/RECORDS_CARD_DEFS (página
+// Progresso) continuam com _cardsMarkup() de sempre, intocados.
 const CARD_GROUPS = [
-  { defs: TODAY_CARD_DEFS,      containerId: "dash-cards-today" },
+  { defs: TODAY_CARD_DEFS,      containerId: "dash-cards-today", compact: true },
   { defs: WEEK_MONTH_CARD_DEFS, containerId: "dash-cards-weekmonth" },
   { defs: RECORDS_CARD_DEFS,    containerId: "dash-cards-records" },
 ];
@@ -498,15 +504,39 @@ function _cardsMarkup(defs, data) {
   }).join("");
 }
 
+// Etapa 6 — mesmos TODAY_CARD_DEFS de sempre (mesmos dados, mesmo
+// _onCardsClick para "Configurar meta"), só a marcação vira uma faixa de 3
+// itens lado a lado dentro de um único bloco em vez de 3 cartões `.stat-card`
+// separados. Sem `extra` aqui: o único def com `extra` normalmente
+// (GOAL_CARD_DEFS) é a meta diária, que já não usa anel neste nível (Etapa 1
+// — o anel vive só no hero da página Progresso).
+function _summaryMarkup(defs, data) {
+  const items = defs.map(def => {
+    const noGoal = def.goalKey && !data[def.goalKey]?.configured;
+    const configureLink = noGoal
+      ? '<button type="button" class="link-btn" data-action="configure-goal">Configurar meta</button>'
+      : "";
+    const desc = def.desc ? `<p class="stat-summary-desc">${def.desc(data)}</p>` : "";
+    return `
+    <div class="stat-summary-item">
+      <span class="stat-summary-label">${def.title}</span>
+      <span class="stat-summary-value">${def.value(data)}</span>
+      ${desc}
+      ${configureLink}
+    </div>`;
+  }).join("");
+  return `<div class="stat-summary">${items}</div>`;
+}
+
 function _renderCards(data) {
   errorEls.forEach(el => {
     el.hidden = true;
     el.innerHTML = "";
     clearStateBlock(el);
   });
-  cardsElByGroup.forEach(({ defs, el }) => {
+  cardsElByGroup.forEach(({ defs, el, compact }) => {
     el.hidden = false;
-    el.innerHTML = _cardsMarkup(defs, data);
+    el.innerHTML = compact ? _summaryMarkup(defs, data) : _cardsMarkup(defs, data);
     revealWithAnimation(el);
   });
 }
@@ -554,9 +584,9 @@ async function _load() {
   // Auditoria UX #20 — sem isto, os cards ficavam hidden (tela em branco)
   // durante a carga, diferente do Calendário (calendar.js/showLoading()).
   errorEls.forEach(el => { el.hidden = true; });
-  cardsElByGroup.forEach(({ defs, el }) => {
+  cardsElByGroup.forEach(({ defs, el, compact }) => {
     el.hidden = false;
-    el.innerHTML = skeletonCardsMarkup(defs.length);
+    el.innerHTML = skeletonCardsMarkup(compact ? 1 : defs.length);
   });
   if (narrativeEl) narrativeEl.innerHTML = `<p class="progress-narrative-loading">Carregando…</p>`;
   try {
@@ -625,10 +655,10 @@ export async function initActivityDashboardView() {
     todayStatsBodyEl   = document.getElementById("today-stats-body");
     todayStatsToggleEl?.addEventListener("click", _toggleTodayStats);
 
-    cardsElByGroup = CARD_GROUPS.map(({ defs, containerId }) => {
+    cardsElByGroup = CARD_GROUPS.map(({ defs, containerId, compact }) => {
       const el = document.getElementById(containerId);
       el.addEventListener("click", _onCardsClick);
-      return { defs, el };
+      return { defs, el, compact };
     });
   }
   _subscribeToEventBus();
