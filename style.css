@@ -2861,6 +2861,19 @@ textarea { resize: vertical; }
   text-decoration: underline;
 }
 
+/* Etapa 2 (auditoria UX #2) — frase de progresso sempre visível, sem exigir
+   clique no disclosure "Ver números de hoje"; mesma linguagem visual da
+   frase de destaque em Progresso (.progress-narrative-highlight). */
+.today-hero-progress {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--gray-600);
+}
+
+.today-hero-progress:empty {
+  display: none;
+}
+
 .today-section-title {
   font-size: var(--font-size-lg);
   font-weight: 700;

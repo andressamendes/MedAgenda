@@ -32,7 +32,9 @@ const DECISION_ENGINE_SPECIFIER  = new URL("../../decisionEngine.js", import.met
 const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.url).href;
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
-const PROFILE_SPECIFIER          = new URL("../../profileService.js", import.meta.url).href;
+const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
+
+const NO_GOAL_PROGRESS = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
 let showPageCalls;
 let startSessionForEventCalls;
@@ -95,9 +97,9 @@ function loadView(t, overrides = {}) {
       categoryColor: overrides.categoryColor ?? (() => "#6b7280"),
     },
   });
-  t.mock.module(PROFILE_SPECIFIER, {
+  t.mock.module(DASHBOARD_SERVICE_SPECIFIER, {
     namedExports: {
-      getProfile: overrides.getProfile ?? (async () => ({ full_name: "Aluna Teste" })),
+      getDashboardData: overrides.getDashboardData ?? (async () => ({ dailyGoal: NO_GOAL_PROGRESS })),
     },
   });
 
@@ -123,25 +125,25 @@ test("with no active session and no history, only 'Começar a estudar' is shown"
   assert.strictEqual(document.getElementById("today-btn-continue").hidden, true);
 });
 
-test("greeting shows the user's first name and a date label", async (t) => {
+test("the hero progress sentence is always visible, reusing the same dailyGoal data as the stats disclosure", async (t) => {
+  const progress = { configured: true, goalMinutes: 120, actualMinutes: 60, percentage: 50, remainingMinutes: 60, state: "partial" };
   const { initTodayView } = await loadView(t, {
-    getProfile: async () => ({ full_name: "Maria Souza" }),
+    getDashboardData: async () => ({ dailyGoal: progress }),
   });
   await initTodayView();
 
-  const text = document.getElementById("today-greeting-text").textContent;
-  assert.match(text, /^(Bom dia|Boa tarde|Boa noite), Maria$/);
-  assert.notStrictEqual(document.getElementById("today-greeting-date").textContent, "");
+  const text = document.getElementById("today-hero-progress").textContent;
+  assert.match(text, /50%/);
 });
 
-test("greeting falls back to no name when the profile has none", async (t) => {
+test("the hero progress sentence shows an appropriate tone even with 0 minutes studied", async (t) => {
   const { initTodayView } = await loadView(t, {
-    getProfile: async () => null,
+    getDashboardData: async () => ({ dailyGoal: NO_GOAL_PROGRESS }),
   });
   await initTodayView();
 
-  const text = document.getElementById("today-greeting-text").textContent;
-  assert.match(text, /^(Bom dia|Boa tarde|Boa noite)$/);
+  const text = document.getElementById("today-hero-progress").textContent;
+  assert.match(text, /Nenhum minuto estudado hoje ainda/);
 });
 
 test("clicking 'Começar a estudar' navigates to the study session page and opens the start modal", async (t) => {
