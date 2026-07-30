@@ -550,7 +550,7 @@ function _createDayGroup(iso) {
       <span class="sj-day-header-summary"></span>
     </div>
     <p class="sj-day-header-comparison" hidden></p>
-    <ul class="sj-day-sessions"></ul>
+    <ul class="sj-day-sessions ah-timeline"></ul>
   `;
   listEl.appendChild(li);
 
@@ -666,6 +666,12 @@ function _matchedFieldsBadge(matches) {
 // Categoria, contagem de revisões e sinal de reflexão saíram do fechado
 // (só aparecem dentro do detalhe expandido); o botão de expansão é só o
 // chevron, sem rótulo textual (ver _toggleEntry).
+//
+// Etapa 5 (unificar linguagem visual de timeline) — mesma composição
+// linha+marcador já usada em Marcos (.sj-milestone-item) e Histórico
+// (.ah-timeline-item, activityHistoryView.js): o cartão de antes vira o
+// corpo (.ah-timeline-body) de um item de timeline, sem mudar nenhum dado
+// ou comportamento de expansão.
 function _buildEntryEl(entry) {
   const { session: s, meta, extras, matches = [] } = entry;
   const { questions, reviews, reflection } = extras;
@@ -675,17 +681,20 @@ function _buildEntryEl(entry) {
   if (questions.length) summaryParts.push(`${questions.length} questão(ões)`);
 
   const li = document.createElement("li");
-  li.className = "sj-entry";
+  li.className = "sj-entry ah-timeline-item";
   li.innerHTML = `
-    <div class="sj-entry-header">
-      <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
-      <button type="button" class="btn-icon sj-toggle disclosure-toggle" aria-expanded="false" aria-label="Mostrar detalhes">${disclosureToggleContent()}</button>
+    <span class="ah-timeline-dot" aria-hidden="true"></span>
+    <div class="ah-timeline-body">
+      <div class="sj-entry-header">
+        <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
+        <button type="button" class="btn-icon sj-toggle disclosure-toggle" aria-expanded="false" aria-label="Mostrar detalhes">${disclosureToggleContent()}</button>
+      </div>
+      <div class="sj-entry-time">${formatClockTime(s.started_at)}–${formatClockTime(s.ended_at)}</div>
+      <div class="sj-entry-summary">${escapeHtml(summaryParts.join(" • "))}</div>
+      ${meta.content ? `<div class="sj-entry-content">${highlightMatches(meta.content, query)}</div>` : ""}
+      ${_matchedFieldsBadge(matches)}
+      <div class="sj-entry-detail" hidden></div>
     </div>
-    <div class="sj-entry-time">${formatClockTime(s.started_at)}–${formatClockTime(s.ended_at)}</div>
-    <div class="sj-entry-summary">${escapeHtml(summaryParts.join(" • "))}</div>
-    ${meta.content ? `<div class="sj-entry-content">${highlightMatches(meta.content, query)}</div>` : ""}
-    ${_matchedFieldsBadge(matches)}
-    <div class="sj-entry-detail" hidden></div>
   `;
 
   const toggleBtn = li.querySelector(".sj-toggle");

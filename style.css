@@ -3164,6 +3164,11 @@ textarea { resize: vertical; }
   display: none;
 }
 
+/* Etapa 5 (unificar linguagem visual de timeline) — ganha `.ah-timeline`
+   além de `.sj-day-sessions` (herda a linha vertical via ::before), mesma
+   composição já usada em Marcos (.sj-milestones-list) e Histórico
+   (.ah-day-list). Padding/gap próprios continuam sobrescrevendo os de
+   `.ah-timeline` (mesmo motivo do combo em .sj-milestones-list, acima). */
 .sj-day-sessions {
   list-style: none;
   margin: 0;
@@ -3173,13 +3178,10 @@ textarea { resize: vertical; }
   gap: .65rem;
 }
 
-.sj-entry {
-  padding: .7rem .9rem;
-  font-size: var(--font-size-sm);
-  background: var(--gray-50);
-  border-radius: var(--radius);
-}
-
+/* Etapa 5 — o cartão de antes (padding/background/radius próprios) virou o
+   corpo (.ah-timeline-body) de um item de timeline; `.sj-entry` agora é só
+   o marcador de item (layout vem de `.ah-timeline-item`, aparência de
+   `.ah-timeline-body`) — ver _buildEntryEl() em studyJournalView.js. */
 .sj-entry-header {
   display: flex;
   align-items: flex-start;
