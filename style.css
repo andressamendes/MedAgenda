@@ -2807,6 +2807,28 @@ textarea { resize: vertical; }
   border-left: 3px solid var(--color-warning-border);
 }
 
+/* Hierarquia temporal (F14 diagnóstico #3/#20) — o próximo compromisso (ou o
+   que está em andamento) se destaca; o conflito acima continua independente
+   e pode se somar a qualquer um dos dois estados abaixo. */
+.today-appt-item--next {
+  border-color: var(--color-primary-300);
+  background: var(--color-primary-50);
+}
+
+.today-appt-item--next .today-appt-time {
+  color: var(--color-primary-700);
+}
+
+/* Já encerrado — reduzido, não escondido: ainda é histórico do dia. */
+.today-appt-item--past {
+  opacity: .6;
+}
+
+.today-appt-item--past .today-appt-time,
+.today-appt-item--past .today-appt-title {
+  color: var(--gray-500);
+}
+
 .today-appt-conflict-badge {
   flex-shrink: 0;
   background: var(--color-warning-bg);
