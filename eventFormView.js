@@ -82,8 +82,8 @@ let fStart             = null;
 let fDuration          = null;
 let fCategory          = null;
 let fColor             = null;
-let fColorToggle       = null;
-let fColorWrap         = null;
+let fMoreDetailsToggle = null;
+let fMoreDetailsWrap   = null;
 let fLocation          = null;
 let fDesc              = null;
 let fReminder          = null;
@@ -135,8 +135,8 @@ export function initEventForm(onSave) {
   fDuration           = document.getElementById("f-duration");
   fCategory           = document.getElementById("f-category");
   fColor              = document.getElementById("f-color");
-  fColorToggle        = document.getElementById("f-color-toggle");
-  fColorWrap          = document.getElementById("f-color-wrap");
+  fMoreDetailsToggle  = document.getElementById("f-more-details-toggle");
+  fMoreDetailsWrap    = document.getElementById("f-more-details-wrap");
   fLocation           = document.getElementById("f-location");
   fDesc               = document.getElementById("f-description");
   fReminder           = document.getElementById("f-reminder");
@@ -187,18 +187,11 @@ export function initEventForm(onSave) {
   // troca de tipo e seleção de dias da semana são ligados por
   // bindRecurrenceFields("f") acima (recurrenceFieldView.js, F16).
 
-  // F11 E10 — a cor segue a categoria por padrão (ver categoryView.js/
-  // fCategory "change"); perguntar a cor em todo cadastro era uma decisão a
-  // mais sem necessidade. O picker continua acessível, só escondido atrás de
-  // "Mais opções" (mesmo padrão de disclosure de studySessionView.js/E8).
-  fColorToggle?.addEventListener("click", () => {
-    const expand = fColorWrap.hidden;
-    fColorWrap.hidden = !expand;
-    fColorToggle.setAttribute("aria-expanded", String(expand));
-    const label = fColorToggle.querySelector(".disclosure-label");
-    if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
-    if (expand) revealWithAnimation(fColorWrap);
-  });
+  // Etapa 10 — Cor, Local, Observação, Lembrete e Repetição nascem
+  // escondidos atrás de um único "Mais detalhes" (mesmo padrão de
+  // disclosure de studySessionView.js/E8): o formulário mais usado da
+  // Agenda abre só com os campos essenciais (Título/Data/Hora/Categoria).
+  fMoreDetailsToggle?.addEventListener("click", () => _setMoreDetailsExpanded(fMoreDetailsWrap.hidden));
 
   cancelBtn?.addEventListener("click", _handleModalClose);
 
@@ -438,11 +431,12 @@ export function resetEventForm() {
   _clearForm();
 }
 
-function _setColorFieldExpanded(expand) {
-  fColorWrap.hidden = !expand;
-  fColorToggle.setAttribute("aria-expanded", String(expand));
-  const label = fColorToggle.querySelector(".disclosure-label");
+function _setMoreDetailsExpanded(expand) {
+  fMoreDetailsWrap.hidden = !expand;
+  fMoreDetailsToggle.setAttribute("aria-expanded", String(expand));
+  const label = fMoreDetailsToggle.querySelector(".disclosure-label");
   if (label) label.textContent = expand ? "Ocultar" : "Mostrar";
+  if (expand) revealWithAnimation(fMoreDetailsWrap);
 }
 
 function _clearForm() {
@@ -465,7 +459,7 @@ function _clearForm() {
   eventIdField.value = "";
   eventForm.reset();
   fColor.value              = "#3b82f6";
-  _setColorFieldExpanded(false);
+  _setMoreDetailsExpanded(false);
   fReminder.value           = "";
   reminderCustomWrap.hidden = true;
   fReminderCustom.value     = "";
@@ -496,15 +490,19 @@ function _populateForm(ev) {
   fDuration.value       = ev.duration_minutes || "";
   fCategory.value       = ev.category         || "";
   fColor.value          = ev.color            || "#3b82f6";
-  // Evento antigo com cor personalizada (diferente da cor atual da
-  // categoria) já nasce com "Mais opções" aberto, para que a personalização
-  // existente não fique escondida sem o usuário saber que ela está lá.
-  const inheritedColor = ev.category ? categoryColor(ev.category) : null;
-  _setColorFieldExpanded(!!ev.color && ev.color !== inheritedColor);
   fLocation.value       = ev.location         || "";
   fDesc.value           = ev.description      || "";
   _populateReminder(ev.reminder_minutes);
   populateRecurrenceFields("f", ev);
+  // Compromisso que já tem algo preenchido em "Mais detalhes" (cor
+  // personalizada, local, observação, lembrete ou repetição) nasce com a
+  // seção aberta, para que o dado existente não fique escondido sem o
+  // usuário saber que ele está lá (mesmo racional do antigo "Mais opções").
+  const inheritedColor = ev.category ? categoryColor(ev.category) : null;
+  const hasMoreDetails = (!!ev.color && ev.color !== inheritedColor)
+    || !!ev.location || !!ev.description || ev.reminder_minutes != null
+    || isRecurring(ev);
+  _setMoreDetailsExpanded(hasMoreDetails);
   formTitle.textContent = "Editar compromisso";
   saveBtn.disabled       = false;
   saveBtn.textContent   = "Atualizar compromisso";

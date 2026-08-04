@@ -1422,110 +1422,115 @@
             </select>
           </div>
 
-          <!-- F11 E10 — a cor segue a categoria escolhida acima por padrão
-               (categoryView.js/fCategory "change"), então perguntar a cor em
-               todo cadastro era uma decisão a mais sem necessidade. O picker
-               continua acessível para quem quer personalizar, só escondido
-               atrás de "Mais opções" (mesmo padrão de disclosure do E8). -->
+          <!-- Etapa 10 (auditoria Seção 4 #7 / Seção 18 #7-8) — o formulário
+               completo nasce só com os campos essenciais (Título, Data, Hora,
+               Categoria); Cor, Local, Observação, Lembrete e Repetição ficam
+               atrás de um único disclosure "Mais detalhes" — mesmo padrão de
+               progressive disclosure do E8/F11 E10, agora consolidado num só
+               toggle (antes a cor tinha seu próprio "Mais opções" separado).
+               Nenhum campo foi removido: o que for preenchido aqui dentro
+               continua sendo lido/gravado normalmente (_populateForm/
+               readRecurrenceFields), e _populateForm reabre a seção sozinha
+               quando o compromisso editado já tem algo preenchido nela. -->
           <div class="ss-collapsible-header">
-            <h3 class="ss-questions-title">Mais opções</h3>
-            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="f-color-toggle" aria-expanded="false" aria-controls="f-color-wrap" data-disclosure-label="Mostrar"></button>
+            <h3 class="ss-questions-title">Mais detalhes</h3>
+            <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="f-more-details-toggle" aria-expanded="false" aria-controls="f-more-details-wrap" data-disclosure-label="Mostrar"></button>
           </div>
-          <div id="f-color-wrap" hidden>
+          <div id="f-more-details-wrap" hidden>
             <div class="field">
               <label for="f-color">Cor</label>
               <input type="color" id="f-color" value="#3b82f6" />
             </div>
-          </div>
 
-          <div class="field">
-            <label for="f-location">Local</label>
-            <input type="text" id="f-location" placeholder="Ex: Hospital das Clínicas" maxlength="120" />
-          </div>
-
-          <div class="field">
-            <label for="f-description">Observação</label>
-            <textarea id="f-description" rows="2" placeholder="Detalhes adicionais&#8230;" maxlength="1000"></textarea>
-          </div>
-
-          <div class="field-row">
             <div class="field">
-              <label for="f-reminder">Lembrete</label>
-              <select id="f-reminder">
-                <option value="">Sem lembrete</option>
-                <option value="0">Na hora</option>
-                <option value="10">10 minutos antes</option>
-                <option value="30">30 minutos antes</option>
-                <option value="60">1 hora antes</option>
-                <option value="120">2 horas antes</option>
-                <option value="1440">1 dia antes</option>
-                <option value="custom">Personalizado&#8230;</option>
-              </select>
-              <div id="reminder-custom-wrap" hidden>
-                <input type="number" id="f-reminder-custom" placeholder="Minutos antes" min="1" class="reminder-custom-input" />
-              </div>
+              <label for="f-location">Local</label>
+              <input type="text" id="f-location" placeholder="Ex: Hospital das Clínicas" maxlength="120" />
             </div>
-            <div class="field" id="f-recurrence-field">
-              <button type="button" id="btn-recurrence-toggle" class="btn btn-ghost btn-sm">+ Repetir</button>
-              <div id="f-recurrence-wrap" hidden>
-                <label for="f-recurrence">Repetição</label>
-                <select id="f-recurrence">
-                  <option value="none">Nunca</option>
-                  <option value="daily">Diariamente</option>
-                  <option value="weekdays">Dias úteis (Seg–Sex)</option>
-                  <option value="weekly">Semanalmente</option>
-                  <option value="biweekly">Quinzenalmente</option>
-                  <option value="monthly">Mensalmente</option>
-                  <option value="yearly">Anualmente</option>
-                  <option value="custom">Personalizada</option>
+
+            <div class="field">
+              <label for="f-description">Observação</label>
+              <textarea id="f-description" rows="2" placeholder="Detalhes adicionais&#8230;" maxlength="1000"></textarea>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="f-reminder">Lembrete</label>
+                <select id="f-reminder">
+                  <option value="">Sem lembrete</option>
+                  <option value="0">Na hora</option>
+                  <option value="10">10 minutos antes</option>
+                  <option value="30">30 minutos antes</option>
+                  <option value="60">1 hora antes</option>
+                  <option value="120">2 horas antes</option>
+                  <option value="1440">1 dia antes</option>
+                  <option value="custom">Personalizado&#8230;</option>
                 </select>
+                <div id="reminder-custom-wrap" hidden>
+                  <input type="number" id="f-reminder-custom" placeholder="Minutos antes" min="1" class="reminder-custom-input" />
+                </div>
+              </div>
+              <div class="field" id="f-recurrence-field">
+                <button type="button" id="btn-recurrence-toggle" class="btn btn-ghost btn-sm">+ Repetir</button>
+                <div id="f-recurrence-wrap" hidden>
+                  <label for="f-recurrence">Repetição</label>
+                  <select id="f-recurrence">
+                    <option value="none">Nunca</option>
+                    <option value="daily">Diariamente</option>
+                    <option value="weekdays">Dias úteis (Seg–Sex)</option>
+                    <option value="weekly">Semanalmente</option>
+                    <option value="biweekly">Quinzenalmente</option>
+                    <option value="monthly">Mensalmente</option>
+                    <option value="yearly">Anualmente</option>
+                    <option value="custom">Personalizada</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Opções de recorrência — mesmo bloco de academicCalendarEventsView.js/
-               renderRecurrenceFieldsHTML("acev"); lógica centralizada em
-               recurrenceFieldView.js (F16), nada aqui é lido/escrito diretamente. -->
-          <div id="recurrence-extra" class="recurrence-extra-block" hidden>
-            <div id="recurrence-custom" class="recurrence-custom-block" hidden>
-              <div class="field">
-                <label>Intervalo</label>
-                <div class="recurrence-interval-row">
-                  A cada
-                  <input type="number" id="f-recurrence-interval" value="1" min="1" max="52" />
-                  semana(s)
+            <!-- Opções de recorrência — mesmo bloco de academicCalendarEventsView.js/
+                 renderRecurrenceFieldsHTML("acev"); lógica centralizada em
+                 recurrenceFieldView.js (F16), nada aqui é lido/escrito diretamente. -->
+            <div id="recurrence-extra" class="recurrence-extra-block" hidden>
+              <div id="recurrence-custom" class="recurrence-custom-block" hidden>
+                <div class="field">
+                  <label>Intervalo</label>
+                  <div class="recurrence-interval-row">
+                    A cada
+                    <input type="number" id="f-recurrence-interval" value="1" min="1" max="52" />
+                    semana(s)
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Dias da semana</label>
+                  <div class="recurrence-days-wrap" id="f-recurrence-days">
+                    <button type="button" class="day-btn" data-day="1">Seg</button>
+                    <button type="button" class="day-btn" data-day="2">Ter</button>
+                    <button type="button" class="day-btn" data-day="3">Qua</button>
+                    <button type="button" class="day-btn" data-day="4">Qui</button>
+                    <button type="button" class="day-btn" data-day="5">Sex</button>
+                    <button type="button" class="day-btn" data-day="6">Sáb</button>
+                    <button type="button" class="day-btn" data-day="0">Dom</button>
+                  </div>
                 </div>
               </div>
               <div class="field">
-                <label>Dias da semana</label>
-                <div class="recurrence-days-wrap" id="f-recurrence-days">
-                  <button type="button" class="day-btn" data-day="1">Seg</button>
-                  <button type="button" class="day-btn" data-day="2">Ter</button>
-                  <button type="button" class="day-btn" data-day="3">Qua</button>
-                  <button type="button" class="day-btn" data-day="4">Qui</button>
-                  <button type="button" class="day-btn" data-day="5">Sex</button>
-                  <button type="button" class="day-btn" data-day="6">Sáb</button>
-                  <button type="button" class="day-btn" data-day="0">Dom</button>
+                <label>Fim da recorrência</label>
+                <div class="recurrence-end-row">
+                  <label class="recurrence-end-option">
+                    <input type="radio" name="f-recurrence-end" id="f-recurrence-end-never" value="never" checked>
+                    Nunca
+                  </label>
+                  <label class="recurrence-end-option">
+                    <input type="radio" name="f-recurrence-end" id="f-recurrence-end-until" value="until">
+                    Em uma data
+                    <input type="date" id="f-recurrence-until" disabled />
+                  </label>
+                  <label class="recurrence-end-option">
+                    <input type="radio" name="f-recurrence-end" id="f-recurrence-end-count" value="count">
+                    Após N ocorrências
+                    <input type="number" id="f-recurrence-count" min="1" max="730" placeholder="Número de ocorrências" disabled />
+                  </label>
                 </div>
-              </div>
-            </div>
-            <div class="field">
-              <label>Fim da recorrência</label>
-              <div class="recurrence-end-row">
-                <label class="recurrence-end-option">
-                  <input type="radio" name="f-recurrence-end" id="f-recurrence-end-never" value="never" checked>
-                  Nunca
-                </label>
-                <label class="recurrence-end-option">
-                  <input type="radio" name="f-recurrence-end" id="f-recurrence-end-until" value="until">
-                  Em uma data
-                  <input type="date" id="f-recurrence-until" disabled />
-                </label>
-                <label class="recurrence-end-option">
-                  <input type="radio" name="f-recurrence-end" id="f-recurrence-end-count" value="count">
-                  Após N ocorrências
-                  <input type="number" id="f-recurrence-count" min="1" max="730" placeholder="Número de ocorrências" disabled />
-                </label>
               </div>
             </div>
           </div>
