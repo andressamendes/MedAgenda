@@ -44,6 +44,13 @@
   --color-primary-hover:  var(--blue-d);
   --color-on-primary:     #fff;
 
+  /* ── Cor de destaque do cronômetro (Etapa 2 — protagonismo visual) ──
+     Tom próprio, não reaproveitado de --color-primary/--color-info: o
+     cronômetro precisa ser inconfundivelmente o elemento central da tela,
+     então recebe uma cor que não é usada em mais nada (nem clique, nem
+     status). Contraste verificado contra --color-surface nos dois temas. */
+  --color-timer-accent:   var(--blue-d);
+
   /* ── Família tonal do primário (F10 PR4, Fase 1) — antes, --color-primary
      era um hex único com só uma variante de hover; qualquer necessidade de
      um tom mais claro (fundo de destaque, badge, estado selecionado sutil)
@@ -364,6 +371,11 @@
 
   --color-celebration:        #fbbf24;
   --color-celebration-hover:  #b45309;
+
+  /* --blue-d (#383f87) escurece demais contra --color-surface escuro (#1d1f34)
+     — troca por um tom mais claro do mesmo matiz, mesma lógica de
+     --color-info acima, para manter contraste alto no tema escuro. */
+  --color-timer-accent:       #8f9aef;
 
   --shadow-sm: 0 1px 8px rgba(0,0,0,.24);
   --shadow-md: 0 2px 16px rgba(0,0,0,.32);
@@ -5045,20 +5057,29 @@ textarea { resize: vertical; }
   color: var(--color-warning-text);
 }
 
-/* O cronômetro é o elemento visual principal da tela. */
+/* O cronômetro é o elemento visual principal da tela (Etapa 2): faixa
+   vertical própria — sem badge/progresso/contexto dividindo o espaço — e
+   escala/peso/cor que o tornam inconfundivelmente maior que qualquer outro
+   texto da tela, em qualquer largura testada (360-1280px). clamp() escala
+   o tamanho com o viewport em vez de um valor fixo único; o piso (2.75rem)
+   e o teto (4.5rem) foram checados contra a largura útil de .ss-card
+   (max-width 480px, padding --space-6) para não estourar/quebrar linha em
+   "00:00:00" no menor breakpoint suportado. */
 .ss-timer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .15rem;
+  justify-content: center;
+  gap: .25rem;
+  padding: var(--space-5) 0;
 }
 
 .ss-timer-value {
   font-family: var(--font-display);
-  font-size: var(--font-size-4xl);
+  font-size: clamp(2.75rem, 8vw + 1rem, 4.5rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--gray-800);
+  color: var(--color-timer-accent);
   line-height: 1;
 }
 
