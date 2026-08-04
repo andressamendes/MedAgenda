@@ -2544,8 +2544,25 @@ test("F10 #3.3 — o formulário de revisão nasce oculto atrás de '+ Adicionar
 
 // ── F14.9 — Modo foco ────────────────────────────────────────────────────
 // Durante a sessão ativa, oculta header/sidebar/bottom-nav via a classe
-// "focus-mode" em #app-screen; o botão "Foco" (dentro do próprio card, que
-// nunca é ocultado) liga/desliga o mesmo estado que Esc desfaz.
+// "focus-mode" em #app-screen; liga automaticamente ao renderizar uma
+// sessão ativa pela primeira vez (Etapa 1) e o botão "Foco" (dentro do
+// próprio card, que nunca é ocultado) segue disponível para ligar/desligar
+// manualmente o mesmo estado que Esc também desfaz.
+
+test("Etapa 1 — an active session entering the screen turns focus mode on automatically", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  const appScreen = document.getElementById("app-screen");
+  const toggle = document.getElementById("ss-btn-focus-toggle");
+  const label  = document.getElementById("ss-focus-toggle-label");
+
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), true);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "true");
+  assert.strictEqual(label.textContent, "Sair do foco");
+});
 
 test("F14.9 — clicking 'Foco' toggles the focus-mode class and the button label/aria-pressed", async (t) => {
   const { mod } = await loadStudySessionView(t, {
@@ -2557,11 +2574,7 @@ test("F14.9 — clicking 'Foco' toggles the focus-mode class and the button labe
   const toggle = document.getElementById("ss-btn-focus-toggle");
   const label  = document.getElementById("ss-focus-toggle-label");
 
-  assert.strictEqual(appScreen.classList.contains("focus-mode"), false);
-  assert.strictEqual(toggle.getAttribute("aria-pressed"), "false");
-  assert.strictEqual(label.textContent, "Foco");
-
-  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  // Etapa 1 — o modo foco já entra ligado ao renderizar a sessão ativa.
   assert.strictEqual(appScreen.classList.contains("focus-mode"), true);
   assert.strictEqual(toggle.getAttribute("aria-pressed"), "true");
   assert.strictEqual(label.textContent, "Sair do foco");
@@ -2570,6 +2583,11 @@ test("F14.9 — clicking 'Foco' toggles the focus-mode class and the button labe
   assert.strictEqual(appScreen.classList.contains("focus-mode"), false);
   assert.strictEqual(toggle.getAttribute("aria-pressed"), "false");
   assert.strictEqual(label.textContent, "Foco");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), true);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "true");
+  assert.strictEqual(label.textContent, "Sair do foco");
 });
 
 test("F14.9 — Escape exits focus mode when no modal/panel is open", async (t) => {
@@ -2578,7 +2596,7 @@ test("F14.9 — Escape exits focus mode when no modal/panel is open", async (t) 
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  // Etapa 1 — já entra ligado; nenhum clique no toggle é necessário aqui.
   assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
 
   document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -2591,7 +2609,8 @@ test("F14.9 — Escape does not exit focus mode while the finish modal is open (
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
+
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("ss-finish-modal").hidden, false);
 
@@ -2609,7 +2628,6 @@ test("F14.9 — finishing the session automatically turns focus mode off", async
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
 
   document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -2628,12 +2646,36 @@ test("F14.9 — cancelling the session automatically turns focus mode off", asyn
   });
   await mod.initStudySessionView();
 
-  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), true);
 
   document.getElementById("ss-btn-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
 
   assert.strictEqual(document.getElementById("ss-active").hidden, true);
+  assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), false);
+});
+
+test("Etapa 1 — turning focus mode off manually is not reversed by a same-session bus update (pause)", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  const appScreen = document.getElementById("app-screen");
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), true);
+
+  document.getElementById("ss-btn-focus-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), false);
+
+  publish(SESSION_EVENTS.PAUSED, { id: "sess-1", status: "paused", started_at: new Date().toISOString() });
+  assert.strictEqual(appScreen.classList.contains("focus-mode"), false, "um evento do barramento para a MESMA sessão não deve religar o foco depois que o usuário desligou");
+});
+
+test("Etapa 1 — no session on entering the screen leaves focus mode off", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => null,
+  });
+  await mod.initStudySessionView();
+
   assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), false);
 });

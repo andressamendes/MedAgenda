@@ -425,7 +425,12 @@
 
           <!-- Auditoria UX #31: filtro "Exibir: Pessoais" morava fixo no topo
                da sidebar, visível em todas as páginas mesmo só afetando
-               Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
+               Semana/Mês/Compromissos — movido para a toolbar de cada uma.
+               Etapa 1 (auditoria UX/UI): existia uma segunda instância deste
+               mesmo filtro dentro da aba Lista (#filter-bar-appointments,
+               removida) — como este container fica acima das abas
+               Dia/Semana/Mês/Lista, uma única instância já afeta as quatro,
+               sem duplicar o controle na tela. -->
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
           <!-- V5.12 — aba "Dia" (mobile-first): lista vertical de horários de
@@ -466,7 +471,6 @@
                   <option value="title">Título A–Z</option>
                 </select>
               </div>
-              <div class="filter-bar" id="filter-bar-appointments"></div>
             </div>
             <p id="list-empty" class="list-empty" hidden></p>
             <div id="event-list"></div>
@@ -571,7 +575,6 @@
           <!-- Estado: sessão executando ou pausada -->
           <div id="ss-active" class="ss-card" hidden>
             <div class="ss-active-header">
-              <span id="ss-status-badge" class="ss-status-badge"></span>
               <!-- F14.9 — Modo foco: oculta header/sidebar/bottom-nav para que,
                    com a sessão rodando, só reste cronômetro + "+1 questão" +
                    Pausar/Finalizar. Este botão continua visível (o card de
@@ -584,6 +587,11 @@
             </div>
 
             <div class="ss-timer" aria-live="off">
+              <!-- Etapa 3 — estado rodando/pausado deixa de ser uma pílula própria
+                   e passa a ser comunicado pela cor do próprio cronômetro
+                   (ver .ss-active--paused em style.css); o texto do estado
+                   continua existindo para leitor de tela, só visualmente oculto. -->
+              <span id="ss-status-badge" class="sr-only"></span>
               <span id="ss-time" class="ss-timer-value">00:00</span>
               <span class="ss-timer-label">Tempo de estudo (pausas descontadas)</span>
             </div>
@@ -600,22 +608,22 @@
 
             <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa não será contabilizado na duração final.</p>
 
-            <!-- F1 — cartão de status compacto (não mais um `dl`) com só o
-                 essencial visível por padrão (Compromisso, Categoria); linhas
-                 sem valor são ocultadas em vez de mostrar "—". O resto do
-                 contexto (Conteúdo/Data/Horário de início/Tempo previsto)
-                 mudou de lugar na F2 — ver "Detalhes da sessão" abaixo, não
-                 há mais um segundo disclosure aqui dentro do card ativo. -->
-            <div class="ss-status-card">
-              <div class="ss-status-item">
-                <span class="ss-status-label" id="ss-event-title-label">Compromisso</span>
-                <span class="ss-status-value" id="ss-event-title">—</span>
-              </div>
-              <div class="ss-status-item" id="ss-category-row">
-                <span class="ss-status-label">Categoria</span>
-                <span class="ss-status-value" id="ss-category">—</span>
-              </div>
-            </div>
+            <!-- Etapa 4 — o cartão de status compacto (grid de 2 itens) deu
+                 lugar a uma legenda de uma linha só abaixo do cronômetro:
+                 mesmo dado (Compromisso/Categoria), sem o bloco visual do
+                 grid. O rótulo "Compromisso"/"Estudo livre" continua
+                 existindo para leitor de tela (sr-only) — o nome do
+                 compromisso já é autoexplicativo na legenda visível. O resto
+                 do contexto (Conteúdo/Data/Horário de início/Tempo previsto)
+                 permanece só em "Detalhes da sessão" (ver .ss-status-card
+                 abaixo, inalterado). -->
+            <p class="ss-context-caption" id="ss-context-caption">
+              <span class="sr-only" id="ss-event-title-label">Compromisso</span>
+              <span class="ss-context-title" id="ss-event-title">—</span>
+              <span class="ss-context-category" id="ss-category-row">
+                <span aria-hidden="true"> · </span><span id="ss-category">—</span>
+              </span>
+            </p>
 
             <!-- F2 — cronômetro + no máximo 2 ações primárias visíveis por
                  padrão (Pausar/Continuar + Finalizar); Cancelar, o contexto
@@ -636,7 +644,8 @@
                  studySessionView.js — só ganharam este espelho visível mesmo
                  com o painel fechado). -->
             <div class="ss-quick-actions-row">
-              <button type="button" class="btn btn-secondary ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
+              <button type="button" class="ss-panel-trigger" id="ss-btn-open-panel" aria-haspopup="dialog" aria-controls="ss-panel">
+                <span data-icon="clipboard" aria-hidden="true"></span>
                 Detalhes da sessão<span id="ss-panel-badge" class="ss-section-count"></span>
               </button>
             </div>
@@ -664,7 +673,7 @@
                  o restante do contexto (Conteúdo/Data/Horário de início/Tempo
                  previsto) que antes vivia atrás de "Mais detalhes"; abrir este
                  painel já é o único nível de disclosure necessário. -->
-            <div class="ss-questions-block">
+            <div class="ss-questions-block ss-block-context">
               <h3 class="ss-questions-title">Contexto</h3>
               <div class="ss-status-card">
                 <div class="ss-status-item" id="ss-content-row">
@@ -696,7 +705,7 @@
                  painel inteiro já é um nível de disclosure (aberto sob
                  demanda por #ss-btn-open-panel); colapsar de novo por dentro
                  era porta atrás de porta. -->
-            <div class="ss-questions-block">
+            <div class="ss-questions-block ss-block-questions">
               <h3 class="ss-questions-title">Questões Resolvidas<span id="ss-questions-count" class="ss-section-count"></span></h3>
               <div id="ss-questions-body">
 
@@ -771,7 +780,7 @@
             </div>
 
             <!-- Revisões (F7.5) — mesmo tratamento: registradas durante a sessão ativa -->
-            <div class="ss-questions-block">
+            <div class="ss-questions-block ss-block-reviews">
               <h3 class="ss-questions-title">Revisões<span id="ss-reviews-count" class="ss-section-count"></span></h3>
               <div id="ss-reviews-body">
               <p class="ss-questions-empty">Etapa opcional: associe ou agende revisões do estudo realizado.</p>
@@ -817,7 +826,10 @@
             <!-- F2 — Cancelar sessão saiu das ações sempre visíveis do card
                  ativo (só aparecia com a sessão pausada) para dentro de
                  "Detalhes da sessão": é uma ação rara e destrutiva, não uma
-                 das no máximo 2 ações primárias da tela. -->
+                 das no máximo 2 ações primárias da tela.
+                 Etapa 7 — recebe divisor e espaçamento próprios para não
+                 compartilhar o ritmo visual de Questões/Revisões, ações
+                 rotineiras da mesma tela. -->
             <button type="button" class="btn btn-danger btn-sm ss-panel-cancel" id="ss-btn-cancel" hidden>Cancelar sessão</button>
 
             </div>
@@ -830,6 +842,17 @@
                 <h2 class="modal-title" id="ss-finish-title">Resumo da sessão</h2>
               </div>
               <div class="modal-body">
+                <!-- Etapa 8 — o número que resume a sessão (tempo total de
+                     estudo, pausas já descontadas) sai do meio da grade de
+                     dados e vira o primeiro elemento do resumo, em destaque
+                     tipográfico próprio (mesma paleta/escala do cronômetro
+                     da Etapa 2). Nenhum dado a menos: só reordenado, o
+                     mesmo #ssf-net-time de sempre, sem novo cálculo. -->
+                <div class="ss-finish-hero">
+                  <span class="ss-finish-hero-value" id="ssf-net-time">—</span>
+                  <span class="ss-finish-hero-label">Tempo total de estudo, pausas descontadas</span>
+                </div>
+
                 <!-- F1 — cartão de status compacto (não mais um `dl`); mesmos
                      campos exibidos antes, nenhum dado a menos. -->
                 <div class="ss-status-card">
@@ -853,14 +876,17 @@
                     <span class="ss-status-label">Horário de término</span>
                     <span class="ss-status-value" id="ssf-ended-at">—</span>
                   </div>
-                  <div class="ss-status-item">
-                    <span class="ss-status-label">Tempo de estudo (pausas descontadas)</span>
-                    <span class="ss-status-value" id="ssf-net-time">—</span>
-                  </div>
                 </div>
 
-                <label for="ssf-reflection" class="ss-notes-label">O que ficou desta sessão?</label>
-                <textarea id="ssf-reflection" class="ss-notes-textarea" rows="3" placeholder="O que aprendeu, dificuldades, o que revisar depois… (opcional)"></textarea>
+                <!-- Etapa 8 — convite à reflexão ganha a mesma moldura
+                     (fundo suave + rótulo serifado) já usada em
+                     .sj-detail-section--reflection no Diário de Estudos,
+                     em vez de label+textarea neutros perdidos no fim do
+                     formulário. -->
+                <div class="ss-notes-invite">
+                  <label for="ssf-reflection" class="ss-notes-label">O que ficou desta sessão?</label>
+                  <textarea id="ssf-reflection" class="ss-notes-textarea" rows="3" placeholder="O que aprendeu, dificuldades, o que revisar depois… (opcional)"></textarea>
+                </div>
 
                 <!-- F10 PR9: o recap textual de Questões/Revisões que existia
                      aqui ("N questão(ões) registrada(s)...") repetia, em

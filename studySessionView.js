@@ -92,6 +92,14 @@ let appScreenEl;
 let _focusMode = false;
 let ssBtnFocusToggle, ssFocusToggleLabelEl;
 
+// Etapa 1 (modo foco como padrão) — id da sessão para a qual o modo foco já
+// foi ligado automaticamente. Sem isto, toda atualização vinda do barramento
+// (pause/resume/etc., que também passam por _applySession) religaria o foco
+// mesmo depois do usuário desligá-lo manualmente (toggle/Escape) na mesma
+// sessão. Zerado quando a sessão termina, para que a próxima sessão ativa
+// volte a ligar o foco automaticamente.
+let _autoFocusedSessionId = null;
+
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, titleLabelEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
@@ -471,8 +479,13 @@ function _render() {
     return;
   }
 
+  // Etapa 3 — o texto do estado continua existindo para leitor de tela
+  // (statusBadgeEl é sr-only), mas o estado visual agora é comunicado pela
+  // classe aplicada ao card ativo (cor do cronômetro), não por uma pílula
+  // própria.
   statusBadgeEl.textContent = status === "running" ? "Executando" : "Pausada";
-  statusBadgeEl.className   = `ss-status-badge ss-status-badge--${status}`;
+  activeEl.classList.toggle("ss-active--running", status === "running");
+  activeEl.classList.toggle("ss-active--paused",  status === "paused");
 
   btnPause.hidden  = status !== "running";
   btnFinish.hidden = false;
@@ -515,6 +528,13 @@ function _applySession(session) {
   if (!_session || _session.status === "finished" || _session.status === "cancelled") {
     _session   = null;
     _eventMeta = null;
+    _autoFocusedSessionId = null;
+  } else if (_autoFocusedSessionId !== _session.id) {
+    // Etapa 1 — ao renderizar uma sessão ativa pela primeira vez, entra em
+    // modo foco automaticamente; o toggle continua disponível para o usuário
+    // sair/voltar manualmente a qualquer momento durante a mesma sessão.
+    _autoFocusedSessionId = _session.id;
+    if (!_focusMode) _setFocusMode(true);
   }
   _render();
   _syncSessionQuestionsAndReviews();
@@ -1548,16 +1568,20 @@ export async function initStudySessionView() {
 
   _subscribeToEventBus();
 
+  let restoredSession = null;
   try {
-    _session   = await getActiveSession();
-    _eventMeta = await _resolveEventMeta(_session);
+    restoredSession = await getActiveSession();
+    _eventMeta = await _resolveEventMeta(restoredSession);
   } catch (err) {
     handleError(err, { context: "studySessionView.restore" });
-    _session   = null;
+    restoredSession = null;
     _eventMeta = null;
   }
-  _render();
-  _syncSessionQuestionsAndReviews();
+  // Etapa 1 (modo foco como padrão) — passa pelo mesmo caminho de
+  // start/pause/resume/barramento (_applySession) para que uma sessão
+  // restaurada após reload entre em modo foco automaticamente também, sem
+  // duplicar a lógica de auto-foco aqui.
+  _applySession(restoredSession);
 
   // F7.9 — Sessão abandonada: a restauração acima já aconteceu normalmente
   // (nenhuma mudança de comportamento para sessões recentes). Uma sessão
@@ -1683,7 +1707,8 @@ export function resetStudySessionView() {
   [titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (timeEl) timeEl.textContent = "";
-  if (statusBadgeEl) { statusBadgeEl.textContent = ""; statusBadgeEl.className = "ss-status-badge"; }
+  if (statusBadgeEl) { statusBadgeEl.textContent = ""; }
+  if (activeEl) { activeEl.classList.remove("ss-active--running", "ss-active--paused"); }
 
   // Campos do modal de encerramento (F7.3): _openFinishModal() sempre os
   // reconstrói do zero antes de reabrir, mas nada os limpava ao fechar por

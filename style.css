@@ -44,6 +44,13 @@
   --color-primary-hover:  var(--blue-d);
   --color-on-primary:     #fff;
 
+  /* ── Cor de destaque do cronômetro (Etapa 2 — protagonismo visual) ──
+     Tom próprio, não reaproveitado de --color-primary/--color-info: o
+     cronômetro precisa ser inconfundivelmente o elemento central da tela,
+     então recebe uma cor que não é usada em mais nada (nem clique, nem
+     status). Contraste verificado contra --color-surface nos dois temas. */
+  --color-timer-accent:   var(--blue-d);
+
   /* ── Família tonal do primário (F10 PR4, Fase 1) — antes, --color-primary
      era um hex único com só uma variante de hover; qualquer necessidade de
      um tom mais claro (fundo de destaque, badge, estado selecionado sutil)
@@ -364,6 +371,11 @@
 
   --color-celebration:        #fbbf24;
   --color-celebration-hover:  #b45309;
+
+  /* --blue-d (#383f87) escurece demais contra --color-surface escuro (#1d1f34)
+     — troca por um tom mais claro do mesmo matiz, mesma lógica de
+     --color-info acima, para manter contraste alto no tema escuro. */
+  --color-timer-accent:       #8f9aef;
 
   --shadow-sm: 0 1px 8px rgba(0,0,0,.24);
   --shadow-md: 0 2px 16px rgba(0,0,0,.32);
@@ -4094,6 +4106,17 @@ textarea { resize: vertical; }
   color: var(--gray-800);
 }
 
+/* Etapa 3 (F18 #2) — resumo de uma linha, sempre visível acima da grade,
+   respondendo de relance "como está minha semana" sem exigir leitura da
+   grade inteira (problema #3 do diagnóstico da auditoria). Sem ícone/borda
+   própria — texto simples, um degrau abaixo de .wk-label em ênfase. */
+.wk-summary {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-bottom: var(--space-3);
+  min-height: 1.25em;
+}
+
 .wk-wrap {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
@@ -4343,6 +4366,16 @@ textarea { resize: vertical; }
   text-overflow: ellipsis;
 }
 
+/* Etapa 5 — em blocos de altura reduzida (abaixo do limiar calculado em
+   renderEvents()/renderDayEvents(), weekView.js — classe .wk-event-compact),
+   mostra só título + hora; categoria e indicador de execução somem da vista
+   mas nenhum dado é perdido — continuam acessíveis ao clicar no bloco (abre
+   o painel de detalhes do compromisso) ou via tooltip (title do elemento). */
+.wk-event-compact .wk-ev-cat,
+.wk-event-compact .wk-ev-indicator {
+  display: none;
+}
+
 .wk-event-running {
   outline: 2px solid var(--color-on-primary);
   outline-offset: -2px;
@@ -4422,6 +4455,15 @@ textarea { resize: vertical; }
   font-size: var(--font-size-lg);
   color: var(--gray-800);
   text-transform: capitalize;
+}
+
+/* V5.12 — mesmo resumo de uma linha da Semana (.wk-summary), reaproveitado
+   para o dia exibido em Dia. */
+.dv-summary {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-bottom: var(--space-3);
+  min-height: 1.25em;
 }
 
 .dv-error {
@@ -5018,19 +5060,19 @@ textarea { resize: vertical; }
   box-shadow: var(--shadow-lg);
 }
 
-/* F14.9 — badge de status + gatilho do modo foco lado a lado, mesma largura
-   total do card. */
+/* F14.9 — gatilho do modo foco, alinhado à direita do card (Etapa 3 removeu
+   a pílula de status que ocupava o outro lado desta linha). */
 .ss-active-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
 }
 
 .ss-focus-toggle {
   display: flex;
   align-items: center;
-  gap: .35rem;
+  gap: var(--space-1);
 }
 
 .ss-focus-toggle[aria-pressed="true"] {
@@ -5038,42 +5080,36 @@ textarea { resize: vertical; }
   color: var(--color-primary, #383f87);
 }
 
-/* F10 #5.2 — mesma forma/tokens de .session-history-status: o mesmo estado
-   (em andamento/pausada) deve ter a mesma aparência em qualquer tela. */
-.ss-status-badge {
-  align-self: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  padding: .1rem .5rem;
-  border-radius: var(--radius-full);
-  background: var(--gray-100);
-  color: var(--gray-600);
-}
-
-.ss-status-badge--running {
-  background: var(--color-success-bg-strong);
-  color: var(--color-success-text);
-}
-
-.ss-status-badge--paused {
-  background: var(--color-warning-bg);
+/* Etapa 3 — rodando/pausado deixa de ter uma pílula própria (`#ss-status-badge`
+   agora é .sr-only, só para leitor de tela) e passa a ser comunicado pela cor
+   do próprio cronômetro, aplicada via classe de estado no card ativo. */
+.ss-active--paused .ss-timer-value {
   color: var(--color-warning-text);
 }
 
-/* O cronômetro é o elemento visual principal da tela. */
+/* O cronômetro é o elemento visual principal da tela (Etapa 2): faixa
+   vertical própria — sem badge/progresso/contexto dividindo o espaço — e
+   escala/peso/cor que o tornam inconfundivelmente maior que qualquer outro
+   texto da tela, em qualquer largura testada (360-1280px). clamp() escala
+   o tamanho com o viewport em vez de um valor fixo único; o piso (2.75rem)
+   e o teto (4.5rem) foram checados contra a largura útil de .ss-card
+   (max-width 480px, padding --space-6) para não estourar/quebrar linha em
+   "00:00:00" no menor breakpoint suportado. */
 .ss-timer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .15rem;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-5) 0;
 }
 
 .ss-timer-value {
   font-family: var(--font-display);
-  font-size: var(--font-size-4xl);
+  font-size: clamp(2.75rem, 8vw + 1rem, 4.5rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--gray-800);
+  color: var(--color-timer-accent);
   line-height: 1;
 }
 
@@ -5097,7 +5133,7 @@ textarea { resize: vertical; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .35rem;
+  gap: var(--space-1);
 }
 
 /* Mesmo bug de especificidade de .state-block[hidden] (ver F10 #1.6 acima). */
@@ -5139,10 +5175,13 @@ textarea { resize: vertical; }
   gap: var(--space-2);
 }
 
+/* Etapa 10 — item de leitura, não campo de formulário: sem borda, sombra
+   ou hover (nada aqui é clicável), só o fundo neutro que já o diferenciava
+   do card ao redor. */
 .ss-status-item {
   display: flex;
   flex-direction: column;
-  gap: .15rem;
+  gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--gray-50);
   border-radius: var(--radius);
@@ -5162,11 +5201,32 @@ textarea { resize: vertical; }
   overflow-wrap: break-word;
 }
 
+/* Etapa 4 — legenda de uma linha abaixo do cronômetro no card ativo,
+   substituindo o grid .ss-status-card ali (o painel de detalhes mantém o
+   grid completo, inalterado). Peso maior que uma legenda comum para o nome
+   do compromisso não se perder ao lado do cronômetro. */
+.ss-context-caption {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  overflow-wrap: break-word;
+}
+
+.ss-context-title {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.ss-context-category {
+  color: var(--gray-500);
+}
+
 .ss-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: .6rem;
+  gap: var(--space-2);
   width: 100%;
 }
 
@@ -5183,19 +5243,103 @@ textarea { resize: vertical; }
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: .6rem;
+  gap: var(--space-2);
   width: 100%;
-  margin-top: .8rem;
+  margin-top: var(--space-3);
+}
+
+/* Etapa 5 — "Detalhes da sessão" rebaixado a acesso secundário: antes um
+   .btn-secondary de mesma largura de "Pausar"/"Finalizar", competindo por
+   atenção com as ações de destaque da sessão. Vira link com ícone —
+   mesma função/contador (#ss-panel-badge), peso visual bem menor — mas
+   ainda com área de toque >= 44px (padding vertical, não font-size) pra
+   não sacrificar a descoberta em mobile. */
+.ss-panel-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-1);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-base), background var(--transition-base);
+}
+
+.ss-panel-trigger[hidden] { display: none; }
+
+.ss-panel-trigger svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex-shrink: 0;
+}
+
+.ss-panel-trigger:hover { color: var(--color-primary-hover); text-decoration: underline; }
+
+.ss-panel-trigger:active { transform: scale(.98); }
+
+.ss-panel-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* ── Resumo/encerramento da sessão (F7.3) ── */
+/* Etapa 8 — número central do encerramento: mesma paleta/família tipográfica
+   do cronômetro em sessão (--color-timer-accent, --font-display, Etapa 2),
+   pra linkar visualmente início e fim da sessão. clamp() calibra o destaque
+   ao próprio valor de sessões curtas/interrompidas sem exigir texto
+   condicional novo — o número nunca soa mais festivo do que o tempo real
+   estudado justifica. */
+.ss-finish-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0 var(--space-4);
+  text-align: center;
+}
+
+.ss-finish-hero-value {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw + 1rem, 3rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-timer-accent);
+  line-height: 1;
+}
+
+.ss-finish-hero-label {
+  font-size: var(--eyebrow-font-size);
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+}
+
+/* Etapa 8 — convite à reflexão: mesma moldura (fundo suave + rótulo
+   serifado) já usada em .sj-detail-section--reflection/.sj-detail-title--
+   reflection no Diário de Estudos, reaproveitada aqui para consistência em
+   vez de um tratamento visual novo. */
+.ss-notes-invite {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-100);
+  border-radius: var(--radius-md);
+}
+
 .ss-notes-label {
   display: block;
-  margin-top: var(--space-4);
-  margin-bottom: .4rem;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-display);
+  font-style: italic;
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--gray-700);
+  color: var(--color-primary-hover);
 }
 
 .ss-notes-textarea {
@@ -5209,24 +5353,56 @@ textarea { resize: vertical; }
      igual já acontecia dentro do modal (.modal-body é column sem
      align-items, então esticava por padrão). */
   width: 100%;
-  margin-top: 1.2rem;
+  margin-top: var(--space-5);
   padding-top: var(--space-4);
   border-top: 1px solid var(--gray-200);
 }
 
 .ss-questions-title {
-  margin: 0 0 .4rem;
+  margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--gray-700);
 }
 
-/* F2 — Cancelar sessão, dentro de "Detalhes da sessão": ação rara/destrutiva,
-   com espaço extra das seções de conteúdo acima (mesmo espaçamento de
-   .ss-questions-block, que já demarca seções dentro do painel). */
+/* Etapa 6 — dentro de #ss-panel, Contexto/Questões/Revisões usavam o mesmo
+   par título+divisor e liam como uma lista contínua de formulário. Cada
+   bloco ganha aqui a superfície que combina com seu papel: Contexto
+   permanece só leitura (nenhuma moldura, apenas o divisor herdado);
+   Questões — ação mais frequente do painel — vira um cartão cheio, com
+   fundo e borda sólida; Revisões — ação ocasional — recebe contorno
+   tracejado sem preenchimento, mais discreto que o cartão de Questões. */
+.ss-questions-block.ss-block-questions,
+.ss-questions-block.ss-block-reviews {
+  border-top: none;
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.ss-questions-block.ss-block-questions {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+}
+
+.ss-questions-block.ss-block-reviews {
+  background: none;
+  border: 1px dashed var(--gray-300);
+}
+
+/* Etapa 7 — Cancelar sessão, dentro de "Detalhes da sessão": ação
+   destrutiva e rara, que não deveria compartilhar o ritmo visual de
+   Questões/Revisões (ações rotineiras registradas durante a sessão).
+   Ganha divisor próprio e espaço bem maior que o gap padrão entre
+   blocos de .ai-panel-actions, e passa a ocupar a largura do painel
+   (como as demais seções) em vez de ficar como um botão solto e
+   pequeno — o objetivo é que só ela apareça "isolada" abaixo da linha,
+   nunca lida em sequência com o restante do conteúdo. */
 .ss-panel-cancel {
-  align-self: flex-start;
-  margin-top: var(--space-2);
+  align-self: stretch;
+  width: 100%;
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--gray-200);
 }
 
 /* Auditoria UX #04 — cabeçalho das seções opcionais colapsáveis do
@@ -5247,14 +5423,14 @@ textarea { resize: vertical; }
 }
 
 .ss-questions-empty {
-  margin: 0 0 .6rem;
+  margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
   color: var(--gray-500);
 }
 
 .ss-questions-list {
   list-style: none;
-  margin: 0 0 .8rem;
+  margin: 0 0 var(--space-3);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -5265,8 +5441,8 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .6rem;
-  padding: .5rem .6rem;
+  gap: var(--space-2);
+  padding: var(--space-2);
   background: var(--gray-50);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -5275,33 +5451,33 @@ textarea { resize: vertical; }
 .ss-question-item-info {
   display: flex;
   flex-wrap: wrap;
-  gap: .3rem .6rem;
+  gap: var(--space-1) var(--space-2);
   color: var(--gray-700);
 }
 
 .ss-question-item-actions {
   display: flex;
-  gap: .4rem;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .ss-question-form {
   border-top: 1px dashed var(--gray-200);
-  padding-top: .8rem;
+  padding-top: var(--space-3);
 }
 
 .ss-question-form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: .5rem .8rem;
-  margin-bottom: .6rem;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .ss-question-form-row label {
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--gray-600);
-  margin-bottom: .2rem;
+  margin-bottom: var(--space-1);
   display: block;
 }
 
@@ -5312,7 +5488,7 @@ textarea { resize: vertical; }
    questão (Adicionar/Salvar + Cancelar) lado a lado. */
 .ss-question-form-actions {
   display: flex;
-  gap: .5rem;
+  gap: var(--space-2);
 }
 
 /* ── Revisões — opções de registro (Fase J2) ──────────────────────────────
@@ -5325,11 +5501,11 @@ textarea { resize: vertical; }
 .ss-review-option {
   display: flex;
   align-items: center;
-  gap: .7rem;
-  padding: .6rem .8rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: var(--gray-50);
   border-radius: var(--radius);
-  margin-bottom: .6rem;
+  margin-bottom: var(--space-2);
 }
 
 .ss-review-option-icon {
@@ -5349,7 +5525,7 @@ textarea { resize: vertical; }
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--gray-600);
-  margin-bottom: .2rem;
+  margin-bottom: var(--space-1);
   display: block;
 }
 
@@ -5361,7 +5537,7 @@ textarea { resize: vertical; }
 .ss-review-action-btn {
   display: flex;
   align-items: center;
-  gap: .35rem;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -5379,7 +5555,7 @@ textarea { resize: vertical; }
 .ss-start-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
@@ -5389,7 +5565,7 @@ textarea { resize: vertical; }
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
-  padding: .35rem .9rem;
+  padding: var(--space-1) var(--space-4);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast);
