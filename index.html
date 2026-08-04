@@ -838,6 +838,17 @@
                 <h2 class="modal-title" id="ss-finish-title">Resumo da sessão</h2>
               </div>
               <div class="modal-body">
+                <!-- Etapa 8 — o número que resume a sessão (tempo total de
+                     estudo, pausas já descontadas) sai do meio da grade de
+                     dados e vira o primeiro elemento do resumo, em destaque
+                     tipográfico próprio (mesma paleta/escala do cronômetro
+                     da Etapa 2). Nenhum dado a menos: só reordenado, o
+                     mesmo #ssf-net-time de sempre, sem novo cálculo. -->
+                <div class="ss-finish-hero">
+                  <span class="ss-finish-hero-value" id="ssf-net-time">—</span>
+                  <span class="ss-finish-hero-label">Tempo total de estudo, pausas descontadas</span>
+                </div>
+
                 <!-- F1 — cartão de status compacto (não mais um `dl`); mesmos
                      campos exibidos antes, nenhum dado a menos. -->
                 <div class="ss-status-card">
@@ -861,14 +872,17 @@
                     <span class="ss-status-label">Horário de término</span>
                     <span class="ss-status-value" id="ssf-ended-at">—</span>
                   </div>
-                  <div class="ss-status-item">
-                    <span class="ss-status-label">Tempo de estudo (pausas descontadas)</span>
-                    <span class="ss-status-value" id="ssf-net-time">—</span>
-                  </div>
                 </div>
 
-                <label for="ssf-reflection" class="ss-notes-label">O que ficou desta sessão?</label>
-                <textarea id="ssf-reflection" class="ss-notes-textarea" rows="3" placeholder="O que aprendeu, dificuldades, o que revisar depois… (opcional)"></textarea>
+                <!-- Etapa 8 — convite à reflexão ganha a mesma moldura
+                     (fundo suave + rótulo serifado) já usada em
+                     .sj-detail-section--reflection no Diário de Estudos,
+                     em vez de label+textarea neutros perdidos no fim do
+                     formulário. -->
+                <div class="ss-notes-invite">
+                  <label for="ssf-reflection" class="ss-notes-label">O que ficou desta sessão?</label>
+                  <textarea id="ssf-reflection" class="ss-notes-textarea" rows="3" placeholder="O que aprendeu, dificuldades, o que revisar depois… (opcional)"></textarea>
+                </div>
 
                 <!-- F10 PR9: o recap textual de Questões/Revisões que existia
                      aqui ("N questão(ões) registrada(s)...") repetia, em
