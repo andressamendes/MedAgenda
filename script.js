@@ -235,15 +235,16 @@ async function _checkSchemaGate() {
 }
 
 // Auditoria UX #31: o filtro "Exibir: Pessoais" só afeta Agenda (Semana/Mês)
-// e Compromissos — cada página tem sua própria instância na toolbar (em vez
-// de uma única barra fixa no topo da sidebar, visível mesmo nas páginas onde
-// não faz nada). Semana e Mês agora dividem a mesma toolbar (F10 #4.1), então
-// restam duas instâncias, que leem/escrevem o mesmo estado
-// (academicCalendarFilter.js) e por isso são recriadas juntas a cada mudança
-// para permanecerem sincronizadas.
+// e Compromissos — por isso vive na toolbar da página Agenda, em vez de uma
+// barra fixa no topo da sidebar, visível mesmo nas páginas onde não faz nada.
+// Etapa 1 (auditoria UX/UI): Dia/Semana/Mês/Lista são abas da mesma página
+// #page-agenda (F10 #4.1, F14.7) e #filter-bar-agenda vive acima das abas,
+// então uma única instância já afeta as quatro — a segunda instância que
+// existia dentro da aba Lista (#filter-bar-appointments) foi removida por
+// ser o mesmo controle, lendo/escrevendo o mesmo estado
+// (academicCalendarFilter.js), duplicado sem necessidade.
 function _renderAllFilterBars() {
   renderFilterBar("filter-bar-agenda");
-  renderFilterBar("filter-bar-appointments");
 }
 
 // F10 #4.1 — Semana e Mês deixaram de ser páginas separadas: são abas dentro
