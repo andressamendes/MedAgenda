@@ -23,6 +23,7 @@ import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
 import { getDashboardData } from "./activityDashboardService.js";
+import { formatGoalSentence } from "./timeGoals.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
@@ -192,6 +193,22 @@ async function _refreshCloseDayGoalState() {
     wrapper.classList.toggle("today-close-day--goal-met", !!goalMet);
   } catch (err) {
     handleError(err, { context: "todayView.closeDayGoalState", silent: true });
+  }
+}
+
+// Etapa 2 (auditoria UX #2) — frase de progresso sempre visível no hero, sem
+// exigir o clique no disclosure "Ver números de hoje". Mesmo dado de
+// activityDashboardService.getDashboardData() -> dailyGoal já usado pelo
+// card "Meta diária" (activityDashboardView.js) — nenhum cálculo novo, só
+// uma segunda leitura em frase (formatGoalSentence(), timeGoals.js).
+async function _refreshHeroProgress() {
+  if (!heroProgressEl) return;
+  try {
+    const data = await getDashboardData();
+    heroProgressEl.textContent = formatGoalSentence(data.dailyGoal);
+  } catch (err) {
+    handleError(err, { context: "todayView.refreshHeroProgress", silent: true });
+    heroProgressEl.textContent = "";
   }
 }
 
