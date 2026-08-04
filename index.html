@@ -571,7 +571,6 @@
           <!-- Estado: sessão executando ou pausada -->
           <div id="ss-active" class="ss-card" hidden>
             <div class="ss-active-header">
-              <span id="ss-status-badge" class="ss-status-badge"></span>
               <!-- F14.9 — Modo foco: oculta header/sidebar/bottom-nav para que,
                    com a sessão rodando, só reste cronômetro + "+1 questão" +
                    Pausar/Finalizar. Este botão continua visível (o card de
@@ -584,6 +583,11 @@
             </div>
 
             <div class="ss-timer" aria-live="off">
+              <!-- Etapa 3 — estado rodando/pausado deixa de ser uma pílula própria
+                   e passa a ser comunicado pela cor do próprio cronômetro
+                   (ver .ss-active--paused em style.css); o texto do estado
+                   continua existindo para leitor de tela, só visualmente oculto. -->
+              <span id="ss-status-badge" class="sr-only"></span>
               <span id="ss-time" class="ss-timer-value">00:00</span>
               <span class="ss-timer-label">Tempo de estudo (pausas descontadas)</span>
             </div>
