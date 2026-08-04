@@ -5297,12 +5297,20 @@ textarea { resize: vertical; }
   border: 1px dashed var(--gray-300);
 }
 
-/* F2 — Cancelar sessão, dentro de "Detalhes da sessão": ação rara/destrutiva,
-   com espaço extra das seções de conteúdo acima (mesmo espaçamento de
-   .ss-questions-block, que já demarca seções dentro do painel). */
+/* Etapa 7 — Cancelar sessão, dentro de "Detalhes da sessão": ação
+   destrutiva e rara, que não deveria compartilhar o ritmo visual de
+   Questões/Revisões (ações rotineiras registradas durante a sessão).
+   Ganha divisor próprio e espaço bem maior que o gap padrão entre
+   blocos de .ai-panel-actions, e passa a ocupar a largura do painel
+   (como as demais seções) em vez de ficar como um botão solto e
+   pequeno — o objetivo é que só ela apareça "isolada" abaixo da linha,
+   nunca lida em sequência com o restante do conteúdo. */
 .ss-panel-cancel {
-  align-self: flex-start;
-  margin-top: var(--space-2);
+  align-self: stretch;
+  width: 100%;
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--gray-200);
 }
 
 /* Auditoria UX #04 — cabeçalho das seções opcionais colapsáveis do
