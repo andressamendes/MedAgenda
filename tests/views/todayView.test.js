@@ -109,11 +109,6 @@ function loadView(t, overrides = {}) {
       getProfile: overrides.getProfile ?? (async () => ({ full_name: "" })),
     },
   });
-  t.mock.module(PROFILE_SERVICE_SPECIFIER, {
-    namedExports: {
-      getProfile: overrides.getProfile ?? (async () => ({ full_name: "" })),
-    },
-  });
 
   return import(`../../todayView.js?t=${Math.random()}`);
 }
