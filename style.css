@@ -4106,6 +4106,17 @@ textarea { resize: vertical; }
   color: var(--gray-800);
 }
 
+/* Etapa 3 (F18 #2) — resumo de uma linha, sempre visível acima da grade,
+   respondendo de relance "como está minha semana" sem exigir leitura da
+   grade inteira (problema #3 do diagnóstico da auditoria). Sem ícone/borda
+   própria — texto simples, um degrau abaixo de .wk-label em ênfase. */
+.wk-summary {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-bottom: var(--space-3);
+  min-height: 1.25em;
+}
+
 .wk-wrap {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
@@ -4419,6 +4430,15 @@ textarea { resize: vertical; }
   font-size: var(--font-size-lg);
   color: var(--gray-800);
   text-transform: capitalize;
+}
+
+/* V5.12 — mesmo resumo de uma linha da Semana (.wk-summary), reaproveitado
+   para o dia exibido em Dia. */
+.dv-summary {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-bottom: var(--space-3);
+  min-height: 1.25em;
 }
 
 .dv-error {

@@ -317,6 +317,69 @@ test("a failure fetching execution summaries does not break the week view", asyn
   assert.strictEqual(block.querySelector(".wk-ev-indicator"), null);
 });
 
+// ── Etapa 3 (F18 #2) — resumo de uma linha, sempre visível acima da grade ──
+
+test("F18 #2 — an empty week shows an appropriately-toned summary, not '0 compromissos'", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+
+  assert.strictEqual(container.querySelector("#wk-summary").textContent, "Nenhum compromisso esta semana");
+});
+
+test("F18 #2 — the summary counts every rendered compromisso, matching the grid", async (t) => {
+  const { mon } = currentWeekRange();
+  const tue = new Date(mon); tue.setDate(tue.getDate() + 1);
+  const events = [
+    { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" },
+    { id: "evt-2", title: "Revisão", event_date: isoDate(tue), start_time: "09:00:00", duration_minutes: 30, recurrence_type: "none" },
+  ];
+  mockEventService(t, {
+    events,
+    summaries: {
+      "evt-1": { totalDuration: 60, sessionsCount: 1, lastSession: null, hasFinishedSession: true, hasRunningSession: false },
+      "evt-2": { totalDuration: 0, sessionsCount: 0, lastSession: null, hasFinishedSession: false, hasRunningSession: false },
+    },
+  });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+
+  assert.strictEqual(container.querySelector("#wk-summary").textContent, "2 compromissos esta semana · 1 já estudado");
+  assert.strictEqual(container.querySelectorAll(".wk-event").length, 2);
+});
+
+test("F18 #2 — no compromisso has a finished session: the summary omits the 'já estudados' clause", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [ev], summaries: {} });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+
+  assert.strictEqual(container.querySelector("#wk-summary").textContent, "1 compromisso esta semana");
+});
+
+test("F18 #2 — navigating to another week updates the summary to match the new week's events", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [ev] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+  assert.strictEqual(container.querySelector("#wk-summary").textContent, "1 compromisso esta semana");
+
+  container.querySelector("#wk-next").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(container.querySelector("#wk-summary").textContent, "Nenhum compromisso esta semana");
+});
+
 // ── Dica contextual e plano rápido (F3.5, ETAPA 4/6; consumindo o Decision
 // Engine — F3.7) ─────────────────────────────────────────────────────────────
 // loadTip() reaproveita decisionEngine.getDecisions() (mockado acima) para
