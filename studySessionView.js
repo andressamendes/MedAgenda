@@ -92,6 +92,14 @@ let appScreenEl;
 let _focusMode = false;
 let ssBtnFocusToggle, ssFocusToggleLabelEl;
 
+// Etapa 1 (modo foco como padrão) — id da sessão para a qual o modo foco já
+// foi ligado automaticamente. Sem isto, toda atualização vinda do barramento
+// (pause/resume/etc., que também passam por _applySession) religaria o foco
+// mesmo depois do usuário desligá-lo manualmente (toggle/Escape) na mesma
+// sessão. Zerado quando a sessão termina, para que a próxima sessão ativa
+// volte a ligar o foco automaticamente.
+let _autoFocusedSessionId = null;
+
 let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, titleLabelEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
@@ -515,6 +523,13 @@ function _applySession(session) {
   if (!_session || _session.status === "finished" || _session.status === "cancelled") {
     _session   = null;
     _eventMeta = null;
+    _autoFocusedSessionId = null;
+  } else if (_autoFocusedSessionId !== _session.id) {
+    // Etapa 1 — ao renderizar uma sessão ativa pela primeira vez, entra em
+    // modo foco automaticamente; o toggle continua disponível para o usuário
+    // sair/voltar manualmente a qualquer momento durante a mesma sessão.
+    _autoFocusedSessionId = _session.id;
+    if (!_focusMode) _setFocusMode(true);
   }
   _render();
   _syncSessionQuestionsAndReviews();
@@ -1548,16 +1563,20 @@ export async function initStudySessionView() {
 
   _subscribeToEventBus();
 
+  let restoredSession = null;
   try {
-    _session   = await getActiveSession();
-    _eventMeta = await _resolveEventMeta(_session);
+    restoredSession = await getActiveSession();
+    _eventMeta = await _resolveEventMeta(restoredSession);
   } catch (err) {
     handleError(err, { context: "studySessionView.restore" });
-    _session   = null;
+    restoredSession = null;
     _eventMeta = null;
   }
-  _render();
-  _syncSessionQuestionsAndReviews();
+  // Etapa 1 (modo foco como padrão) — passa pelo mesmo caminho de
+  // start/pause/resume/barramento (_applySession) para que uma sessão
+  // restaurada após reload entre em modo foco automaticamente também, sem
+  // duplicar a lógica de auto-foco aqui.
+  _applySession(restoredSession);
 
   // F7.9 — Sessão abandonada: a restauração acima já aconteceu normalmente
   // (nenhuma mudança de comportamento para sessões recentes). Uma sessão
