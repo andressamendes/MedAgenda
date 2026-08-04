@@ -2,6 +2,23 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI da Agenda, Etapa 10: simplificação do formulário completo
+
+- `#event-modal` (`eventFormView.js`, `index.html`) nasce só com os campos
+  essenciais — Título, Data, Hora início/Duração e Categoria. Cor, Local,
+  Observação, Lembrete e Repetição saem de campos sempre visíveis e do
+  antigo "Mais opções" (dedicado só à cor) e passam a viver atrás de um
+  único disclosure "Mais detalhes" (`#f-more-details-toggle`/
+  `#f-more-details-wrap`), mesmo padrão de `aria-expanded` + rótulo
+  "Mostrar"/"Ocultar" já usado no resto do app. Nenhum campo foi removido
+  nem a lógica de leitura/gravação mudou — `_populateForm` continua lendo
+  todos os campos normalmente e agora reabre "Mais detalhes" sozinho sempre
+  que o compromisso editado já tem algo preenchido nele (cor personalizada,
+  local, observação, lembrete ou repetição), para que um dado existente
+  nunca fique escondido sem o usuário saber que ele está lá.
+
+---
+
 ## [Unreleased] — Auditoria UX/UI de Hoje, Etapa 10: reforço visual condicional do "Fechar o dia"
 
 - O botão "Fechar o dia" (`#today-btn-close-day`) ganha a classe

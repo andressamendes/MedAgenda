@@ -266,41 +266,42 @@ test("F11 E16 — openEventFormPrefilled() with no time typed yet leaves the tim
   assert.strictEqual(document.getElementById("f-start").value, "");
 });
 
-// F11 E10 (auditoria #13) — perguntar a cor em todo cadastro era uma decisão
-// a mais sem necessidade, já que ela segue a categoria escolhida
-// (categoryView.js). O picker de cor nasce escondido atrás de "Mais opções".
-test("F11 E10 — a new event starts with the color field collapsed behind 'Mais opções'", async (t) => {
+// Etapa 10 (auditoria Seção 4 #7 / Seção 18 #7-8) — o formulário completo
+// nasce só com os campos essenciais (Título/Data/Hora/Categoria); Cor,
+// Local, Observação, Lembrete e Repetição ficam atrás de um único
+// disclosure "Mais detalhes".
+test("Etapa 10 — a new event starts with 'Mais detalhes' collapsed (color, location, description, reminder, recurrence)", async (t) => {
   mockEventService(t);
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
 
   openEventForm();
 
-  assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
-  assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("f-more-details-wrap").hidden, true);
+  assert.strictEqual(document.getElementById("f-more-details-toggle").getAttribute("aria-expanded"), "false");
 });
 
-test("F11 E10 — clicking the color toggle reveals the color field and flips the label to Ocultar", async (t) => {
+test("Etapa 10 — clicking the 'Mais detalhes' toggle reveals the section and flips the label to Ocultar", async (t) => {
   mockEventService(t);
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
   openEventForm();
 
-  const toggle = document.getElementById("f-color-toggle");
+  const toggle = document.getElementById("f-more-details-toggle");
   toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
-  assert.strictEqual(document.getElementById("f-color-wrap").hidden, false);
+  assert.strictEqual(document.getElementById("f-more-details-wrap").hidden, false);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "true");
   assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar");
 
   toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 
-  assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
+  assert.strictEqual(document.getElementById("f-more-details-wrap").hidden, true);
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
   assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Mostrar");
 });
 
-test("F11 E10 — editing an event whose color matches its category's current color keeps the color field collapsed", async (t) => {
+test("Etapa 10 — editing a plain event (matching category color, no location/description/reminder/recurrence) keeps 'Mais detalhes' collapsed", async (t) => {
   mockEventService(t);
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
@@ -312,11 +313,11 @@ test("F11 E10 — editing an event whose color matches its category's current co
     category: "Estudo", color: "#6b7280",
   });
 
-  assert.strictEqual(document.getElementById("f-color-wrap").hidden, true);
-  assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "false");
+  assert.strictEqual(document.getElementById("f-more-details-wrap").hidden, true);
+  assert.strictEqual(document.getElementById("f-more-details-toggle").getAttribute("aria-expanded"), "false");
 });
 
-test("F11 E10 — editing an event with a custom color (different from its category's color) opens 'Mais opções' automatically", async (t) => {
+test("Etapa 10 — editing an event with a custom color (different from its category's color) opens 'Mais detalhes' automatically", async (t) => {
   mockEventService(t);
   const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
   initEventForm();
@@ -327,8 +328,22 @@ test("F11 E10 — editing an event with a custom color (different from its categ
   });
 
   assert.strictEqual(document.getElementById("f-color").value, "#ff0000");
-  assert.strictEqual(document.getElementById("f-color-wrap").hidden, false, "cor personalizada não pode ficar escondida sem o usuário saber que ela existe");
-  assert.strictEqual(document.getElementById("f-color-toggle").getAttribute("aria-expanded"), "true");
+  assert.strictEqual(document.getElementById("f-more-details-wrap").hidden, false, "cor personalizada não pode ficar escondida sem o usuário saber que ela existe");
+  assert.strictEqual(document.getElementById("f-more-details-toggle").getAttribute("aria-expanded"), "true");
+});
+
+test("Etapa 10 — editing an event with only a location filled opens 'Mais detalhes' automatically", async (t) => {
+  mockEventService(t);
+  const { initEventForm, openEventForm } = await import(`../../eventFormView.js?t=${Math.random()}`);
+  initEventForm();
+
+  openEventForm({
+    id: "evt-1", title: "Aula", event_date: "2026-08-12", start_time: "08:00",
+    category: "Estudo", color: "#6b7280", location: "Hospital das Clínicas",
+  });
+
+  assert.strictEqual(document.getElementById("f-more-details-wrap").hidden, false);
+  assert.strictEqual(document.getElementById("f-location").value, "Hospital das Clínicas");
 });
 
 test("submitting without a title shows a validation error and does not call createEvent", async (t) => {
