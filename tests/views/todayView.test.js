@@ -101,7 +101,12 @@ function loadView(t, overrides = {}) {
   t.mock.module(DASHBOARD_SERVICE_SPECIFIER, {
     namedExports: {
       getDashboardData: overrides.getDashboardData
-        ?? (async () => ({ dailyGoal: { configured: false, state: "no_goal" } })),
+        ?? (async () => ({ dailyGoal: NO_GOAL_PROGRESS })),
+    },
+  });
+  t.mock.module(PROFILE_SERVICE_SPECIFIER, {
+    namedExports: {
+      getProfile: overrides.getProfile ?? (async () => ({ full_name: "" })),
     },
   });
   t.mock.module(PROFILE_SERVICE_SPECIFIER, {
