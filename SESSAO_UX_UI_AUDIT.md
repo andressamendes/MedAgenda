@@ -375,6 +375,7 @@ Cada etapa é independente, cabe em uma única PR e não adiciona nenhuma funcio
 - **Complexidade**: média (depende de identificar corretamente todos os pontos de entrada que já carregam contexto).
 - **Riscos**: caso a detecção de origem falhe, o usuário pode ver a aba "errada" pré-selecionada; testar todos os fluxos de entrada existentes (Hoje, compromisso da agenda, início avulso).
 - **Critérios de aceite**: abrir o modal a partir de um compromisso específico não exige clique adicional em aba; abrir o modal de forma avulsa continua oferecendo as duas opções normalmente.
+- **Status**: já satisfeito, sem alteração de código necessária. Os três pontos de entrada que já carregam um compromisso conhecido — card da Agenda (`script.js`/`handleStartSession`), "Iniciar Sessão" no formulário de compromisso (`eventFormView.js`) e o item de "Hoje" (`todayView.js`/`_buildApptItem`) — chamam `startSessionForEvent(event)` diretamente e nunca abrem `#ss-start-modal`: a sessão inicia sem nenhuma escolha de aba. `#ss-start-modal` só é aberto pelos fluxos genuinamente avulsos (`openStartModal()`/botão "Iniciar sessão" da própria tela de Sessão, "Começar a estudar" em Hoje), que continuam oferecendo as duas abas; dentro dele, os chips de sugestão de compromisso (ex. "Hoje: X") já trocam a aba sozinhos ao serem clicados, sem exigir um clique manual adicional em aba.
 
 ### Etapa 10 — Ajustes finos de consistência visual
 
