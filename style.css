@@ -5200,6 +5200,46 @@ textarea { resize: vertical; }
   margin-top: .8rem;
 }
 
+/* Etapa 5 — "Detalhes da sessão" rebaixado a acesso secundário: antes um
+   .btn-secondary de mesma largura de "Pausar"/"Finalizar", competindo por
+   atenção com as ações de destaque da sessão. Vira link com ícone —
+   mesma função/contador (#ss-panel-badge), peso visual bem menor — mas
+   ainda com área de toque >= 44px (padding vertical, não font-size) pra
+   não sacrificar a descoberta em mobile. */
+.ss-panel-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 44px;
+  padding: .5rem .3rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-base), background var(--transition-base);
+}
+
+.ss-panel-trigger[hidden] { display: none; }
+
+.ss-panel-trigger svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex-shrink: 0;
+}
+
+.ss-panel-trigger:hover { color: var(--color-primary-hover); text-decoration: underline; }
+
+.ss-panel-trigger:active { transform: scale(.98); }
+
+.ss-panel-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 /* ── Resumo/encerramento da sessão (F7.3) ── */
 .ss-notes-label {
   display: block;
