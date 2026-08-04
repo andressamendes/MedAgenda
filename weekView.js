@@ -505,6 +505,14 @@ function _applyOverlapStyle(block, layout, ev) {
   block.style.left  = `calc(${placement.col * widthPct}% + 2px)`;
   block.style.width = `calc(${widthPct}% - 4px)`;
   block.style.right = "auto";
+  // UX #6 / decisão #9 (Seção 16) — a divisão de largura sozinha só é
+  // percebida com atenção; todo bloco que colide em horário também recebe
+  // este sinal (borda + ícone via CSS, sem texto extra) para ser reconhecido
+  // à primeira vista.
+  block.classList.add("wk-event-conflict");
+  block.title = block.title
+    ? `${block.title} · Conflito de horário`
+    : "Conflito de horário";
 }
 
 function renderEvents(events, summaries = {}) {

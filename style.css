@@ -4373,6 +4373,34 @@ textarea { resize: vertical; }
   box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 0 0 3px rgba(16, 185, 129, .45);
 }
 
+/* Etapa 4 — sinal visual de conflito de horário (UX #6 / decisão #9, Seção
+   16). A divisão de largura entre colunas (_applyOverlapStyle) já indica
+   sobreposição, mas só é percebida com atenção; aqui somamos borda + ícone
+   compacto (::before) para que o conflito salte aos olhos sem exigir mais um
+   elemento de texto num bloco já denso. */
+.wk-event-conflict {
+  border: 2px solid var(--color-warning);
+}
+
+.wk-event-conflict::before {
+  content: '⚠';
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+  color: var(--color-warning-text);
+  font-size: var(--font-size-3xs);
+  font-weight: 700;
+  text-align: center;
+  /* stylelint-disable-next-line scale-unlimited/declaration-strict-value -- sombra do selo de conflito, mesma calibração ad-hoc do .wk-event acima */
+  box-shadow: 0 1px 2px rgba(0,0,0,.35);
+  z-index: 4;
+}
+
 /* current-time line */
 .wk-now-line {
   position: absolute;
