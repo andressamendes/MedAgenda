@@ -28,7 +28,9 @@ import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
 import { categoryColor } from "./categoryView.js";
 import { escapeHtml, isoToday, formatDuration } from "./utils.js";
+import { getProfile } from "./profileService.js";
 
+let greetingTextEl, greetingDateEl;
 let heroProgressEl, tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
 let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
@@ -40,6 +42,8 @@ let _apptItemsCache = []; // [{ ev, li }] da última _refreshAppointments — re
 let _apptStateTimer = null;
 
 export async function initTodayView() {
+  greetingTextEl = document.getElementById("today-greeting-text");
+  greetingDateEl = document.getElementById("today-greeting-date");
   heroProgressEl = document.getElementById("today-hero-progress");
   tipEl       = document.getElementById("today-tip");
   resumeBtn   = document.getElementById("today-btn-resume");
