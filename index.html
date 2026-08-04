@@ -1582,27 +1582,23 @@
             <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="session-history-toggle" aria-expanded="false" aria-controls="session-history-body" data-disclosure-label="Mostrar histórico deste compromisso"></button>
           </div>
           <div id="session-history-body" hidden>
-            <div id="session-stats" class="session-stats" hidden>
-              <div class="stat-card stat-card--sm">
-                <span class="stat-card-title">Tempo executado</span>
-                <span class="stat-card-value" id="stat-total"></span>
-              </div>
-              <div class="stat-card stat-card--sm">
-                <span class="stat-card-title">Sessões</span>
-                <span class="stat-card-value" id="stat-count"></span>
-              </div>
-              <div class="stat-card stat-card--sm">
-                <span class="stat-card-title">Última sessão</span>
-                <span class="stat-card-value" id="stat-last"></span>
-              </div>
-              <div class="stat-card stat-card--sm">
-                <span class="stat-card-title">Maior sessão</span>
-                <span class="stat-card-value" id="stat-longest"></span>
-              </div>
-              <div class="stat-card stat-card--sm">
-                <span class="stat-card-title">Média</span>
-                <span class="stat-card-value" id="stat-average"></span>
-              </div>
+            <!-- Etapa 12: os 5 stat-card--sm (tempo/sessões/última/maior/média)
+                 pesavam mais do que o contexto pedia — editar um compromisso,
+                 não analisar um relatório. Substituídos por um resumo textual
+                 de 2 linhas: a primeira destaca o dado mais relevante (tempo
+                 total, em negrito); a segunda condensa o resto. Nenhum dado
+                 foi removido — os mesmos 5 spans (#stat-total etc.) continuam
+                 no DOM e são preenchidos por _renderSessionStats(), só a
+                 apresentação deixou de ser uma grade de cards. A lista
+                 detalhada de sessões permanece logo abaixo, sem cortes. -->
+            <div id="session-stats" class="session-summary" hidden>
+              <p class="session-summary-primary">
+                <span class="session-summary-value" id="stat-total"></span>
+                <span class="session-summary-label">executados em <span id="stat-count"></span> sessões</span>
+              </p>
+              <p class="session-summary-secondary">
+                Última: <span id="stat-last"></span> · Maior: <span id="stat-longest"></span> · Média: <span id="stat-average"></span>
+              </p>
             </div>
 
             <p id="session-history-empty" class="session-history-empty" hidden></p>

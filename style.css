@@ -2370,14 +2370,41 @@ textarea { resize: vertical; }
   color: var(--gray-800);
 }
 
-.session-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: .6rem;
+/* Etapa 12 — resumo compacto do histórico, no lugar da grade de 5
+   .stat-card--sm. Duas linhas: a primeira destaca o tempo total (o dado
+   mais relevante para "como está indo este compromisso"); a segunda
+   condensa sessões/última/maior/média num único fio de texto. */
+.session-summary {
   background: var(--gray-50);
   border-radius: var(--radius);
   padding: .75rem .9rem;
   margin-bottom: var(--space-4);
+}
+
+.session-summary-primary {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+
+.session-summary-value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.session-summary-label {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+}
+
+.session-summary-secondary {
+  margin: .3rem 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
 }
 
 .session-history-empty {
