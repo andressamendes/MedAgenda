@@ -5273,6 +5273,30 @@ textarea { resize: vertical; }
   color: var(--gray-700);
 }
 
+/* Etapa 6 — dentro de #ss-panel, Contexto/Questões/Revisões usavam o mesmo
+   par título+divisor e liam como uma lista contínua de formulário. Cada
+   bloco ganha aqui a superfície que combina com seu papel: Contexto
+   permanece só leitura (nenhuma moldura, apenas o divisor herdado);
+   Questões — ação mais frequente do painel — vira um cartão cheio, com
+   fundo e borda sólida; Revisões — ação ocasional — recebe contorno
+   tracejado sem preenchimento, mais discreto que o cartão de Questões. */
+.ss-questions-block.ss-block-questions,
+.ss-questions-block.ss-block-reviews {
+  border-top: none;
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.ss-questions-block.ss-block-questions {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+}
+
+.ss-questions-block.ss-block-reviews {
+  background: none;
+  border: 1px dashed var(--gray-300);
+}
+
 /* F2 — Cancelar sessão, dentro de "Detalhes da sessão": ação rara/destrutiva,
    com espaço extra das seções de conteúdo acima (mesmo espaçamento de
    .ss-questions-block, que já demarca seções dentro do painel). */
