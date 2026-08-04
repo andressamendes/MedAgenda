@@ -110,6 +110,7 @@ function buildShell() {
       <button class="btn btn-sm btn-ghost" id="wk-today">Hoje</button>
       <button class="btn btn-sm btn-ghost" id="wk-next" aria-label="Próxima semana">›</button>
     </div>
+    <div class="wk-summary" id="wk-summary" aria-live="polite"></div>
     <div class="wk-error" id="wk-error" hidden></div>
     <div id="wk-empty-tip" class="state-block wk-empty-tip" hidden>
       <span class="state-block-icon" aria-hidden="true">${iconCalendarWeek}</span>
@@ -239,12 +240,15 @@ async function fetchAndRender() {
     renderAcademicEvents(academicEvents);
     hideWeekError();
     updateEmptyTip(personal.length + academicEvents.length === 0);
+    updateWeekSummary(personal, academicEvents, executionSummaries);
   } catch (err) {
     if (generation !== _fetchGeneration) return;
     // Erro (rede/banco/sessão) não deve ser tratado como "semana sem eventos" —
     // exibe um banner de erro distinto, com opção de tentar novamente, em vez
     // de deixar a grade silenciosamente vazia.
     showWeekError(errorToState(handleError(err, { context: "weekView.fetchAndRender", silent: true })));
+    const summaryEl = _el?.querySelector("#wk-summary");
+    if (summaryEl) summaryEl.textContent = "";
   }
 
   if (generation !== _fetchGeneration) return;
@@ -269,6 +273,46 @@ function updateEmptyTip(isEmpty) {
   const tip = _el?.querySelector("#wk-empty-tip");
   if (!tip) return;
   tip.hidden = !isEmpty || _hasSeenWeekIntro();
+}
+
+// ── Etapa 3 (F18 #2) — Resumo de uma linha, sempre visível acima da grade ──
+// Responde de relance "como está minha semana/dia" (problema #3 do
+// diagnóstico da auditoria): total de compromissos exibidos na grade
+// (pessoais + acadêmicos, mesma contagem já usada por updateEmptyTip acima —
+// não recalcula nada novo) e quantos deles já têm sessão de estudo concluída,
+// a partir dos mesmos `executionSummaries` buscados em fetchAndRender()
+// (summarizeExecution().hasFinishedSession, activitySessionStats.js) — os
+// eventos acadêmicos não têm sessão de execução própria, então só entram na
+// contagem total, nunca na de "já estudados". Cálculo puro, sem I/O extra.
+function _countStudied(events, summaries) {
+  return events.reduce((count, ev) => (summaries[ev.id]?.hasFinishedSession ? count + 1 : count), 0);
+}
+
+function _countLabel(n, singular, plural) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+function buildSummaryLine(totalCount, studiedCount, periodLabel) {
+  if (totalCount === 0) return `Nenhum compromisso ${periodLabel}`;
+  const base = `${_countLabel(totalCount, "compromisso", "compromissos")} ${periodLabel}`;
+  return studiedCount > 0
+    ? `${base} · ${_countLabel(studiedCount, "já estudado", "já estudados")}`
+    : base;
+}
+
+function updateWeekSummary(personal, academicEvents, summaries) {
+  const el = _el?.querySelector("#wk-summary");
+  if (!el) return;
+  const total = personal.length + academicEvents.length;
+  el.textContent = buildSummaryLine(total, _countStudied(personal, summaries), "esta semana");
+}
+
+function updateDaySummary(personal, academicEvents, summaries) {
+  const el = _dEl?.querySelector("#dv-summary");
+  if (!el) return;
+  const total = personal.length + academicEvents.length;
+  const periodLabel = _dDate && isoDate(_dDate) === isoToday() ? "hoje" : "neste dia";
+  el.textContent = buildSummaryLine(total, _countStudied(personal, summaries), periodLabel);
 }
 
 // ── Dica contextual e plano rápido (F3.5, ETAPA 4/6; consumindo o Decision
@@ -671,6 +715,7 @@ function buildDayShell() {
       <button class="btn btn-sm btn-ghost" id="dv-today">Hoje</button>
       <button class="btn btn-sm btn-ghost" id="dv-next" aria-label="Próximo dia">›</button>
     </div>
+    <div class="dv-summary" id="dv-summary" aria-live="polite"></div>
     <div class="dv-error" id="dv-error" hidden></div>
     <div id="dv-empty-tip" class="state-block wk-empty-tip" hidden>
       <span class="state-block-icon" aria-hidden="true">${iconCalendarWeek}</span>
@@ -760,9 +805,12 @@ async function fetchAndRenderDay() {
     renderDayAcademicEvents(academicEvents);
     hideDayError();
     updateDayEmptyTip(personal.length + academicEvents.length === 0);
+    updateDaySummary(personal, academicEvents, executionSummaries);
   } catch (err) {
     if (generation !== _dFetchGeneration) return;
     showDayError(errorToState(handleError(err, { context: "weekView.fetchAndRenderDay", silent: true })));
+    const summaryEl = _dEl?.querySelector("#dv-summary");
+    if (summaryEl) summaryEl.textContent = "";
   }
 
   if (generation !== _dFetchGeneration) return;
