@@ -568,6 +568,36 @@ function formatTime(timeStr) {
   return timeStr ? timeStr.slice(0, 5) : "";
 }
 
+// Etapa 9 (Seção 16 #20 / Seção 18 #12) — cabeçalhos de grupo por período
+// só fazem sentido em cima de uma lista ordenada por data: o agrupamento é
+// contíguo (cada card "sabe" seu grupo pela própria data), então basta
+// comparar o grupo do item atual com o do anterior enquanto a lista já
+// ordenada é percorrida — funciona tanto para "date-asc" quanto para
+// "date-desc" sem precisar reordenar nada. Ordenação por título não tem
+// relação nenhuma com período, então o agrupamento é desativado nesse caso
+// e o comportamento anterior (lista plana) é preservado.
+function _dateGroupLabel(dateStr) {
+  if (!dateStr) return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(`${dateStr}T00:00:00`);
+  const diffDays = Math.round((d - today) / 86400000);
+
+  if (diffDays < 0) return "Atrasados";
+
+  // Semana corrente = hoje até o próximo domingo (getDay(): 0 = domingo).
+  const daysUntilSunday = (7 - today.getDay()) % 7;
+  const endOfThisWeek = new Date(today);
+  endOfThisWeek.setDate(endOfThisWeek.getDate() + daysUntilSunday);
+  const endOfNextWeek = new Date(endOfThisWeek);
+  endOfNextWeek.setDate(endOfNextWeek.getDate() + 7);
+
+  if (diffDays === 0) return "Hoje";
+  if (d <= endOfThisWeek) return "Esta semana";
+  if (d <= endOfNextWeek) return "Próxima semana";
+  return "Mais tarde";
+}
+
 function renderList(events) {
   eventList.innerHTML = "";
   listEmpty.hidden    = events.length > 0;
@@ -575,7 +605,21 @@ function renderList(events) {
   clearStateBlock(listEmpty);
   listEmpty.innerHTML = LIST_EMPTY_MARKUP;
 
+  const groupByPeriod = (sortSelect?.value || "date-asc") !== "title";
+  let lastGroup = null;
+
   events.forEach((ev) => {
+    if (groupByPeriod) {
+      const group = _dateGroupLabel(ev.event_date);
+      if (group && group !== lastGroup) {
+        lastGroup = group;
+        const header = document.createElement("div");
+        header.className = "event-list-group-header";
+        header.textContent = group;
+        eventList.appendChild(header);
+      }
+    }
+
     const card = document.createElement("div");
     card.className = "event-card";
     card.style.borderLeftColor = ev.color || "#3b82f6";

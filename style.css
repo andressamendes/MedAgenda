@@ -1313,6 +1313,24 @@ body {
   gap: var(--space-3);
 }
 
+/* Etapa 9 — cabeçalho de grupo por período ("Esta semana", "Próxima
+   semana"...). Mesmo padrão visual de rótulo eyebrow já usado em
+   .filter-label, só que sem peso de "botão" — é texto informativo, não
+   interativo. O primeiro cabeçalho não herda o gap do card anterior (não
+   existe), então só os seguintes precisam de respiro extra acima. */
+.event-list-group-header {
+  font-size: var(--eyebrow-font-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+  color: var(--gray-500);
+  padding: 0 var(--space-1);
+}
+
+.event-list-group-header:not(:first-child) {
+  margin-top: var(--space-2);
+}
+
 /* ── Bottom navigation (mobile) ── */
 .bottom-nav {
   display: none;

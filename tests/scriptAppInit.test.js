@@ -405,3 +405,63 @@ test("UX #20 — the appointments list shows a 'Carregando…' indicator while e
   assert.strictEqual(listEmpty.hidden, true, "the loading indicator is gone once the events arrive");
   assert.ok(document.querySelector("#event-list .event-card"), "the fetched event is rendered");
 });
+
+// ── Etapa 9 (Seção 16 #20 / Seção 18 #12): agrupamento por período na lista ──
+
+function isoDateOffset(days) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const GROUP_EVENTS = [
+  { id: "evt-today",  title: "Hoje",    event_date: isoDateOffset(0) },
+  { id: "evt-later",  title: "Depois",  event_date: isoDateOffset(30) },
+];
+
+test("Etapa 9 — sorting by date shows period group headers in the appointments list", async (t) => {
+  mockScriptDependencies(t, { events: GROUP_EVENTS });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const headers = [...document.querySelectorAll("#event-list .event-list-group-header")].map(h => h.textContent);
+  assert.deepStrictEqual(headers, ["Hoje", "Mais tarde"], "cards are preceded by their period's group header, one per period change");
+});
+
+test("Etapa 9 — sorting by title (A–Z) preserves the previous flat-list behavior (no group headers)", async (t) => {
+  mockScriptDependencies(t, { events: GROUP_EVENTS });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("sort-appointments").value = "title";
+  document.getElementById("sort-appointments").dispatchEvent(new window.Event("change", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.querySelectorAll("#event-list .event-list-group-header").length, 0, "no group headers when sorting by title");
+  assert.strictEqual(document.querySelectorAll("#event-list .event-card").length, 2, "both events are still rendered");
+});
+
+test("Etapa 9 — search still works normally with group headers present", async (t) => {
+  mockScriptDependencies(t, { events: GROUP_EVENTS });
+
+  await import(`../script.js?t=${Math.random()}`);
+  await authCallbacks.onSignedIn(SESSION);
+  await new Promise(r => setTimeout(r, 0));
+
+  const search = document.getElementById("search-appointments");
+  search.value = "hoje";
+  search.dispatchEvent(new window.Event("input", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(document.querySelectorAll("#event-list .event-card").length, 1, "only the matching event is rendered");
+  assert.deepStrictEqual(
+    [...document.querySelectorAll("#event-list .event-list-group-header")].map(h => h.textContent),
+    ["Hoje"],
+    "group header reflects only the events left after filtering",
+  );
+});
