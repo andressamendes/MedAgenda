@@ -33,6 +33,9 @@ const ERROR_SERVICE_SPECIFIER    = new URL("../../errorService.js", import.meta.
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
 const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
+const PROFILE_SERVICE_SPECIFIER  = new URL("../../profileService.js", import.meta.url).href;
+
+const NO_GOAL_PROGRESS = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
 let showPageCalls;
 let startSessionForEventCalls;
@@ -98,7 +101,12 @@ function loadView(t, overrides = {}) {
   t.mock.module(DASHBOARD_SERVICE_SPECIFIER, {
     namedExports: {
       getDashboardData: overrides.getDashboardData
-        ?? (async () => ({ dailyGoal: { configured: false, state: "no_goal" } })),
+        ?? (async () => ({ dailyGoal: NO_GOAL_PROGRESS })),
+    },
+  });
+  t.mock.module(PROFILE_SERVICE_SPECIFIER, {
+    namedExports: {
+      getProfile: overrides.getProfile ?? (async () => ({ full_name: "" })),
     },
   });
 
