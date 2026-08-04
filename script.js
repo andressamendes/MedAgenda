@@ -26,8 +26,8 @@
  */
 
 import { getEvents, getEventById, invalidateEventsCache } from "./eventService.js";
-import { initCalendar, refreshCalendar, resetCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility } from "./calendar.js";
-import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, initDayView, refreshDayView } from "./weekView.js";
+import { initCalendar, refreshCalendar, resetCalendar, setCalendarAcademicProvider, setCalendarPersonalVisibility, getCalendarDate, setCalendarDate } from "./calendar.js";
+import { initWeekView, refreshWeekView, setWeekViewAcademicProvider, setWeekViewPersonalVisibility, initDayView, refreshDayView, getWeekViewDate, setWeekViewDate } from "./weekView.js";
 import { openQuickAdd } from "./quickAdd.js";
 import { initNotifications, scheduleReminders, resetNotifications } from "./notificationService.js";
 import { initPushService, syncPushSubscription, resetPushService } from "./pushService.js";
@@ -296,12 +296,36 @@ const AGENDA_VIEW_KEY = "medagenda_agenda_view";
 const AGENDA_VIEWS = ["day", "week", "month", "list"];
 const AGENDA_MOBILE_QUERY = "(max-width: 767px)"; // V5.12 — mesmo limiar usado no default de "Dia"
 let _agendaViewBound = false;
+// Etapa 13 (F10 problema #5 / decisão #14) — última aba ativa, usada só para
+// decidir se a troca atual é especificamente Semana↔Mês (as duas únicas abas
+// com um "período" comparável entre si; Dia e Lista mantêm seu próprio
+// estado, sem sincronização — ver critério de aceite da etapa).
+let _lastAgendaView = null;
 
 function _setAgendaView(view) {
   const dayEl   = document.getElementById("day-container");
   const weekEl  = document.getElementById("week-container");
   const monthEl = document.getElementById("calendar-container");
   const listEl  = document.getElementById("appointments-list-container");
+
+  // Etapa 13 — ao trocar especificamente entre Semana e Mês, alinha a view de
+  // destino ao período da view de origem antes de exibi-la: quem navegou até
+  // a semana de 20/ago e abre Mês volta a ver agosto (em vez do mês atual ou
+  // do último mês visitado); o mesmo na direção inversa. getWeekViewDate()/
+  // getCalendarDate() retornam null se a view de origem nunca foi
+  // inicializada, e os setters são no-op sem a view de destino inicializada
+  // ou quando o período já é o mesmo — não há fetchAndRender() redundante
+  // nem race com a troca de aba em si (cada módulo continua dono da própria
+  // _fetchGeneration).
+  if (view === "month" && _lastAgendaView === "week") {
+    const weekDate = getWeekViewDate();
+    if (weekDate) setCalendarDate(weekDate);
+  } else if (view === "week" && _lastAgendaView === "month") {
+    const monthDate = getCalendarDate();
+    if (monthDate) setWeekViewDate(monthDate);
+  }
+  _lastAgendaView = view;
+
   if (dayEl)   dayEl.hidden   = view !== "day";
   if (weekEl)  weekEl.hidden  = view !== "week";
   if (monthEl) monthEl.hidden = view !== "month";

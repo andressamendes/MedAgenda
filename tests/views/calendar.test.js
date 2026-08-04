@@ -144,6 +144,63 @@ test("navigating to the next month re-fetches events for that month", async (t) 
   });
 });
 
+test("Etapa 13 — getCalendarDate returns the 1st day of the displayed month", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initCalendar, getCalendarDate } = await import(`../../calendar.js?t=${Math.random()}`);
+  const { y, m } = currentMonthInfo();
+
+  await initCalendar(container, {});
+
+  assert.deepStrictEqual(getCalendarDate(), new Date(y, m, 1));
+});
+
+test("Etapa 13 — getCalendarDate returns null before initCalendar", async (t) => {
+  mockEventService(t, { events: [] });
+  const { getCalendarDate } = await import(`../../calendar.js?t=${Math.random()}`);
+  assert.strictEqual(getCalendarDate(), null);
+});
+
+test("Etapa 13 — setCalendarDate re-fetches the month containing the given date", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initCalendar, setCalendarDate } = await import(`../../calendar.js?t=${Math.random()}`);
+  const { y, m } = currentMonthInfo();
+
+  await initCalendar(container, {});
+  assert.strictEqual(rangeCalls.length, 1);
+
+  const target = new Date(y, m + 2, 10);
+  await setCalendarDate(target);
+
+  const targetY = target.getFullYear();
+  const targetM = target.getMonth();
+  const targetDays = new Date(targetY, targetM + 1, 0).getDate();
+
+  assert.strictEqual(rangeCalls.length, 2);
+  assert.deepStrictEqual(rangeCalls[1], {
+    start: `${targetY}-${pad(targetM + 1)}-01`,
+    end:   `${targetY}-${pad(targetM + 1)}-${pad(targetDays)}`,
+  });
+});
+
+test("Etapa 13 — setCalendarDate is a no-op (no re-fetch) when the date already falls in the displayed month", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initCalendar, setCalendarDate } = await import(`../../calendar.js?t=${Math.random()}`);
+  const { y, m } = currentMonthInfo();
+
+  await initCalendar(container, {});
+  assert.strictEqual(rangeCalls.length, 1);
+
+  await setCalendarDate(new Date(y, m, 20));
+
+  assert.strictEqual(rangeCalls.length, 1);
+});
+
+test("Etapa 13 — setCalendarDate before initCalendar is a no-op", async (t) => {
+  mockEventService(t, { events: [] });
+  const { setCalendarDate } = await import(`../../calendar.js?t=${Math.random()}`);
+  await assert.doesNotReject(() => setCalendarDate(new Date()));
+});
+
 test("a fetch error does not throw and renders an empty grid instead of crashing", async (t) => {
   mockEventService(t, { fail: true });
   const { initCalendar } = await import(`../../calendar.js?t=${Math.random()}`);

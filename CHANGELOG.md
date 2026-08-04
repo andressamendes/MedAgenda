@@ -2,6 +2,24 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI da Agenda, Etapa 13: preservação de contexto temporal entre abas
+
+- Trocar entre as abas Semana e Mês da Agenda deixou de reiniciar o período
+  exibido no mês/semana atual (ou no último período visitado naquela aba
+  específica) — agora acompanha o período que a outra aba estava mostrando.
+  `weekView.js` ganha `getWeekViewDate()`/`setWeekViewDate(date)` e
+  `calendar.js` ganha `getCalendarDate()`/`setCalendarDate(date)`; ambos os
+  setters são no-op sem a view de destino inicializada ou quando o período
+  pedido já é o exibido, então não há `fetchAndRender()` redundante.
+  `script.js`/`_setAgendaView()` chama o par certo só na troca específica
+  Semana↔Mês (rastreada por `_lastAgendaView`) — Dia e Lista continuam com
+  seu próprio estado, sem sincronização. Cada módulo permanece dono da
+  própria `_fetchGeneration`, então uma navegação manual (‹/›/Hoje) logo
+  após a troca de aba continua descartando qualquer fetch anterior em voo,
+  sem race condition entre os dois. "Hoje" não muda em nenhuma das abas.
+
+---
+
 ## [Unreleased] — Auditoria UX/UI da Agenda, Etapa 10: simplificação do formulário completo
 
 - `#event-modal` (`eventFormView.js`, `index.html`) nasce só com os campos

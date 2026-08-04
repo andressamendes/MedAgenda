@@ -91,6 +91,28 @@ export async function refreshWeekView() {
   loadTip();
 }
 
+// Etapa 13 (F10 problema #5 / decisão #14) — devolve o Monday (00:00:00) da
+// semana atualmente exibida, para que o controlador de abas (script.js/
+// _setAgendaView) possa alinhar Mês à mesma semana ao trocar de aba. Cópia
+// nova a cada chamada — quem recebe não deve mutar o estado interno de
+// weekView.js diretamente.
+export function getWeekViewDate() {
+  return _mon ? new Date(_mon) : null;
+}
+
+// Etapa 13 — navega Semana para a semana que contém `date`, sem passar pelos
+// botões ‹/›/Hoje. Usada só pela sincronização de contexto temporal entre
+// abas (script.js/_setAgendaView) ao entrar na aba Semana vinda de Mês.
+// No-op se a view ainda não foi inicializada (aba nunca visitada) ou se
+// `date` já cai na semana exibida — evita um fetchAndRender() redundante.
+export async function setWeekViewDate(date) {
+  if (!_el || !date) return;
+  const target = mondayOf(date);
+  if (_mon && target.getTime() === _mon.getTime()) return;
+  _mon = target;
+  await fetchAndRender();
+}
+
 // Chamada no logout/troca de usuário (ver authView.js/showAuthView). Além do
 // timer, descarta o DOM renderizado e o cache em memória (_weeklyPlan): esta
 // é uma SPA sem reload de página entre sessões, então os compromissos, a dica
