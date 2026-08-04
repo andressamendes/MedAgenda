@@ -179,6 +179,25 @@ test("two overlapping events on the same day are laid out side by side, not stac
   assert.ok(blockB.style.width.includes("50%"));
 });
 
+// Etapa 4 (UX #6 / decisão #9, Seção 16) — a divisão de largura sozinha
+// exige atenção; blocos que colidem também recebem uma classe de sinal
+// visual reconhecível sem clicar (borda/ícone só via CSS).
+test("overlapping events also get the wk-event-conflict visual signal", async (t) => {
+  const { mon } = currentWeekRange();
+  const evA = { id: "evt-a", title: "Plantão UPA", event_date: isoDate(mon), start_time: "08:00:00", duration_minutes: 240, recurrence_type: "none" };
+  const evB = { id: "evt-b", title: "Aula de Cardiologia", event_date: isoDate(mon), start_time: "09:00:00", duration_minutes: 60, recurrence_type: "none" };
+  mockEventService(t, { events: [evA, evB] });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  await initWeekView(container, {});
+
+  const blocks = Array.from(container.querySelectorAll("#wk-col-0 .wk-event"));
+  blocks.forEach(b => {
+    assert.ok(b.classList.contains("wk-event-conflict"), "colliding block should carry wk-event-conflict");
+    assert.ok(b.title.includes("Conflito de horário"));
+  });
+});
+
 test("non-overlapping events on the same day keep full width (no inline left/width)", async (t) => {
   const { mon } = currentWeekRange();
   const evA = { id: "evt-a", title: "Plantão UPA", event_date: isoDate(mon), start_time: "08:00:00", duration_minutes: 60, recurrence_type: "none" };
@@ -193,6 +212,7 @@ test("non-overlapping events on the same day keep full width (no inline left/wid
   blocks.forEach(b => {
     assert.strictEqual(b.style.left, "");
     assert.strictEqual(b.style.width, "");
+    assert.ok(!b.classList.contains("wk-event-conflict"), "non-colliding block should not carry wk-event-conflict");
   });
 });
 
