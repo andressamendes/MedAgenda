@@ -4350,6 +4350,21 @@ textarea { resize: vertical; }
   box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 0 0 3px rgba(16, 185, 129, .45);
 }
 
+/* ETAPA 7 — compromissos cujo horário já passou recebem opacidade reduzida
+   (UX #9 / decisão #6, Seção 16): ajuda a focar em "o que vem a seguir" sem
+   fazer o compromisso concluído desaparecer da grade — continua clicável,
+   com o mesmo hover/foco de qualquer outro evento. Classe alternada em tempo
+   real por weekView.js reaproveitando o timer de updateNowLine/
+   updateDayNowLine, então cruza a hora sem precisar recarregar a página. */
+.wk-event-past {
+  opacity: .45;
+}
+
+.wk-event-past:hover,
+.wk-event-past:focus-visible {
+  opacity: .7;
+}
+
 /* current-time line */
 .wk-now-line {
   position: absolute;

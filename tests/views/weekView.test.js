@@ -643,3 +643,64 @@ test("UX #03 — an event block is keyboard-operable: role=button, tabindex 0, E
   block.dispatchEvent(new window.KeyboardEvent("keydown", { key: "a", bubbles: true }));
   assert.strictEqual(clicks.length, 2);
 });
+
+// ── ETAPA 7 — diferenciação visual de compromissos passados (UX #9 /
+// decisão #6, Seção 16) ─────────────────────────────────────────────────────
+// Compromissos cujo horário de término já passou recebem .wk-event-past
+// (opacidade reduzida via CSS), sem desaparecer da grade — e a classe é
+// recalculada pelo mesmo timer de 60s que já move a "now line", então o
+// estado cruza a hora sozinho, sem precisar recarregar/refazer a busca.
+
+test("Semana — a past appointment gets .wk-event-past and an upcoming one doesn't; reclassifies as time passes without refetching", async (t) => {
+  const now = new Date(2026, 6, 27, 10, 0, 0); // segunda-feira, 27/jul/2026, 10:00 local
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now });
+  const mon = mondayOf(now);
+  const evPast   = { id: "e1", title: "Já passou",   event_date: isoDate(mon), start_time: "08:00:00", duration_minutes: 60 };
+  const evFuture = { id: "e2", title: "Ainda vai começar", event_date: isoDate(mon), start_time: "12:00:00", duration_minutes: 60 };
+  mockEventService(t, { events: [evPast, evFuture] });
+
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  await initWeekView(container, {});
+  await flush();
+
+  const blocks = [...container.querySelectorAll(".wk-event")];
+  const pastBlock   = blocks.find(b => b.textContent.includes("Já passou"));
+  const futureBlock = blocks.find(b => b.textContent.includes("Ainda vai começar"));
+  assert.ok(pastBlock.classList.contains("wk-event-past"), "an already-finished appointment is marked past");
+  assert.ok(!futureBlock.classList.contains("wk-event-past"), "an upcoming appointment is not marked past");
+  assert.strictEqual(rangeCalls.length, 1);
+
+  t.mock.timers.tick(3 * 60 * 60 * 1000); // avança 3h → agora 13:00, o segundo compromisso já encerrou às 13:00
+
+  assert.ok(futureBlock.classList.contains("wk-event-past"), "reclassified as past once its end time is crossed, via the now-line timer");
+  assert.strictEqual(rangeCalls.length, 1, "reclassifying must not refetch appointment data");
+});
+
+test("Dia — a past appointment gets .wk-event-past and reclassifies as time passes without refetching", async (t) => {
+  const now = new Date(2026, 6, 27, 10, 0, 0); // segunda-feira, 27/jul/2026, 10:00 local
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now });
+  const today = isoDate(now);
+  const evPast   = { id: "e1", title: "Já passou",         event_date: today, start_time: "08:00:00", duration_minutes: 60 };
+  const evFuture = { id: "e2", title: "Ainda vai começar", event_date: today, start_time: "12:00:00", duration_minutes: 60 };
+  mockEventService(t, { events: [evPast, evFuture] });
+
+  const { initDayView, destroyDayView } = await import(`../../weekView.js?t=${Math.random()}`);
+  const dayContainer = document.getElementById("day-container");
+  await initDayView(dayContainer, {});
+  await flush();
+
+  try {
+    const blocks = [...dayContainer.querySelectorAll(".wk-event")];
+    const pastBlock   = blocks.find(b => b.textContent.includes("Já passou"));
+    const futureBlock = blocks.find(b => b.textContent.includes("Ainda vai começar"));
+    assert.ok(pastBlock.classList.contains("wk-event-past"));
+    assert.ok(!futureBlock.classList.contains("wk-event-past"));
+
+    t.mock.timers.tick(3 * 60 * 60 * 1000); // avança 3h → agora 13:00
+
+    assert.ok(futureBlock.classList.contains("wk-event-past"), "reclassified as past once its end time is crossed, via the day view's own now-line timer");
+  } finally {
+    destroyDayView();
+  }
+});
