@@ -479,8 +479,13 @@ function _render() {
     return;
   }
 
+  // Etapa 3 — o texto do estado continua existindo para leitor de tela
+  // (statusBadgeEl é sr-only), mas o estado visual agora é comunicado pela
+  // classe aplicada ao card ativo (cor do cronômetro), não por uma pílula
+  // própria.
   statusBadgeEl.textContent = status === "running" ? "Executando" : "Pausada";
-  statusBadgeEl.className   = `ss-status-badge ss-status-badge--${status}`;
+  activeEl.classList.toggle("ss-active--running", status === "running");
+  activeEl.classList.toggle("ss-active--paused",  status === "paused");
 
   btnPause.hidden  = status !== "running";
   btnFinish.hidden = false;
@@ -1702,7 +1707,8 @@ export function resetStudySessionView() {
   [titleEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl]
     .forEach(el => { if (el) el.textContent = ""; });
   if (timeEl) timeEl.textContent = "";
-  if (statusBadgeEl) { statusBadgeEl.textContent = ""; statusBadgeEl.className = "ss-status-badge"; }
+  if (statusBadgeEl) { statusBadgeEl.textContent = ""; }
+  if (activeEl) { activeEl.classList.remove("ss-active--running", "ss-active--paused"); }
 
   // Campos do modal de encerramento (F7.3): _openFinishModal() sempre os
   // reconstrói do zero antes de reabrir, mas nada os limpava ao fechar por

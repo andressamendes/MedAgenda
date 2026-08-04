@@ -5015,12 +5015,12 @@ textarea { resize: vertical; }
   box-shadow: var(--shadow-lg);
 }
 
-/* F14.9 — badge de status + gatilho do modo foco lado a lado, mesma largura
-   total do card. */
+/* F14.9 — gatilho do modo foco, alinhado à direita do card (Etapa 3 removeu
+   a pílula de status que ocupava o outro lado desta linha). */
 .ss-active-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
 }
 
@@ -5035,25 +5035,10 @@ textarea { resize: vertical; }
   color: var(--color-primary, #383f87);
 }
 
-/* F10 #5.2 — mesma forma/tokens de .session-history-status: o mesmo estado
-   (em andamento/pausada) deve ter a mesma aparência em qualquer tela. */
-.ss-status-badge {
-  align-self: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  padding: .1rem .5rem;
-  border-radius: var(--radius-full);
-  background: var(--gray-100);
-  color: var(--gray-600);
-}
-
-.ss-status-badge--running {
-  background: var(--color-success-bg-strong);
-  color: var(--color-success-text);
-}
-
-.ss-status-badge--paused {
-  background: var(--color-warning-bg);
+/* Etapa 3 — rodando/pausado deixa de ter uma pílula própria (`#ss-status-badge`
+   agora é .sr-only, só para leitor de tela) e passa a ser comunicado pela cor
+   do próprio cronômetro, aplicada via classe de estado no card ativo. */
+.ss-active--paused .ss-timer-value {
   color: var(--color-warning-text);
 }
 
