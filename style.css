@@ -4366,6 +4366,16 @@ textarea { resize: vertical; }
   text-overflow: ellipsis;
 }
 
+/* Etapa 5 — em blocos de altura reduzida (abaixo do limiar calculado em
+   renderEvents()/renderDayEvents(), weekView.js — classe .wk-event-compact),
+   mostra só título + hora; categoria e indicador de execução somem da vista
+   mas nenhum dado é perdido — continuam acessíveis ao clicar no bloco (abre
+   o painel de detalhes do compromisso) ou via tooltip (title do elemento). */
+.wk-event-compact .wk-ev-cat,
+.wk-event-compact .wk-ev-indicator {
+  display: none;
+}
+
 .wk-event-running {
   outline: 2px solid var(--color-on-primary);
   outline-offset: -2px;
