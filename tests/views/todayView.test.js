@@ -1,9 +1,9 @@
 /**
  * Tests for todayView.js — tela "Hoje", nova porta de entrada do app (F14.1).
  * activitySessionService.js, eventService.js, studySessionView.js,
- * navigationView.js, academicCalendarView.js, decisionEngine.js and
- * categoryView.js are mocked; sessionEventBus.js and smartCardView.js are
- * used for real (pure, no DOM/I/O) — same pattern as
+ * navigationView.js, academicCalendarView.js, decisionEngine.js,
+ * categoryView.js and profileService.js are mocked; sessionEventBus.js and
+ * smartCardView.js are used for real (pure, no DOM/I/O) — same pattern as
  * tests/views/activeSessionIndicatorView.test.js.
  */
 import { test, beforeEach, afterEach } from "node:test";
@@ -102,6 +102,11 @@ function loadView(t, overrides = {}) {
     namedExports: {
       getDashboardData: overrides.getDashboardData
         ?? (async () => ({ dailyGoal: NO_GOAL_PROGRESS })),
+    },
+  });
+  t.mock.module(PROFILE_SERVICE_SPECIFIER, {
+    namedExports: {
+      getProfile: overrides.getProfile ?? (async () => ({ full_name: "" })),
     },
   });
   t.mock.module(PROFILE_SERVICE_SPECIFIER, {
