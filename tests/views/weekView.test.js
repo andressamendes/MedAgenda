@@ -324,6 +324,46 @@ test("a compromisso with no sessions shows no indicator", async (t) => {
   assert.strictEqual(block.classList.contains("wk-event-executed"), false);
 });
 
+// Etapa 5 (F17 — problema de UI #1 / melhoria visual #1) — blocos curtos
+// (30 min ou menos) escondem categoria e indicador de execução, mas nada é
+// perdido: título+hora continuam visíveis e o resto vira tooltip (title).
+test("a short (30-min) event shows only title + time, hiding category and execution indicator", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Revisão rápida", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 30, category: "Revisão", recurrence_type: "none" };
+  mockEventService(t, {
+    events: [ev],
+    summaries: { "evt-1": { totalDuration: 200, sessionsCount: 2, lastSession: null, hasFinishedSession: true, hasRunningSession: false } },
+  });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+
+  const block = container.querySelector("#wk-col-0 .wk-event");
+  assert.ok(block.classList.contains("wk-event-compact"), "short block should carry wk-event-compact");
+  assert.ok(block.querySelector(".wk-ev-title"), "title stays in the DOM");
+  assert.ok(block.querySelector(".wk-ev-time"), "time stays in the DOM");
+  // Not lost, only reprioritized: still in the DOM (CSS hides it), and also
+  // reachable via tooltip (title attribute) without opening the block.
+  assert.ok(block.querySelector(".wk-ev-cat"));
+  assert.ok(block.querySelector(".wk-ev-indicator"));
+  assert.ok(block.title.includes("Revisão"), "category still reachable via tooltip");
+  assert.ok(block.title.includes("3h20"), "execution indicator still reachable via tooltip");
+});
+
+test("a longer (60-min) event keeps full density: no wk-event-compact", async (t) => {
+  const { mon } = currentWeekRange();
+  const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, category: "Prova", recurrence_type: "none" };
+  mockEventService(t, { events: [ev], summaries: {} });
+  const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+
+  await initWeekView(container, {});
+
+  const block = container.querySelector("#wk-col-0 .wk-event");
+  assert.strictEqual(block.classList.contains("wk-event-compact"), false);
+});
+
 test("a failure fetching execution summaries does not break the week view", async (t) => {
   const { mon } = currentWeekRange();
   const ev = { id: "evt-1", title: "Prova de Anatomia", event_date: isoDate(mon), start_time: "14:00:00", duration_minutes: 60, recurrence_type: "none" };
