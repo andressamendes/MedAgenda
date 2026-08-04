@@ -25,6 +25,7 @@ import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
 import { getProfile } from "./profileService.js";
 import { getDashboardData } from "./activityDashboardService.js";
 import { formatGoalSentence } from "./timeGoals.js";
+import { getProfile } from "./profileService.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
