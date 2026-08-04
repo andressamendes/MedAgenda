@@ -23,13 +23,15 @@ import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
 import { getDashboardData } from "./activityDashboardService.js";
+import { formatGoalSentence } from "./timeGoals.js";
+import { getProfile } from "./profileService.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
 import { categoryColor } from "./categoryView.js";
 import { escapeHtml, isoToday, formatDuration } from "./utils.js";
 
-let heroProgressEl, tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
+let greetingTextEl, greetingDateEl, heroProgressEl, tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
 let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
 let _bound = false; // AUD-005: a página não é reconstruída entre logins na mesma sessão do app — sem esta guarda, cada login empilharia mais um listener nos mesmos botões
@@ -40,6 +42,8 @@ let _apptItemsCache = []; // [{ ev, li }] da última _refreshAppointments — re
 let _apptStateTimer = null;
 
 export async function initTodayView() {
+  greetingTextEl = document.getElementById("today-greeting-text");
+  greetingDateEl = document.getElementById("today-greeting-date");
   heroProgressEl = document.getElementById("today-hero-progress");
   tipEl       = document.getElementById("today-tip");
   resumeBtn   = document.getElementById("today-btn-resume");
@@ -168,6 +172,22 @@ async function _refreshHero() {
     continueBtn.textContent = `Continuar: ${_continueSuggestion.title}`;
   } else {
     continueBtn.hidden = true;
+  }
+}
+
+// Etapa 2 (auditoria UX #2) — frase de progresso sempre visível no hero, sem
+// exigir o clique no disclosure "Ver números de hoje". Mesmo dado de
+// activityDashboardService.getDashboardData() -> dailyGoal já usado pelo
+// card "Meta diária" (activityDashboardView.js) — nenhum cálculo novo, só
+// uma segunda leitura em frase (formatGoalSentence(), timeGoals.js).
+async function _refreshHeroProgress() {
+  if (!heroProgressEl) return;
+  try {
+    const data = await getDashboardData();
+    heroProgressEl.textContent = formatGoalSentence(data.dailyGoal);
+  } catch (err) {
+    handleError(err, { context: "todayView.refreshHeroProgress", silent: true });
+    heroProgressEl.textContent = "";
   }
 }
 
