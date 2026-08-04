@@ -5027,7 +5027,7 @@ textarea { resize: vertical; }
 .ss-focus-toggle {
   display: flex;
   align-items: center;
-  gap: .35rem;
+  gap: var(--space-1);
 }
 
 .ss-focus-toggle[aria-pressed="true"] {
@@ -5055,7 +5055,7 @@ textarea { resize: vertical; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: .25rem;
+  gap: var(--space-1);
   padding: var(--space-5) 0;
 }
 
@@ -5088,7 +5088,7 @@ textarea { resize: vertical; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .35rem;
+  gap: var(--space-1);
 }
 
 /* Mesmo bug de especificidade de .state-block[hidden] (ver F10 #1.6 acima). */
@@ -5130,10 +5130,13 @@ textarea { resize: vertical; }
   gap: var(--space-2);
 }
 
+/* Etapa 10 — item de leitura, não campo de formulário: sem borda, sombra
+   ou hover (nada aqui é clicável), só o fundo neutro que já o diferenciava
+   do card ao redor. */
 .ss-status-item {
   display: flex;
   flex-direction: column;
-  gap: .15rem;
+  gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--gray-50);
   border-radius: var(--radius);
@@ -5178,7 +5181,7 @@ textarea { resize: vertical; }
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: .6rem;
+  gap: var(--space-2);
   width: 100%;
 }
 
@@ -5195,9 +5198,9 @@ textarea { resize: vertical; }
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: .6rem;
+  gap: var(--space-2);
   width: 100%;
-  margin-top: .8rem;
+  margin-top: var(--space-3);
 }
 
 /* Etapa 5 — "Detalhes da sessão" rebaixado a acesso secundário: antes um
@@ -5209,9 +5212,9 @@ textarea { resize: vertical; }
 .ss-panel-trigger {
   display: inline-flex;
   align-items: center;
-  gap: .4rem;
+  gap: var(--space-2);
   min-height: 44px;
-  padding: .5rem .3rem;
+  padding: var(--space-2) var(--space-1);
   background: none;
   border: none;
   border-radius: var(--radius);
@@ -5251,7 +5254,7 @@ textarea { resize: vertical; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .2rem;
+  gap: var(--space-1);
   padding: var(--space-2) 0 var(--space-4);
   text-align: center;
 }
@@ -5286,7 +5289,7 @@ textarea { resize: vertical; }
 
 .ss-notes-label {
   display: block;
-  margin-bottom: .4rem;
+  margin-bottom: var(--space-2);
   font-family: var(--font-display);
   font-style: italic;
   font-size: var(--font-size-sm);
@@ -5305,13 +5308,13 @@ textarea { resize: vertical; }
      igual já acontecia dentro do modal (.modal-body é column sem
      align-items, então esticava por padrão). */
   width: 100%;
-  margin-top: 1.2rem;
+  margin-top: var(--space-5);
   padding-top: var(--space-4);
   border-top: 1px solid var(--gray-200);
 }
 
 .ss-questions-title {
-  margin: 0 0 .4rem;
+  margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--gray-700);
@@ -5375,14 +5378,14 @@ textarea { resize: vertical; }
 }
 
 .ss-questions-empty {
-  margin: 0 0 .6rem;
+  margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
   color: var(--gray-500);
 }
 
 .ss-questions-list {
   list-style: none;
-  margin: 0 0 .8rem;
+  margin: 0 0 var(--space-3);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -5393,8 +5396,8 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .6rem;
-  padding: .5rem .6rem;
+  gap: var(--space-2);
+  padding: var(--space-2);
   background: var(--gray-50);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -5403,33 +5406,33 @@ textarea { resize: vertical; }
 .ss-question-item-info {
   display: flex;
   flex-wrap: wrap;
-  gap: .3rem .6rem;
+  gap: var(--space-1) var(--space-2);
   color: var(--gray-700);
 }
 
 .ss-question-item-actions {
   display: flex;
-  gap: .4rem;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .ss-question-form {
   border-top: 1px dashed var(--gray-200);
-  padding-top: .8rem;
+  padding-top: var(--space-3);
 }
 
 .ss-question-form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: .5rem .8rem;
-  margin-bottom: .6rem;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .ss-question-form-row label {
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--gray-600);
-  margin-bottom: .2rem;
+  margin-bottom: var(--space-1);
   display: block;
 }
 
@@ -5440,7 +5443,7 @@ textarea { resize: vertical; }
    questão (Adicionar/Salvar + Cancelar) lado a lado. */
 .ss-question-form-actions {
   display: flex;
-  gap: .5rem;
+  gap: var(--space-2);
 }
 
 /* ── Revisões — opções de registro (Fase J2) ──────────────────────────────
@@ -5453,11 +5456,11 @@ textarea { resize: vertical; }
 .ss-review-option {
   display: flex;
   align-items: center;
-  gap: .7rem;
-  padding: .6rem .8rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: var(--gray-50);
   border-radius: var(--radius);
-  margin-bottom: .6rem;
+  margin-bottom: var(--space-2);
 }
 
 .ss-review-option-icon {
@@ -5477,7 +5480,7 @@ textarea { resize: vertical; }
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--gray-600);
-  margin-bottom: .2rem;
+  margin-bottom: var(--space-1);
   display: block;
 }
 
@@ -5489,7 +5492,7 @@ textarea { resize: vertical; }
 .ss-review-action-btn {
   display: flex;
   align-items: center;
-  gap: .35rem;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -5507,7 +5510,7 @@ textarea { resize: vertical; }
 .ss-start-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
@@ -5517,7 +5520,7 @@ textarea { resize: vertical; }
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
-  padding: .35rem .9rem;
+  padding: var(--space-1) var(--space-4);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast);
