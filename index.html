@@ -425,7 +425,12 @@
 
           <!-- Auditoria UX #31: filtro "Exibir: Pessoais" morava fixo no topo
                da sidebar, visível em todas as páginas mesmo só afetando
-               Semana/Mês/Compromissos — movido para a toolbar de cada uma. -->
+               Semana/Mês/Compromissos — movido para a toolbar de cada uma.
+               Etapa 1 (auditoria UX/UI): existia uma segunda instância deste
+               mesmo filtro dentro da aba Lista (#filter-bar-appointments,
+               removida) — como este container fica acima das abas
+               Dia/Semana/Mês/Lista, uma única instância já afeta as quatro,
+               sem duplicar o controle na tela. -->
           <div class="filter-bar" id="filter-bar-agenda"></div>
 
           <!-- V5.12 — aba "Dia" (mobile-first): lista vertical de horários de
@@ -466,7 +471,6 @@
                   <option value="title">Título A–Z</option>
                 </select>
               </div>
-              <div class="filter-bar" id="filter-bar-appointments"></div>
             </div>
             <p id="list-empty" class="list-empty" hidden></p>
             <div id="event-list"></div>
