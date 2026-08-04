@@ -74,6 +74,7 @@ import { initTodayView, resetTodayView } from "./todayView.js";
 import { resetAIContextService } from "./aiContextService.js";
 import { iconMoreHorizontal, illustrationEmptyAgenda, injectStaticIcons } from "./icons.js";
 import { initStaticDisclosureToggles } from "./disclosureToggle.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { initTheme } from "./themeService.js";
 import { attachSwipeActions, attachLongPress, attachPullToRefresh } from "./gestureUtils.js";
 
@@ -142,9 +143,15 @@ const LIST_EMPTY_MARKUP = emptyIllustrationMarkup({
 const syncIndicator = document.getElementById("sync-indicator");
 
 // ── Toolbar da lista (busca/filtro/ordenação) ─────────────────────────────
+// Etapa 8 (auditoria UX, Seção 16 #19 / Seção 4 #8) — busca continua sempre
+// visível; categoria/ordenação foram para trás de um único disclosure
+// "Filtros" (aptFiltersToggle/aptFiltersWrap), reduzindo a altura fixa da
+// toolbar antes da lista em si.
 const searchInput          = document.getElementById("search-appointments");
 const filterCategorySelect = document.getElementById("filter-category-apt");
 const sortSelect           = document.getElementById("sort-appointments");
+const aptFiltersToggle      = document.getElementById("apt-filters-toggle");
+const aptFiltersWrap        = document.getElementById("apt-toolbar-filters");
 
 // ── Estado compartilhado entre domínios ───────────────────────────────────
 // allEvents precisará de uma estratégia de compartilhamento quando os domínios
@@ -167,7 +174,35 @@ function _resetEventList() {
   if (searchInput) searchInput.value = "";
   if (filterCategorySelect) filterCategorySelect.innerHTML = '<option value="">Todas as categorias</option>';
   if (sortSelect) sortSelect.value = "date-asc";
+  _toggleAptFilters(false);
+  _updateAptFiltersToggleLabel();
 }
+
+// Etapa 8 — categoria/ordenação (não a busca) ficam atrás deste disclosure;
+// fechar não limpa os valores selecionados, só esconde os controles (mesma
+// decisão de "Filtros avançados" do Diário/_toggleSearch).
+function _toggleAptFilters(forceExpand) {
+  if (!aptFiltersToggle || !aptFiltersWrap) return;
+  const expand = forceExpand ?? aptFiltersWrap.hidden;
+  aptFiltersWrap.hidden = !expand;
+  aptFiltersToggle.setAttribute("aria-expanded", String(expand));
+  if (expand) revealWithAnimation(aptFiltersWrap);
+}
+
+// O toggle escondê-los da vista não pode escondê-los da percepção do
+// usuário: o rótulo do botão passa a comunicar quando categoria ou
+// ordenação estão fora do padrão, mesmo com o painel fechado.
+function _updateAptFiltersToggleLabel() {
+  if (!aptFiltersToggle) return;
+  const active =
+    ((filterCategorySelect?.value || "") !== "" ? 1 : 0) +
+    ((sortSelect?.value || "date-asc") !== "date-asc" ? 1 : 0);
+  const label = aptFiltersToggle.querySelector(".disclosure-label");
+  if (label) label.textContent = active > 0 ? `Filtros (${active})` : "Filtros";
+  aptFiltersToggle.classList.toggle("toolbar-filters-toggle--active", active > 0);
+}
+
+aptFiltersToggle?.addEventListener("click", () => _toggleAptFilters());
 
 async function refreshAll() {
   if (syncIndicator) syncIndicator.hidden = false;
@@ -503,6 +538,7 @@ function getFilteredEvents() {
 function renderFilteredList() {
   renderList(getFilteredEvents());
   _syncCategoryFilter();
+  _updateAptFiltersToggleLabel();
 }
 
 function _syncCategoryFilter() {

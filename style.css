@@ -1258,6 +1258,28 @@ body {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  /* Etapa 8 — categoria/ordenação agora vivem atrás do disclosure "Filtros"
+     (ver #apt-filters-toggle em index.html); mesmo respiro que a linha da
+     toolbar tinha antes, só que só quando revelada. */
+  margin-top: .65rem;
+}
+
+/* Mesmo bug de especificidade de .sj-search-wrap[hidden] (ver comentário
+   acima): sem isto, `.toolbar-filters { display: flex }` (autor) vence
+   `[hidden] { display: none }` (user-agent) por origem, não por
+   especificidade, e categoria/ordenação ficariam sempre visíveis mesmo com
+   o atributo hidden. */
+.toolbar-filters[hidden] {
+  display: none;
+}
+
+/* Rótulo do toggle "Filtros" muda de peso/cor quando categoria ou
+   ordenação estão fora do padrão (ver _updateAptFiltersToggleLabel em
+   script.js) — o disclosure some da vista mas não pode esconder da
+   percepção que há um filtro não-padrão ativo. */
+.toolbar-filters-toggle--active .disclosure-label {
+  color: var(--color-primary);
+  font-weight: 700;
 }
 
 .toolbar-select {

@@ -459,18 +459,28 @@
                nenhum dado, id ou lógica de script.js muda, só o contêiner
                que a envolve. -->
           <section class="appointments-list-section" id="appointments-list-container" role="tabpanel" hidden>
+            <!-- Etapa 8 (auditoria UX, Seção 16 #19 / Seção 4 #8) — busca continua
+                 sempre visível, mas categoria/ordenação saem da linha fixa da
+                 toolbar e vão para trás de um único disclosure "Filtros" (mesmo
+                 componente de .disclosure-toggle usado em "Ver números de
+                 hoje" etc.), reduzindo a altura ocupada antes da lista em si.
+                 O rótulo do botão (ver _updateAptFiltersToggleLabel) muda para
+                 comunicar quando categoria/ordenação estão fora do padrão, já
+                 que o toggle escondê-los da vista não pode escondê-los da
+                 percepção do usuário. -->
             <div class="appointments-toolbar">
               <input type="search" id="search-appointments" class="search-input" placeholder="Buscar compromissos&#8230;" maxlength="120" title="Atalho: /" aria-keyshortcuts="/" />
-              <div class="toolbar-filters">
-                <select id="filter-category-apt" class="toolbar-select">
-                  <option value="">Todas as categorias</option>
-                </select>
-                <select id="sort-appointments" class="toolbar-select">
-                  <option value="date-asc">Data (próximos)</option>
-                  <option value="date-desc">Data (anteriores)</option>
-                  <option value="title">Título A–Z</option>
-                </select>
-              </div>
+              <button type="button" class="btn btn-ghost btn-sm disclosure-toggle toolbar-filters-toggle" id="apt-filters-toggle" aria-expanded="false" aria-controls="apt-toolbar-filters" data-disclosure-label="Filtros"></button>
+            </div>
+            <div id="apt-toolbar-filters" class="toolbar-filters" hidden>
+              <select id="filter-category-apt" class="toolbar-select">
+                <option value="">Todas as categorias</option>
+              </select>
+              <select id="sort-appointments" class="toolbar-select">
+                <option value="date-asc">Data (próximos)</option>
+                <option value="date-desc">Data (anteriores)</option>
+                <option value="title">Título A–Z</option>
+              </select>
             </div>
             <p id="list-empty" class="list-empty" hidden></p>
             <div id="event-list"></div>
