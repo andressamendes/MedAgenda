@@ -50,6 +50,27 @@ export async function refreshCalendar() {
   await fetchAndRender();
 }
 
+// Etapa 13 (F10 problema #5 / decisão #14) — devolve o 1º dia (00:00:00) do
+// mês atualmente exibido, para que o controlador de abas (script.js/
+// _setAgendaView) possa alinhar Semana ao mesmo período ao trocar de aba.
+export function getCalendarDate() {
+  return (calYear != null && calMonth != null) ? new Date(calYear, calMonth, 1) : null;
+}
+
+// Etapa 13 — navega Mês para o mês que contém `date`, sem passar pelos
+// botões ‹/›/Hoje. Usada só pela sincronização de contexto temporal entre
+// abas (script.js/_setAgendaView) ao entrar na aba Mês vinda de Semana.
+// No-op se a view ainda não foi inicializada ou se `date` já cai no mês
+// exibido — evita um fetchAndRender() redundante.
+export async function setCalendarDate(date) {
+  if (!container || !date) return;
+  const y = date.getFullYear(), m = date.getMonth();
+  if (calYear === y && calMonth === m) return;
+  calYear  = y;
+  calMonth = m;
+  await fetchAndRender();
+}
+
 // Chamada no logout/troca de usuário (ver script.js/onBeforeSignOut). Descarta
 // o DOM renderizado e o estado do módulo: esta é uma SPA sem reload de página
 // entre sessões, então os compromissos do usuário anterior não podem

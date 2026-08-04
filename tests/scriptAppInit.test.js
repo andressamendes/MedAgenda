@@ -96,6 +96,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
     namedExports: {
       initCalendar: async () => {}, refreshCalendar: async () => {}, resetCalendar: () => {},
       setCalendarAcademicProvider: () => {}, setCalendarPersonalVisibility: () => {},
+      getCalendarDate: () => null, setCalendarDate: async () => {},
     },
   });
   t.mock.module(SPECIFIERS.weekView, {
@@ -103,6 +104,7 @@ function mockScriptDependencies(t, { events = [], startSessionResult = false, co
       initWeekView: async () => {}, refreshWeekView: async () => {},
       initDayView: async () => {}, refreshDayView: async () => {},
       setWeekViewAcademicProvider: () => {}, setWeekViewPersonalVisibility: () => {},
+      getWeekViewDate: () => null, setWeekViewDate: async () => {},
     },
   });
   t.mock.module(SPECIFIERS.quickAdd, { namedExports: { openQuickAdd: () => {} } });

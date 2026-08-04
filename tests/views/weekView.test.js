@@ -251,6 +251,66 @@ test("navigating to the next week re-fetches events for the following week", asy
   assert.deepStrictEqual(rangeCalls[1], { start: isoDate(nextMon), end: isoDate(nextSun) });
 });
 
+test("Etapa 13 — getWeekViewDate returns the Monday of the displayed week", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initWeekView, getWeekViewDate, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  const { mon } = currentWeekRange();
+
+  await initWeekView(container, {});
+
+  assert.deepStrictEqual(getWeekViewDate(), mon);
+});
+
+test("Etapa 13 — getWeekViewDate returns null before initWeekView", async (t) => {
+  mockEventService(t, { events: [] });
+  const { getWeekViewDate } = await import(`../../weekView.js?t=${Math.random()}`);
+  assert.strictEqual(getWeekViewDate(), null);
+});
+
+test("Etapa 13 — setWeekViewDate re-fetches the week containing the given date", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initWeekView, setWeekViewDate, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  const { mon } = currentWeekRange();
+
+  await initWeekView(container, {});
+  assert.strictEqual(rangeCalls.length, 1);
+
+  const otherMonth = new Date(mon);
+  otherMonth.setMonth(otherMonth.getMonth() + 2, 10);
+  await setWeekViewDate(otherMonth);
+
+  const targetMon = mondayOf(otherMonth);
+  const targetSun = new Date(targetMon);
+  targetSun.setDate(targetSun.getDate() + 6);
+
+  assert.strictEqual(rangeCalls.length, 2);
+  assert.deepStrictEqual(rangeCalls[1], { start: isoDate(targetMon), end: isoDate(targetSun) });
+});
+
+test("Etapa 13 — setWeekViewDate is a no-op (no re-fetch) when the date already falls in the displayed week", async (t) => {
+  mockEventService(t, { events: [] });
+  const { initWeekView, setWeekViewDate, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
+  destroyWeekView = destroy;
+  const { mon } = currentWeekRange();
+
+  await initWeekView(container, {});
+  assert.strictEqual(rangeCalls.length, 1);
+
+  const sameWeekDate = new Date(mon);
+  sameWeekDate.setDate(sameWeekDate.getDate() + 3);
+  await setWeekViewDate(sameWeekDate);
+
+  assert.strictEqual(rangeCalls.length, 1);
+});
+
+test("Etapa 13 — setWeekViewDate before initWeekView is a no-op", async (t) => {
+  mockEventService(t, { events: [] });
+  const { setWeekViewDate } = await import(`../../weekView.js?t=${Math.random()}`);
+  await assert.doesNotReject(() => setWeekViewDate(new Date()));
+});
+
 test("a fetch error does not throw and leaves the week view usable", async (t) => {
   mockEventService(t, { fail: true });
   const { initWeekView, destroyWeekView: destroy } = await import(`../../weekView.js?t=${Math.random()}`);
