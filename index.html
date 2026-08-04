@@ -604,22 +604,22 @@
 
             <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa não será contabilizado na duração final.</p>
 
-            <!-- F1 — cartão de status compacto (não mais um `dl`) com só o
-                 essencial visível por padrão (Compromisso, Categoria); linhas
-                 sem valor são ocultadas em vez de mostrar "—". O resto do
-                 contexto (Conteúdo/Data/Horário de início/Tempo previsto)
-                 mudou de lugar na F2 — ver "Detalhes da sessão" abaixo, não
-                 há mais um segundo disclosure aqui dentro do card ativo. -->
-            <div class="ss-status-card">
-              <div class="ss-status-item">
-                <span class="ss-status-label" id="ss-event-title-label">Compromisso</span>
-                <span class="ss-status-value" id="ss-event-title">—</span>
-              </div>
-              <div class="ss-status-item" id="ss-category-row">
-                <span class="ss-status-label">Categoria</span>
-                <span class="ss-status-value" id="ss-category">—</span>
-              </div>
-            </div>
+            <!-- Etapa 4 — o cartão de status compacto (grid de 2 itens) deu
+                 lugar a uma legenda de uma linha só abaixo do cronômetro:
+                 mesmo dado (Compromisso/Categoria), sem o bloco visual do
+                 grid. O rótulo "Compromisso"/"Estudo livre" continua
+                 existindo para leitor de tela (sr-only) — o nome do
+                 compromisso já é autoexplicativo na legenda visível. O resto
+                 do contexto (Conteúdo/Data/Horário de início/Tempo previsto)
+                 permanece só em "Detalhes da sessão" (ver .ss-status-card
+                 abaixo, inalterado). -->
+            <p class="ss-context-caption" id="ss-context-caption">
+              <span class="sr-only" id="ss-event-title-label">Compromisso</span>
+              <span class="ss-context-title" id="ss-event-title">—</span>
+              <span class="ss-context-category" id="ss-category-row">
+                <span aria-hidden="true"> · </span><span id="ss-category">—</span>
+              </span>
+            </p>
 
             <!-- F2 — cronômetro + no máximo 2 ações primárias visíveis por
                  padrão (Pausar/Continuar + Finalizar); Cancelar, o contexto

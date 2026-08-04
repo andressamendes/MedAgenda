@@ -5153,6 +5153,27 @@ textarea { resize: vertical; }
   overflow-wrap: break-word;
 }
 
+/* Etapa 4 — legenda de uma linha abaixo do cronômetro no card ativo,
+   substituindo o grid .ss-status-card ali (o painel de detalhes mantém o
+   grid completo, inalterado). Peso maior que uma legenda comum para o nome
+   do compromisso não se perder ao lado do cronômetro. */
+.ss-context-caption {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  overflow-wrap: break-word;
+}
+
+.ss-context-title {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.ss-context-category {
+  color: var(--gray-500);
+}
+
 .ss-actions {
   display: flex;
   flex-wrap: wrap;
