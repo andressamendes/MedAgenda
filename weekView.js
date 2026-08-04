@@ -538,6 +538,32 @@ function _applyOverlapStyle(block, layout, ev) {
     : "Conflito de horário";
 }
 
+// ETAPA 7 — diferenciação visual de compromissos passados vs. futuros (UX #9
+// / decisão #6, Seção 16). Cada bloco de evento com horário guarda seu
+// instante de término em data-end-ts (ms desde epoch); updatePastEvents()
+// varre os blocos já renderizados e alterna .wk-event-past sem precisar
+// recriar o DOM — chamada pelo mesmo timer de 60s que já move a "now line"
+// (updateNowLine/updateDayNowLine), então o estado cruza a hora sozinho.
+function _eventEndTimestamp(dateIso, startTime, durationMinutes) {
+  const [h, m] = startTime.split(":").map(Number);
+  const start = new Date(dateIso + "T00:00:00");
+  start.setHours(h, m, 0, 0);
+  return start.getTime() + (durationMinutes || 30) * 60_000;
+}
+
+function _markEventEnd(block, ev) {
+  if (!ev.start_time) return;
+  block.dataset.endTs = String(_eventEndTimestamp(ev.event_date, ev.start_time, ev.duration_minutes));
+}
+
+function updatePastEvents(root) {
+  if (!root) return;
+  const now = Date.now();
+  root.querySelectorAll(".wk-event[data-end-ts]").forEach(el => {
+    el.classList.toggle("wk-event-past", Number(el.dataset.endTs) <= now);
+  });
+}
+
 function renderEvents(events, summaries = {}) {
   const byCol = new Map();
   events.forEach(ev => {
@@ -567,6 +593,7 @@ function renderEvents(events, summaries = {}) {
       block.style.height   = `${height}px`;
       if (compact) block.title = _compactTooltip(ev, indicator);
       _applyOverlapStyle(block, layout, ev);
+      _markEventEnd(block, ev);
       const bgColor = ev.color || "#3b82f6";
       block.style.background = bgColor;
       block.style.color      = readableTextColor(bgColor);
@@ -621,6 +648,7 @@ function renderAcademicEvents(events) {
       block.className = "wk-event wk-event-academic";
       block.style.top        = `${top}px`;
       block.style.height     = `${height}px`;
+      _markEventEnd(block, ev);
       const blockColor = ev.color || ev._calendarColor || "#7c3aed";
       block.style.background = blockColor;
       block.style.color      = readableTextColor(blockColor);
@@ -642,6 +670,8 @@ function renderAcademicEvents(events) {
 // ── Now line ───────────────────────────────────────────────────────────────
 
 function updateNowLine() {
+  updatePastEvents(_el);
+
   const line = _el?.querySelector("#wk-now-line");
   if (!line) return;
 
@@ -907,6 +937,7 @@ function renderDayEvents(events, summaries = {}) {
     block.style.height   = `${height}px`;
     if (compact) block.title = _compactTooltip(ev, indicator);
     _applyOverlapStyle(block, layout, ev);
+    _markEventEnd(block, ev);
     const bgColor = ev.color || "#3b82f6";
     block.style.background = bgColor;
     block.style.color      = readableTextColor(bgColor);
@@ -957,6 +988,7 @@ function renderDayAcademicEvents(events) {
       block.className = "wk-event wk-event-academic";
       block.style.top        = `${top}px`;
       block.style.height     = `${height}px`;
+      _markEventEnd(block, ev);
       const blockColor = ev.color || ev._calendarColor || "#7c3aed";
       block.style.background = blockColor;
       block.style.color      = readableTextColor(blockColor);
@@ -976,6 +1008,8 @@ function renderDayAcademicEvents(events) {
 }
 
 function updateDayNowLine() {
+  updatePastEvents(_dEl);
+
   const line = _dEl?.querySelector("#dv-now-line");
   if (!line) return;
 
