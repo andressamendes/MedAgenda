@@ -2,6 +2,18 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI de Hoje, Etapa 23: área de toque mínima em elementos secundários
+
+- O traço de categoria (`.today-appt-category`) e o botão "Fechar o dia"
+  (`#today-btn-close-day`) ganham alvo de toque/hover de ~44×44pt (`style.css`),
+  sem alterar a forma visível de nenhum dos dois: em vez de engordar
+  padding/largura, um pseudo-elemento invisível (`::before`/`::after`),
+  centralizado sobre a forma original, estende só a área que responde a
+  clique/toque/hover. Resolve o problema de mobile #5 (alvo de toque abaixo
+  do confortável em elementos secundários da tela).
+
+---
+
 ## [Unreleased] — Auditoria UX/UI da Agenda, Etapa 13: preservação de contexto temporal entre abas
 
 - Trocar entre as abas Semana e Mês da Agenda deixou de reiniciar o período
