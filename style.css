@@ -66,6 +66,19 @@
   --color-primary-500:  var(--blue);
   --color-primary-600:  var(--blue-d);
   --color-primary-700:  #282e5c;
+
+  /* ── Destaque neutro (F14 diagnóstico #3) — antes, ".today-appt-item--next"
+     (o "próximo compromisso" do dia) usava a mesma família --color-primary-*
+     do CTA principal de estudo: as duas disputavam o mesmo significado de
+     "isto é a prioridade". Esta família deriva só da rampa --gray-N (mesmo
+     matiz neutro do texto/borda padrão, sem tingimento de --blue), então
+     "próximo" fica visivelmente distinto de "ação principal" nos dois temas,
+     sem introduzir uma cor nova com significado próprio (como --color-warning
+     ou --color-celebration já têm). */
+  --color-highlight-border: var(--gray-400);
+  --color-highlight-bg:     var(--gray-100);
+  --color-highlight-text:   var(--gray-800);
+
   --color-surface:        #fff;
   --color-background:     var(--gray-50);
   --color-border:         var(--gray-200);
@@ -3033,12 +3046,12 @@ textarea { resize: vertical; }
    que está em andamento) se destaca; o conflito acima continua independente
    e pode se somar a qualquer um dos dois estados abaixo. */
 .today-appt-item--next {
-  border-color: var(--color-primary-300);
-  background: var(--color-primary-50);
+  border-color: var(--color-highlight-border);
+  background: var(--color-highlight-bg);
 }
 
 .today-appt-item--next .today-appt-time {
-  color: var(--color-primary-700);
+  color: var(--color-highlight-text);
 }
 
 /* Rótulo textual do destaque acima — some por padrão (só existe pro item
@@ -3049,7 +3062,7 @@ textarea { resize: vertical; }
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
   font-weight: 600;
-  color: var(--color-primary-700);
+  color: var(--color-highlight-text);
   text-transform: uppercase;
   letter-spacing: .03em;
 }
