@@ -6771,17 +6771,36 @@ textarea { resize: vertical; }
 .smart-card--revisao  .smart-card-icon,
 .smart-card--revisao  .smart-card-label     { color: var(--color-purple-accent); }
 
-/* ── Plano rápido na agenda (F3.5, ETAPA 6) — mesma marcação de plano do
-   painel de IA (ver .ai-plan-item em Plano da Semana), reaproveitada aqui. ── */
-.wk-plan-toggle-row {
-  margin: 0 0 .5rem;
+/* ── Cartão de apoio da semana (Etapa 15) — dica de IA e plano semanal
+   fundidos num único bloco, visualmente subordinado à grade (.wk-wrap):
+   fundo neutro discreto, sem a borda definida que a grade tem, para não
+   competir por atenção antes dela. Some por completo (hidden) quando não há
+   nem dica nem plano — nunca um cartão vazio. Dentro dele, a dica (mais
+   urgente, sempre visível quando existe) fica acima do plano (mais denso,
+   atrás do disclosure) — a mesma hierarquia de antes, só que agora num
+   único invólucro em vez de dois blocos soltos. */
+.wk-support-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+/* Reseta as margens próprias de cada peça — o gap do cartão que fornece o
+   espaçamento agora, para que a fusão não duplique espaço em branco. */
+.wk-support-card > .smart-cards,
+.wk-support-card > .wk-plan-toggle-row,
+.wk-support-card > .wk-plan-list {
+  margin: 0;
 }
 
 .wk-plan-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin: 0 0 .75rem;
 }
 
 /* ── Loading ── */
