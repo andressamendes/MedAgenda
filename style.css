@@ -2958,12 +2958,16 @@ textarea { resize: vertical; }
    botão de mesmo peso. */
 .today-cta--alt {
   min-width: 0;
+  max-width: 100%;
   background: transparent;
   border-color: transparent;
   color: var(--color-primary);
   font-size: var(--font-size-xs);
   font-weight: 500;
   padding: .35rem .3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .today-cta--alt:hover:not(:disabled) {
   background: transparent;
