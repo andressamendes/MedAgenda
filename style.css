@@ -2121,6 +2121,9 @@ textarea { resize: vertical; }
   .content-reveal { animation: none; }
   .page-enter { animation: none; }
   .count-pulse { animation: none; }
+  /* Etapa 26 — fade de fechamento do disclosure de estatísticas (ver
+     .today-stats-body acima). */
+  .today-stats-body { transition: none; }
   .app-loading-logo { animation: none; }
   .app-loading-bar-fill { animation: none; opacity: .85; }
   .disclosure-chevron svg { transition: none; }
@@ -2949,6 +2952,14 @@ textarea { resize: vertical; }
   max-width: 100%;
 }
 
+/* Etapa 26 (auditoria UX/UI V2 #9) — a troca Retomar/Começar/Continuar no
+   hero (`todayView.js`/`_refreshHero()`) alternava `hidden` sem nenhuma
+   transição; o botão que aparece agora recebe `.content-reveal` (mesmo
+   fade+leve translateY de `revealWithAnimation()`, já usado no restante do
+   app), só quando a visibilidade de fato muda — pausar/retomar uma sessão
+   já ativa não reexecuta o fade. `.content-reveal` já respeita
+   `prefers-reduced-motion` (ver media query central). */
+
 /* Etapa 21 (auditoria UI #2) — mesmo padrão de tamanho/alinhamento do ícone
    já usado em .smart-card-icon/.event-start-cta-icon: SVG fixo em
    --icon-sm, display:block (evita o espaço fantasma de inline) — o gap de
@@ -3170,8 +3181,33 @@ textarea { resize: vertical; }
   margin: 0;
 }
 
+/* Etapa 26 (auditoria UX/UI V2 #9) — a abertura já ganhava o fade de
+   .content-reveal (revealWithAnimation() em _toggleTodayStats()); só o
+   fechamento ficava instantâneo, porque o navegador troca `[hidden]` para
+   `display: none` no mesmo frame, sem nenhuma chance de transição rodar.
+   `transition-behavior: allow-discrete` trata `display` como mais uma
+   propriedade animável, e `@starting-style` dá ao `opacity` um "antes" de
+   onde interpolar quando `hidden` acabou de sair (sem isso o navegador não
+   tem frame anterior para animar a partir, e o conteúdo simplesmente
+   apareceria já em opacity: 1). Sem suporte às duas features (navegadores
+   mais antigos), o fallback é o comportamento de sempre — aparece/some na
+   hora, nenhuma perda funcional. `activityDashboardView.js` continua
+   alternando `.hidden` de forma síncrona; só o efeito visual muda. */
 .today-stats-body {
   margin-top: var(--space-4);
+  opacity: 1;
+  transition: opacity .18s var(--ease-anoti), display .18s allow-discrete;
+}
+
+.today-stats-body[hidden] {
+  display: none;
+  opacity: 0;
+}
+
+@starting-style {
+  .today-stats-body:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 /* ── Fechar o dia (F14.8) ──
