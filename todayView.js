@@ -377,6 +377,12 @@ function _categoryBadgeHtml(category) {
   return `<span class="today-appt-category" style="background:${escapeHtml(color)}" title="${escapeHtml(category)}" aria-label="Categoria: ${escapeHtml(category)}"></span>`;
 }
 
+// .today-appt-next-label — rótulo textual do destaque "próximo"/"em
+// andamento" (F14 diagnóstico #1: hoje esse estado só era perceptível por
+// cor/contraste, exigindo aprendizado prévio de que azul = próximo). Fica
+// sempre no DOM, escondido por CSS (style.css), e só aparece quando o <li>
+// pai já carrega .today-appt-item--next — _applyApptTemporalStates() decide
+// isso reclassificando a classe do <li>, nenhum JS extra aqui.
 function _buildApptItem(ev, isConflict) {
   const li = document.createElement("li");
   li.className = isConflict ? "today-appt-item today-appt-item--conflict" : "today-appt-item";
@@ -389,6 +395,7 @@ function _buildApptItem(ev, isConflict) {
   li.innerHTML = `
     ${_categoryBadgeHtml(ev.category)}
     <span class="today-appt-time">${ev.start_time.slice(0, 5)}</span>
+    <span class="today-appt-next-label">Próximo</span>
     <span class="today-appt-title">${escapeHtml(ev.title)}</span>
     ${conflictBadgeHtml}
     ${startBtnHtml}

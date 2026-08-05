@@ -3041,6 +3041,23 @@ textarea { resize: vertical; }
   color: var(--color-primary-700);
 }
 
+/* Rótulo textual do destaque acima — some por padrão (só existe pro item
+   "próximo"), sempre o menor texto da linha para não competir com
+   horário/título: é reforço, não um novo bloco de atenção. */
+.today-appt-next-label {
+  display: none;
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  color: var(--color-primary-700);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.today-appt-item--next .today-appt-next-label {
+  display: inline;
+}
+
 /* Já encerrado — reduzido, não escondido: ainda é histórico do dia. */
 .today-appt-item--past {
   opacity: .6;
