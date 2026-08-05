@@ -150,11 +150,13 @@ function buildShell() {
       <span class="state-block-desc">Clique em qualquer horário da grade abaixo para marcar um estudo, ou use "+ Novo compromisso".</span>
       <button type="button" class="btn btn-sm btn-ghost state-block-action" id="wk-empty-tip-dismiss">Entendi</button>
     </div>
-    <div id="wk-tip" class="smart-cards" hidden></div>
-    <div class="wk-plan-toggle-row">
-      <button type="button" class="btn btn-sm btn-ghost disclosure-toggle" id="wk-plan-toggle" aria-expanded="false" aria-controls="wk-plan-list" hidden>${disclosureToggleContent("Mostrar plano da semana")}</button>
+    <div id="wk-support" class="wk-support-card" hidden>
+      <div id="wk-tip" class="smart-cards" hidden></div>
+      <div class="wk-plan-toggle-row">
+        <button type="button" class="btn btn-sm btn-ghost disclosure-toggle" id="wk-plan-toggle" aria-expanded="false" aria-controls="wk-plan-list" hidden>${disclosureToggleContent("Mostrar plano da semana")}</button>
+      </div>
+      <div id="wk-plan-list" class="ai-result-body--plan wk-plan-list" hidden></div>
     </div>
-    <div id="wk-plan-list" class="ai-result-body--plan wk-plan-list" hidden></div>
     <div class="wk-wrap">
       <div class="wk-scroll" id="wk-scroll">
         <div class="wk-head-row" id="wk-head-row">
@@ -363,10 +365,11 @@ function updateDaySummary(personal, academicEvents, summaries) {
 // uma para hoje, cai para a de maior prioridade geral (já ordenada pelo
 // Decision Engine). Nunca cria, altera ou agenda nada — é só leitura.
 async function loadTip() {
+  const supportEl = _el?.querySelector("#wk-support");
   const tipEl = _el?.querySelector("#wk-tip");
   const toggleBtn = _el?.querySelector("#wk-plan-toggle");
   const planListEl = _el?.querySelector("#wk-plan-list");
-  if (!tipEl || !toggleBtn || !planListEl) return;
+  if (!supportEl || !tipEl || !toggleBtn || !planListEl) return;
 
   let decisions = [];
   try {
@@ -391,6 +394,11 @@ async function loadTip() {
   toggleBtn.setAttribute("aria-expanded", "false");
   toggleBtn.querySelector(".disclosure-label").textContent = "Mostrar plano da semana";
   if (_weeklyPlan.length) renderPlanList(planListEl, _weeklyPlan);
+
+  // Etapa 15 — dica e plano agora dividem um único cartão de apoio; some por
+  // completo quando não há nem dica nem plano, em vez de deixar um cartão
+  // vazio competindo com a grade abaixo.
+  supportEl.hidden = !tip && _weeklyPlan.length === 0;
 }
 
 function togglePlan() {
