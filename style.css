@@ -3093,9 +3093,18 @@ textarea { resize: vertical; }
 }
 
 .today-appt-conflict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
   flex-shrink: 0;
   background: var(--color-warning-bg);
   color: var(--color-warning-text);
+}
+
+.today-appt-conflict-badge-icon svg {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 
 /* Aviso de conflito no formulário de compromisso (não bloqueia o salvamento
