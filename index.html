@@ -1621,10 +1621,14 @@
         <div id="cat-list" aria-live="polite"></div>
         <div class="cat-add-section">
           <h4 class="cat-add-title">Nova categoria</h4>
+          <div class="cat-palette" id="cat-palette" role="group" aria-label="Cores sugeridas"></div>
           <div class="cat-form-row">
-            <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" aria-label="Cor da categoria" />
             <input type="text"  id="cat-new-name"  placeholder="Nome da categoria" aria-label="Nome da categoria" maxlength="60" />
             <button class="btn btn-primary btn-sm" id="cat-add">Adicionar</button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="cat-color-toggle" aria-expanded="false" aria-controls="cat-color-advanced" data-disclosure-label="Cor livre"></button>
+          <div class="cat-color-advanced" id="cat-color-advanced" hidden>
+            <input type="color" id="cat-new-color" value="#3b82f6" title="Cor" aria-label="Cor da categoria" />
           </div>
           <p class="error" id="cat-error" role="alert" aria-live="assertive"></p>
         </div>

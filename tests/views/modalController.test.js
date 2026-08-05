@@ -8,17 +8,20 @@ import assert from "node:assert";
 import { installDom, uninstallDom } from "../mocks/domFixture.js";
 
 let mc;
-let overlay, closeBtn, colorInput, nameInput, addBtn, outsideButton;
+let overlay, closeBtn, colorToggle, nameInput, addBtn, outsideButton;
 
 beforeEach(async () => {
   installDom();
   mc = await import(`../../modalController.js?t=${Math.random()}`);
 
-  overlay    = document.getElementById("cat-overlay");
-  closeBtn   = document.getElementById("cat-close");
-  colorInput = document.getElementById("cat-new-color");
-  nameInput  = document.getElementById("cat-new-name");
-  addBtn     = document.getElementById("cat-add");
+  overlay     = document.getElementById("cat-overlay");
+  closeBtn    = document.getElementById("cat-close");
+  // #cat-new-color (F14) só fica visível/focável depois que o disclosure
+  // "Cor livre" é expandido — por padrão o último elemento focável do modal
+  // é o próprio botão de disclosure, #cat-color-toggle.
+  colorToggle = document.getElementById("cat-color-toggle");
+  nameInput   = document.getElementById("cat-new-name");
+  addBtn      = document.getElementById("cat-add");
 
   outsideButton = document.createElement("button");
   outsideButton.textContent = "outside";
@@ -103,8 +106,8 @@ test("clicking inside the modal card does not close it", () => {
 test("Focus Trap: Tab from the last focusable element wraps to the first", () => {
   const modal = mc.initModal(overlay, () => {});
   modal.open(nameInput);
-  addBtn.focus();
-  assert.strictEqual(document.activeElement, addBtn);
+  colorToggle.focus();
+  assert.strictEqual(document.activeElement, colorToggle);
 
   const tab = new window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
   document.dispatchEvent(tab);
@@ -121,13 +124,13 @@ test("Focus Trap: Shift+Tab from the first focusable element wraps to the last",
   const shiftTab = new window.KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
   document.dispatchEvent(shiftTab);
 
-  assert.strictEqual(document.activeElement, addBtn);
+  assert.strictEqual(document.activeElement, colorToggle);
 });
 
 test("Focus Trap: Tab between interior elements is left alone (no wrap)", () => {
   const modal = mc.initModal(overlay, () => {});
   modal.open(nameInput);
-  colorInput.focus();
+  addBtn.focus();
 
   const tab = new window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
   document.dispatchEvent(tab);
@@ -135,7 +138,7 @@ test("Focus Trap: Tab between interior elements is left alone (no wrap)", () => 
   // Our handler only intervenes at the boundaries; it does not simulate
   // native mid-sequence tab order, so focus simply stays where our code
   // left it (jsdom does not move focus for untrapped Tab presses either).
-  assert.strictEqual(document.activeElement, colorInput);
+  assert.strictEqual(document.activeElement, addBtn);
 });
 
 test("Focus Trap and click-outside are inert once the modal is closed", () => {

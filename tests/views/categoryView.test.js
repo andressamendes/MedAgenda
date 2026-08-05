@@ -98,6 +98,62 @@ test("creating a category re-renders the list and clears the form", async (t) =>
   assert.strictEqual(document.querySelectorAll("#cat-list .cat-row").length, 1);
 });
 
+// F14 — paleta de categorias curada por padrão.
+test("the new-category form offers a curated color palette, selected by default, with the free color picker collapsed", async (t) => {
+  mockCategoryService(t, { categories: [] });
+  view = await import(`../../categoryView.js?t=${Math.random()}`);
+  view.initCategoryView();
+  await view.openCategoryModal();
+
+  const swatches = document.querySelectorAll("#cat-palette .cat-swatch-btn");
+  assert.ok(swatches.length > 1, "curated palette should offer more than one color");
+
+  const colorInput = document.getElementById("cat-new-color");
+  const selected = document.querySelector("#cat-palette .cat-swatch-btn.selected");
+  assert.ok(selected, "one swatch should be pre-selected on open");
+  assert.strictEqual(selected.dataset.color.toLowerCase(), colorInput.value.toLowerCase());
+
+  // O picker de cor livre é a opção avançada — colapsado por padrão.
+  assert.strictEqual(document.getElementById("cat-color-advanced").hidden, true);
+});
+
+test("clicking a palette swatch sets the free color input and marks that swatch as selected", async (t) => {
+  const created = { id: "cat-3", name: "Congresso", color: "#06b6d4" };
+  mockCategoryService(t, { categories: [], createResult: created });
+  view = await import(`../../categoryView.js?t=${Math.random()}`);
+  view.initCategoryView();
+  await view.openCategoryModal();
+
+  const target = document.querySelector('#cat-palette .cat-swatch-btn[data-color="#06b6d4"]');
+  assert.ok(target, "expected a curated swatch for #06b6d4");
+  target.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(document.getElementById("cat-new-color").value.toLowerCase(), "#06b6d4");
+  assert.strictEqual(target.classList.contains("selected"), true);
+
+  document.getElementById("cat-new-name").value = "Congresso";
+  document.getElementById("cat-add").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.deepStrictEqual(serviceCalls, [{ fn: "createCategory", name: "Congresso", color: "#06b6d4" }]);
+});
+
+test("expanding 'Cor livre' and picking a custom color deselects every curated swatch", async (t) => {
+  mockCategoryService(t, { categories: [] });
+  view = await import(`../../categoryView.js?t=${Math.random()}`);
+  view.initCategoryView();
+  await view.openCategoryModal();
+
+  document.getElementById("cat-color-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(document.getElementById("cat-color-advanced").hidden, false);
+
+  const colorInput = document.getElementById("cat-new-color");
+  colorInput.value = "#123456";
+  colorInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+
+  assert.strictEqual(document.querySelectorAll("#cat-palette .cat-swatch-btn.selected").length, 0);
+});
+
 test("creating a category without a name shows a validation error and does not call the service", async (t) => {
   mockCategoryService(t, { categories: [] });
   view = await import(`../../categoryView.js?t=${Math.random()}`);

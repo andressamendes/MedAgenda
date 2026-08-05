@@ -9,17 +9,32 @@ import { confirmDialog } from "./confirmDialog.js";
 import { initModal } from "./modalController.js";
 import { handleError } from "./errorService.js";
 import { errorToState, stateBlockMarkup, wireStateBlock } from "./stateView.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 
 let categoriesCache = [];
+
+// Paleta curada oferecida por padrão na criação de novas categorias (F14) —
+// reduz colisão visual entre categorias ao longo do tempo. O picker de cor
+// livre (nativo, atrás do disclosure "Cor livre") continua disponível como
+// opção avançada. Categorias já cadastradas mantêm sua cor atual: esta
+// paleta só entra em jogo no formulário de criação.
+const CURATED_PALETTE = [
+  "#3b82f6", "#ef4444", "#10b981", "#8b5cf6",
+  "#f59e0b", "#ec4899", "#06b6d4", "#f97316",
+  "#14b8a6", "#a855f7", "#84cc16", "#6b7280",
+];
 
 let fCategory  = null;
 let fColor     = null;
 let catOverlay = null;
 let catList    = null;
+let catPalette  = null;
 let catNewColor = null;
 let catNewName  = null;
 let catAddBtn   = null;
 let catError    = null;
+let catColorToggle   = null;
+let catColorAdvanced = null;
 let modal       = null;
 
 // Notificado depois de cada criação/edição/exclusão bem-sucedida para que
@@ -44,10 +59,20 @@ export function initCategoryView(onCategoriesChanged) {
   fColor      = document.getElementById("f-color");
   catOverlay  = document.getElementById("cat-overlay");
   catList     = document.getElementById("cat-list");
+  catPalette  = document.getElementById("cat-palette");
   catNewColor = document.getElementById("cat-new-color");
   catNewName  = document.getElementById("cat-new-name");
   catAddBtn   = document.getElementById("cat-add");
   catError    = document.getElementById("cat-error");
+  catColorToggle   = document.getElementById("cat-color-toggle");
+  catColorAdvanced = document.getElementById("cat-color-advanced");
+
+  _renderPalette();
+  catNewColor?.addEventListener("input", _syncPaletteSelection);
+  // Cor livre — mesmo padrão aria-expanded + hidden dos demais disclosures
+  // do app (ex.: "Mostrar" em eventFormView.js); colapsado por padrão para
+  // que a paleta curada seja o caminho principal (F14).
+  catColorToggle?.addEventListener("click", () => _setColorAdvancedExpanded(catColorAdvanced.hidden));
 
   document.getElementById("btn-categories")?.addEventListener("click", openCategoryModal);
   document.getElementById("cat-close")?.addEventListener("click", closeCategoryModal);
@@ -75,6 +100,7 @@ export function initCategoryView(onCategoriesChanged) {
       await createCategory(name, color);
       catNewName.value  = "";
       catNewColor.value = "#3b82f6";
+      _syncPaletteSelection();
       await _reloadCategories();
       await _renderCatList();
       _onCategoriesChanged?.();
@@ -121,8 +147,58 @@ export async function openCategoryModal() {
   catError.textContent = "";
   catNewName.value  = "";
   catNewColor.value = "#3b82f6";
+  _syncPaletteSelection();
+  _setColorAdvancedExpanded(false);
   await _renderCatList();
   modal.open(catNewName);
+}
+
+/** Expande/recolhe o picker de cor livre — mesmo padrão usado pelos demais
+ * disclosures do app (aria-expanded + hidden no wrap, rótulo Mostrar/Ocultar). */
+function _setColorAdvancedExpanded(expand) {
+  if (!catColorToggle || !catColorAdvanced) return;
+  catColorAdvanced.hidden = !expand;
+  catColorToggle.setAttribute("aria-expanded", String(expand));
+  const label = catColorToggle.querySelector(".disclosure-label");
+  if (label) label.textContent = expand ? "Ocultar" : "Cor livre";
+  if (expand) revealWithAnimation(catColorAdvanced);
+}
+
+/**
+ * Monta os botões da paleta curada (F14). Renderizado uma única vez em
+ * initCategoryView(); a seleção visual é sincronizada separadamente por
+ * _syncPaletteSelection() sempre que #cat-new-color muda (clique num swatch
+ * ou escolha manual via "Cor livre").
+ */
+function _renderPalette() {
+  if (!catPalette) return;
+  catPalette.innerHTML = "";
+  CURATED_PALETTE.forEach(color => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cat-swatch-btn";
+    btn.style.background = color;
+    btn.dataset.color = color;
+    btn.title = color;
+    btn.setAttribute("aria-label", `Usar cor ${color}`);
+    btn.addEventListener("click", () => {
+      catNewColor.value = color;
+      _syncPaletteSelection();
+    });
+    catPalette.appendChild(btn);
+  });
+  _syncPaletteSelection();
+}
+
+/** Marca como selecionado o swatch da paleta que corresponde à cor atual de
+ * #cat-new-color (comparação case-insensitive); nenhum swatch fica marcado
+ * quando o valor vem do picker livre e não bate com nenhuma cor curada. */
+function _syncPaletteSelection() {
+  if (!catPalette || !catNewColor) return;
+  const current = catNewColor.value.toLowerCase();
+  catPalette.querySelectorAll(".cat-swatch-btn").forEach(btn => {
+    btn.classList.toggle("selected", btn.dataset.color.toLowerCase() === current);
+  });
 }
 
 function closeCategoryModal() {

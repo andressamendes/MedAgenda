@@ -4124,20 +4124,53 @@ textarea { resize: vertical; }
   margin-bottom: .6rem;
 }
 
-.cat-form-row {
+.cat-palette {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: var(--space-3);
 }
 
-.cat-form-row input[type="color"] {
+.cat-swatch-btn {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: var(--ring-1) rgba(0,0,0,.1) inset;
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+
+.cat-swatch-btn:hover { transform: scale(1.12); }
+
+.cat-swatch-btn.selected {
+  border-color: var(--gray-800);
+  /* stylelint-disable-next-line scale-unlimited/declaration-strict-value -- já 100% tokens; o plugin não interpreta box-shadow multi-camada (separado por vírgula) */
+  box-shadow: var(--ring-2) var(--color-surface), 0 0 0 4px var(--gray-800);
+}
+
+#cat-color-toggle {
+  margin-bottom: .4rem;
+}
+
+.cat-color-advanced {
+  margin-bottom: var(--space-3);
+}
+
+.cat-color-advanced input[type="color"] {
   width: 2.4rem;
   height: 2.2rem;
   padding: .15rem .25rem;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   cursor: pointer;
-  flex-shrink: 0;
+}
+
+.cat-form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .cat-form-row input[type="text"] {
