@@ -2912,6 +2912,25 @@ textarea { resize: vertical; }
   margin: var(--space-4) 0 var(--space-6);
 }
 
+/* Etapa 16 — dica contextual (#today-tip) fundida ao hero como sua primeira
+   peça: mesma superfície, leitura "alerta → ação" preservada pela ordem no
+   DOM. Escopado a este contexto aninhado (`.today-hero > .smart-cards`) para
+   não tocar `.smart-cards`/`.smart-card` em nenhuma outra tela — Semana
+   (.wk-support-card) e o restante de smartCardView.js continuam intactos.
+   Reseta a margem própria do componente (o `gap` do hero já espaça) e
+   estica a largura total (o hero usa `align-items: flex-start`, que sem
+   isto encolheria o card ao conteúdo). Mesmo bug de cascata de
+   `.field-warning[hidden]` (ver comentário lá): `.smart-cards` define
+   `display: flex`, então precisa do reforço explícito para realmente sumir
+   quando não há tip — sem isto o hero sobraria com um espaço vazio. */
+.today-hero > .smart-cards {
+  align-self: stretch;
+  margin: 0;
+}
+.today-hero > .smart-cards[hidden] {
+  display: none;
+}
+
 .today-cta {
   min-width: 220px;
   max-width: 100%;

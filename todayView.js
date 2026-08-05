@@ -416,6 +416,13 @@ function _buildApptItem(ev, isConflict) {
 // com um card crítico-passivo (auditoria F14.6): filterSpontaneousDecisions()
 // só deixa passar revisão pendente e compromisso atrasado — o resto continua
 // disponível via getDecisions() para o painel de IA, sob demanda.
+//
+// Etapa 16 — tipEl (#today-tip) agora vive dentro de .today-hero (ver
+// index.html), como a primeira peça da mesma superfície: renderSmartCards()
+// continua só escondendo/mostrando o container em si (nenhuma mudança de
+// comportamento), a fusão visual inteira é resolvida por CSS
+// (.today-hero > .smart-cards, style.css) — sem tip, o container some e o
+// hero não sobra com espaço vazio.
 
 async function _refreshTip() {
   if (!tipEl) return;
