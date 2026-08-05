@@ -3047,7 +3047,7 @@ textarea { resize: vertical; }
 .today-appt-next-label {
   display: none;
   flex-shrink: 0;
-  font-size: .6875rem;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--color-primary-700);
   text-transform: uppercase;
