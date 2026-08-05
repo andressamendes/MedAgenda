@@ -3177,11 +3177,21 @@ textarea { resize: vertical; }
 /* ── Fechar o dia (F14.8) ──
    Ação de saída discreta — não compete com "Começar a estudar" nem com os
    compromissos/números acima; fica ao final da página, centralizada, como o
-   último gesto do dia. */
+   último gesto do dia.
+
+   Etapa 24 — o --space-7 fixo de antes somava o mesmo respiro sempre, então
+   em dias de agenda longa + stats expandidos o botão acabava "perdido" bem
+   abaixo da dobra (mobile #4). Trocado por um clamp que reage à altura da
+   viewport (não à altura real do conteúdo — CSS puro não enxerga isso sem
+   JS, e o objetivo aqui era não virar sticky): quando a página já é alta
+   (agenda longa), 4vh vira menos respiro absoluto do que os 2rem fixos de
+   antes, então o botão fica mais perto do que já está visível. Em dias
+   vazios o piso de --space-5 mantém o respiro de sempre, sem "colar" no
+   conteúdo acima. */
 .today-close-day {
   display: flex;
   justify-content: center;
-  margin-top: var(--space-7);
+  margin-top: clamp(var(--space-5), 4vh, var(--space-7));
 }
 
 /* Etapa 23 — o padding de .btn já dá alvo confortável na horizontal, mas a
