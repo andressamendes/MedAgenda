@@ -417,7 +417,14 @@
                .today-close-day--goal-met é ligada/desligada por
                todayView.js/_refreshCloseDayGoalState() quando a meta diária
                já foi atingida — nenhum markup novo, só o modificador de
-               estado (ver style.css). -->
+               estado (ver style.css).
+               Etapa 25 (auditoria UX/UI de Hoje, problema #2): microcópia de
+               reversibilidade — sem ela, o rótulo "Fechar o dia" sozinho soa
+               como uma ação definitiva (encerrar/travar o dia), quando na
+               prática só abre a tela de recap (#close-day-modal), que ainda
+               tem "Voltar" antes de qualquer confirmação. A linha deixa isso
+               claro antes do clique, via aria-describedby (lida por leitor
+               de tela junto do nome do botão) e texto visível abaixo dele. -->
           <div class="today-close-day">
             <!-- Etapa 21 — mesmo padrão de ícone do CTA do hero acima (span +
                  data-icon); "check-circle" (mesmo já usado nas conquistas de
@@ -425,7 +432,8 @@
                  dia, sem soar festivo demais (sem cor própria — herda a cor
                  do texto do botão em todos os estados, incluindo
                  .today-close-day--goal-met). -->
-            <button type="button" id="today-btn-close-day" class="btn btn-ghost"><span class="today-close-day-icon" aria-hidden="true" data-icon="check-circle"></span>Fechar o dia</button>
+            <button type="button" id="today-btn-close-day" class="btn btn-ghost" aria-describedby="today-close-day-hint"><span class="today-close-day-icon" aria-hidden="true" data-icon="check-circle"></span>Fechar o dia</button>
+            <p class="today-close-day-hint" id="today-close-day-hint">Mostra o resumo do dia antes de confirmar — nada é fechado até você revisar.</p>
           </div>
         </div>
 
