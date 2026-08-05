@@ -3007,6 +3007,17 @@ textarea { resize: vertical; }
   display: none;
 }
 
+/* Etapa 28 (problema de design emocional #4) — sinal discreto de sequência
+   de dias, junto da frase de progresso: fonte menor que .today-hero-progress
+   e sem peso/cor de destaque, para nunca competir com o hero como se fosse
+   um novo card de métrica ("mede em silêncio, fala em frases"). [hidden] já
+   cobre o caso "sem sequência viva hoje" — nenhuma regra extra necessária. */
+.today-hero-streak {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+}
+
 .today-section-title {
   font-size: var(--font-size-lg);
   font-weight: 700;

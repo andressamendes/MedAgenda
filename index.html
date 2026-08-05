@@ -351,6 +351,16 @@
                  (#today-stats-toggle). Mesmo dado do card "Meta diária" do
                  disclosure abaixo — ver todayView.js/_refreshHeroProgress. -->
             <p id="today-hero-progress" class="today-hero-progress"></p>
+            <!-- Etapa 28 (problema de design emocional #4) — sequência de dias
+                 seguidos hoje só chegava tarde demais, dentro do recap de
+                 "Fechar o dia" (#cd-streak). Mesmo dado
+                 (studyStreakService.getStreakSummary(), reaproveitado por
+                 closeDayService.getDayRecap() nesse mesmo recap), nenhum
+                 cálculo novo — só uma segunda leitura, discreta, junto da
+                 frase de progresso. Nasce hidden: sem sequência (streak
+                 quebrado ou zerado), o elemento simplesmente some, nunca vira
+                 um "0 dias" neutro competindo por atenção. -->
+            <p id="today-hero-streak" class="today-hero-streak" hidden></p>
             <!-- Etapa 21 (auditoria UI #2) — ícone alinhado ao mesmo padrão do
                  smart card (span.X-icon + data-icon, ver icons.js) para que o
                  CTA principal do hero deixe de ser o único elemento sem

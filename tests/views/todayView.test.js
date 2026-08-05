@@ -35,6 +35,7 @@ const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.
 const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER   = new URL("../../profileService.js", import.meta.url).href;
 const DASHBOARD_VIEW_SPECIFIER    = new URL("../../activityDashboardView.js", import.meta.url).href;
+const STUDY_STREAK_SPECIFIER      = new URL("../../studyStreakService.js", import.meta.url).href;
 
 const NO_GOAL_PROGRESS = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
@@ -120,6 +121,16 @@ function loadView(t, overrides = {}) {
       setTodayStatsAnchor: (anchor) => { setTodayStatsAnchorCalls.push(anchor); },
     },
   });
+  // Etapa 28 — sinal discreto de streak no hero: mesma fonte
+  // (studyStreakService.getStreakSummary()) que closeDayService.getDayRecap()
+  // já usa para #cd-streak, mockada aqui direto para não arrastar
+  // activitySessionService.js/supabase.js reais.
+  t.mock.module(STUDY_STREAK_SPECIFIER, {
+    namedExports: {
+      getStreakSummary: overrides.getStreakSummary
+        ?? (async () => ({ currentStreak: 0, longestStreak: 0, totalStudyDays: 0, lastStudyDay: null, daysSinceLastStudy: null })),
+    },
+  });
 
   return import(`../../todayView.js?t=${Math.random()}`);
 }
@@ -185,6 +196,42 @@ test("the stats disclosure anchor stays empty when nothing was studied yet today
   await initTodayView();
 
   assert.deepStrictEqual(setTodayStatsAnchorCalls, [""]);
+});
+
+// Etapa 28 — streak discreto no hero (problema de design emocional #4):
+// aparece quando currentStreak > 0, some por completo (não "0 dias") quando
+// quebrado/zerado.
+test("the hero streak signal appears when there is a live streak today", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getStreakSummary: async () => ({ currentStreak: 3, longestStreak: 5, totalStudyDays: 10, lastStudyDay: "2026-08-05", daysSinceLastStudy: 0 }),
+  });
+  await initTodayView();
+
+  const el = document.getElementById("today-hero-streak");
+  assert.strictEqual(el.hidden, false);
+  assert.match(el.textContent, /3 dias seguidos/);
+});
+
+test("the hero streak signal uses singular phrasing for a 1-day streak", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getStreakSummary: async () => ({ currentStreak: 1, longestStreak: 1, totalStudyDays: 1, lastStudyDay: "2026-08-05", daysSinceLastStudy: 0 }),
+  });
+  await initTodayView();
+
+  const el = document.getElementById("today-hero-streak");
+  assert.strictEqual(el.hidden, false);
+  assert.match(el.textContent, /1 dia seguido/);
+});
+
+test("the hero streak signal stays hidden when the streak is broken", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getStreakSummary: async () => ({ currentStreak: 0, longestStreak: 5, totalStudyDays: 10, lastStudyDay: "2026-08-01", daysSinceLastStudy: 4 }),
+  });
+  await initTodayView();
+
+  const el = document.getElementById("today-hero-streak");
+  assert.strictEqual(el.hidden, true);
+  assert.strictEqual(el.textContent, "");
 });
 
 test("clicking 'Começar a estudar' navigates to the study session page and opens the start modal", async (t) => {

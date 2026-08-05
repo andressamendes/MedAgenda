@@ -23,6 +23,7 @@ import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
+import { getStreakSummary } from "./studyStreakService.js";
 import { getProfile } from "./profileService.js";
 import { getDashboardData } from "./activityDashboardService.js";
 import { setTodayStatsAnchor } from "./activityDashboardView.js";
@@ -34,7 +35,7 @@ import { revealWithAnimation } from "./transitionUtils.js";
 import { categoryColor } from "./categoryView.js";
 import { escapeHtml, isoToday, formatDuration } from "./utils.js";
 
-let greetingTextEl, greetingDateEl, heroProgressEl, tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
+let greetingTextEl, greetingDateEl, heroProgressEl, heroStreakEl, tipEl, resumeBtn, startBtn, continueBtn, apptListEl, apptEmptyEl;
 let closeDayBtn, closeDayModalEl, closeDayModal;
 let cdMinutesEl, cdSessionsEl, cdQuestionsEl, cdStreakEl, cdNextStudyEl, cdBtnBack, cdBtnConfirm;
 let _bound = false; // AUD-005: a página não é reconstruída entre logins na mesma sessão do app — sem esta guarda, cada login empilharia mais um listener nos mesmos botões
@@ -48,6 +49,7 @@ export async function initTodayView() {
   greetingTextEl = document.getElementById("today-greeting-text");
   greetingDateEl = document.getElementById("today-greeting-date");
   heroProgressEl = document.getElementById("today-hero-progress");
+  heroStreakEl   = document.getElementById("today-hero-streak");
   tipEl       = document.getElementById("today-tip");
   resumeBtn   = document.getElementById("today-btn-resume");
   startBtn    = document.getElementById("today-btn-start");
@@ -210,6 +212,35 @@ async function _refreshHeroProgress() {
     handleError(err, { context: "todayView.refreshHeroProgress", silent: true });
     heroProgressEl.textContent = "";
     setTodayStatsAnchor("");
+  }
+  await _refreshHeroStreak();
+}
+
+// Etapa 28 (problema de design emocional #4) — o reforço motivacional da
+// sequência de dias só chegava tarde demais, dentro do recap de "Fechar o
+// dia" (#cd-streak, ver _openCloseDayModal()). Mesma fonte,
+// studyStreakService.getStreakSummary() — a mesma leitura que
+// closeDayService.getDayRecap() já usa para currentStreak nesse recap —
+// nenhum cálculo novo, chamada direta ao serviço de constância (mais leve
+// que getDayRecap(), que também agrega sessões/questões do dia, dado que
+// aqui não interessa). Some por completo quando não há sequência viva hoje
+// (streak quebrado ou ainda não começado): nunca vira um "0 dias" neutro
+// disputando atenção com o hero — "mede em silêncio, fala em frases".
+async function _refreshHeroStreak() {
+  if (!heroStreakEl) return;
+  try {
+    const { currentStreak } = await getStreakSummary();
+    if (currentStreak > 0) {
+      heroStreakEl.textContent = currentStreak === 1 ? "🔥 1 dia seguido estudando" : `🔥 ${currentStreak} dias seguidos estudando`;
+      heroStreakEl.hidden = false;
+    } else {
+      heroStreakEl.hidden = true;
+      heroStreakEl.textContent = "";
+    }
+  } catch (err) {
+    handleError(err, { context: "todayView.refreshHeroStreak", silent: true });
+    heroStreakEl.hidden = true;
+    heroStreakEl.textContent = "";
   }
 }
 
