@@ -309,6 +309,7 @@ let goalRingHeroEl;
 let achievementsEl;
 let numbersToggleEl, numbersBodyEl;
 let todayStatsToggleEl, todayStatsBodyEl;
+let _todayStatsAnchor = ""; // Etapa 19 — ver setTodayStatsAnchor() abaixo
 let _unsubscribeProfile = null;
 let _loading = false;
 
@@ -439,8 +440,31 @@ function _toggleTodayStats() {
   const next = !expanded;
   todayStatsBodyEl.hidden = !next;
   todayStatsToggleEl.setAttribute("aria-expanded", String(next));
-  todayStatsToggleEl.querySelector(".disclosure-label").textContent = next ? "Ocultar números de hoje" : "Ver números de hoje";
+  if (next) {
+    todayStatsToggleEl.querySelector(".disclosure-label").textContent = "Ocultar números de hoje";
+  } else {
+    _applyTodayStatsClosedLabel();
+  }
   if (next) revealWithAnimation(todayStatsBodyEl);
+}
+
+// Etapa 19 (auditoria UX/UI V2 #6, itens #18/#19 pendentes da 1ª auditoria) —
+// valor-âncora ("45min") no próprio rótulo do disclosure, antes do clique.
+// Chamada por todayView.js/_refreshHeroProgress com o mesmo
+// dailyGoal.actualMinutes já lido para a frase do hero — nenhum cálculo ou
+// chamada de rede novos aqui, só a composição do texto. Só aparece com o
+// disclosure fechado: aberto, os números já estão visíveis no corpo, e o
+// rótulo continua "Ocultar números de hoje" como sempre (_toggleTodayStats).
+export function setTodayStatsAnchor(anchor) {
+  _todayStatsAnchor = anchor || "";
+  if (!todayStatsToggleEl || todayStatsToggleEl.getAttribute("aria-expanded") === "true") return;
+  _applyTodayStatsClosedLabel();
+}
+
+function _applyTodayStatsClosedLabel() {
+  const label = todayStatsToggleEl?.querySelector(".disclosure-label");
+  if (!label) return;
+  label.textContent = _todayStatsAnchor ? `Ver números de hoje · ${_todayStatsAnchor}` : "Ver números de hoje";
 }
 
 // ── Sincronização com o barramento de eventos (F6.4) ────────────────────────
@@ -702,10 +726,10 @@ export function resetActivityDashboardView() {
     if (label) label.textContent = "Ver detalhes";
   }
   if (todayStatsBodyEl) todayStatsBodyEl.hidden = true;
+  _todayStatsAnchor = "";
   if (todayStatsToggleEl) {
     todayStatsToggleEl.setAttribute("aria-expanded", "false");
-    const label = todayStatsToggleEl.querySelector(".disclosure-label");
-    if (label) label.textContent = "Ver números de hoje";
+    _applyTodayStatsClosedLabel();
   }
   _loading = false;
 }

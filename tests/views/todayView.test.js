@@ -34,6 +34,7 @@ const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.me
 const CATEGORY_VIEW_SPECIFIER    = new URL("../../categoryView.js", import.meta.url).href;
 const DASHBOARD_SERVICE_SPECIFIER = new URL("../../activityDashboardService.js", import.meta.url).href;
 const PROFILE_SERVICE_SPECIFIER   = new URL("../../profileService.js", import.meta.url).href;
+const DASHBOARD_VIEW_SPECIFIER    = new URL("../../activityDashboardView.js", import.meta.url).href;
 
 const NO_GOAL_PROGRESS = { configured: false, goalMinutes: null, actualMinutes: 0, percentage: null, remainingMinutes: null, state: "no_goal" };
 
@@ -42,6 +43,7 @@ let startSessionForEventCalls;
 let openStartModalCalls;
 let startSessionCalls;
 let setNextStudyPlanCalls;
+let setTodayStatsAnchorCalls;
 
 function loadView(t, overrides = {}) {
   showPageCalls = [];
@@ -49,6 +51,7 @@ function loadView(t, overrides = {}) {
   openStartModalCalls = [];
   startSessionCalls = [];
   setNextStudyPlanCalls = [];
+  setTodayStatsAnchorCalls = [];
 
   t.mock.module(ERROR_SERVICE_SPECIFIER, {
     namedExports: { handleError: (err) => ({ category: "unknown", friendly: err?.message }) },
@@ -109,6 +112,14 @@ function loadView(t, overrides = {}) {
       getProfile: overrides.getProfile ?? (async () => ({ full_name: "" })),
     },
   });
+  // Etapa 19 — activityDashboardView.js é mockado (só o seam usado por
+  // todayView.js, setTodayStatsAnchor()); o comportamento real do rótulo do
+  // disclosure é coberto por tests/views/activityDashboardView.test.js.
+  t.mock.module(DASHBOARD_VIEW_SPECIFIER, {
+    namedExports: {
+      setTodayStatsAnchor: (anchor) => { setTodayStatsAnchorCalls.push(anchor); },
+    },
+  });
 
   return import(`../../todayView.js?t=${Math.random()}`);
 }
@@ -151,6 +162,29 @@ test("the hero progress sentence shows an appropriate tone even with 0 minutes s
 
   const text = document.getElementById("today-hero-progress").textContent;
   assert.match(text, /Nenhum minuto estudado hoje ainda/);
+});
+
+// Etapa 19 (auditoria UX/UI V2 #6) — o mesmo dailyGoal.actualMinutes lido
+// para a frase do hero também vira o valor-âncora do disclosure "Ver números
+// de hoje" (setTodayStatsAnchor(), activityDashboardView.js), telegráfico
+// ("45min"), sem duplicar a frase inteira do hero.
+test("the stats disclosure anchor reuses the same dailyGoal.actualMinutes as the hero sentence", async (t) => {
+  const progress = { configured: true, goalMinutes: 120, actualMinutes: 45, percentage: 38, remainingMinutes: 75, state: "partial" };
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: progress }),
+  });
+  await initTodayView();
+
+  assert.deepStrictEqual(setTodayStatsAnchorCalls, ["45min"]);
+});
+
+test("the stats disclosure anchor stays empty when nothing was studied yet today", async (t) => {
+  const { initTodayView } = await loadView(t, {
+    getDashboardData: async () => ({ dailyGoal: NO_GOAL_PROGRESS }),
+  });
+  await initTodayView();
+
+  assert.deepStrictEqual(setTodayStatsAnchorCalls, [""]);
 });
 
 test("clicking 'Começar a estudar' navigates to the study session page and opens the start modal", async (t) => {

@@ -24,6 +24,7 @@ import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { getDayRecap, setNextStudyPlan } from "./closeDayService.js";
 import { getProfile } from "./profileService.js";
 import { getDashboardData } from "./activityDashboardService.js";
+import { setTodayStatsAnchor } from "./activityDashboardView.js";
 import { formatGoalSentence } from "./timeGoals.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
@@ -180,14 +181,22 @@ async function _refreshHero() {
 // activityDashboardService.getDashboardData() -> dailyGoal já usado pelo
 // card "Meta diária" (activityDashboardView.js) — nenhum cálculo novo, só
 // uma segunda leitura em frase (formatGoalSentence(), timeGoals.js).
+//
+// Etapa 19 (auditoria UX/UI V2 #6) — a mesma leitura também alimenta o
+// valor-âncora do rótulo do disclosure "Ver números de hoje"
+// (setTodayStatsAnchor(), activityDashboardView.js): mesmo actualMinutes,
+// nenhuma chamada de rede extra. Telegráfico ("45min"), não a frase inteira
+// do hero — o disclosure continua escondendo o detalhe completo até o clique.
 async function _refreshHeroProgress() {
   if (!heroProgressEl) return;
   try {
     const data = await getDashboardData();
     heroProgressEl.textContent = formatGoalSentence(data.dailyGoal);
+    setTodayStatsAnchor(data.dailyGoal.actualMinutes > 0 ? formatDuration(data.dailyGoal.actualMinutes) : "");
   } catch (err) {
     handleError(err, { context: "todayView.refreshHeroProgress", silent: true });
     heroProgressEl.textContent = "";
+    setTodayStatsAnchor("");
   }
 }
 
