@@ -3190,8 +3190,23 @@ textarea { resize: vertical; }
    conteúdo acima. */
 .today-close-day {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   margin-top: clamp(var(--space-5), 4vh, var(--space-7));
+}
+
+/* Etapa 25 — microcópia de reversibilidade abaixo do botão (ver nota em
+   index.html): --font-size-xs e --color-text-muted, o mesmo par já usado
+   para textos de apoio secundários no resto da tela (ex.: .today-*-hint
+   equivalentes), então não introduz um novo nível visual. max-width evita
+   uma linha esticada de ponta a ponta em telas largas. */
+.today-close-day-hint {
+  margin-top: var(--space-2);
+  max-width: 32ch;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
 /* Etapa 23 — o padding de .btn já dá alvo confortável na horizontal, mas a
