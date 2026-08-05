@@ -351,8 +351,16 @@
                  (#today-stats-toggle). Mesmo dado do card "Meta diária" do
                  disclosure abaixo — ver todayView.js/_refreshHeroProgress. -->
             <p id="today-hero-progress" class="today-hero-progress"></p>
-            <button type="button" id="today-btn-resume" class="btn btn-primary today-cta" hidden>Continuar sessão em andamento</button>
-            <button type="button" id="today-btn-start" class="btn btn-primary today-cta">Começar a estudar</button>
+            <!-- Etapa 21 (auditoria UI #2) — ícone alinhado ao mesmo padrão do
+                 smart card (span.X-icon + data-icon, ver icons.js) para que o
+                 CTA principal do hero deixe de ser o único elemento sem
+                 iconografia na tela: hoje só o alerta tinha ícone, invertendo
+                 a hierarquia emocional (alerta > ação recomendada). Mesmo
+                 ícone "clock" já usado em #btn-start-session
+                 (.event-start-cta-icon) para o mesmo conceito de "iniciar
+                 sessão de estudo". -->
+            <button type="button" id="today-btn-resume" class="btn btn-primary today-cta" hidden><span class="today-cta-icon" aria-hidden="true" data-icon="clock"></span>Continuar sessão em andamento</button>
+            <button type="button" id="today-btn-start" class="btn btn-primary today-cta"><span class="today-cta-icon" aria-hidden="true" data-icon="clock"></span>Começar a estudar</button>
             <button type="button" id="today-btn-continue" class="btn btn-secondary today-cta today-cta--alt" hidden></button>
           </div>
 
@@ -411,7 +419,13 @@
                já foi atingida — nenhum markup novo, só o modificador de
                estado (ver style.css). -->
           <div class="today-close-day">
-            <button type="button" id="today-btn-close-day" class="btn btn-ghost">Fechar o dia</button>
+            <!-- Etapa 21 — mesmo padrão de ícone do CTA do hero acima (span +
+                 data-icon); "check-circle" (mesmo já usado nas conquistas de
+                 sessões concluídas) marca o gesto de fechamento/conclusão do
+                 dia, sem soar festivo demais (sem cor própria — herda a cor
+                 do texto do botão em todos os estados, incluindo
+                 .today-close-day--goal-met). -->
+            <button type="button" id="today-btn-close-day" class="btn btn-ghost"><span class="today-close-day-icon" aria-hidden="true" data-icon="check-circle"></span>Fechar o dia</button>
           </div>
         </div>
 

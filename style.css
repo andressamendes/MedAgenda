@@ -2949,6 +2949,13 @@ textarea { resize: vertical; }
   max-width: 100%;
 }
 
+/* Etapa 21 (auditoria UI #2) — mesmo padrão de tamanho/alinhamento do ícone
+   já usado em .smart-card-icon/.event-start-cta-icon: SVG fixo em
+   --icon-sm, display:block (evita o espaço fantasma de inline) — o gap de
+   .btn já cuida do espaçamento com o texto em qualquer estado do botão
+   (Começar/Continuar). */
+.today-cta-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
+
 /* Prioridade visual única do hero (F14.1 audit, UI #3 / UX #3): Resume e
    Start nunca coexistem — os dois usam .btn-primary sem modificação, sempre
    a mesma cor/peso/tamanho de "ação recomendada". Continue só aparece ao
@@ -3153,6 +3160,12 @@ textarea { resize: vertical; }
   justify-content: center;
   margin-top: var(--space-7);
 }
+
+/* Etapa 21 — mesmo padrão de ícone do CTA do hero (.today-cta-icon) acima;
+   sem color própria, então acompanha a cor do texto do botão em qualquer
+   estado (.btn-ghost neutro ou .today-close-day--goal-met em
+   --color-success-text). */
+.today-close-day-icon svg { width: var(--icon-sm); height: var(--icon-sm); display: block; }
 
 /* Etapa 10 (auditoria UX/UI de Hoje) — reforço visual condicional: quando a
    meta diária já foi atingida (todayView.js/_refreshCloseDayGoalState(), a
