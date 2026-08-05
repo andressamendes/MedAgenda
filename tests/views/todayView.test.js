@@ -391,6 +391,13 @@ test("the next/current appointment is highlighted and past ones get reduced trea
 
   assert.ok(!items[2].classList.contains("today-appt-item--past"));
   assert.ok(!items[2].classList.contains("today-appt-item--next"), "only the nearest upcoming/ongoing item is highlighted");
+
+  // Etapa 17 — o rótulo "Próximo" fica sempre no DOM (visibilidade é resolvida
+  // por CSS via .today-appt-item--next .today-appt-next-label), mas seu
+  // conteúdo é o mesmo em qualquer item: a linha destacada é quem decide.
+  for (const li of items) {
+    assert.strictEqual(li.querySelector(".today-appt-next-label")?.textContent, "Próximo");
+  }
 });
 
 test("a conflicted appointment keeps its conflict badge regardless of temporal state", async (t) => {
