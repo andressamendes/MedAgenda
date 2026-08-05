@@ -30,6 +30,7 @@ import { formatGoalSentence } from "./timeGoals.js";
 import { initModal } from "./modalController.js";
 import { toast } from "./toastService.js";
 import { handleError } from "./errorService.js";
+import { revealWithAnimation } from "./transitionUtils.js";
 import { categoryColor } from "./categoryView.js";
 import { escapeHtml, isoToday, formatDuration } from "./utils.js";
 
@@ -155,23 +156,34 @@ async function _refreshHero() {
   }
 
   if (active) {
+    // Etapa 26 — só anima a troca quando ela de fato acontece (Início/
+    // Continuar → Retomar): sem o `resumeBtn.hidden` de antes, PAUSED/RESUMED
+    // reexecutam este método com a sessão já ativa (ver getActiveSession(),
+    // que trata "paused" como ativa) e replicariam o fade a cada
+    // pausa/retomada, mesmo sem nenhuma troca visível de botão.
+    const wasHidden = resumeBtn.hidden;
     resumeBtn.hidden   = false;
     startBtn.hidden    = true;
     continueBtn.hidden = true;
     closeDayBtn.hidden = true; // fechar o dia não faz sentido com uma sessão em andamento
     closeDayBtn.closest(".today-close-day")?.classList.remove("today-close-day--goal-met");
+    if (wasHidden) revealWithAnimation(resumeBtn);
     return;
   }
 
+  const startWasHidden = startBtn.hidden;
   resumeBtn.hidden   = true;
   startBtn.hidden    = false;
   closeDayBtn.hidden = false;
   _refreshCloseDayGoalState();
+  if (startWasHidden) revealWithAnimation(startBtn);
 
   _continueSuggestion = await _loadContinueSuggestion();
   if (_continueSuggestion) {
+    const continueWasHidden = continueBtn.hidden;
     continueBtn.hidden     = false;
     continueBtn.textContent = `Continuar: ${_continueSuggestion.title}`;
+    if (continueWasHidden) revealWithAnimation(continueBtn);
   } else {
     continueBtn.hidden = true;
   }

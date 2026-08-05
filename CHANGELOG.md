@@ -2,6 +2,26 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI de Hoje, Etapa 26: transições de estado no hero e no disclosure
+
+- A troca Retomar/Começar/Continuar no hero (`todayView.js`/`_refreshHero()`)
+  ganha o mesmo fade+leve translateY de `revealWithAnimation()` já usado no
+  resto do app (`.content-reveal`), aplicado só ao botão que de fato passa a
+  aparecer — pausar/retomar uma sessão já ativa não replica o fade, porque
+  `getActiveSession()` trata "paused" como ativa e não muda o botão visível.
+- O disclosure "Ver números de hoje" (`#today-stats-body`) já animava a
+  abertura; o fechamento ficava instantâneo porque o navegador troca
+  `[hidden]` para `display: none` no mesmo frame. `style.css` agora anima os
+  dois sentidos com `transition-behavior: allow-discrete` + `@starting-style`
+  — puro CSS, sem nenhuma mudança no toggle síncrono de `hidden` em
+  `activityDashboardView.js`. Sem suporte às duas features, o comportamento
+  cai de volta ao de sempre (aparece/some na hora), sem perda funcional.
+- Ambas as transições somem sob `prefers-reduced-motion: reduce` (a primeira
+  já herdava isso de `.content-reveal`; a segunda ganhou sua própria regra).
+  Resolve o problema de microinterações (Etapa 9 do briefing).
+
+---
+
 ## [Unreleased] — Auditoria UX/UI de Hoje, Etapa 23: área de toque mínima em elementos secundários
 
 - O traço de categoria (`.today-appt-category`) e o botão "Fechar o dia"
