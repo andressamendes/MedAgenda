@@ -896,6 +896,47 @@ test("F15.13 — clicking 'Ver números de hoje' reveals the same three cards as
   assert.strictEqual(toggle.getAttribute("aria-expanded"), "false");
 });
 
+// Etapa 19 (auditoria UX/UI V2 #6, itens #18/#19 pendentes da 1ª auditoria) —
+// setTodayStatsAnchor() é o seam que todayView.js usa para acrescentar o
+// valor-âncora ("45min") ao rótulo, reaproveitando o mesmo
+// dailyGoal.actualMinutes já lido para a frase do hero.
+test("Etapa 19 — setTodayStatsAnchor() adds a value anchor to the closed disclosure label", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+  await mod.initActivityDashboardView();
+
+  const toggle = document.getElementById("today-stats-toggle");
+  mod.setTodayStatsAnchor("45min");
+
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ver números de hoje · 45min");
+});
+
+test("Etapa 19 — an empty anchor keeps the plain label", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+  await mod.initActivityDashboardView();
+
+  const toggle = document.getElementById("today-stats-toggle");
+  mod.setTodayStatsAnchor("");
+
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ver números de hoje");
+});
+
+test("Etapa 19 — the anchor is not shown while the disclosure is expanded, and returns once it's closed again", async (t) => {
+  const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
+  await mod.initActivityDashboardView();
+
+  const toggle = document.getElementById("today-stats-toggle");
+  mod.setTodayStatsAnchor("45min");
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); // expand
+
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar números de hoje");
+
+  mod.setTodayStatsAnchor("50min"); // e.g. a session finished while expanded — must not clobber "Ocultar…"
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ocultar números de hoje");
+
+  toggle.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); // collapse
+  assert.strictEqual(toggle.querySelector(".disclosure-label").textContent, "Ver números de hoje · 50min");
+});
+
 test("F13.4/F14.5 — 'Períodos' and 'Progresso e Conquistas' cards render on the Progresso page without any tab click", async (t) => {
   const { mod } = await loadView(t, { getDashboardData: async () => EMPTY_DATA });
 

@@ -381,7 +381,15 @@
                compacto (`.stat-summary`, ver _summaryMarkup() em
                activityDashboardView.js) — mesmos dados, escopado só a este
                container: a página Progresso (dash-cards-weekmonth/-records)
-               continua com a grade de cards de sempre. -->
+               continua com a grade de cards de sempre.
+
+               Etapa 19 — data-disclosure-label é só o valor inicial (antes do
+               primeiro _refreshHeroProgress() em todayView.js); a partir daí
+               o rótulo ganha um valor-âncora ("Ver números de hoje · 45min")
+               via setTodayStatsAnchor() em activityDashboardView.js, mesmo
+               dado de dailyGoal.actualMinutes já lido para a frase do hero —
+               nenhuma chamada de rede nova, e o detalhe completo continua
+               escondido até o clique. -->
           <section class="today-stats" aria-labelledby="today-stats-toggle">
             <div class="today-stats-toggle-row">
               <button type="button" class="btn btn-ghost btn-sm disclosure-toggle" id="today-stats-toggle" aria-expanded="false" aria-controls="today-stats-body" data-disclosure-label="Ver números de hoje"></button>
