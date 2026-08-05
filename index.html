@@ -334,12 +334,18 @@
             </div>
           </div>
 
-          <!-- No máximo 1 card, só se houver uma decisão acionável para hoje
-               (auditoria F14 §5/§6 — Decision Engine já ordenado por
-               prioridade, mesma fonte de dado de weekView.js/#wk-tip). -->
-          <div id="today-tip" class="smart-cards" hidden></div>
-
+          <!-- Etapa 16 (fusão Smart Card + Hero, diagnóstico geral §3.1 e
+               problema #1 de hierarquia) — a dica contextual deixa de ser um
+               segundo "primeiro elemento" concorrente acima do hero e passa
+               a viver dentro do mesmo container, como primeira peça da
+               leitura sequencial "alerta → ação". Sem tip, o container some
+               (hidden) e o hero ocupa o mesmo espaço de sempre — nenhum
+               buraco. No máximo 1 card, só se houver uma decisão acionável
+               para hoje (auditoria F14 §5/§6 — Decision Engine já ordenado
+               por prioridade, mesma fonte de dado de weekView.js/#wk-tip). -->
           <div class="today-hero">
+            <div id="today-tip" class="smart-cards" hidden></div>
+
             <!-- Etapa 2 (auditoria UX #2) — resumo de progresso sempre
                  visível, sem exigir o clique em "Ver números de hoje"
                  (#today-stats-toggle). Mesmo dado do card "Meta diária" do
