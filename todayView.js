@@ -18,6 +18,7 @@ import { isPersonalVisible } from "./academicCalendarView.js";
 import { getActiveSession, listSessions, startSession } from "./activitySessionService.js";
 import { startSessionForEvent, openStartModal } from "./studySessionView.js";
 import { showPage } from "./navigationView.js";
+import { iconAlertTriangle } from "./icons.js";
 import { getDecisions, filterSpontaneousDecisions } from "./decisionEngine.js";
 import { renderSmartCards, decisionToCard } from "./smartCardView.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
@@ -399,7 +400,7 @@ function _buildApptItem(ev, isConflict) {
     ? `<button type="button" class="btn btn-sm btn-secondary today-appt-start">Iniciar sessão</button>`
     : "";
   const conflictBadgeHtml = isConflict
-    ? `<span class="badge today-appt-conflict-badge">Conflito de horário</span>`
+    ? `<span class="badge today-appt-conflict-badge"><span class="today-appt-conflict-badge-icon" aria-hidden="true">${iconAlertTriangle}</span>Conflito de horário</span>`
     : "";
   li.innerHTML = `
     ${_categoryBadgeHtml(ev.category)}
