@@ -3040,10 +3040,24 @@ textarea { resize: vertical; }
    discreto (Etapa 5, #9/#15): a cor por si só nunca é a única pista, o
    nome da categoria segue disponível via title/aria-label no elemento. */
 .today-appt-category {
+  position: relative;
   flex-shrink: 0;
   width: .3rem;
   align-self: stretch;
   border-radius: var(--radius-full);
+}
+
+/* Etapa 23 — área de toque mínima (~44×44pt) via alvo invisível: o traço
+   segue fino visualmente, só a região que responde a hover/toque (tooltip
+   nativo do title/aria-label acima) cresce, centralizada sobre a forma. */
+.today-appt-category::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: max(100%, 2.75rem);
+  transform: translateX(-50%);
 }
 
 /* Conflito de horário — mesmo tratamento de aviso já usado em .smart-card--atencao
@@ -3168,6 +3182,23 @@ textarea { resize: vertical; }
   display: flex;
   justify-content: center;
   margin-top: var(--space-7);
+}
+
+/* Etapa 23 — o padding de .btn já dá alvo confortável na horizontal, mas a
+   altura (~37px) fica abaixo do mínimo de 44pt; em vez de engordar o padding
+   (o que mudaria a forma visível do ghost), um alvo invisível centralizado
+   estende só a área clicável. */
+#today-btn-close-day {
+  position: relative;
+}
+#today-btn-close-day::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 2.75rem);
+  height: max(100%, 2.75rem);
+  transform: translate(-50%, -50%);
 }
 
 /* Etapa 21 — mesmo padrão de ícone do CTA do hero (.today-cta-icon) acima;
