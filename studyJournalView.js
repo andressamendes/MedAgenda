@@ -121,7 +121,6 @@ import { listBySessions as listReflectionsBySessions, saveReflection } from "./s
 import { handleError } from "./errorService.js";
 import { errorToState, renderStateBlock, clearStateBlock } from "./stateView.js";
 import { emptyIllustrationMarkup } from "./emptyStateView.js";
-import { skeletonRowsMarkup } from "./skeletonView.js";
 import { toast } from "./toastService.js";
 import { pad, localDate, escapeHtml, formatDuration, formatClockTime } from "./utils.js";
 import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
@@ -195,6 +194,40 @@ const SJ_EMPTY_MARKUP = emptyIllustrationMarkup({
   title: "Seu diário ainda está em branco",
   desc: "Inicie uma sessão em “Sessão” para começar a registrar sua constância.",
 });
+
+// Etapa 11 — skeleton próprio do Diário, montado com a mesma silhueta de
+// cabeçalho de dia + timeline de sessões (_createDayGroup/_buildEntryEl)
+// em vez do skeletonRowsMarkup() genérico (linhas soltas, sem cabeçalho):
+// aquele placeholder tinha uma altura/forma bem diferente do conteúdo real,
+// então a troca skeleton→lista dava a impressão de a tela "recarregar"
+// visualmente assim que os dados chegavam. Só spans (nunca div/ul/li) —
+// emptyEl é um <p> (index.html), e inserir elementos de bloco no innerHTML
+// de um <p> quebra o parser HTML; a forma de bloco vem só do CSS
+// (.sj-skeleton-*, style.css).
+function _skeletonJournalMarkup(dayGroups = 2, entriesPerGroup = 2) {
+  // Sem espaço em branco entre as tags (mesmo motivo do join("") em
+  // skeletonRowsMarkup, skeletonView.js): emptyEl.textContent precisa ficar
+  // exatamente "Carregando…" — texto solto entre spans viraria nó de texto
+  // e vazaria para o textContent lido pelo teste/leitor de tela.
+  const entry =
+    '<span class="sj-skeleton-entry">' +
+      '<span class="skeleton sj-skeleton-dot" aria-hidden="true"></span>' +
+      '<span class="sj-skeleton-entry-body">' +
+        '<span class="skeleton sj-skeleton-entry-title" aria-hidden="true"></span>' +
+        '<span class="skeleton sj-skeleton-entry-time" aria-hidden="true"></span>' +
+        '<span class="skeleton sj-skeleton-entry-summary" aria-hidden="true"></span>' +
+      '</span>' +
+    '</span>';
+  const group =
+    '<span class="sj-skeleton-group" aria-hidden="true">' +
+      '<span class="sj-skeleton-day-header">' +
+        '<span class="skeleton sj-skeleton-day-date" aria-hidden="true"></span>' +
+        '<span class="skeleton sj-skeleton-day-summary" aria-hidden="true"></span>' +
+      '</span>' +
+      `<span class="sj-skeleton-sessions">${entry.repeat(entriesPerGroup)}</span>` +
+    '</span>';
+  return `${group.repeat(dayGroups)}<span class="sr-only">Carregando…</span>`;
+}
 
 let listEl, emptyEl, loadMoreBtn, statsEl, partialNoticeEl, openingLineEl;
 // F17 — Estatísticas de questões (seção fixa, distinta de statsEl/
@@ -1265,7 +1298,7 @@ async function _loadPage(reset) {
     emptyEl.hidden = false;
     emptyEl.classList.remove("list-error");
     clearStateBlock(emptyEl);
-    emptyEl.innerHTML = skeletonRowsMarkup(4);
+    emptyEl.innerHTML = _skeletonJournalMarkup();
     loadMoreBtn.hidden = true;
     if (partialNoticeEl) partialNoticeEl.hidden = true;
     if (milestonesPanelEl) milestonesPanelEl.hidden = true;
