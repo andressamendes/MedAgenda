@@ -1199,7 +1199,11 @@ body {
 /* F17 — filtros rápidos (Hoje/Semana/Todas), o caminho primário de período
    no toolbar do Diário; substitui visualmente o <select> #sj-filter-period
    (que continua existindo, agora dentro do painel "Analisar", para quem
-   precisa de 7/30 dias). */
+   precisa de 7/30 dias). Etapa 1 (auditoria V3) — #sj-quick-filter-30d usa
+   as mesmas classes/regras abaixo; nasce com o atributo `hidden` (sem
+   `display` próprio aqui, então o `[hidden] { display: none }` do
+   user-agent já basta, sem o bug de especificidade de .sj-search-wrap/
+   .toolbar-filters) e só aparece quando "30 dias" é o período ativo. */
 .sj-quick-filters {
   display: flex;
   gap: .4rem;

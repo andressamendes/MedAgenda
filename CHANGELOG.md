@@ -2,6 +2,26 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI V3 do Diário, Etapa 1: fundir o select de período completo aos chips rápidos
+
+- A toolbar do Diário (`index.html`) já mostrava só os 3 chips de período
+  (Hoje/Semana/Todas) e já mantinha `#sj-filter-period` (o `<select>` com
+  as opções granulares de 7/30 dias) dentro do painel "Analisar", sob
+  demanda — mas escolher "30 dias" ali (o único valor do `<select>` sem
+  chip fixo equivalente, já que "Semana" cobre "7d") deixava esse estado
+  sem nenhuma indicação de volta na toolbar, o risco descrito em
+  `DIARIO_UX_UI_REDESIGN_AUDIT.md`.
+- `#sj-quick-filter-30d` resolve isso: é o mesmo tipo de botão dos 3 chips
+  fixos (mesma classe, mesmo `data-period`, reaproveita
+  `_setQuickPeriod`/`_updateQuickFilterActive` sem nenhuma regra de
+  período nova em `studyJournalView.js`) — só nasce `hidden` e só aparece
+  quando "30 dias" é o período ativo, sumindo de novo assim que o período
+  volta a bater com um dos 3 chips fixos. Toolbar principal continua
+  enxuta (só os 3 chips) na esmagadora maioria dos casos; 7d/30d seguem
+  100% acessíveis via painel, sem nenhuma capacidade perdida.
+
+---
+
 ## [Unreleased] — Auditoria UX/UI de Hoje, Etapa 26: transições de estado no hero e no disclosure
 
 - A troca Retomar/Começar/Continuar no hero (`todayView.js`/`_refreshHero()`)
