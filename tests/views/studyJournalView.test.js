@@ -357,6 +357,53 @@ test("detail region starts hidden and toggling reveals Questões, Revisões e Ob
   assert.strictEqual(toggleBtn.getAttribute("aria-expanded"), "false");
 });
 
+// Etapa 7 — revisões pendentes listadas no detalhe passam a ser acionáveis:
+// um clique leva à página Sessão (mesmo destino do atalho "Resolver agora"
+// do Dashboard, ver insightsView.js/_goToPendingReviews). Concluída/pulada
+// continuam como registro simples, sem link — nada a resolver nelas.
+test("Etapa 7 — a pending review in the detail is a clickable link to the Sessão page; completed stays plain text", async (t) => {
+  const session = {
+    id: "sess-1", event_id: "event-1", status: "finished",
+    started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T09:00:00.000Z",
+    duration_minutes: 60,
+  };
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
+    getEvents: async () => [{ id: "event-1", title: "Estudo dirigido", category: "Cardiologia" }],
+    listReviewsBySession: async () => [
+      { id: "r-pending",   scheduled_date: "2026-03-17", status: "pending" },
+      { id: "r-completed", scheduled_date: "2026-03-10", status: "completed" },
+    ],
+  });
+
+  await mod.initStudyJournalView();
+
+  const item = firstEntry();
+  item.querySelector(".sj-toggle").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  const detailEl = item.querySelector(".sj-entry-detail");
+
+  const links = detailEl.querySelectorAll(".sj-detail-item-link");
+  assert.strictEqual(links.length, 1, "só a revisão pendente vira link");
+  assert.match(links[0].textContent, /Pendente/);
+
+  const pageStudySession = document.getElementById("page-study-session");
+  const pageToday = document.getElementById("page-today");
+  pageStudySession.hidden = true;
+  if (pageToday) pageToday.hidden = false;
+
+  links[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+  assert.strictEqual(pageStudySession.hidden, false, "clicar na revisão pendente navega para a página Sessão");
+  // O toggle do card continua expandido — navegar não deve fechar o detalhe
+  // de onde a revisão foi clicada (o clique não deve borbulhar até o chevron).
+  assert.strictEqual(detailEl.hidden, false);
+
+  const completedText = Array.from(detailEl.querySelectorAll(".sj-detail-item"))
+    .find(li => /Concluída/.test(li.textContent));
+  assert.ok(completedText, "a revisão concluída continua listada");
+  assert.strictEqual(completedText.querySelector(".sj-detail-item-link"), null, "revisão concluída não é clicável");
+});
+
 // F17 (redesenho radical) — "não mostrar por padrão... campos vazios": um
 // bloco sem nenhum dado não é mais renderizado (nem título, nem
 // placeholder). Reflexão é a única exceção — continua sempre visível

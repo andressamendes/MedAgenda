@@ -138,6 +138,7 @@ import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController
 import { getUserQuestionStatistics, summarizeSessionQuestions, accuracyIndicator } from "./studyStatisticsService.js";
 import { getCategories } from "./categoryService.js";
 import { attachLongPress, attachPullToRefresh } from "./gestureUtils.js";
+import { showPage } from "./navigationView.js";
 
 const PAGE_SIZE = 10;
 
@@ -349,6 +350,19 @@ function _formatDate(iso) {
 }
 
 
+// Etapa 7 — revisões pendentes listadas no detalhe do card deixam de ser só
+// leitura: cada uma leva à página Sessão (#page-study-session), o mesmo
+// destino já usado pelo atalho "Resolver agora" do bloco Revisões do
+// Dashboard (insightsView.js/_goToPendingReviews) — o único lugar do produto
+// que lista e resolve revisões pendentes (chip "Revisar: <compromisso>", ver
+// studySessionView.js/_loadStartSuggestions). Nenhuma rota nova: mesma
+// showPage("study-session") já usada ali. Revisões concluídas/puladas
+// continuam apenas como registro, sem link — não há mais nada a resolver
+// nelas.
+function _goToPendingReview() {
+  showPage("study-session");
+}
+
 function _formatReviewDate(dateStr) {
   if (!dateStr) return "—";
   const d = localDate(dateStr);
@@ -516,11 +530,20 @@ function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
   }
 
   if (reviews.length) {
-    const reviewsHtml = `<ul class="sj-detail-items">${reviews.map(r => `
-        <li class="sj-detail-item">
+    // Etapa 7 — só a revisão pendente é acionável (é a única com algo a
+    // resolver); concluída/pulada continuam como <li> simples, mesmo padrão
+    // de item não clicável do resto do detalhe.
+    const reviewsHtml = `<ul class="sj-detail-items">${reviews.map(r => {
+        const inner = `
           <span>${_formatReviewDate(r.scheduled_date)}</span>
           <span class="review-status review-status--${r.status}">${REVIEW_STATUS_LABELS[r.status] || r.status}</span>
-        </li>`).join("")}</ul>`;
+        `;
+        return r.status === "pending"
+          ? `<li class="sj-detail-item sj-detail-item--link">
+               <button type="button" class="sj-detail-item-link" data-review-id="${r.id}">${inner}</button>
+             </li>`
+          : `<li class="sj-detail-item">${inner}</li>`;
+      }).join("")}</ul>`;
     sections.push(`
       <div class="sj-detail-section">
         <h3 class="sj-detail-title">Revisões</h3>
@@ -539,6 +562,19 @@ function _renderDetail(detailEl, s, meta, questions, reviews, query = "") {
   }
 
   detailEl.innerHTML = sections.join("");
+
+  // Etapa 7 — liga os links de revisão pendente após montar o HTML (a
+  // referência ao botão só existe depois do innerHTML acima).
+  // stopPropagation evita que o clique borbulhe até algum listener do
+  // próprio card/li (ex.: o long-press de toque, ver attachLongPress em
+  // _buildEntryEl) e mexa no estado de expansão do detalhe — navegar para a
+  // revisão não deve fechar/abrir o card de onde ela foi clicada.
+  detailEl.querySelectorAll(".sj-detail-item-link").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      _goToPendingReview();
+    });
+  });
 }
 
 // F17 — o botão de expansão perdeu o rótulo textual ("Mostrar"/"Ocultar"):
