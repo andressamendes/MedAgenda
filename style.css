@@ -1251,10 +1251,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.sj-other-filter {
-  margin-bottom: .75rem;
-}
-
 .search-input {
   flex: 1;
   min-width: 180px;
@@ -2485,48 +2481,15 @@ textarea { resize: vertical; }
   white-space: pre-wrap;
 }
 
-/* ── Aba "Histórico" do Diário (Fase J1) ──────────────────────────────────
-   Antes um empilhamento cru de .session-history-item idênticos, sem leitura
-   temporal nenhuma. Agora agrupada por dia (mesmo critério de .sj-day-group,
-   F8.3) e renderizada como timeline de fato: uma linha vertical contínua
+/* ── Timeline de sessões (marcador + linha vertical) ──────────────────────
+   Composição compartilhada por Diário/Marcos: uma linha vertical contínua
    (.ah-timeline, via ::before) conectando um marcador por sessão
-   (.ah-timeline-dot), colorido pelo mesmo status do badge de texto ao lado. */
-.ah-day-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.ah-day-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.ah-day-header {
-  display: flex;
-  align-items: baseline;
-  gap: .6rem;
-  flex-wrap: wrap;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--gray-600);
-  padding: 0 .1rem;
-}
-
-.ah-day-header-date {
-  font-size: var(--font-size-sm);
-  color: var(--gray-800);
-}
-
-.ah-day-header-summary {
-  font-weight: 400;
-  color: var(--gray-500);
-}
-
+   (.ah-timeline-dot), colorido pelo mesmo status do badge de texto ao lado.
+   Etapa 6 (fundir "Histórico" como filtro de status) — o agrupamento por dia
+   próprio da antiga aba "Histórico" (.ah-day-list/.ah-day-group/
+   .ah-day-header*) foi removido: a única lista de sessões do Diário agora é
+   #sj-list/.sj-day-group (studyJournalView.js), que já tinha seu próprio
+   agrupamento por dia (F8.3) e passou a incluir sessões canceladas. */
 .ah-timeline {
   position: relative;
   list-style: none;
@@ -2570,8 +2533,6 @@ textarea { resize: vertical; }
 
 .ah-timeline-item--finished  .ah-timeline-dot { background: var(--color-success); box-shadow: var(--ring-2) var(--color-success-bg-strong); }
 .ah-timeline-item--cancelled .ah-timeline-dot { background: var(--color-danger);  box-shadow: var(--ring-2) var(--color-danger-bg); }
-.ah-timeline-item--running   .ah-timeline-dot { background: var(--color-success); box-shadow: var(--ring-2) var(--color-success-bg-strong); }
-.ah-timeline-item--paused    .ah-timeline-dot { background: var(--color-warning); box-shadow: var(--ring-2) var(--color-warning-bg); }
 
 /* Marcos da Evolução (F14) — mesmos três níveis de severidade que antes
    viviam no border-left de .sj-milestone-item, agora no marcador. */
@@ -3535,7 +3496,8 @@ textarea { resize: vertical; }
   gap: .4rem;
   flex-wrap: wrap;
 }
-#agenda-view-tabs, #sj-status-tabs { margin-bottom: var(--space-4); }
+#agenda-view-tabs      { margin-bottom: var(--space-4); }
+#sj-status-filter      { margin-bottom: var(--space-4); }
 #dash-tabs                         { margin: 1.4rem 0 1rem; }
 #ss-start-tabs                     { margin-bottom: var(--space-3); }
 #account-tabs                      { padding: 1rem 1rem 0; }
@@ -3566,11 +3528,6 @@ textarea { resize: vertical; }
 .ah-item-title {
   font-weight: 700;
   font-size: var(--font-size-sm);
-}
-
-.ah-item-category {
-  font-weight: 500;
-  color: var(--gray-500);
 }
 
 .ah-load-more {
@@ -3642,9 +3599,9 @@ textarea { resize: vertical; }
 
 /* Etapa 5 (unificar linguagem visual de timeline) — ganha `.ah-timeline`
    além de `.sj-day-sessions` (herda a linha vertical via ::before), mesma
-   composição já usada em Marcos (.sj-milestones-list) e Histórico
-   (.ah-day-list). Padding/gap próprios continuam sobrescrevendo os de
-   `.ah-timeline` (mesmo motivo do combo em .sj-milestones-list, acima). */
+   composição já usada em Marcos (.sj-milestones-list). Padding/gap próprios
+   continuam sobrescrevendo os de `.ah-timeline` (mesmo motivo do combo em
+   .sj-milestones-list, acima). */
 .sj-day-sessions {
   list-style: none;
   margin: 0;

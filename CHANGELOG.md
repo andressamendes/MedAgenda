@@ -2,6 +2,44 @@
 
 ---
 
+## [Unreleased] — Auditoria UX/UI V3 do Diário, Etapa 6: fundir a aba "Histórico" como filtro de status dentro de "Concluídas"
+
+- A aba "Histórico" deixou de ser uma estrutura própria: `activityHistoryView.js`
+  (a visão compacta que ela usava internamente) foi removido, junto com o
+  `<div>` `#sj-other-view`/`#ah-list` e o checkbox `#sj-other-only-cancelled`
+  (F14.7). No lugar da antiga tab bar (`#sj-status-tabs`), `#sj-status-filter`
+  passa a ser um filtro de status de três posições
+  ("Concluídas"/"Canceladas"/"Todas") sobre a mesma lista rica de sempre
+  (`#sj-finished-view` — agrupamento por dia, Marcos da Evolução, busca).
+- `studyJournalView.js`: `_status` (antes hardcoded `"finished"`) agora
+  reflete o filtro ativo e é passado direto a
+  `activitySessionService.listSessions({ status })` — o mesmo contrato de
+  paginação que a antiga aba "Histórico" já usava, sem nenhuma consulta
+  nova. Sessões canceladas passam a chegar a `_allEntries`/`filtered` como
+  qualquer outra, então agrupamento por dia (`studyTimelineService`) e
+  Marcos (`studyMilestoneService`) — que já operam só sobre
+  `duration_minutes`/`started_at`/questões, sem suposição de status — agora
+  também as cobrem quando o usuário escolhe "Canceladas"/"Todas"; o filtro
+  padrão continua "Concluídas", então o comportamento default não muda.
+- O cartão da sessão (`_buildEntryEl`) ganhou o mesmo selo de status que a
+  antiga aba "Histórico" usava (`.session-history-status`, já usado por
+  `eventFormView.js`) — CSS que já havia sido preparada na Etapa 5
+  (`.sj-entry-header .session-history-status`). Cada marcador da timeline
+  também ganhou `.ah-timeline-item--{status}` para colorir o ponto da linha
+  do tempo pelo mesmo status do selo — concluída/cancelada continuam
+  claramente identificáveis numa lista agora mista.
+- O filtro de status escolhido continua persistindo em `localStorage`
+  (`medagenda_journal_status_tab`, F11 E21, inalterado) e sobrevive a um
+  reload; `resetStudyJournalView()` continua voltando ao padrão
+  "Concluídas" no logout.
+- CSS morta removida: `.ah-day-list`/`.ah-day-group`/`.ah-day-header*`
+  (agrupamento por dia próprio da antiga aba "Histórico", substituído pelo
+  de `studyJournalView.js`), `.ah-item-category`, `.sj-other-filter` e as
+  variantes `.ah-timeline-item--running`/`--paused` (esta lista nunca
+  mostra sessão em andamento/pausada — só finished/cancelled).
+
+---
+
 ## [Unreleased] — Auditoria UX/UI V3 do Diário, Etapa 1: fundir o select de período completo aos chips rápidos
 
 - A toolbar do Diário (`index.html`) já mostrava só os 3 chips de período

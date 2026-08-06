@@ -112,10 +112,11 @@ test("F10 #4.1/F14.7 — a página Agenda tem as abas Dia/Semana/Mês/Lista que 
 });
 
 // F10 #4.2 — o Histórico de Sessões deixou de ser uma página própria
-// (#page-history removido); foi absorvido como as abas "Canceladas"/"Todas"
-// de #sj-status-tabs, dentro da própria página do Diário. "history" não é
-// mais um nome de página válido — cai no fallback de showPage(), hoje
-// "today" (F14.1), como qualquer outro nome desconhecido (ver teste abaixo).
+// (#page-history removido); foi absorvido dentro da própria página do
+// Diário — primeiro como uma aba, depois (Etapa 6) como o filtro de status
+// #sj-status-filter. "history" não é mais um nome de página válido — cai no
+// fallback de showPage(), hoje "today" (F14.1), como qualquer outro nome
+// desconhecido (ver teste abaixo).
 test("F10 #4.2 — showPage('history') falls back to today: 'history' is no longer a valid page", () => {
   nav.showPage("history");
 
@@ -124,16 +125,15 @@ test("F10 #4.2 — showPage('history') falls back to today: 'history' is no long
   assert.strictEqual(document.getElementById("page-history"), null, "a página própria do Histórico não existe mais no DOM");
 });
 
-// F14.7 — "Canceladas" deixou de ser uma aba própria: virou um filtro
-// (#sj-other-only-cancelled) dentro de "Histórico".
-// F18.2 — a aba se chamava "Todas", colidindo com o chip de período "Todas"
-// (.sj-quick-filters) do mesmo Diário; rótulo passou a "Histórico".
-test("F10 #4.2/F14.7 — o Diário de Estudos tem as abas Concluídas/Histórico que absorveram o Histórico de Sessões", () => {
+// Etapa 6 — o Diário passou a ter um único filtro de status
+// ("Concluídas"/"Canceladas"/"Todas") sobre uma única lista, em vez de uma
+// aba própria dividindo a tela em duas visões (F10 #4.2/F14.7).
+test("Etapa 6 — o Diário de Estudos tem o filtro de status Concluídas/Canceladas/Todas que absorveu o Histórico de Sessões", () => {
   nav.showPage("journal");
 
-  const tabs = Array.from(document.querySelectorAll("#sj-status-tabs .tab"));
-  const labels = tabs.map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Concluídas", "Histórico"]);
+  const chips = Array.from(document.querySelectorAll("#sj-status-filter .sj-quick-filter"));
+  const labels = chips.map(btn => btn.textContent);
+  assert.deepStrictEqual(labels, ["Concluídas", "Canceladas", "Todas"]);
   assert.strictEqual(document.querySelector('.nav-item[data-page="history"]'), null, "o item de navegação do Histórico não existe mais na sidebar");
 });
 

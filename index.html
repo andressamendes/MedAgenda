@@ -1063,48 +1063,33 @@
         </div>
 
         <!-- Page: Diário (F8.1) -->
-        <!-- F10 #4.2 — o Histórico de Sessões (antes uma página própria,
-             #page-history) foi absorvido aqui como a aba "Histórico" abaixo.
-             #sj-status-tabs alterna entre a visão rica de "Concluídas"
-             (#sj-finished-view — este módulo, com agrupamento por
-             dia/resumos/marcos/busca) e a visão compacta reaproveitada de
-             activityHistoryView.js sem nenhuma mudança de lógica
-             (#sj-other-view — sessões canceladas nunca passam pelos
-             cálculos de studyTimelineService/studyMilestoneService,
-             que presumem sessão concluída).
-             F14.7 — a aba própria "Canceladas" virou um filtro dentro de
-             "Histórico" (#sj-other-only-cancelled): ruído histórico que
-             quase ninguém folheia diariamente não merecia um dos três
-             lugares fixos da tab bar.
-             F18.2 — rótulo trocado de "Todas" para "Histórico": a mesma
-             tela também tem um chip de período chamado "Todas"
-             (.sj-quick-filters, logo abaixo), e as duas palavras idênticas
-             tinham significados diferentes (todos os status vs. todo o
-             período) empilhadas a poucas linhas de distância. data-status
-             continua "all" (sem mudança de lógica), só o texto visível
-             mudou. -->
+        <!-- Etapa 6 (fundir Histórico como filtro de status) — o Histórico
+             de Sessões (antes uma página própria, #page-history, depois a
+             aba "Histórico" ao lado de "Concluídas", F10 #4.2) deixou de ser
+             uma estrutura separada: activityHistoryView.js foi removido, e
+             #sj-status-filter passa a ser um filtro de status sobre a mesma
+             lista rica de sempre (#sj-finished-view — agrupamento por
+             dia/resumos/marcos/busca, agora também alimentada por sessões
+             canceladas). "Concluídas"/"Canceladas"/"Todas" continuam os
+             mesmos três valores já existentes (finished/cancelled/all, antes
+             divididos entre a aba e o checkbox #sj-other-only-cancelled,
+             F14.7) — só viraram um único filtro de três posições em vez de
+             uma aba + um checkbox dentro dela. Nenhuma sessão deixou de
+             estar acessível: listSessions() é a mesma chamada de sempre, só
+             o `status` passado a ela agora reflete o filtro ativo. -->
         <div id="page-journal" class="app-page" hidden>
           <div class="page-header">
             <h1 class="page-title">Diário</h1>
           </div>
           <p id="sj-opening-line" class="page-subtitle"></p>
 
-          <div class="tabs" id="sj-status-tabs" role="tablist" aria-label="Filtrar sessões por status">
-            <button type="button" class="tab tab--active" data-status="finished" role="tab" aria-selected="true" aria-controls="sj-finished-view">Concluídas</button>
-            <button type="button" class="tab" data-status="all" role="tab" aria-selected="false" aria-controls="sj-other-view">Histórico</button>
+          <div class="sj-quick-filters sj-status-filter" id="sj-status-filter" role="group" aria-label="Filtrar sessões por status">
+            <button type="button" class="sj-quick-filter sj-quick-filter--active" data-status="finished" aria-pressed="true">Concluídas</button>
+            <button type="button" class="sj-quick-filter" data-status="cancelled" aria-pressed="false">Canceladas</button>
+            <button type="button" class="sj-quick-filter" data-status="all" aria-pressed="false">Todas</button>
           </div>
 
-          <div id="sj-other-view" role="tabpanel" hidden>
-            <label class="filter-toggle sj-other-filter">
-              <input type="checkbox" id="sj-other-only-cancelled" />
-              <span>Somente canceladas</span>
-            </label>
-            <p id="ah-list-empty" class="list-empty" hidden></p>
-            <ul id="ah-list" class="ah-day-list"></ul>
-            <button type="button" id="ah-load-more" class="btn btn-ghost btn-sm ah-load-more" hidden>Carregar mais</button>
-          </div>
-
-          <div id="sj-finished-view" role="tabpanel">
+          <div id="sj-finished-view">
           <!-- Auditoria UX radical, Etapa 1 — busca e filtros eram os dois
                elementos com maior peso permanente da toolbar (input sempre
                aberto + botão de texto), competindo com a lista logo na
@@ -1191,7 +1176,10 @@
              de #ai-panel (aiPanelView.js). F18.15 — Marcos da Evolução saiu
              daqui: era conteúdo de leitura, não filtro, e o rótulo
              "Analisar" só descrevia metade do que havia dentro. Agora vive
-             perto da timeline (ver #sj-finished-view, logo acima). -->
+             perto da timeline (ver #sj-finished-view, logo acima).
+             #sj-finished-view é hoje a única lista de sessões do Diário
+             (Etapa 6) — o nome do id ficou do tempo em que existia uma
+             segunda visão compacta ao lado dela. -->
         <div id="sj-panel-overlay" class="ai-panel-overlay" hidden aria-hidden="true"></div>
         <aside id="sj-panel" class="ai-panel ai-panel--control" hidden
                role="dialog" aria-modal="true" aria-labelledby="sj-panel-title">
