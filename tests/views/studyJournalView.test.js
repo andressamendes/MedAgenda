@@ -1021,6 +1021,40 @@ test("period filter (Últimos 7 dias / Últimos 30 dias) bound sessions by a rol
   assert.strictEqual(entries().length, 3);
 });
 
+// Etapa 1 (auditoria UX/UI V3) — "30 dias" é o único valor de
+// #sj-filter-period sem chip fixo equivalente (Hoje/Semana/Todas cobrem
+// today/7d/all); #sj-quick-filter-30d existe só para não deixar esse estado
+// sem nenhuma indicação na toolbar quando escolhido no painel "Analisar".
+test("Etapa 1 — picking '30d' in the period select reveals a 4th quick-filter chip; any other period hides it again", async (t) => {
+  const { mod } = await loadView(t);
+  await mod.initStudyJournalView();
+
+  const extraChip = document.getElementById("sj-quick-filter-30d");
+  assert.strictEqual(extraChip.hidden, true, "nasce escondido — a toolbar mostra só os 3 chips fixos por padrão");
+
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(extraChip.hidden, false, "30 dias é o único período sem chip fixo — precisa de indicação própria");
+  assert.strictEqual(extraChip.classList.contains("sj-quick-filter--active"), true);
+  assert.strictEqual(
+    document.querySelectorAll(".sj-quick-filter--active").length, 1,
+    "nenhum dos 3 chips fixos (Hoje/Semana/Todas) fica ativo ao mesmo tempo",
+  );
+
+  document.getElementById("sj-filter-period").value = "7d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(extraChip.hidden, true, "7 dias já tem chip fixo próprio (Semana) — o 4º chip volta a sumir");
+
+  document.getElementById("sj-filter-period").value = "30d";
+  document.getElementById("sj-filter-period").dispatchEvent(new window.Event("change"));
+  assert.strictEqual(extraChip.hidden, false);
+
+  document.querySelector('.sj-quick-filter[data-period="all"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.strictEqual(extraChip.hidden, true, "clicar num chip fixo também esconde o 4º chip de novo");
+  assert.strictEqual(document.getElementById("sj-filter-period").value, "all");
+});
+
 test("category filter options are derived from the loaded sessions, and filtering by them narrows the list", async (t) => {
   const sessions = [
     { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 },

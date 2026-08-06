@@ -973,14 +973,19 @@ function _closeSjPanel() {
 // F17 — chips "Hoje"/"Semana"/"Todas" (.sj-quick-filters) são só uma face
 // mais rápida do mesmo #sj-filter-period de sempre: clicar num chip ajusta
 // o <select> e reusa _onFilterChange, nenhuma regra de período nova. Fica
-// destacado o chip cujo período bate com o valor atual do <select> —
-// nenhum chip fica ativo quando o usuário escolhe um período mais granular
-// (7/30 dias) só disponível no <select>, dentro do painel "Analisar".
+// destacado o chip cujo período bate com o valor atual do <select>.
+// Etapa 1 (auditoria V3) — #sj-quick-filter-30d é o mesmo tipo de chip
+// (mesma classe, mesmo data-period="30d"), incluído em quickFilterButtons
+// como os outros 3; a única diferença é que ele nasce `hidden` e só some
+// desse estado quando "30 dias" (o único valor do <select> sem chip fixo
+// equivalente) é o período ativo — resolve o risco de "30 dias" ficar sem
+// nenhuma indicação de estado fora do painel "Analisar".
 function _updateQuickFilterActive() {
   quickFilterButtons.forEach(btn => {
     const active = btn.dataset.period === periodSelect?.value;
     btn.classList.toggle("sj-quick-filter--active", active);
     btn.setAttribute("aria-pressed", String(active));
+    if (btn.id === "sj-quick-filter-30d") btn.hidden = !active;
   });
 }
 

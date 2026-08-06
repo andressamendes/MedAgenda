@@ -1125,11 +1125,22 @@
                  o fluxo de filtro já existente (_onFilterChange) — nenhuma
                  consulta nova, nenhuma regra de período nova. O <select>
                  continua no painel "Analisar" para quem precisa dos
-                 períodos mais granulares (7/30 dias). -->
+                 períodos mais granulares (7/30 dias).
+                 Etapa 1 (auditoria UX/UI V3, DIARIO_UX_UI_REDESIGN_AUDIT.md)
+                 — "Semana" já cobre o valor "7d" do <select>, então o único
+                 valor realmente sem chip equivalente é "30d". #sj-quick-
+                 filter-30d é o mesmo tipo de botão dos 3 acima (mesmo
+                 data-period, mesma classe, mesmos _setQuickPeriod/
+                 _updateQuickFilterActive) — só nasce escondido e só aparece
+                 quando "30 dias" é o período ativo (escolhido no <select>
+                 do painel), resolvendo o risco de a toolbar não indicar
+                 nenhum estado ativo nesse caso. Nos outros 3 casos a toolbar
+                 continua mostrando só os 3 chips fixos. -->
             <div class="sj-quick-filters" role="group" aria-label="Período">
               <button type="button" class="sj-quick-filter" data-period="today">Hoje</button>
               <button type="button" class="sj-quick-filter" data-period="7d">Semana</button>
               <button type="button" class="sj-quick-filter sj-quick-filter--active" data-period="all" aria-pressed="true">Todas</button>
+              <button type="button" class="sj-quick-filter" data-period="30d" id="sj-quick-filter-30d" hidden>30 dias</button>
             </div>
             <button type="button" class="btn-icon" id="sj-search-toggle" aria-expanded="false" aria-controls="sj-search-wrap" aria-label="Buscar no diário" title="Buscar (atalho: /)" aria-keyshortcuts="/" data-icon="search"></button>
             <div id="sj-search-wrap" class="sj-search-wrap" hidden>
@@ -1226,7 +1237,12 @@
           <!-- #sj-filter-period continua existindo (mesmo <select>/mesmos
                valores de sempre) para os períodos mais granulares (7/30
                dias) — os chips "Hoje"/"Semana"/"Todas" do toolbar principal
-               (.sj-quick-filters) só ajustam este mesmo controle. -->
+               (.sj-quick-filters) só ajustam este mesmo controle. Etapa 1
+               (auditoria V3) — "30 dias" é o único valor sem chip
+               equivalente; escolhê-lo aqui acende o 4º chip condicional
+               #sj-quick-filter-30d na toolbar (ver comentário lá), então o
+               estado escolhido neste <select> nunca fica sem indicação
+               fora do painel. -->
           <h3 class="ai-panel-group-title" id="sj-panel-filters-title">Filtrar lista</h3>
           <div class="toolbar-filters">
             <select id="sj-filter-period" class="toolbar-select">
