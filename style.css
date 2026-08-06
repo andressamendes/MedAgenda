@@ -3923,6 +3923,27 @@ textarea { resize: vertical; }
   flex: 0 1 170px;
 }
 
+/* Etapa 2 — os 5 filtros de "Somente" (reflexão/observações/revisões/
+   questões/duração) são de uso raro perto de categoria (acima) e de
+   período/busca (na toolbar principal), mas viviam no mesmo nível visual de
+   ambos dentro do painel "Analisar". Ganham um 2º nível discreto: divisória
+   sutil + rótulo minúsculo acima, mesmo padrão de peso já usado em
+   .filter-label — nenhum filtro muda de comportamento, só o destaque. */
+.sj-advanced-filters-secondary {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--gray-200);
+}
+
+.sj-advanced-filters-secondary-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+  color: var(--gray-400);
+}
+
 /* ── Busca Avançada e Linha do Tempo Inteligente (F8.8) ── */
 /* Etapa 6 (auditoria UX radical) — de 5 chips lado a lado (flex-wrap) para
    uma única linha de texto; sessões e revisões, que estavam aqui, já
