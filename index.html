@@ -1208,30 +1208,31 @@
                timeline como um dashboard) para dentro do painel "Analisar",
                reagindo aos mesmos filtros de Período/Categoria de sempre
                (sj-filter-period/sj-filter-category) — nenhum controle novo,
-               mesmo componente .stat-cards/.stat-card, só de lugar.
+               só de lugar.
                Etapa 6 — o painel misturava consulta (estatísticas) e ação
                (filtros) sob um único rótulo "Analisar", sem nenhuma pista
                visual de que eram duas coisas diferentes. Cada metade ganha
                um cabeçalho de subseção; nenhum filtro/estatística muda de
-               comportamento, só a divisão visual entre elas. -->
+               comportamento, só a divisão visual entre elas.
+               Etapa 4 — os 4 stat-cards lado a lado pediam a mesma leitura
+               para 4 números diferentes, quando a pergunta real é uma só
+               ("estou acertando bem?"). O índice de acerto vira o único
+               destaque (mesma leitura de valor grande do
+               .progress-narrative); total/acertos/erros continuam todos
+               presentes, só como texto de apoio abaixo — nenhum IDs mudou,
+               só o agrupamento visual. -->
           <h3 class="ai-panel-group-title" id="sj-panel-stats-title">Seus números</h3>
-          <div class="stat-cards sj-stats" id="sj-stats" aria-label="Estatísticas de questões">
-            <div class="stat-card stat-card--sm">
-              <span class="stat-card-title">Questões respondidas</span>
-              <span class="stat-card-value" id="sj-stats-total">0</span>
-            </div>
-            <div class="stat-card stat-card--sm">
-              <span class="stat-card-title">Acertos</span>
-              <span class="stat-card-value" id="sj-stats-correct">0</span>
-            </div>
-            <div class="stat-card stat-card--sm">
-              <span class="stat-card-title">Erros</span>
-              <span class="stat-card-value" id="sj-stats-incorrect">0</span>
-            </div>
-            <div class="stat-card stat-card--sm">
-              <span class="stat-card-title">Índice de acerto</span>
-              <span class="stat-card-value"><span id="sj-stats-accuracy-icon" aria-hidden="true"></span> <span id="sj-stats-accuracy">0%</span></span>
-            </div>
+          <div class="sj-stats-highlight" id="sj-stats" aria-label="Estatísticas de questões">
+            <p class="sj-stats-highlight-main">
+              <span id="sj-stats-accuracy-icon" aria-hidden="true"></span>
+              <span class="sj-stats-highlight-value" id="sj-stats-accuracy">0%</span>
+              <span class="sj-stats-highlight-label">de acerto</span>
+            </p>
+            <p class="sj-stats-highlight-sub">
+              <span id="sj-stats-total">0</span> questões respondidas ·
+              <span id="sj-stats-correct">0</span> acertos ·
+              <span id="sj-stats-incorrect">0</span> erros
+            </p>
           </div>
 
           <!-- #sj-filter-period continua existindo (mesmo <select>/mesmos
