@@ -5562,10 +5562,38 @@ textarea { resize: vertical; }
   width: 100%;
 }
 
-/* F17 — Estatísticas do Diário: mesmo componente .stat-cards já usado no
-   Dashboard/Insights, só com espaçamento até a lista de sessões abaixo. */
-.sj-stats {
+/* F17 — Estatísticas do Diário. Etapa 4 — trocou os 4 stat-cards lado a
+   lado por 1 destaque (índice de acerto, mesma leitura de valor grande do
+   .progress-narrative-highlight) + os outros 3 números como texto de apoio
+   logo abaixo: menos leitura simultânea para a mesma pergunta ("estou
+   acertando bem?"), sem remover nenhum dos 4 valores. */
+.sj-stats-highlight {
   margin-bottom: var(--space-4);
+}
+
+.sj-stats-highlight-main {
+  display: flex;
+  align-items: baseline;
+  gap: .4rem;
+  margin: 0;
+}
+
+.sj-stats-highlight-value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.sj-stats-highlight-label {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+}
+
+.sj-stats-highlight-sub {
+  margin: .2rem 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
 }
 
 /* F17 — gatilho do painel "Questões e revisões" na superfície principal da
