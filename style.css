@@ -3814,7 +3814,7 @@ textarea { resize: vertical; }
 /* F17 — resumo (questões/acertos/erros/índice) de uma sessão, acima da
    lista de lançamentos no bloco "Questões" do detalhe. */
 .sj-detail-summary {
-  margin: 0 0 .5rem;
+  margin: 0 0 var(--space-2);
   font-weight: 600;
   color: var(--gray-700);
 }
