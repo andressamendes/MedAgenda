@@ -3692,6 +3692,33 @@ textarea { resize: vertical; }
   flex-wrap: wrap;
 }
 
+/* Etapa 7 — revisão pendente vira link para a página Sessão, onde ela é
+   resolvida (ver studyJournalView.js/_goToPendingReview). Concluída/pulada
+   permanecem .sj-detail-item puro, sem estes estilos. */
+.sj-detail-item--link { padding: 0; }
+
+.sj-detail-item-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: .2rem .35rem;
+  margin: -.2rem -.35rem;
+  border-radius: var(--radius-xs);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sj-detail-item-link:hover,
+.sj-detail-item-link:focus-visible {
+  background: var(--color-info-bg);
+}
+
 .sj-detail-empty,
 .sj-detail-loading,
 .sj-detail-error {
