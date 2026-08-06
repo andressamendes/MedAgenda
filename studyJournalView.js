@@ -714,9 +714,19 @@ function _dayComparisonSentence(comparison) {
   };
 }
 
+// Etapa 9 (fallback explícito) — a linha de comparação nunca some: sem dia
+// anterior no conjunto filtrado (compareDailySummaries() retornando null —
+// primeiro dia da linha do tempo, ou único dia sobrevivente a um filtro),
+// mostra uma frase neutra em vez de esconder o cabeçalho, para não parecer
+// que a comparação "quebrou" quando na verdade só não há o que comparar.
 function _renderDayComparison(dayGroup, comparison) {
-  if (!comparison) return;
   dayGroup.comparisonEl.hidden = false;
+  if (!comparison) {
+    dayGroup.comparisonEl.innerHTML = `
+      <span class="sj-summary-comparison-label sj-summary-comparison-label--neutral">Sem dia anterior para comparar.</span>
+    `;
+    return;
+  }
   const { text, isBetter } = _dayComparisonSentence(comparison);
   const modifier = isBetter ? " sj-summary-comparison-label--positive" : "";
   dayGroup.comparisonEl.innerHTML = `

@@ -3800,6 +3800,14 @@ textarea { resize: vertical; }
   font-weight: 600;
 }
 
+/* Etapa 9 — fallback explícito quando não há dia anterior para comparar
+   (compareDailySummaries() retorna null); ver _renderDayComparison em
+   studyJournalView.js. Itálico para diferenciar visualmente de uma
+   comparação real, mantendo a mesma cor neutra. */
+.sj-summary-comparison-label--neutral {
+  font-style: italic;
+}
+
 .sj-reflection-error {
   margin: 0;
   color: var(--color-danger-text);
