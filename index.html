@@ -1269,40 +1269,52 @@
                 <option value="">Todas as categorias</option>
               </select>
             </div>
-            <div class="filter-bar" id="sj-filter-flags">
-              <span class="filter-label">Somente:</span>
-              <label class="filter-toggle">
-                <input type="checkbox" id="sj-filter-reflection" />
-                <span>Com reflexão</span>
-              </label>
-              <label class="filter-toggle">
-                <input type="checkbox" id="sj-filter-reviews" />
-                <span>Com revisões</span>
-              </label>
-              <label class="filter-toggle">
-                <input type="checkbox" id="sj-filter-notes" />
-                <span>Com observações</span>
-              </label>
-              <!-- F10 PR7: "Com questões"/"Sem questões" eram 2 checkboxes
-                   independentes que, marcados juntos, produziam um filtro
-                   impossível (0 resultados sempre — nenhuma sessão tem
-                   hasQuestions true e false ao mesmo tempo), sem nenhum aviso
-                   ao usuário. Virou 1 controle de 3 estados (mesmo padrão de
-                   <select> já usado nos demais filtros avançados). -->
-              <select id="sj-filter-questions" class="toolbar-select">
-                <option value="">Questões: todas</option>
-                <option value="with">Com questões</option>
-                <option value="without">Sem questões</option>
-              </select>
-              <!-- F10 PR7: mesma correção acima para "Sessões longas"/"Sessões
-                   curtas" — impossível marcar as duas ao mesmo tempo (uma
-                   sessão não pode durar ≥ 2h e ≤ 30min simultaneamente), o
-                   que zerava a lista sem aviso. -->
-              <select id="sj-filter-duration" class="toolbar-select">
-                <option value="">Duração: qualquer</option>
-                <option value="long">Sessões longas (≥ 2h)</option>
-                <option value="short">Sessões curtas (≤ 30min)</option>
-              </select>
+
+            <!-- Etapa 2 — os 5 filtros abaixo (reflexão/observações/revisões/
+                 questões/duração) são de uso bem mais raro que categoria (e
+                 raríssimo perto de período/busca, na toolbar principal), mas
+                 dividiam o mesmo nível de destaque visual dentro do painel.
+                 Ganham um 2º nível discreto aqui dentro — rótulo minúsculo +
+                 divisória sutil — sem virar um disclosure novo (isso já foi
+                 achatado na F13, ver comentário acima) e sem tirar nenhum
+                 filtro do lugar onde o usuário já sabe procurar. -->
+            <div class="sj-advanced-filters-secondary">
+              <h4 class="sj-advanced-filters-secondary-title">Filtros avançados</h4>
+              <div class="filter-bar" id="sj-filter-flags">
+                <span class="filter-label">Somente:</span>
+                <label class="filter-toggle">
+                  <input type="checkbox" id="sj-filter-reflection" />
+                  <span>Com reflexão</span>
+                </label>
+                <label class="filter-toggle">
+                  <input type="checkbox" id="sj-filter-reviews" />
+                  <span>Com revisões</span>
+                </label>
+                <label class="filter-toggle">
+                  <input type="checkbox" id="sj-filter-notes" />
+                  <span>Com observações</span>
+                </label>
+                <!-- F10 PR7: "Com questões"/"Sem questões" eram 2 checkboxes
+                     independentes que, marcados juntos, produziam um filtro
+                     impossível (0 resultados sempre — nenhuma sessão tem
+                     hasQuestions true e false ao mesmo tempo), sem nenhum aviso
+                     ao usuário. Virou 1 controle de 3 estados (mesmo padrão de
+                     <select> já usado nos demais filtros avançados). -->
+                <select id="sj-filter-questions" class="toolbar-select">
+                  <option value="">Questões: todas</option>
+                  <option value="with">Com questões</option>
+                  <option value="without">Sem questões</option>
+                </select>
+                <!-- F10 PR7: mesma correção acima para "Sessões longas"/"Sessões
+                     curtas" — impossível marcar as duas ao mesmo tempo (uma
+                     sessão não pode durar ≥ 2h e ≤ 30min simultaneamente), o
+                     que zerava a lista sem aviso. -->
+                <select id="sj-filter-duration" class="toolbar-select">
+                  <option value="">Duração: qualquer</option>
+                  <option value="long">Sessões longas (≥ 2h)</option>
+                  <option value="short">Sessões curtas (≤ 30min)</option>
+                </select>
+              </div>
             </div>
           </div>
           </div>
