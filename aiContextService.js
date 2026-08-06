@@ -152,7 +152,7 @@ export function computeWeekEventsCount(events, now = new Date()) {
 // Resolve o nome da categoria de uma sessão: sessões vinculadas a um
 // compromisso (event_id) herdam a categoria do compromisso (texto livre,
 // mesmo campo usado pela agenda); sessões avulsas usam category_id (FK para
-// categories). Mesma resolução de activityHistoryView.js._resolveMeta(), sem
+// categories). Mesma resolução de studyJournalView.js._resolveMeta(), sem
 // duplicar a lógica de categoryService/eventService.
 function _resolveSessionCategoryName(session, eventsById, categoriesById) {
   if (session.event_id) return eventsById.get(session.event_id)?.category ?? null;

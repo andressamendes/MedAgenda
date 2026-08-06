@@ -5,7 +5,7 @@
 // duração e evento publicado continua vindo de activitySessionService.js via
 // sessionEventBus.js. Este módulo só renderiza o que o domínio retorna e reage
 // a cliques, seguindo o mesmo princípio de activitySessionView.js/
-// activityHistoryView.js.
+// studyJournalView.js.
 //
 // Diferença chave em relação ao widget antigo: em vez de esperar clique local
 // para saber que algo mudou, a tela assina SESSION_EVENTS e se atualiza

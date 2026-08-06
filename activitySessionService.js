@@ -390,7 +390,8 @@ export async function listByDateRange(start, end) {
 }
 
 // ── F1.8 — Histórico global de sessões ──────────────────────────────────────
-// Alimenta activityHistoryView.js. Nunca inclui sessões "running"/"paused" —
+// Alimenta o Diário (studyJournalView.js, filtro de status #sj-status-filter,
+// Etapa 6). Nunca inclui sessões "running"/"paused" —
 // o histórico é só o que já foi encerrado (finished ou cancelled); sessões em
 // andamento continuam vivendo só no cronômetro (getRunningSession()).
 // Paginado via .range() para nunca carregar o histórico inteiro de uma vez;

@@ -2,9 +2,10 @@
 import { revealWithAnimation, revealPageWithAnimation } from "./transitionUtils.js";
 
 // F10 #4.2 — 'history' removido: a página própria (#page-history) foi
-// absorvida como abas dentro de 'journal' (ver studyJournalView.js/
-// activityHistoryView.js). showPage('history') agora cai no fallback
-// 'agenda' (ver abaixo), já que "history" deixou de ser um destino válido.
+// absorvida dentro de 'journal' (ver studyJournalView.js) — primeiro como
+// uma aba própria, depois (Etapa 6) como um filtro de status sobre a mesma
+// lista. showPage('history') cai no fallback 'agenda' (ver abaixo), já que
+// "history" deixou de ser um destino válido.
 // F10 #4.1 — 'calendar' removido pelo mesmo motivo: a página própria
 // (#page-calendar, "Mês") foi absorvida como aba dentro de 'agenda' (ver
 // #agenda-view-tabs em script.js/_setAgendaView). showPage('calendar') cai

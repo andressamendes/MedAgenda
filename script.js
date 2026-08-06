@@ -63,7 +63,6 @@ import { initDiagnosticModal } from "./diagnosticModal.js";
 import { initStudySessionView, resetStudySessionView, startSessionForEvent } from "./studySessionView.js";
 import { initActiveSessionIndicator, resetActiveSessionIndicator } from "./activeSessionIndicatorView.js";
 import { initKeyboardShortcuts, resetKeyboardShortcuts } from "./keyboardService.js";
-import { initActivityHistoryView, resetActivityHistoryView } from "./activityHistoryView.js";
 import { initStudyJournalView, resetStudyJournalView } from "./studyJournalView.js";
 import { initActivityDashboardView, resetActivityDashboardView } from "./activityDashboardView.js";
 import { initAchievementCelebrationTracking, resetAchievementCelebrationTracking } from "./achievementService.js";
@@ -462,7 +461,6 @@ async function _initApp(session) {
         onAcademicEventClick: openAcademicCalendarModal,
       })),
       safeInit("agenda", loadEvents),
-      safeInit("histórico de sessões", () => initActivityHistoryView()),
       safeInit("diário de estudos", () => initStudyJournalView()),
       safeInit("dashboard de execução", () => initActivityDashboardView()),
       safeInit("heatmap de constância", () => initConstancyHeatmapView()),
@@ -841,7 +839,6 @@ initAuthView({
     resetStudySessionView();
     resetActiveSessionIndicator();
     resetKeyboardShortcuts();
-    resetActivityHistoryView();
     resetStudyJournalView();
     resetActivityDashboardView();
     resetConstancyHeatmapView();

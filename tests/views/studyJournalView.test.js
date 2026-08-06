@@ -16,12 +16,6 @@ import { SESSION_EVENTS, publish, clear as clearEventBus } from "../../sessionEv
 
 const SESSION_SPECIFIER  = new URL("../../activitySessionService.js", import.meta.url).href;
 const EVENT_SPECIFIER    = new URL("../../eventService.js", import.meta.url).href;
-// F10 #4.2 — studyJournalView.js agora importa activityHistoryView.js (aba
-// "Canceladas"/"Todas") só para chamar setHistoryStatus(); mockado como
-// qualquer outra dependência — sem isto, o import real arrastaria
-// categoryService.js/supabase.js (CDN de verdade) para dentro deste teste,
-// que nunca precisou conhecer esse módulo antes.
-const ACTIVITY_HISTORY_SPECIFIER = new URL("../../activityHistoryView.js", import.meta.url).href;
 const QUESTIONS_SPECIFIER = new URL("../../sessionQuestionsService.js", import.meta.url).href;
 const REVIEWS_SPECIFIER  = new URL("../../reviewSessionService.js", import.meta.url).href;
 const REFLECTION_SPECIFIER = new URL("../../studyReflectionService.js", import.meta.url).href;
@@ -30,8 +24,7 @@ const ERROR_SPECIFIER    = new URL("../../errorService.js", import.meta.url).hre
 // "Estatísticas") e categoryService.js (resolve nome → category_id para o
 // filtro da RPC); mockados como qualquer outra dependência — sem isto, o
 // import real de categoryService.js arrastaria supabase.js (CDN de verdade)
-// para dentro deste teste, mesmo motivo do comentário acima sobre
-// activityHistoryView.js.
+// para dentro deste teste.
 const STATISTICS_SPECIFIER = new URL("../../studyStatisticsService.js", import.meta.url).href;
 const CATEGORY_SPECIFIER = new URL("../../categoryService.js", import.meta.url).href;
 // Etapa 8 — frase de abertura contextual (#sj-opening-line), reaproveita
@@ -70,15 +63,6 @@ function loadView(t, overrides = {}) {
 
   t.mock.module(EVENT_SPECIFIER, {
     namedExports: { getEvents: overrides.getEvents ?? (async () => []) },
-  });
-
-  const setHistoryStatusCalls = [];
-  t.mock.module(ACTIVITY_HISTORY_SPECIFIER, {
-    namedExports: {
-      initActivityHistoryView: overrides.initActivityHistoryView ?? (async () => {}),
-      setHistoryStatus: overrides.setHistoryStatus ?? ((status) => { setHistoryStatusCalls.push(status); }),
-      refreshActivityHistoryView: overrides.refreshActivityHistoryView ?? (async () => {}),
-    },
   });
 
   const questionsCalls = [];
@@ -155,7 +139,7 @@ function loadView(t, overrides = {}) {
   return import(`../../studyJournalView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls, saveReflectionCalls, questionsCalls, reviewsCalls, reflectionsCalls,
-      setHistoryStatusCalls, statisticsCalls,
+      statisticsCalls,
     }));
 }
 
@@ -1037,7 +1021,7 @@ test("Etapa 1 — picking '30d' in the period select reveals a 4th quick-filter 
   assert.strictEqual(extraChip.hidden, false, "30 dias é o único período sem chip fixo — precisa de indicação própria");
   assert.strictEqual(extraChip.classList.contains("sj-quick-filter--active"), true);
   assert.strictEqual(
-    document.querySelectorAll(".sj-quick-filter--active").length, 1,
+    document.querySelectorAll(".sj-toolbar .sj-quick-filter--active").length, 1,
     "nenhum dos 3 chips fixos (Hoje/Semana/Todas) fica ativo ao mesmo tempo",
   );
 
@@ -1903,138 +1887,122 @@ test("Etapa 1 — resetStudyJournalView() also collapses the search field back b
   assert.strictEqual(searchToggle.getAttribute("aria-expanded"), "false");
 });
 
-// ── Histórico absorvido como abas Concluídas/Todas (F10 #4.2/F14.7) ─────────
-// O Histórico de Sessões (activityHistoryView.js) deixou de ser uma página
-// própria: agora vive dentro do Diário, como a aba "Todas" ao lado de
-// "Concluídas" (a visão rica de sempre, inalterada). Trocar de aba só
-// alterna qual <div> fica visível — nenhuma sessão não concluída chega a
-// _allEntries/filtered deste módulo. F14.7 — "Canceladas" deixou de ser uma
-// aba própria: virou o checkbox #sj-other-only-cancelled dentro de "Todas".
+// ── Histórico fundido como filtro de status (Etapa 6) ────────────────────
+// O antigo par "aba própria + activityHistoryView.js" (F10 #4.2/F14.7) foi
+// substituído por #sj-status-filter: um único filtro de três posições
+// ("Concluídas"/"Canceladas"/"Todas") sobre a mesma lista rica de sempre —
+// nunca uma segunda visão/módulo. Trocar de status recarrega a lista do
+// zero com listSessions({status}), o mesmo contrato de paginação que
+// activityHistoryView.js (removido) já usava.
 
-test("F10 #4.2 — 'Concluídas' é a aba ativa por padrão, mostrando a visão rica e ocultando a compacta", async (t) => {
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
-  });
-  await mod.initStudyJournalView();
-
-  assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
-  const finishedTab = document.querySelector('#sj-status-tabs .tab[data-status="finished"]');
-  assert.strictEqual(finishedTab.classList.contains("tab--active"), true);
-  assert.strictEqual(finishedTab.getAttribute("aria-selected"), "true");
-});
-
-// activityHistoryView.js é mockado (ver ACTIVITY_HISTORY_SPECIFIER acima) —
-// exatamente como activitySessionService.js/eventService.js/etc.: estes
-// testes verificam que studyJournalView.js chama setHistoryStatus() com o
-// status certo e alterna a visibilidade certa, não o comportamento interno
-// de activityHistoryView.js (já coberto por activityHistoryView.test.js).
-
-// F14.7 — "Canceladas" deixou de ser uma aba própria: virou o checkbox
-// #sj-other-only-cancelled dentro de "Todas", que decide se
-// setHistoryStatus() recebe "all" ou "cancelled".
-test("F14.7 — checking 'Somente canceladas' inside 'Todas' calls setHistoryStatus('cancelled')", async (t) => {
-  const { mod, setHistoryStatusCalls } = await loadView(t, {
-    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
-  });
-  await mod.initStudyJournalView();
-
-  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  setHistoryStatusCalls.length = 0;
-
-  const onlyCancelled = document.getElementById("sj-other-only-cancelled");
-  onlyCancelled.checked = true;
-  onlyCancelled.dispatchEvent(new window.Event("change", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
-  assert.deepStrictEqual(setHistoryStatusCalls, ["cancelled"]);
-
-  onlyCancelled.checked = false;
-  onlyCancelled.dispatchEvent(new window.Event("change", { bubbles: true }));
-  assert.deepStrictEqual(setHistoryStatusCalls, ["cancelled", "all"]);
-});
-
-test("F14.7 — 'Somente canceladas' does not exist as its own tab anymore", async (t) => {
-  const { mod } = await loadView(t, {
-    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
-  });
-  await mod.initStudyJournalView();
-
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="cancelled"]'), null);
-  const labels = Array.from(document.querySelectorAll("#sj-status-tabs .tab")).map(btn => btn.textContent);
-  assert.deepStrictEqual(labels, ["Concluídas", "Histórico"]);
-});
-
-test("F10 #4.2 — clicking 'Todas' shows the compact view and calls setHistoryStatus('all')", async (t) => {
-  const { mod, setHistoryStatusCalls } = await loadView(t, {
-    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
-  });
-  await mod.initStudyJournalView();
-
-  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
-  assert.deepStrictEqual(setHistoryStatusCalls, ["all"]);
-});
-
-test("F10 #4.2 — switching back to 'Concluídas' restores the rich view without re-fetching it or calling setHistoryStatus", async (t) => {
-  const session = { id: "sess-1", event_id: "ev-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
+test("Etapa 6 — 'Concluídas' é o filtro ativo por padrão, e listSessions() é chamado com status 'finished'", async (t) => {
   const listSessionsCalls = [];
-  const { mod, setHistoryStatusCalls } = await loadView(t, {
-    listSessions: async (opts) => {
-      listSessionsCalls.push(opts);
-      return { sessions: [session], total: 1, hasMore: false };
-    },
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { listSessionsCalls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+  await mod.initStudyJournalView();
+
+  const finishedBtn = document.querySelector('#sj-status-filter [data-status="finished"]');
+  assert.strictEqual(finishedBtn.classList.contains("sj-quick-filter--active"), true);
+  assert.strictEqual(finishedBtn.getAttribute("aria-pressed"), "true");
+  assert.strictEqual(listSessionsCalls.at(-1).status, "finished");
+});
+
+test("Etapa 6 — não existe mais uma segunda lista/visão separada para o Histórico", async (t) => {
+  const { mod } = await loadView(t, {
+    listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
+  });
+  await mod.initStudyJournalView();
+
+  assert.strictEqual(document.getElementById("sj-other-view"), null);
+  assert.strictEqual(document.getElementById("ah-list"), null);
+  assert.strictEqual(document.getElementById("sj-other-only-cancelled"), null);
+  const labels = Array.from(document.querySelectorAll("#sj-status-filter .sj-quick-filter")).map(btn => btn.textContent);
+  assert.deepStrictEqual(labels, ["Concluídas", "Canceladas", "Todas"]);
+});
+
+test("Etapa 6 — clicking 'Canceladas' re-fetches with status 'cancelled' and highlights the button", async (t) => {
+  const listSessionsCalls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { listSessionsCalls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+  await mod.initStudyJournalView();
+  listSessionsCalls.length = 0;
+
+  document.querySelector('#sj-status-filter [data-status="cancelled"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(listSessionsCalls.at(-1).status, "cancelled");
+  const cancelledBtn = document.querySelector('#sj-status-filter [data-status="cancelled"]');
+  assert.strictEqual(cancelledBtn.classList.contains("sj-quick-filter--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-filter [data-status="finished"]').classList.contains("sj-quick-filter--active"), false);
+});
+
+test("Etapa 6 — clicking 'Todas' re-fetches with status 'all'", async (t) => {
+  const listSessionsCalls = [];
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => { listSessionsCalls.push(opts); return { sessions: [], total: 0, hasMore: false }; },
+  });
+  await mod.initStudyJournalView();
+  listSessionsCalls.length = 0;
+
+  document.querySelector('#sj-status-filter [data-status="all"]')
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await tick();
+
+  assert.strictEqual(listSessionsCalls.at(-1).status, "all");
+});
+
+test("Etapa 6 — a cancelled session in 'Todas' renders in the same rich card, tagged with a status badge", async (t) => {
+  const session = {
+    id: "sess-1", event_id: "ev-1", status: "cancelled",
+    started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:20:00.000Z", duration_minutes: 20,
+  };
+  const { mod } = await loadView(t, {
+    listSessions: async (opts) => (opts.status === "all"
+      ? { sessions: [session], total: 1, hasMore: false }
+      : { sessions: [], total: 0, hasMore: false }),
     getEvents: async () => [{ id: "ev-1", title: "Aula Cardio", category: "Cardiologia" }],
   });
   await mod.initStudyJournalView();
-  assert.strictEqual(entries().length, 1);
 
-  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
+  document.querySelector('#sj-status-filter [data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  listSessionsCalls.length = 0;
-  setHistoryStatusCalls.length = 0;
+  await tick();
 
-  document.querySelector('#sj-status-tabs .tab[data-status="finished"]')
-    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-
-  assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
-  assert.strictEqual(entries().length, 1, "the rich list is still the same, already-loaded data");
-  assert.strictEqual(listSessionsCalls.length, 0, "switching back to 'Concluídas' must not re-fetch anything");
-  assert.deepStrictEqual(setHistoryStatusCalls, [], "'finished' never delegates to activityHistoryView.js");
+  assert.strictEqual(entries().length, 1, "the cancelled session appears in the same #sj-list as finished ones");
+  const badge = firstEntry().querySelector(".session-history-status");
+  assert.ok(badge, "the card carries a status badge");
+  assert.strictEqual(badge.classList.contains("session-history-status--cancelled"), true);
+  assert.strictEqual(badge.textContent, "Cancelada");
 });
 
-test("F10 #4.2 — resetStudyJournalView() resets the status tab back to 'Concluídas'", async (t) => {
+test("Etapa 6 — resetStudyJournalView() resets the status filter back to 'Concluídas'", async (t) => {
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
   });
   await mod.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
+  document.querySelector('#sj-status-filter [data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
+  await tick();
+  assert.strictEqual(document.querySelector('#sj-status-filter [data-status="all"]').classList.contains("sj-quick-filter--active"), true);
 
   mod.resetStudyJournalView();
 
-  assert.strictEqual(document.getElementById("sj-finished-view").hidden, false);
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, true);
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-filter [data-status="finished"]').classList.contains("sj-quick-filter--active"), true);
 });
 
-// F11 E21 (auditoria #30) — a aba escolhida sobrevive a um reload da página
-// (mesma sessão de navegador, mesmo localStorage).
-test("F11 E21 — the chosen status tab survives a reload, restored from localStorage", async (t) => {
+// F11 E21 (auditoria #30) — o filtro escolhido sobrevive a um reload da
+// página (mesma sessão de navegador, mesmo localStorage).
+test("F11 E21 — the chosen status filter survives a reload, restored from localStorage", async (t) => {
   const { mod: firstLoad } = await loadView(t, {
     listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
   });
   await firstLoad.initStudyJournalView();
 
-  document.querySelector('#sj-status-tabs .tab[data-status="all"]')
+  document.querySelector('#sj-status-filter [data-status="all"]')
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.strictEqual(localStorage.getItem("medagenda_journal_status_tab"), "all");
 
@@ -2044,18 +2012,16 @@ test("F11 E21 — the chosen status tab survives a reload, restored from localSt
   const secondLoad = await import(`../../studyJournalView.js?t=${Math.random()}`);
   await secondLoad.initStudyJournalView();
 
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="all"]').classList.contains("tab--active"), true);
-  assert.strictEqual(document.getElementById("sj-other-view").hidden, false);
-  assert.strictEqual(document.getElementById("sj-finished-view").hidden, true);
+  assert.strictEqual(document.querySelector('#sj-status-filter [data-status="all"]').classList.contains("sj-quick-filter--active"), true);
 });
 
-test("F11 E21 — with nothing persisted yet, the status tab defaults to 'Concluídas'", async (t) => {
+test("F11 E21 — with nothing persisted yet, the status filter defaults to 'Concluídas'", async (t) => {
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [], total: 0, hasMore: false }),
   });
   await mod.initStudyJournalView();
 
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-filter [data-status="finished"]').classList.contains("sj-quick-filter--active"), true);
 });
 
 test("F11 E21 — a corrupted/unexpected persisted value falls back to 'Concluídas', never crashing", async (t) => {
@@ -2065,5 +2031,5 @@ test("F11 E21 — a corrupted/unexpected persisted value falls back to 'Concluí
   });
 
   await assert.doesNotReject(() => mod.initStudyJournalView());
-  assert.strictEqual(document.querySelector('#sj-status-tabs .tab[data-status="finished"]').classList.contains("tab--active"), true);
+  assert.strictEqual(document.querySelector('#sj-status-filter [data-status="finished"]').classList.contains("sj-quick-filter--active"), true);
 });

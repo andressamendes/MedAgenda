@@ -91,24 +91,26 @@
 // mesma passada — todos os filtros são combinados juntos, sem prioridade
 // entre eles.
 //
-// F10 #4.2 — o Histórico de Sessões (activityHistoryView.js, antes uma
-// página própria) foi absorvido aqui como a aba "Histórico" de
-// #sj-status-tabs, ao lado de "Concluídas" (a visão rica de sempre, tudo
-// acima). Trocar de aba só alterna qual <div> fica visível —
-// #sj-finished-view (este módulo) ou #sj-other-view (activityHistoryView.js,
-// controlado via setHistoryStatus()) — nenhuma sessão não concluída passa a
-// ser carregada, filtrada ou agrupada por este módulo: agrupamento por dia e
-// marcos continuam presumindo sessão concluída, porque só sessões
-// concluídas chegam a `_allEntries`/`filtered` aqui.
+// F10 #4.2 — o Histórico de Sessões (antes uma página própria) foi absorvido
+// aqui como a aba "Histórico", ao lado de "Concluídas" — mesma lista rica de
+// sempre para "Concluídas", e uma visão compacta à parte
+// (activityHistoryView.js) para o resto. F14.7 reduziu "Canceladas" a um
+// checkbox dentro dessa aba "Histórico".
 //
-// F14.7 — "Canceladas" deixou de ser uma aba própria: virou o checkbox
-// #sj-other-only-cancelled dentro de "Histórico" (ver _setStatusTab/
-// _onOtherOnlyCancelledChange abaixo) — mesmo dado, mesma
-// activityHistoryView.js, um lugar a menos na tab bar.
-//
-// F18.2 — a aba se chamava "Todas", colidindo com o chip de período "Todas"
-// (.sj-quick-filters, mesma tela). Rótulo passou a "Histórico"; data-status
-// continua "all" (sem mudança de lógica).
+// Etapa 6 (fundir "Histórico" como filtro de status) — a segunda estrutura
+// deixou de existir: activityHistoryView.js foi removido, e
+// #sj-status-filter agora é um filtro de status ("Concluídas"/"Canceladas"/
+// "Todas") sobre esta mesma lista rica — nunca uma segunda visão. `_status`
+// (ver _setStatus abaixo) é passado direto a listSessions({status}), o
+// mesmo contrato de paginação que activityHistoryView.js já usava; sessões
+// canceladas agora chegam a `_allEntries`/`filtered` como qualquer outra,
+// passando pelos mesmos cálculos de agrupamento por dia
+// (studyTimelineService) e Marcos (studyMilestoneService) — que já operam
+// sobre duration_minutes/started_at/questões, sem nenhuma suposição de
+// status. O único ajuste é visual: o cartão (_buildEntryEl) ganha o mesmo
+// selo de status que a antiga aba "Histórico" usava
+// (.session-history-status), para que "concluída" x "cancelada" continuem
+// claramente identificáveis numa lista agora mista.
 
 import { listSessions } from "./activitySessionService.js";
 import { getCurrentStreak } from "./studyStreakService.js";
@@ -132,25 +134,23 @@ import { buildMilestones } from "./studyMilestoneService.js";
 import { iconCheckCircle, iconClock, iconTarget, iconFlame, iconBookOpen, illustrationEmptyJournal } from "./icons.js";
 import { disclosureToggleContent } from "./disclosureToggle.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
-import { setHistoryStatus, refreshActivityHistoryView } from "./activityHistoryView.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
 import { getUserQuestionStatistics, summarizeSessionQuestions, accuracyIndicator } from "./studyStatisticsService.js";
 import { getCategories } from "./categoryService.js";
-import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
 import { attachLongPress, attachPullToRefresh } from "./gestureUtils.js";
 
 const PAGE_SIZE = 10;
 
-// F11 E21 (auditoria #30) — a aba escolhida (Concluídas/Histórico)
-// sobrevive ao reload, mesmo padrão de medagenda_agenda_view (script.js) e
-// medagenda_sidebar_collapsed (navigationView.js). Diferente da aba
-// Períodos/Progresso do Dashboard (F10 #3.1) e dos filtros avançados do
-// Diário (F8.4/F8.8) — que permanecem deliberadamente não persistidos, por
-// não terem uma escolha estável a lembrar — esta aba tende a refletir um
-// hábito real de uso (ex.: alguém que só olha "Canceladas" para entender
-// desistências).
-const JOURNAL_STATUS_TAB_KEY = "medagenda_journal_status_tab";
-const JOURNAL_STATUS_TAB_VALUES = new Set(["finished", "all"]);
+// F11 E21 (auditoria #30) — o filtro de status escolhido (Concluídas/
+// Canceladas/Todas) sobrevive ao reload, mesmo padrão de
+// medagenda_agenda_view (script.js) e medagenda_sidebar_collapsed
+// (navigationView.js). Diferente da aba Períodos/Progresso do Dashboard
+// (F10 #3.1) e dos filtros avançados do Diário (F8.4/F8.8) — que permanecem
+// deliberadamente não persistidos, por não terem uma escolha estável a
+// lembrar — este filtro tende a refletir um hábito real de uso (ex.:
+// alguém que só olha "Canceladas" para entender desistências).
+const JOURNAL_STATUS_KEY = "medagenda_journal_status_tab";
+const JOURNAL_STATUS_VALUES = new Set(["finished", "cancelled", "all"]);
 
 // Rótulos de exibição — mesmos valores já usados em studySessionView.js
 // (F7.4/F7.5) e permitidos pelos CHECK constraints de sql/15_questions.sql/
@@ -170,6 +170,19 @@ const REVIEW_STATUS_LABELS = {
   pending:   "Pendente",
   completed: "Concluída",
   skipped:   "Pulada",
+};
+
+// Etapa 6 — selo de status do cartão (.session-history-status, já usado por
+// eventFormView.js), mesmos rótulos que a antiga aba "Histórico"
+// (activityHistoryView.js, removido) usava. listSessions() só devolve
+// "finished"/"cancelled" para este módulo (activitySessionService.js), mas o
+// mapa segue completo por segurança — nunca um selo em branco caso o
+// contrato mude.
+const SESSION_STATUS_LABELS = {
+  running:   "Em andamento",
+  paused:    "Pausada",
+  finished:  "Concluída",
+  cancelled: "Cancelada",
 };
 
 // V5.19 — ilustração de linha própria (ver emptyStateView.js) para o estado
@@ -202,17 +215,21 @@ let milestonesPanelEl, milestonesListEl;
 // Progresso narrativo, F14.5).
 let sjPanelOverlayEl, sjPanelEl, sjPanelCloseEl, sjPanelOpenBtn;
 let _sjPanelPrevFocus = null;
-// F10 #4.2 — alterna entre a visão rica de "Concluídas" (finishedViewEl,
-// este módulo) e a visão compacta de "Histórico" (otherViewEl,
-// activityHistoryView.js), sem afetar o carregamento/estado de nenhuma das
-// duas — ver _setStatusTab().
-let statusTabsEl, finishedViewEl, otherViewEl, otherOnlyCancelledCheck;
+// Etapa 6 — filtro de status ("Concluídas"/"Canceladas"/"Todas") sobre a
+// única lista de sessões da tela — ver _setStatus().
+let statusFilterEl;
 let periodSelect, categorySelect, searchInput;
 let quickFilterButtons = [];
 let searchToggleBtn, searchWrapEl;
 let reflectionCheck, notesCheck, reviewsCheck, questionsSelect, durationSelect;
 let advancedFiltersEl, advancedCountEl;
 
+// Etapa 6 — filtro de status ("finished"/"cancelled"/"all"), passado direto
+// a listSessions({status}) — diferente de período/categoria/busca (F8.4/
+// F8.8), que filtram `_allEntries` em memória, trocar o status busca do
+// zero (ver _setStatus): são universos de dados diferentes no servidor, não
+// um recorte do que já está carregado.
+let _status  = "finished";
 let _offset  = 0;
 let _loading = false;
 let _hasMore = false; // ainda existem sessões no servidor além das carregadas (auditoria UX #02)
@@ -712,12 +729,13 @@ function _buildEntryEl(entry) {
   if (questions.length) summaryParts.push(`${questions.length} questão(ões)`);
 
   const li = document.createElement("li");
-  li.className = "sj-entry ah-timeline-item";
+  li.className = `sj-entry ah-timeline-item ah-timeline-item--${s.status}`;
   li.innerHTML = `
     <span class="ah-timeline-dot" aria-hidden="true"></span>
     <div class="ah-timeline-body">
       <div class="sj-entry-header">
         <span class="ah-item-title">${highlightMatches(meta.title, query)}</span>
+        <span class="session-history-status session-history-status--${s.status}">${SESSION_STATUS_LABELS[s.status] || s.status}</span>
         <button type="button" class="btn-icon sj-toggle disclosure-toggle" aria-expanded="false" aria-label="Mostrar detalhes">${disclosureToggleContent()}</button>
       </div>
       <div class="sj-entry-time">${formatClockTime(s.started_at)}–${formatClockTime(s.ended_at)}</div>
@@ -1064,7 +1082,7 @@ function _ensureFullHistoryForFilters() {
     try {
       while (_hasMore) {
         const { sessions, hasMore } = await listSessions({
-          status: "finished", limit: _REMAINING_PAGE_SIZE, offset: _offset,
+          status: _status, limit: _REMAINING_PAGE_SIZE, offset: _offset,
         });
         if (token !== _resetToken) return; // usuário trocou/saiu durante a carga
         if (sessions.length === 0) { _hasMore = false; break; }
@@ -1205,13 +1223,24 @@ async function _loadPage(reset) {
   if (reset) _loadQuestionStatistics();
 
   try {
-    const { sessions, hasMore } = await listSessions({ status: "finished", limit: PAGE_SIZE, offset: _offset });
+    const { sessions, hasMore } = await listSessions({ status: _status, limit: PAGE_SIZE, offset: _offset });
     _offset += sessions.length;
     _hasMore = hasMore;
 
     if (reset && sessions.length === 0) {
       emptyEl.hidden = false;
-      emptyEl.innerHTML = SJ_EMPTY_MARKUP;
+      // Etapa 6 — a ilustração "diário em branco" (SJ_EMPTY_MARKUP) só cabe
+      // no filtro padrão ("Concluídas"): zero sessões cancelas/totais com
+      // sessões concluídas existentes não é o mesmo estado de "nunca
+      // estudei nada por aqui".
+      if (_status === "finished") {
+        emptyEl.innerHTML = SJ_EMPTY_MARKUP;
+      } else {
+        clearStateBlock(emptyEl);
+        emptyEl.textContent = _status === "cancelled"
+          ? "Nenhuma sessão cancelada por aqui."
+          : "Nenhuma sessão registrada por aqui ainda.";
+      }
     } else {
       await _loadEntriesData(sessions);
       _refreshFilterOptions();
@@ -1231,31 +1260,17 @@ async function _loadPage(reset) {
   }
 }
 
-// F10 #4.2 — troca entre a visão rica de "Concluídas" (finishedViewEl) e a
-// visão compacta de "Histórico" (otherViewEl, activityHistoryView.js).
-// "finished" nunca chama setHistoryStatus() — essa aba não usa
-// activityHistoryView.js para nada, é só este módulo mostrado normalmente.
-// F14.7 — "cancelled" deixou de ser uma aba própria: dentro de "Histórico",
-// o checkbox #sj-other-only-cancelled decide se setHistoryStatus() recebe
-// "all" ou "cancelled" (ver _onOtherOnlyCancelledChange abaixo).
-function _setStatusTab(status) {
-  statusTabsEl?.querySelectorAll(".tab").forEach(btn => {
+// Etapa 6 — atualiza o botão ativo do filtro de status e recarrega a lista
+// do zero com o novo `status` (nunca um recorte em memória do que já estava
+// carregado — cada status é um universo de dados diferente no servidor).
+function _setStatus(status, { reload = true } = {}) {
+  _status = status;
+  statusFilterEl?.querySelectorAll(".sj-quick-filter").forEach(btn => {
     const active = btn.dataset.status === status;
-    btn.classList.toggle("tab--active", active);
-    btn.setAttribute("aria-selected", String(active));
+    btn.classList.toggle("sj-quick-filter--active", active);
+    btn.setAttribute("aria-pressed", String(active));
   });
-  updateTabsRovingIndex(statusTabsEl);
-  const showFinished = status === "finished";
-  if (finishedViewEl) finishedViewEl.hidden = !showFinished;
-  if (otherViewEl)    otherViewEl.hidden    = showFinished;
-  // F13.6 — mesmo feedback de "conteúdo novo" das disclosures, aplicado à
-  // troca de aba entre "Concluídas" e "Histórico".
-  revealWithAnimation(showFinished ? finishedViewEl : otherViewEl);
-  if (!showFinished) setHistoryStatus(otherOnlyCancelledCheck?.checked ? "cancelled" : "all");
-}
-
-function _onOtherOnlyCancelledChange() {
-  setHistoryStatus(otherOnlyCancelledCheck?.checked ? "cancelled" : "all");
+  if (reload) _loadPage(true);
 }
 
 /**
@@ -1278,18 +1293,20 @@ export async function initStudyJournalView() {
     milestonesPanelEl = document.getElementById("sj-milestones-panel");
     milestonesListEl  = document.getElementById("sj-milestones-list");
 
-    statusTabsEl   = document.getElementById("sj-status-tabs");
-    finishedViewEl = document.getElementById("sj-finished-view");
-    otherViewEl    = document.getElementById("sj-other-view");
-    otherOnlyCancelledCheck = document.getElementById("sj-other-only-cancelled");
-    initTabs(statusTabsEl, btn => {
-      _setStatusTab(btn.dataset.status);
-      try { localStorage.setItem(JOURNAL_STATUS_TAB_KEY, btn.dataset.status); } catch { /* storage unavailable */ }
+    statusFilterEl = document.getElementById("sj-status-filter");
+    statusFilterEl?.querySelectorAll(".sj-quick-filter").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.status === _status) return;
+        _setStatus(btn.dataset.status);
+        try { localStorage.setItem(JOURNAL_STATUS_KEY, btn.dataset.status); } catch { /* storage unavailable */ }
+      });
     });
-    otherOnlyCancelledCheck?.addEventListener("change", _onOtherOnlyCancelledChange);
 
     periodSelect   = document.getElementById("sj-filter-period");
-    quickFilterButtons = Array.from(document.querySelectorAll(".sj-quick-filter"));
+    // Etapa 6 — escopado a `.sj-toolbar` para não capturar os botões do
+    // filtro de status acima (#sj-status-filter reaproveita a mesma classe
+    // `.sj-quick-filter`, mesmo visual, controle independente).
+    quickFilterButtons = Array.from(document.querySelectorAll(".sj-toolbar .sj-quick-filter"));
     categorySelect = document.getElementById("sj-filter-category");
     searchInput    = document.getElementById("sj-filter-search");
     searchToggleBtn = document.getElementById("sj-search-toggle");
@@ -1320,21 +1337,23 @@ export async function initStudyJournalView() {
     _updateQuickFilterActive();
 
     // Fase 7 — pull-to-refresh no Diário: só age com a página "Diário"
-    // visível, recarregando a aba atualmente ativa (Concluídas ou
-    // Histórico) — mesmas funções que "Carregar mais"/troca de aba já usam,
-    // não é a única forma de atualizar a lista.
+    // visível, recarregando a lista com o status atualmente filtrado —
+    // mesma _loadPage(true) que "Carregar mais" já usa, não é a única forma
+    // de atualizar a lista.
     const appContent = document.getElementById("app-content");
     if (appContent) {
       attachPullToRefresh(appContent, {
-        onRefresh: () => (finishedViewEl?.hidden ? refreshActivityHistoryView() : _loadPage(true)),
+        onRefresh: () => _loadPage(true),
         isActive: () => !document.getElementById("page-journal")?.hidden,
       });
     }
   }
 
-  let savedStatusTab;
-  try { savedStatusTab = localStorage.getItem(JOURNAL_STATUS_TAB_KEY); } catch { /* storage unavailable */ }
-  _setStatusTab(JOURNAL_STATUS_TAB_VALUES.has(savedStatusTab) ? savedStatusTab : "finished");
+  let savedStatus;
+  try { savedStatus = localStorage.getItem(JOURNAL_STATUS_KEY); } catch { /* storage unavailable */ }
+  // reload: false — a carga inicial abaixo (_loadPage(true)) já busca com o
+  // `_status` certo; recarregar aqui duplicaria a primeira página.
+  _setStatus(JOURNAL_STATUS_VALUES.has(savedStatus) ? savedStatus : "finished", { reload: false });
   _subscribeToEventBus();
   // Independente do carregamento das sessões — mesmo isolamento de
   // _loadEventsLookup(): uma falha aqui não deve atrasar nem esconder o
@@ -1389,8 +1408,10 @@ export function resetStudyJournalView() {
   if (partialNoticeEl) { partialNoticeEl.hidden = true; partialNoticeEl.textContent = ""; }
   if (milestonesPanelEl) milestonesPanelEl.hidden = true;
   if (milestonesListEl) milestonesListEl.innerHTML = "";
-  if (otherOnlyCancelledCheck) otherOnlyCancelledCheck.checked = false;
-  if (statusTabsEl) _setStatusTab("finished");
+  // reload: false — resetStudyJournalView() só limpa estado local; a
+  // próxima initStudyJournalView() (próximo login) já dispara sua própria
+  // _loadPage(true).
+  if (statusFilterEl) _setStatus("finished", { reload: false });
 
   // Filtros voltam ao padrão no próximo login — nenhum filtro fica preso
   // entre usuários diferentes na mesma sessão do navegador.
