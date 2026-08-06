@@ -131,7 +131,7 @@ import {
   compareDailySummaries,
 } from "./studyTimelineService.js";
 import { buildMilestones } from "./studyMilestoneService.js";
-import { iconCheckCircle, iconClock, iconTarget, iconFlame, iconBookOpen, illustrationEmptyJournal } from "./icons.js";
+import { iconCheckCircle, iconClock, iconTarget, iconFlame, iconBookOpen, iconRepeat, iconLightbulb, iconTrendingUp, illustrationEmptyJournal } from "./icons.js";
 import { disclosureToggleContent } from "./disclosureToggle.js";
 import { buildSearchIndex, searchEntries, highlightMatches, searchStats } from "./studySearchService.js";
 import { bindModalBehavior, captureFocus, restoreFocus } from "./modalController.js";
@@ -631,12 +631,21 @@ function _createDayGroup(iso) {
 // (Etapa 7): cada chave usa o ícone já associado a esse mesmo conceito em
 // achievementService.js ("check-circle" → check num círculo, "flame" →
 // chama de constância), sem desenhar SVGs novos.
+// Etapa 10 — cada chave mapeia para o ícone semanticamente mais próximo do
+// tipo de marco (ver studyMilestoneService.js): "repeat" para revisão
+// espaçada (repetição, não conclusão), "lightbulb" para reflexão (insight),
+// "trending-up" para recordes (superação, não a métrica de origem) —
+// eliminam a reutilização sem relação visual que "check-circle"/"clock"/
+// "target" tinham para esses três casos.
 const MILESTONE_ICON_GLYPHS = {
   "check-circle": iconCheckCircle,
   clock:          iconClock,
   target:         iconTarget,
   flame:          iconFlame,
   book:           iconBookOpen,
+  repeat:         iconRepeat,
+  lightbulb:      iconLightbulb,
+  "trending-up":  iconTrendingUp,
 };
 
 // Preenche o painel #sj-milestones-panel (sempre expandido quando há
