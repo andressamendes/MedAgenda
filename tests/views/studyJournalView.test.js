@@ -1311,7 +1311,8 @@ test("a day's summary shows evolution indicators compared to the previous day: s
   assert.match(todayComparison.textContent, /Hoje você estudou 35 minutos a menos do que ontem\./);
   assert.strictEqual(todayComparison.querySelector(".sj-summary-comparison-label--positive"), null, "menos tempo que ontem não é destacado como melhora");
 
-  assert.strictEqual(prevComparison.hidden, true, "o dia mais antigo da linha do tempo não tem dia anterior para comparar");
+  assert.strictEqual(prevComparison.hidden, false, "Etapa 9 — a linha de comparação nunca some, mesmo sem dia anterior");
+  assert.match(prevComparison.textContent, /Sem dia anterior para comparar\./);
 });
 
 test("the comparison sentence prioritizes minutes over sessions/questions and highlights when the day improved", async (t) => {
@@ -1350,7 +1351,7 @@ test("the comparison sentence highlights the label when today studied more minut
   assert.ok(todayComparison.querySelector(".sj-summary-comparison-label--positive"), "dia melhor que o anterior recebe destaque de cor");
 });
 
-test("a lone visible day shows no comparison indicators", async (t) => {
+test("a lone visible day shows the neutral fallback instead of hiding the comparison (Etapa 9)", async (t) => {
   const session = { id: "sess-1", status: "finished", started_at: "2026-03-10T08:00:00.000Z", ended_at: "2026-03-10T08:30:00.000Z", duration_minutes: 30 };
   const { mod } = await loadView(t, {
     listSessions: async () => ({ sessions: [session], total: 1, hasMore: false }),
@@ -1358,7 +1359,9 @@ test("a lone visible day shows no comparison indicators", async (t) => {
 
   await mod.initStudyJournalView();
 
-  assert.strictEqual(dayComparisons()[0].hidden, true);
+  const comparison = dayComparisons()[0];
+  assert.strictEqual(comparison.hidden, false);
+  assert.match(comparison.textContent, /Sem dia anterior para comparar\./);
 });
 
 test("summaries recompute over only the currently filtered/visible sessions, without a new listSessions() call", async (t) => {
