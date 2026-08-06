@@ -153,7 +153,7 @@ function _firstReflectionMilestone(sortedEntries) {
     "first_reflection", "first_reflection", entry.session.started_at,
     "Primeira reflexão registrada",
     "Você registrou sua primeira reflexão pessoal.",
-    "book", "info", entry.session.id
+    "lightbulb", "info", entry.session.id
   )];
 }
 
@@ -164,7 +164,7 @@ function _firstReviewMilestone(sortedEntries) {
     "first_review", "first_review", entry.session.started_at,
     "Primeira revisão vinculada",
     "Você vinculou sua primeira revisão espaçada a uma sessão.",
-    "check-circle", "info", entry.session.id
+    "repeat", "info", entry.session.id
   )];
 }
 
@@ -223,7 +223,7 @@ function _recordMilestones(sortedEntries) {
         `record_session_duration-${entry.session.id}`, "record_session_duration", entry.session.started_at,
         "Maior sessão até agora",
         `Sua sessão mais longa até agora: ${duration} minuto(s).`,
-        "clock", "warning", entry.session.id
+        "trending-up", "warning", entry.session.id
       ));
     }
     if (maxDuration === null || duration > maxDuration) maxDuration = duration;
@@ -234,7 +234,7 @@ function _recordMilestones(sortedEntries) {
         `record_session_questions-${entry.session.id}`, "record_session_questions", entry.session.started_at,
         "Maior quantidade de questões em uma sessão",
         `Você resolveu ${questionsCount} questão(ões) em uma única sessão — novo recorde.`,
-        "target", "warning", entry.session.id
+        "trending-up", "warning", entry.session.id
       ));
     }
     if (maxQuestions === null || questionsCount > maxQuestions) maxQuestions = questionsCount;
@@ -266,7 +266,7 @@ function _dailyRecordMilestones(sortedEntries) {
         `record_daily_minutes-${key}`, "record_daily_minutes", data.lastEntry.session.started_at,
         "Novo recorde diário",
         `Você estudou ${data.minutes} minuto(s) em um único dia — novo recorde.`,
-        "clock", "warning", data.lastEntry.session.id
+        "trending-up", "warning", data.lastEntry.session.id
       ));
     }
     if (maxMinutes === null || data.minutes > maxMinutes) maxMinutes = data.minutes;
