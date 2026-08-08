@@ -33,6 +33,7 @@ const CONFIRM_DIALOG_SPECIFIER   = new URL("../../confirmDialog.js", import.meta
 const ABANDONED_DIALOG_SPECIFIER = new URL("../../abandonedSessionDialog.js", import.meta.url).href;
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
 const MUSIC_SPECIFIER            = new URL("../../studySessionMusicView.js", import.meta.url).href;
+const STATISTICS_SERVICE_SPECIFIER = new URL("../../studyStatisticsService.js", import.meta.url).href;
 
 function loadStudySessionView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -78,6 +79,27 @@ function loadStudySessionView(t, overrides = {}) {
       removeQuestion: overrides.removeQuestion ?? (async (questionId) => {
         removeQuestionCalls.push(questionId);
         return true;
+      }),
+    },
+  });
+
+  // Etapa 1 — studyStatisticsService.js importa supabase.js diretamente
+  // (mesmo motivo do bloco de Revisões abaixo); summarizeSessionQuestions()/
+  // accuracyIndicator() são funções puras, então o mock reproduz a mesma
+  // lógica real (idêntico ao mock já usado por studyJournalView.test.js).
+  t.mock.module(STATISTICS_SERVICE_SPECIFIER, {
+    namedExports: {
+      getUserQuestionStatistics: overrides.getUserQuestionStatistics ?? (async () => ({ total: 0, correct: 0, incorrect: 0, accuracyPercent: 0 })),
+      summarizeSessionQuestions: overrides.summarizeSessionQuestions ?? ((questions) => {
+        const correct = (questions || []).reduce((sum, q) => sum + (q.correct_count || 0), 0);
+        const incorrect = (questions || []).reduce((sum, q) => sum + (q.incorrect_count || 0), 0);
+        const total = correct + incorrect;
+        return { total, correct, incorrect, accuracyPercent: total ? Math.round((correct / total) * 100) : 0 };
+      }),
+      accuracyIndicator: overrides.accuracyIndicator ?? ((percent) => {
+        if (percent >= 70) return { emoji: "🟢", level: "high" };
+        if (percent >= 50) return { emoji: "🟡", level: "medium" };
+        return { emoji: "🔴", level: "low" };
       }),
     },
   });
@@ -2493,6 +2515,53 @@ test("UX #04 — o contador no título reflete questões/revisões adicionadas s
   document.getElementById("ss-btn-create-review").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await new Promise(r => setTimeout(r, 0));
   assert.strictEqual(document.getElementById("ss-reviews-count").textContent, " (1)");
+});
+
+test("Etapa 1 — resumo de desempenho ao vivo acima da lista de questões atualiza sem reload", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString(), event_id: "evt-1" }),
+    getEventById: async () => ({ id: "evt-1", title: "Plantão UTI", category: "Plantão", description: null, duration_minutes: 60 }),
+    confirmDialogResolvesTo: true,
+  });
+  await mod.initStudySessionView();
+  await new Promise(r => setTimeout(r, 0));
+
+  // Nenhuma questão ainda — resumo some, nenhum "0 questões · 0 acertos".
+  assert.strictEqual(document.getElementById("ss-questions-summary").hidden, true);
+
+  // Registro rápido: 5 resolvidas, 1 erro → 5 questões · 4 acertos · 80%.
+  document.getElementById("ss-q-quick-total").value = "5";
+  document.getElementById("ss-q-quick-errors").value = "1";
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  const summaryEl = document.getElementById("ss-questions-summary");
+  assert.strictEqual(summaryEl.hidden, false);
+  assert.ok(summaryEl.textContent.includes("5 questões"), summaryEl.textContent);
+  assert.ok(summaryEl.textContent.includes("4 acertos"), summaryEl.textContent);
+  assert.ok(summaryEl.textContent.includes("80%"), summaryEl.textContent);
+
+  // Um segundo lançamento (1 questão, 0 erros) soma ao total: 6 questões · 5 acertos.
+  document.getElementById("ss-q-quick-total").value = "1";
+  document.getElementById("ss-q-quick-errors").value = "0";
+  document.getElementById("ss-btn-quick-question").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.ok(summaryEl.textContent.includes("6 questões"), summaryEl.textContent);
+  assert.ok(summaryEl.textContent.includes("5 acertos"), summaryEl.textContent);
+  assert.ok(summaryEl.textContent.includes("83%"), summaryEl.textContent);
+
+  // Remover o lançamento recém-adicionado volta o resumo para 5 questões · 4 acertos.
+  document.getElementById("ss-questions-list").querySelectorAll("[data-question-remove]")[1]
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.ok(summaryEl.textContent.includes("5 questões"), summaryEl.textContent);
+  assert.ok(summaryEl.textContent.includes("4 acertos"), summaryEl.textContent);
+
+  // Removendo tudo, o resumo volta a sumir.
+  document.getElementById("ss-questions-list").querySelector("[data-question-remove]")
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(summaryEl.hidden, true);
 });
 
 // ── Formulário inline de questão/revisão atrás de "+ Adicionar..." (F10 #3.3) ──

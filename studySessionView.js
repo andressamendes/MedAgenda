@@ -22,6 +22,7 @@ import {
   listSessions,
 } from "./activitySessionService.js";
 import { addQuestion, listQuestions, updateQuestion, removeQuestion } from "./sessionQuestionsService.js";
+import { summarizeSessionQuestions, accuracyIndicator } from "./studyStatisticsService.js";
 import { create as createReview, listPending as listPendingReviews } from "./reviewService.js";
 import { associateReview, unlinkReview, listBySession as listSessionReviews } from "./reviewSessionService.js";
 import { saveReflection } from "./studyReflectionService.js";
@@ -169,7 +170,7 @@ let ssfReflectionEl, ssfBtnBack, ssfBtnConfirm;
 // imediatamente via sessionQuestionsService.addQuestion()/updateQuestion()/
 // removeQuestion() — a sessão já existe no banco, não há mais nada "pendente"
 // aguardando a confirmação do encerramento.
-let sqListEl, sqEmptyEl;
+let sqListEl, sqEmptyEl, sqSummaryEl;
 let sqTypeEl, sqStatusEl, sqDifficultyEl, sqSubjectEl, sqTopicEl, sqBtnAdd, sqBtnQuick;
 // F17 — quantidade + erros, obrigatórios em todo lançamento (rápido e
 // detalhado): substituem o antigo default fixo (sempre "1 questão
@@ -309,6 +310,7 @@ function _queryElements() {
   sqEmptyEl      = document.getElementById("ss-questions-empty");
   sqBodyEl       = document.getElementById("ss-questions-body");
   sqCountEl      = document.getElementById("ss-questions-count");
+  sqSummaryEl    = document.getElementById("ss-questions-summary");
   sqTypeEl       = document.getElementById("ss-q-type");
   sqStatusEl     = document.getElementById("ss-q-status");
   sqDifficultyEl = document.getElementById("ss-q-difficulty");
@@ -1279,9 +1281,31 @@ function _readQuestionCounts(totalEl, errorsEl, errorEl) {
   return { correct_count: total - errors, incorrect_count: errors };
 }
 
+// Etapa 1 — resumo compacto de desempenho ao vivo ("6 questões · 5 acertos ·
+// 83%"), acima da lista de lançamentos. Mesma função pura já usada pelo
+// Diário (F17, studyJournalView.js/_renderDetail) — sem consulta nova,
+// `_sessionQuestions` já está em memória. Some quando não há nenhum
+// lançamento com correct_count/incorrect_count somando algo (mesmo critério
+// de summaryHtml no Diário).
+function _renderQuestionsSummary() {
+  if (!sqSummaryEl) return;
+  const summary = summarizeSessionQuestions(_sessionQuestions);
+  if (summary.total === 0) {
+    sqSummaryEl.hidden = true;
+    sqSummaryEl.textContent = "";
+    return;
+  }
+  sqSummaryEl.hidden = false;
+  sqSummaryEl.textContent =
+    `${summary.total} ${summary.total === 1 ? "questão" : "questões"} · ` +
+    `${summary.correct} ${summary.correct === 1 ? "acerto" : "acertos"} · ` +
+    `${accuracyIndicator(summary.accuracyPercent).emoji} ${summary.accuracyPercent}%`;
+}
+
 function _renderQuestionsList() {
   sqListEl.innerHTML = "";
   sqEmptyEl.hidden = _sessionQuestions.length > 0;
+  _renderQuestionsSummary();
   if (sqCountEl) {
     sqCountEl.textContent = _sessionQuestions.length ? ` (${_sessionQuestions.length})` : "";
     if (_sessionQuestions.length !== _sqLastCount) pulseUpdate(sqCountEl);

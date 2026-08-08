@@ -2,6 +2,23 @@
 
 ---
 
+## [Unreleased] — Sessão: resumo de desempenho ao vivo acima da lista de questões
+
+- `studySessionView.js`/`index.html`: o painel "Questões Resolvidas" da
+  Sessão ganhou um resumo compacto ("6 questões · 5 acertos · 🟢 83%") logo
+  acima da lista de lançamentos (`#ss-questions-summary`), reaproveitando
+  `summarizeSessionQuestions()`/`accuracyIndicator()`
+  (`studyStatisticsService.js`) — as mesmas funções puras já usadas pelo
+  detalhe de sessão do Diário (F17). Nenhuma consulta nova:
+  `_sessionQuestions` já está em memória. O resumo é recalculado em
+  `_renderQuestionsList()` a cada questão adicionada/editada/removida, e
+  fica oculto quando não há nenhum lançamento com contadores (lista vazia ou
+  só lançamentos anteriores a F17, que somam 0/0).
+- `style.css`: `.ss-questions-summary` — texto simples (mesmo tratamento de
+  `.sj-detail-summary` no Diário), sem gráfico ou card novo.
+
+---
+
 ## [Unreleased] — Auditoria UX/UI V3 do Diário, Etapa 6: fundir a aba "Histórico" como filtro de status dentro de "Concluídas"
 
 - A aba "Histórico" deixou de ser uma estrutura própria: `activityHistoryView.js`

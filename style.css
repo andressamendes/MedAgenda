@@ -5968,6 +5968,15 @@ textarea { resize: vertical; }
   color: var(--gray-500);
 }
 
+/* Etapa 1 — resumo compacto de desempenho ao vivo ("6 questões · 5 acertos ·
+   83%"), acima da lista de lançamentos — mesmo tratamento textual de
+   .sj-detail-summary (Diário), sem gráfico/card novo. */
+.ss-questions-summary {
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
 .ss-questions-list {
   list-style: none;
   margin: 0 0 var(--space-3);
