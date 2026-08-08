@@ -5639,6 +5639,109 @@ textarea { resize: vertical; }
   width: 100%;
 }
 
+/* ── Ferramentas auxiliares: Música de fundo + Pomodoro ──────────────────────
+   Uma linha compacta, do mesmo peso visual de .ss-quick-actions-row — nunca
+   um card novo, nunca disputando espaço com .ss-timer-value acima. */
+.ss-aux-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.ss-pomodoro-select-wrap {
+  margin: 0;
+  width: auto;
+}
+
+.ss-pomodoro-mode,
+.ss-pomodoro-duration {
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--gray-700);
+}
+
+.ss-music-toggle[aria-pressed="true"] {
+  background: var(--color-primary-bg, var(--gray-100));
+  color: var(--color-primary, #383f87);
+}
+
+.ss-pomodoro-duration-wrap {
+  margin: 0;
+  width: auto;
+}
+
+/* Cronômetro auxiliar do Pomodoro — tamanho bem abaixo de .ss-timer-value
+   (o cronômetro real da sessão continua sendo o elemento dominante). */
+.ss-pomodoro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) 0;
+}
+
+.ss-pomodoro[hidden] {
+  display: none;
+}
+
+.ss-pomodoro-phase {
+  font-size: var(--eyebrow-font-size);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-letter-spacing);
+}
+
+.ss-pomodoro-time {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-800);
+  line-height: 1;
+}
+
+.ss-pomodoro-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ss-music-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.ss-music-controls[hidden] {
+  display: none;
+}
+
+.ss-music-volume {
+  width: 96px;
+  vertical-align: middle;
+}
+
+/* Player do YouTube: nunca aparece na tela (é só a fonte do áudio), mas
+   evita display:none — alguns navegadores suspendem/joga fora reprodução em
+   iframes com display:none, então a técnica é tirar da área visível sem
+   deixar de ser "renderizado". */
+.ss-music-player-mount {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  left: -9999px;
+}
+
 /* F17 — Estatísticas do Diário. Etapa 4 — trocou os 4 stat-cards lado a
    lado por 1 destaque (índice de acerto, mesma leitura de valor grande do
    .progress-narrative-highlight) + os outros 3 números como texto de apoio

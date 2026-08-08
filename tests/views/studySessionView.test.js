@@ -32,6 +32,7 @@ const CATEGORY_SERVICE_SPECIFIER = new URL("../../categoryService.js", import.me
 const CONFIRM_DIALOG_SPECIFIER   = new URL("../../confirmDialog.js", import.meta.url).href;
 const ABANDONED_DIALOG_SPECIFIER = new URL("../../abandonedSessionDialog.js", import.meta.url).href;
 const CLOSE_DAY_SPECIFIER        = new URL("../../closeDayService.js", import.meta.url).href;
+const MUSIC_SPECIFIER            = new URL("../../studySessionMusicView.js", import.meta.url).href;
 
 function loadStudySessionView(t, overrides = {}) {
   const handleErrorCalls = [];
@@ -173,12 +174,52 @@ function loadStudySessionView(t, overrides = {}) {
     },
   });
 
+  // Música de fundo (studySessionMusicView.js) — mockada como qualquer outra
+  // dependência de domínio: os testes desta view não devem tocar a API real
+  // do YouTube. `_musicState`/`_setMusicState` simulam exatamente o
+  // contrato real do módulo (onStateChange só dispara em transições reais).
+  let _musicState = "off";
+  let _musicOnStateChange = null;
+  function _setMusicState(next) {
+    _musicState = next;
+    _musicOnStateChange?.(next);
+  }
+  const enableMusicCalls = [];
+  const disableMusicCalls = [];
+  const pauseMusicCalls = [];
+  const resumeMusicCalls = [];
+  const setMusicVolumeCalls = [];
+  t.mock.module(MUSIC_SPECIFIER, {
+    namedExports: {
+      initMusicControl: ({ onStateChange } = {}) => { _musicOnStateChange = onStateChange ?? null; },
+      getMusicState: () => _musicState,
+      enableMusic: overrides.enableMusic ?? (async () => {
+        enableMusicCalls.push(true);
+        _setMusicState("playing");
+      }),
+      disableMusic: overrides.disableMusic ?? (() => {
+        disableMusicCalls.push(true);
+        _setMusicState("off");
+      }),
+      pauseMusic: overrides.pauseMusic ?? (() => {
+        pauseMusicCalls.push(true);
+        _setMusicState("paused");
+      }),
+      resumeMusic: overrides.resumeMusic ?? (() => {
+        resumeMusicCalls.push(true);
+        _setMusicState("playing");
+      }),
+      setMusicVolume: overrides.setMusicVolume ?? ((v) => setMusicVolumeCalls.push(v)),
+    },
+  });
+
   return import(`../../studySessionView.js?t=${Math.random()}`)
     .then(mod => ({
       mod, handleErrorCalls, confirmDialogCalls, abandonedDialogCalls,
       addQuestionCalls, updateQuestionCalls, removeQuestionCalls, listQuestionsCalls,
       createReviewCalls, associateReviewCalls, unlinkReviewCalls, listSessionReviewsCalls,
       saveReflectionCalls, clearNextStudyPlanCalls,
+      enableMusicCalls, disableMusicCalls, pauseMusicCalls, resumeMusicCalls, setMusicVolumeCalls,
     }));
 }
 
@@ -2678,4 +2719,278 @@ test("Etapa 1 — no session on entering the screen leaves focus mode off", asyn
   await mod.initStudySessionView();
 
   assert.strictEqual(document.getElementById("app-screen").classList.contains("focus-mode"), false);
+});
+
+// ── Ferramentas auxiliares: Pomodoro + Música de fundo ──────────────────────
+// Ambas nascem desligadas com a sessão (mesmo padrão de _focusMode) e nunca
+// interferem no cronômetro real (#ss-time) nem em duration_minutes.
+
+function _fireChange(el) {
+  el.dispatchEvent(new window.Event("change", { bubbles: true }));
+}
+function _fireClick(el) {
+  el.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+}
+
+test("Pomodoro: turning it on starts a 25-minute focus phase and reveals the compact timer", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  assert.strictEqual(document.getElementById("ss-pomodoro").hidden, true);
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+
+  assert.strictEqual(document.getElementById("ss-pomodoro").hidden, false);
+  assert.strictEqual(document.getElementById("ss-pomodoro-phase").textContent, "Foco");
+  assert.strictEqual(document.getElementById("ss-pomodoro-time").textContent, "25:00");
+  // O cronômetro real da sessão continua intocado por ligar o Pomodoro.
+  assert.strictEqual(document.getElementById("ss-time").textContent, "00:00");
+});
+
+test("Pomodoro: the 50/10 profile is honored when selected before turning it on", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-duration").value = "50/10";
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+
+  assert.strictEqual(document.getElementById("ss-pomodoro-time").textContent, "50:00");
+});
+
+test("Pomodoro: the countdown ticks down every second, independent of the real session chronometer", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+
+  t.mock.timers.tick(65_000);
+  assert.strictEqual(document.getElementById("ss-pomodoro-time").textContent, "23:55");
+  // O cronômetro real segue seu próprio relógio, sem nenhuma interferência.
+  assert.strictEqual(document.getElementById("ss-time").textContent, "01:05");
+});
+
+test("Pomodoro: its own pause/resume buttons control only the Pomodoro, never the real session", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+
+  _fireClick(document.getElementById("ss-pomodoro-pause"));
+  assert.strictEqual(document.getElementById("ss-pomodoro-pause").hidden, true);
+  assert.strictEqual(document.getElementById("ss-pomodoro-resume").hidden, false);
+  // A sessão real continua "Executando" (btnPause continua visível/ativo).
+  assert.strictEqual(document.getElementById("ss-btn-pause").hidden, false);
+
+  _fireClick(document.getElementById("ss-pomodoro-resume"));
+  assert.strictEqual(document.getElementById("ss-pomodoro-pause").hidden, false);
+  assert.strictEqual(document.getElementById("ss-pomodoro-resume").hidden, true);
+});
+
+test("Pomodoro: switching back to 'Sessão normal' stops it completely and hides the panel", async (t) => {
+  const { mod } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  assert.strictEqual(document.getElementById("ss-pomodoro").hidden, false);
+
+  document.getElementById("ss-pomodoro-mode").value = "off";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  assert.strictEqual(document.getElementById("ss-pomodoro").hidden, true);
+});
+
+test("Música: turning it on calls enableMusic() and reflects the toggle's pressed state/label", async (t) => {
+  const { mod, enableMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  const toggle = document.getElementById("ss-btn-music-toggle");
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "false");
+  assert.strictEqual(document.getElementById("ss-music-controls").hidden, true);
+
+  _fireClick(toggle);
+
+  assert.strictEqual(enableMusicCalls.length, 1);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "true");
+  assert.strictEqual(document.getElementById("ss-music-toggle-label").textContent, "Música: tocando");
+  assert.strictEqual(document.getElementById("ss-music-controls").hidden, false);
+});
+
+test("Música: clicking the toggle again while on turns it off (disableMusic)", async (t) => {
+  const { mod, disableMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  const toggle = document.getElementById("ss-btn-music-toggle");
+  _fireClick(toggle); // liga
+  _fireClick(toggle); // desliga
+
+  assert.strictEqual(disableMusicCalls.length, 1);
+  assert.strictEqual(toggle.getAttribute("aria-pressed"), "false");
+  assert.strictEqual(document.getElementById("ss-music-toggle-label").textContent, "Música: desligada");
+  assert.strictEqual(document.getElementById("ss-music-controls").hidden, true);
+});
+
+test("Música: the inline pause/resume button controls playback without disabling", async (t) => {
+  const { mod, pauseMusicCalls, resumeMusicCalls, disableMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  _fireClick(document.getElementById("ss-btn-music-toggle")); // liga, começa "playing"
+  const playPause = document.getElementById("ss-music-play-pause");
+  assert.strictEqual(playPause.textContent, "Pausar");
+
+  _fireClick(playPause);
+  assert.strictEqual(pauseMusicCalls.length, 1);
+  assert.strictEqual(disableMusicCalls.length, 0);
+  assert.strictEqual(playPause.textContent, "Retomar");
+
+  _fireClick(playPause);
+  assert.strictEqual(resumeMusicCalls.length, 1);
+  assert.strictEqual(playPause.textContent, "Pausar");
+});
+
+// ── Lifecycle: pausar/retomar a sessão real é um "pause global" temporário ──
+
+test("Lifecycle: pausing the real session pauses a running Pomodoro and playing music, preserving both states", async (t) => {
+  const { mod, pauseMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    pauseSession: async (id) => ({ id, status: "paused", started_at: new Date().toISOString(), paused_at: new Date().toISOString(), paused_ms: 0 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  _fireClick(document.getElementById("ss-btn-music-toggle"));
+  assert.strictEqual(document.getElementById("ss-pomodoro-pause").hidden, false); // Pomodoro rodando
+
+  document.getElementById("ss-btn-pause").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(pauseMusicCalls.length, 1, "música tocando deve ser pausada junto com a sessão");
+  assert.strictEqual(document.getElementById("ss-pomodoro-resume").hidden, false, "Pomodoro deve aparecer pausado");
+  assert.strictEqual(document.getElementById("ss-music-toggle-label").textContent, "Música: pausada");
+});
+
+test("Lifecycle: resuming the real session resumes only what was actually running before pausing it", async (t) => {
+  const { mod, resumeMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    pauseSession: async (id) => ({ id, status: "paused", started_at: new Date().toISOString(), paused_at: new Date().toISOString(), paused_ms: 0 }),
+    resumeSession: async (id) => ({ id, status: "running", started_at: new Date().toISOString(), paused_at: null, paused_ms: 0 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  _fireClick(document.getElementById("ss-btn-music-toggle")); // liga a música (tocando)
+
+  document.getElementById("ss-btn-pause").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  document.getElementById("ss-btn-resume").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(resumeMusicCalls.length, 1, "música que tocava antes da pausa deve retomar");
+  assert.strictEqual(document.getElementById("ss-pomodoro-pause").hidden, false, "Pomodoro que rodava antes da pausa deve retomar");
+});
+
+test("Lifecycle: a Pomodoro/música já pausados manualmente ANTES da pausa da sessão não são retomados sozinhos ao continuar a sessão", async (t) => {
+  const { mod, resumeMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    pauseSession: async (id) => ({ id, status: "paused", started_at: new Date().toISOString(), paused_at: new Date().toISOString(), paused_ms: 0 }),
+    resumeSession: async (id) => ({ id, status: "running", started_at: new Date().toISOString(), paused_at: null, paused_ms: 0 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  _fireClick(document.getElementById("ss-pomodoro-pause")); // usuário pausa o Pomodoro manualmente
+
+  _fireClick(document.getElementById("ss-btn-music-toggle"));
+  _fireClick(document.getElementById("ss-music-play-pause")); // usuário pausa a música manualmente
+
+  document.getElementById("ss-btn-pause").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ss-btn-resume").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(resumeMusicCalls.length, 0, "música pausada manualmente não deve voltar a tocar sozinha");
+  assert.strictEqual(document.getElementById("ss-pomodoro-resume").hidden, false, "Pomodoro pausado manualmente continua pausado");
+});
+
+test("Lifecycle: finishing the real session fully stops and resets both auxiliary tools", async (t) => {
+  const { mod, disableMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+    finishSession: async (id, endedAt) => ({ id, status: "finished", started_at: new Date().toISOString(), ended_at: endedAt || new Date().toISOString(), duration_minutes: 10 }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  _fireClick(document.getElementById("ss-btn-music-toggle"));
+
+  document.getElementById("ss-btn-finish").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+  document.getElementById("ssf-btn-confirm").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(disableMusicCalls.length, 1);
+  assert.strictEqual(document.getElementById("ss-empty").hidden, false);
+  // A tela volta ao estado vazio; o toggle de música volta ao padrão desligado.
+  assert.strictEqual(document.getElementById("ss-btn-music-toggle").getAttribute("aria-pressed"), "false");
+});
+
+test("Lifecycle: cancelling the real session fully stops and resets both auxiliary tools", async (t) => {
+  const { mod, disableMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "paused", started_at: new Date().toISOString() }),
+    cancelSession: async (id) => ({ id, status: "cancelled" }),
+    confirmDialogResolvesTo: true,
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  _fireClick(document.getElementById("ss-btn-music-toggle"));
+
+  document.getElementById("ss-btn-cancel").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.strictEqual(disableMusicCalls.length, 1);
+  assert.strictEqual(document.getElementById("ss-pomodoro").hidden, true);
+});
+
+test("Lifecycle: logout (resetStudySessionView) fully stops and resets both auxiliary tools", async (t) => {
+  const { mod, disableMusicCalls } = await loadStudySessionView(t, {
+    getRunningSession: async () => ({ id: "sess-1", status: "running", started_at: new Date().toISOString() }),
+  });
+  await mod.initStudySessionView();
+
+  document.getElementById("ss-pomodoro-mode").value = "on";
+  _fireChange(document.getElementById("ss-pomodoro-mode"));
+  _fireClick(document.getElementById("ss-btn-music-toggle"));
+
+  mod.resetStudySessionView();
+
+  assert.strictEqual(disableMusicCalls.length, 1);
+  assert.strictEqual(document.getElementById("ss-pomodoro").hidden, true);
+  assert.strictEqual(document.getElementById("ss-pomodoro-mode").value, "off");
 });

@@ -39,6 +39,16 @@ import { pad, escapeHtml, localDate, formatDuration, formatClockTime } from "./u
 import { revealWithAnimation, pulseUpdate } from "./transitionUtils.js";
 import { SESSION_EVENTS, subscribe } from "./sessionEventBus.js";
 import { initTabs, updateTabsRovingIndex } from "./tabsController.js";
+import { createPomodoroTimer } from "./pomodoroTimer.js";
+import {
+  initMusicControl,
+  enableMusic,
+  disableMusic,
+  pauseMusic,
+  resumeMusic,
+  setMusicVolume,
+  getMusicState,
+} from "./studySessionMusicView.js";
 
 const TICK_MS = 1000;
 
@@ -104,6 +114,34 @@ let activeEl, statusBadgeEl, timeEl, pauseNoteEl;
 let titleEl, titleLabelEl, categoryEl, contentEl, dateEl, startedAtEl, expectedDurationEl;
 let categoryRowEl, contentRowEl, dateRowEl, expectedDurationRowEl;
 let btnPause, btnResume, btnCancel, btnFinish;
+
+// ── Ferramentas auxiliares: Música de fundo + Pomodoro ──────────────────────
+// Ambas nascem sempre desligadas a cada carga da tela (mesmo princípio de
+// _focusMode acima) — nenhuma persiste em storage/banco (ver plano aprovado,
+// "Persistência": nenhuma das duas faz parte do histórico da sessão).
+let ssPomodoroModeEl, ssPomodoroDurationWrapEl, ssPomodoroDurationEl;
+let ssPomodoroEl, ssPomodoroPhaseEl, ssPomodoroTimeEl, ssPomodoroPauseEl, ssPomodoroResumeEl;
+let ssBtnMusicToggle, ssMusicToggleLabelEl, ssMusicControlsEl, ssMusicPlayPauseEl, ssMusicVolumeEl;
+
+// Instância única do Pomodoro (pomodoroTimer.js é puro — só este módulo lê o
+// resultado e decide o que desenhar). Criada uma vez no boot; stop()
+// devolve-a a "off", nunca é recriada.
+const _pomodoro = createPomodoroTimer({
+  onTick: _renderPomodoroState,
+  onPhaseComplete: (state) => {
+    // A própria troca de fase já é automática dentro de pomodoroTimer.js;
+    // aqui só um aviso discreto — quem está em modo foco (header/sidebar
+    // ocultos) não tem outro jeito de perceber a virada de fase.
+    toast.info(state.mode === "break" ? "Foco concluído. Pausa iniciada." : "Pausa concluída. Novo foco iniciado.", 3500);
+  },
+});
+
+// F.Pomodoro/Música — "pause global" temporário quando a sessão REAL pausa
+// (pauseSession()/SESSION_EVENTS.PAUSED): guarda o que estava rodando antes
+// para retomar exatamente aquilo no resumeSession() — nunca liga algo que já
+// estava desligado/pausado manualmente pelo usuário. `null` fora de uma
+// pausa de sessão em andamento.
+let _auxPauseSnapshot = null;
 
 // F1/F2 — só Compromisso/Categoria ficam sempre visíveis no cartão de status
 // da sessão ativa; o resto (Conteúdo/Data/Horário de início/Tempo previsto)
@@ -251,6 +289,22 @@ function _queryElements() {
   btnCancel = document.getElementById("ss-btn-cancel");
   btnFinish = document.getElementById("ss-btn-finish");
 
+  ssPomodoroModeEl         = document.getElementById("ss-pomodoro-mode");
+  ssPomodoroDurationWrapEl = document.getElementById("ss-pomodoro-duration-wrap");
+  ssPomodoroDurationEl     = document.getElementById("ss-pomodoro-duration");
+  ssPomodoroEl             = document.getElementById("ss-pomodoro");
+  ssPomodoroPhaseEl        = document.getElementById("ss-pomodoro-phase");
+  ssPomodoroTimeEl         = document.getElementById("ss-pomodoro-time");
+  ssPomodoroPauseEl        = document.getElementById("ss-pomodoro-pause");
+  ssPomodoroResumeEl       = document.getElementById("ss-pomodoro-resume");
+  ssBtnMusicToggle         = document.getElementById("ss-btn-music-toggle");
+  ssMusicToggleLabelEl     = document.getElementById("ss-music-toggle-label");
+  ssMusicControlsEl        = document.getElementById("ss-music-controls");
+  ssMusicPlayPauseEl       = document.getElementById("ss-music-play-pause");
+  ssMusicVolumeEl          = document.getElementById("ss-music-volume");
+
+  initMusicControl({ onStateChange: _renderMusicState });
+
   sqListEl       = document.getElementById("ss-questions-list");
   sqEmptyEl      = document.getElementById("ss-questions-empty");
   sqBodyEl       = document.getElementById("ss-questions-body");
@@ -359,6 +413,28 @@ function _bindEvents() {
 
   ssBtnFocusToggle.addEventListener("click", () => _setFocusMode(!_focusMode));
 
+  ssPomodoroModeEl.addEventListener("change", () => {
+    if (ssPomodoroModeEl.value === "on") {
+      _configurePomodoroDuration();
+      _pomodoro.startFocus();
+    } else {
+      _pomodoro.stop();
+    }
+  });
+  ssPomodoroDurationEl.addEventListener("change", () => _configurePomodoroDuration());
+  ssPomodoroPauseEl.addEventListener("click", () => _pomodoro.pause());
+  ssPomodoroResumeEl.addEventListener("click", () => _pomodoro.resume());
+
+  ssBtnMusicToggle.addEventListener("click", () => {
+    if (getMusicState() === "off") enableMusic();
+    else disableMusic();
+  });
+  ssMusicPlayPauseEl.addEventListener("click", () => {
+    if (getMusicState() === "playing") pauseMusic();
+    else if (getMusicState() === "paused") resumeMusic();
+  });
+  ssMusicVolumeEl.addEventListener("input", () => setMusicVolume(Number(ssMusicVolumeEl.value)));
+
   ssPanelOpenBtn.addEventListener("click", () => _openSsPanel());
   ssPanelCloseEl.addEventListener("click", () => _closeSsPanel());
   bindModalBehavior(ssPanelOverlayEl, () => !ssPanelEl.hidden, _closeSsPanel, ssPanelEl);
@@ -463,6 +539,93 @@ function _setFocusMode(enabled) {
   ssFocusToggleLabelEl.textContent = enabled ? "Sair do foco" : "Foco";
 }
 
+// ── Ferramentas auxiliares: Música de fundo + Pomodoro ──────────────────────
+
+function _formatMmSs(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  return `${pad(Math.floor(totalSeconds / 60))}:${pad(totalSeconds % 60)}`;
+}
+
+function _configurePomodoroDuration() {
+  const [focusMinutes, breakMinutes] = ssPomodoroDurationEl.value.split("/").map(Number);
+  _pomodoro.configure(focusMinutes, breakMinutes);
+}
+
+// Único ponto que desenha o Pomodoro na tela — chamado a cada tick e em toda
+// transição de fase/pausa (ver createPomodoroTimer() acima). Deliberadamente
+// bem menor/mais discreto que _renderTime()/#ss-time: o cronômetro real da
+// sessão continua sendo o elemento dominante da tela.
+function _renderPomodoroState(state) {
+  const active = state.mode !== "off";
+  ssPomodoroEl.hidden = !active;
+  ssPomodoroDurationWrapEl.hidden = !active;
+  if (!active) return;
+  ssPomodoroPhaseEl.textContent = state.mode === "focus" ? "Foco" : "Pausa";
+  ssPomodoroTimeEl.textContent = _formatMmSs(state.remainingMs);
+  ssPomodoroPauseEl.hidden = !state.running;
+  ssPomodoroResumeEl.hidden = state.running;
+}
+
+// Único ponto que desenha o estado da música — chamado por
+// initMusicControl({ onStateChange }) a cada mudança real de estado do
+// player (studySessionMusicView.js nunca decide isto sozinho).
+function _renderMusicState(state) {
+  const on = state !== "off";
+  ssBtnMusicToggle.setAttribute("aria-pressed", String(on));
+  ssMusicToggleLabelEl.textContent =
+    state === "playing" ? "Música: tocando" :
+    state === "paused"  ? "Música: pausada" :
+                           "Música: desligada";
+  ssMusicControlsEl.hidden = !on;
+  if (on) ssMusicPlayPauseEl.textContent = state === "playing" ? "Pausar" : "Retomar";
+}
+
+// Encerra por completo as duas ferramentas auxiliares — chamado quando a
+// sessão real termina (finalizar/cancelar) e no reset de logout
+// (resetStudySessionView). Nunca deixa o iframe do YouTube nem o
+// setInterval do Pomodoro sobreviver à sessão que os hospedava.
+function _stopAuxTools() {
+  _pomodoro.stop();
+  disableMusic();
+  _auxPauseSnapshot = null;
+  if (ssPomodoroModeEl) ssPomodoroModeEl.value = "off";
+}
+
+// "Pause global" temporário (ver plano aprovado): guarda o que estava
+// rodando antes de pausar, para não ligar de volta algo que o usuário já
+// tinha pausado manualmente (Pomodoro ou música) antes de pausar a sessão.
+function _pauseAuxToolsForSessionPause() {
+  const pomodoroState = _pomodoro.getState();
+  _auxPauseSnapshot = {
+    pomodoroWasRunning: pomodoroState.mode !== "off" && pomodoroState.running,
+    musicWasPlaying: getMusicState() === "playing",
+  };
+  if (_auxPauseSnapshot.pomodoroWasRunning) _pomodoro.pause();
+  if (_auxPauseSnapshot.musicWasPlaying) pauseMusic();
+}
+
+function _resumeAuxToolsAfterSessionPause() {
+  if (!_auxPauseSnapshot) return;
+  if (_auxPauseSnapshot.pomodoroWasRunning) _pomodoro.resume();
+  if (_auxPauseSnapshot.musicWasPlaying) resumeMusic();
+  _auxPauseSnapshot = null;
+}
+
+// Chamado de dentro de _applySession() com o status ANTES e DEPOIS da
+// aplicação — a única decisão daqui é "isto é uma pausa/retomada real da
+// sessão, ou um encerramento?"; navegação interna/reload da tela nunca passa
+// por aqui (só start/pause/resume/finish/cancel, locais ou vindos do
+// barramento — mesmo caminho único de _applySession).
+function _syncAuxOnSessionTransition(previousStatus, newStatus) {
+  if (previousStatus !== null && newStatus === null) {
+    _stopAuxTools();
+  } else if (previousStatus === "running" && newStatus === "paused") {
+    _pauseAuxToolsForSessionPause();
+  } else if (previousStatus === "paused" && newStatus === "running") {
+    _resumeAuxToolsAfterSessionPause();
+  }
+}
+
 function _render() {
   const status = _session?.status ?? null;
 
@@ -524,6 +687,7 @@ function _render() {
 // Aplica o resultado (vindo do service ou do barramento) ao estado da tela,
 // limpando os metadados de exibição do evento quando a sessão deixa de existir.
 function _applySession(session) {
+  const previousStatus = _session?.status ?? null;
   _session = session;
   if (!_session || _session.status === "finished" || _session.status === "cancelled") {
     _session   = null;
@@ -536,6 +700,10 @@ function _applySession(session) {
     _autoFocusedSessionId = _session.id;
     if (!_focusMode) _setFocusMode(true);
   }
+  // Música/Pomodoro seguem o lifecycle da sessão REAL (ver plano aprovado):
+  // pausar/retomar a sessão pausa/retoma as duas, sem perder o que o usuário
+  // já tinha decidido manualmente; finalizar/cancelar as encerra por completo.
+  _syncAuxOnSessionTransition(previousStatus, _session?.status ?? null);
   _render();
   _syncSessionQuestionsAndReviews();
 }
@@ -1680,6 +1848,7 @@ export async function startSessionForEvent(event) {
 // mostrando/tiquetaqueando a sessão do usuário anterior.
 export function resetStudySessionView() {
   _stopTicking();
+  _stopAuxTools();
   if (_focusMode) _setFocusMode(false);
   _unsubscribers.forEach(off => off());
   _unsubscribers = [];
