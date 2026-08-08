@@ -6,18 +6,24 @@
   <title>Anoti</title>
 
   <!-- Content Security Policy: only same-origin assets, the Supabase project
-       (API + Storage) and the pinned jsDelivr build of the Supabase SDK are
-       allowed. No inline scripts, no eval, no plugins/frames. style-src keeps
-       'unsafe-inline' because several views set per-item colors (category
-       swatches, calendar dots, badges) via inline style="" attributes — those
-       values are already escaped with escapeHtml() before insertion. -->
+       (API + Storage), the pinned jsDelivr build of the Supabase SDK, and the
+       YouTube IFrame Player API (Sessão de Estudo → música de fundo,
+       opt-in, ver studySessionMusicView.js) are allowed. No inline scripts,
+       no eval. style-src keeps 'unsafe-inline' because several views set
+       per-item colors (category swatches, calendar dots, badges) via inline
+       style="" attributes — those values are already escaped with
+       escapeHtml() before insertion.
+       frame-src/script-src additions are scoped to exactly the one YouTube
+       domain the official IFrame Player API needs (www.youtube.com) — no
+       generic *.youtube.com or *.google.com wildcard. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net;
+    script-src 'self' https://cdn.jsdelivr.net https://www.youtube.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https://*.supabase.co;
     font-src 'self';
     connect-src 'self' https://*.supabase.co;
+    frame-src https://www.youtube.com;
     manifest-src 'self';
     worker-src 'self';
     base-uri 'self';
@@ -663,6 +669,61 @@
             </div>
 
             <p id="ss-pause-note" class="ss-pause-note" hidden>O tempo em pausa não será contabilizado na duração final.</p>
+
+            <!-- Ferramentas auxiliares (Música de fundo + Pomodoro) — opcionais,
+                 nascem desligadas, nunca competem com o cronômetro acima: uma
+                 única linha compacta, sem virar mais um card na tela. Ver
+                 studySessionMusicView.js / pomodoroTimer.js. -->
+            <div class="ss-aux-tools-row">
+              <div class="field ss-pomodoro-select-wrap">
+                <label for="ss-pomodoro-mode" class="sr-only">Modo da sessão</label>
+                <select id="ss-pomodoro-mode" class="ss-pomodoro-mode">
+                  <option value="off">Sessão normal</option>
+                  <option value="on">Pomodoro</option>
+                </select>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm ss-music-toggle" id="ss-btn-music-toggle" aria-pressed="false">
+                <span id="ss-music-toggle-label">Música: desligada</span>
+              </button>
+            </div>
+
+            <!-- Duração do Pomodoro (25/5 ou 50/10) — só visível junto com o
+                 seletor acima trocado para "Pomodoro"; nenhuma outra opção. -->
+            <div class="field ss-pomodoro-duration-wrap" id="ss-pomodoro-duration-wrap" hidden>
+              <label for="ss-pomodoro-duration" class="sr-only">Duração do Pomodoro</label>
+              <select id="ss-pomodoro-duration" class="ss-pomodoro-duration">
+                <option value="25/5">Foco 25 min / Pausa 5 min</option>
+                <option value="50/10">Foco 50 min / Pausa 10 min</option>
+              </select>
+            </div>
+
+            <!-- Cronômetro do Pomodoro — auxiliar, deliberadamente menor/mais
+                 discreto que #ss-time (o cronômetro real da sessão continua
+                 sendo o elemento dominante da tela). -->
+            <div class="ss-pomodoro" id="ss-pomodoro" hidden aria-live="off">
+              <span class="ss-pomodoro-phase" id="ss-pomodoro-phase">Foco</span>
+              <span class="ss-pomodoro-time" id="ss-pomodoro-time">25:00</span>
+              <div class="ss-pomodoro-actions">
+                <button type="button" class="btn btn-ghost btn-sm" id="ss-pomodoro-pause">Pausar</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="ss-pomodoro-resume" hidden>Retomar</button>
+              </div>
+            </div>
+
+            <!-- Controles de música — só aparecem com a música ligada; volume
+               é opcional/discreto (nunca disputa espaço com o toggle acima). -->
+            <div class="ss-music-controls" id="ss-music-controls" hidden>
+              <button type="button" class="btn btn-ghost btn-sm" id="ss-music-play-pause">Pausar</button>
+              <label class="ss-music-volume-label" for="ss-music-volume">
+                <span class="sr-only">Volume da música</span>
+                <input type="range" id="ss-music-volume" class="ss-music-volume" min="0" max="100" value="50" />
+              </label>
+            </div>
+            <!-- Player do YouTube (IFrame API oficial) — mantido fora da tela,
+                 não visível: é só áudio de fundo, nunca vídeo em destaque.
+                 Fica vazio até enableMusic() criar o YT.Player aqui dentro
+                 (studySessionMusicView.js) — nenhum iframe existe até o
+                 usuário ligar a música. -->
+            <div id="ss-music-player-mount" class="ss-music-player-mount" aria-hidden="true"></div>
 
             <!-- Etapa 4 — o cartão de status compacto (grid de 2 itens) deu
                  lugar a uma legenda de uma linha só abaixo do cronômetro:

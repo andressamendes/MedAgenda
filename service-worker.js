@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v19';
+const CACHE_VERSION = 'v20';
 const CACHE_NAME = `medagenda-shell-${CACHE_VERSION}`;
 
 // Base URL of the service worker's own location (handles GitHub Pages subdirectories)
@@ -67,6 +67,7 @@ const APP_SHELL = [
   './onboardingTourView.js',
   './planListView.js',
   './planningService.js',
+  './pomodoroTimer.js',
   './profileService.js',
   './progressNarrativeService.js',
   './pushService.js',
@@ -100,6 +101,7 @@ const APP_SHELL = [
   './studyMilestoneService.js',
   './studyReflectionService.js',
   './studySearchService.js',
+  './studySessionMusicView.js',
   './studySessionView.js',
   './studyStatisticsService.js',
   './studyStreakService.js',
